@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet } from "react-router-dom";
 import { Plus, Notebook, BarChart3, Target, User, LogOut } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useState } from "react";
-import logo from "../assets/reflectionary-squaretag2.png";
+import logo from "../assets/reflectionary-logo.png";
 
 export default function Layout() {
   const { user, signOut } = useAuth();
