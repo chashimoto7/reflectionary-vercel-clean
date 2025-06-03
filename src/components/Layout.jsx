@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet } from "react-router-dom";
 import { Plus, Notebook, BarChart3, Target, User, LogOut } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useState } from "react";
+import logo from "../assets/reflectionary-squareTag2.png";
 
 export default function Layout() {
   const { user, signOut } = useAuth();
@@ -19,11 +20,7 @@ export default function Layout() {
       <aside className="w-64 bg-[#A8A3B4] p-6 flex flex-col justify-between shadow-md">
         <div>
           <Link to="/" className="flex items-center justify-center mb-4">
-            <img
-              src="/reflectionary-squareTag2.png"
-              alt="Reflectionary Logo"
-              className="w-17 h-17"
-            />
+            <img src={logo} alt="Reflectionary Logo" className="w-17 h-17" />
           </Link>
 
           <nav className="space-y-4">
