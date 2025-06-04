@@ -135,7 +135,7 @@ export default function NewEntry() {
     try {
       setIsLoading(true);
       const res = await fetch(
-        "https://reflectionary-api.app/api/generatePrompt",
+        "https://reflectionary-api.vercel.app/api/generatePrompt",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
