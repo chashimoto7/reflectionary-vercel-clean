@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import supabase from "../supabaseClient";
 
 export default function History() {
@@ -8,6 +8,7 @@ export default function History() {
   const [error, setError] = useState(null);
   const [userId, setUserId] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const page = parseInt(searchParams.get("page") || "1", 10);
   const masterKeyHex =
@@ -28,41 +29,31 @@ export default function History() {
   );
 
   useEffect(() => {
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (session?.user) {
-          console.log("✅ Session user from listener:", session.user.id);
-          setUserId(session.user.id);
-        }
-      }
-    );
+    const checkAuth = async () => {
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
 
-    // More reliable: explicitly fetch session
-    supabase.auth.getSession().then(({ data, error }) => {
       if (error) {
         console.error("❌ Error getting session:", error);
-      } else if (data?.session?.user) {
-        console.log("✅ User ID from getSession():", data.session.user.id);
-        setUserId(data.session.user.id);
-      } else {
-        console.warn("⚠️ No session.user in getSession()");
-      }
-    });
-
-    return () => listener?.subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (!userId) {
-        console.warn("⏱ Timeout — userId still null after 6s");
-        setError("Timeout getting user session.");
+        setError("Failed to get user session.");
         setLoading(false);
+        return;
       }
-    }, 6000);
 
-    return () => clearTimeout(timeout);
-  }, [userId]);
+      if (!session?.user) {
+        console.warn("⚠️ No session found — redirecting to login");
+        navigate("/login");
+        return;
+      }
+
+      console.log("✅ User ID from session:", session.user.id);
+      setUserId(session.user.id);
+    };
+
+    checkAuth();
+  }, []);
 
   useEffect(() => {
     async function fetchEntries() {
