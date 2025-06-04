@@ -339,59 +339,37 @@ export default function NewEntry() {
   };
 
   const handleFollowUpFromChain = async () => {
-    console.log("🎯 User wants follow-up, generating question...");
-
     setShowFollowUpModal(false);
 
-    // Use stored conversation chain if available (React state may be lagging)
-    const conversationChain = window.currentConversationChain || entryChain;
-    const threadId = window.currentThreadId || currentThreadId;
-
-    console.log("🔗 Using conversation chain:", conversationChain);
-    console.log("🧵 Thread ID:", threadId);
-
-    if (!conversationChain || conversationChain.length === 0) {
-      alert("No conversation found. Please save an entry first.");
-      return;
-    }
-
-    // ✅ New: log what’s being sent to the backend
-    const payload = {
-      entries: conversationChain,
-      thread_id: currentThreadId,
-    };
-    console.log("📤 Sending to /api/follow-up:", payload);
-
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const user_id = session?.user?.id;
+
+      if (!user_id) {
+        throw new Error("User ID missing from session");
+      }
+
       const response = await fetch(
         "https://reflectionary-api.vercel.app/api/follow-up",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ user_id }),
         }
       );
 
       const data = await response.json();
-      console.log("📥 Follow-up API response:", data);
-
-      if (response.ok && data.prompt) {
-        setPrompt(data.prompt);
-        setPromptType("followUp");
-        setSaveLabel("Save FollowUp Answer");
-        setShowPromptButton(false);
-        setShowFollowUpButtons(true);
-
-        console.log("✅ Follow-up prompt set. Thread ID:", threadId);
-      } else {
-        console.error("❌ Backend error:", data);
-        alert(
-          `No follow-up returned. Details: ${data?.error || "Unknown error"}`
-        );
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch follow-up");
       }
-    } catch (err) {
-      console.error("❌ Network error during follow-up generation:", err);
-      alert(`Failed to generate follow-up: ${err.message}`);
+
+      setPrompt(data.prompt);
+      setPromptType("follow-up");
+    } catch (error) {
+      console.error("Backend error:", error);
     }
   };
 
