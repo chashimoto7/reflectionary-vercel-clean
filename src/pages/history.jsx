@@ -29,31 +29,35 @@ export default function History() {
   );
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession();
+    const fetchSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
 
-      if (error) {
-        console.error("❌ Error getting session:", error);
-        setError("Failed to get user session.");
+        if (error) {
+          console.error("❌ Failed to get session:", error.message);
+          setError("Unable to retrieve session.");
+          setLoading(false);
+          return;
+        }
+
+        const sessionUser = data?.session?.user;
+        if (!sessionUser) {
+          console.warn("⚠️ No active session — redirecting to login");
+          navigate("/login");
+          return;
+        }
+
+        console.log("✅ Session found. User ID:", sessionUser.id);
+        setUserId(sessionUser.id);
+      } catch (err) {
+        console.error("❌ Unexpected error during auth:", err.message);
+        setError("Unexpected error during authentication.");
         setLoading(false);
-        return;
       }
-
-      if (!session?.user) {
-        console.warn("⚠️ No session found — redirecting to login");
-        navigate("/login");
-        return;
-      }
-
-      console.log("✅ User ID from session:", session.user.id);
-      setUserId(session.user.id);
     };
 
-    checkAuth();
-  }, []);
+    fetchSession();
+  }, [navigate]);
 
   useEffect(() => {
     async function fetchEntries() {
