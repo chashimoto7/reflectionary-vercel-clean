@@ -39,7 +39,7 @@ export default function Layout() {
             </NavLink>
 
             <NavLink
-              to="/journal-history"
+              to="/history"
               className={({ isActive }) =>
                 `flex items-center gap-2 px-4 py-2 rounded-md font-medium transition ${
                   isActive
