@@ -135,7 +135,7 @@ export default function NewEntry() {
     try {
       setIsLoading(true);
       const res = await fetch(
-        "https://reflectory-api.onrender.com/api/generate-prompt",
+        "https://reflectionary-vercel-clean.vercel.app/api/generate-subject-prompt",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
