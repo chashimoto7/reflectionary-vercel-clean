@@ -314,7 +314,7 @@ export default function NewEntry() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: entry }),
+          body: JSON.stringify({ user_id: entry }), //should only send last entry
         }
       );
 
