@@ -582,7 +582,7 @@ export default function NewEntry() {
               <div className="space-x-2">
                 <button
                   className="bg-purple-600 text-white px-4 py-2 rounded"
-                  onClick={handleFollow - upFromChain}
+                  onClick={handleFollowUp - upFromChain}
                 >
                   Yes, ask me
                 </button>
