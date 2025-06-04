@@ -339,37 +339,39 @@ export default function NewEntry() {
   };
 
   const handleFollowUpFromChain = async () => {
-    setShowFollowUpModal(false);
+    if (!user || entryChain.length === 0) return;
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const user_id = session?.user?.id;
-
-      if (!user_id) {
-        throw new Error("User ID missing from session");
-      }
+      setPrompt("Thinking...");
+      setIsLoading(true);
 
       const response = await fetch(
         "https://reflectionary-api.vercel.app/api/follow-up",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: user?.id, entryChain }),
+          body: JSON.stringify({ user_id: user.id, entryChain }),
         }
       );
 
       const data = await response.json();
+
       if (!response.ok) {
         throw new Error(data.error || "Failed to fetch follow-up");
       }
 
+      // ✅ Update UI with the follow-up prompt
       setPrompt(data.prompt);
-      setPromptType("follow-up");
+      setPromptType("followUp");
+      setSaveLabel("Save Follow-Up Answer");
+      setShowPromptButton(false);
+      setShowFollowUpButtons(true);
+      setShowFollowUpModal(false);
+      setIsLoading(false);
     } catch (error) {
-      console.error("Backend error:", error);
+      console.error("Error generating follow-up:", error);
+      setPrompt("Sorry, I couldn’t generate a follow-up question this time.");
+      setIsLoading(false);
     }
   };
 
