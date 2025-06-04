@@ -488,7 +488,14 @@ export default function NewEntry() {
               onClick={handleSubjectPrompt}
               disabled={isLoading || !subject.trim()}
             >
-              {isLoading ? "Generating..." : "Get Custom Prompt"}
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <span className="inline-block animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                  Thinking...
+                </div>
+              ) : (
+                "Get Custom Prompt"
+              )}
             </button>
           </div>
 
@@ -498,7 +505,14 @@ export default function NewEntry() {
               onClick={getPrompt}
               disabled={isLoading}
             >
-              {isLoading ? "Generating..." : "Generate Random Prompt"}
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <span className="inline-block animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                  Thinking...
+                </div>
+              ) : (
+                "Generate Random Prompt"
+              )}
             </button>
           )}
         </div>
