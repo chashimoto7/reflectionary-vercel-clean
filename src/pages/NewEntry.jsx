@@ -268,7 +268,7 @@ export default function NewEntry() {
         updatedChain = [newEntry];
         setCurrentThreadId(result.entry_id);
       } else {
-        console.log("➕ Adding follow-up to thread:", currentThreadId);
+        console.log("➕ Adding followUp to thread:", currentThreadId);
         updatedChain = [...entryChain, newEntry];
       }
 
@@ -285,7 +285,7 @@ export default function NewEntry() {
       setTimeout(() => setSaveConfirmation(false), 3000);
       setSaveLabel("Save Entry");
 
-      // ✅ Trigger follow-up modal
+      // ✅ Trigger followUp modal
       setShowFollow - upModal(true);
     } catch (err) {
       console.error("❌ Error saving entry:", err);
@@ -299,11 +299,11 @@ export default function NewEntry() {
       return;
     }
 
-    console.log("🤔 Generating follow-up with chain:", entryChain);
+    console.log("🤔 Generating followUp with chain:", entryChain);
 
     // Check if we have entries to work with
     if (!entryChain || entryChain.length === 0) {
-      console.error("❌ No entry chain available for follow-up");
+      console.error("❌ No entry chain available for followUp");
       alert("No previous entries found. Please write a journal entry first.");
       return;
     }
@@ -319,7 +319,7 @@ export default function NewEntry() {
       );
 
       const data = await response.json();
-      console.log("🎯 Follow-up response:", data);
+      console.log("🎯 FollowUp response:", data);
 
       if (data.prompt) {
         setPrompt(data.prompt);
@@ -329,11 +329,11 @@ export default function NewEntry() {
         setShowFollowUpButtons(true);
         // Don't clear editor here - let user start typing
       } else {
-        console.error("❌ No follow-up prompt returned");
+        console.error("❌ No followUp prompt returned");
         alert("No follow-up prompt returned. Please try again.");
       }
     } catch (err) {
-      console.error("❌ Follow-up error:", err);
+      console.error("❌ FollowUp error:", err);
       alert("Failed to generate follow-up question. Please try again.");
     }
   };
@@ -378,7 +378,7 @@ export default function NewEntry() {
       if (response.ok && data.prompt) {
         setPrompt(data.prompt);
         setPromptType("followUp");
-        setSaveLabel("Save Follow-Up Answer");
+        setSaveLabel("Save FollowUp Answer");
         setShowPromptButton(false);
         setShowFollowUpButtons(true);
 
