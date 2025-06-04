@@ -29,33 +29,43 @@ export default function History() {
   );
 
   useEffect(() => {
-    // Listen for auth state changes AND immediately fetch current session
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log("📡 Auth event:", event);
-        if (session?.user) {
-          console.log("✅ User from onAuthStateChange:", session.user.id);
-          setUserId(session.user.id);
-        } else {
-          console.warn("🚪 No session found — redirecting to login");
-          navigate("/login");
-        }
-      }
-    );
+    const handleAuth = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    // Manually trigger session fetch once after mount
-    supabase.auth.getSession().then(({ data }) => {
-      const user = data?.session?.user;
-      if (user) {
-        console.log("✅ User from getSession:", user.id);
-        setUserId(user.id);
+      if (session?.user) {
+        console.log("✅ User from getSession:", session.user.id);
+        setUserId(session.user.id);
       } else {
-        console.warn("🚪 No session found on load — redirecting");
-        navigate("/login");
-      }
-    });
+        // Listen for delayed session via auth change
+        const { data: authListener } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            console.log("📡 Auth event:", event);
+            if (session?.user) {
+              console.log("✅ User from onAuthStateChange:", session.user.id);
+              setUserId(session.user.id);
+            } else {
+              console.warn("🚪 No session — redirecting");
+              navigate("/login");
+            }
+          }
+        );
 
-    return () => listener.subscription.unsubscribe();
+        // Give it 4 seconds max to update
+        setTimeout(() => {
+          console.warn("⏰ Timeout — still no session after delay");
+          navigate("/login");
+        }, 4000);
+
+        // Clean up
+        return () => {
+          authListener?.subscription?.unsubscribe();
+        };
+      }
+    };
+
+    handleAuth();
   }, [navigate]);
 
   useEffect(() => {
