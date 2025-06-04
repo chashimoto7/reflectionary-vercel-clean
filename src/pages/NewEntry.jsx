@@ -226,7 +226,7 @@ export default function NewEntry() {
       const entryData = {
         content: htmlContent,
         prompt: prompt || null,
-        user_id: user_id,
+        user_id: userId,
         is_follow_up: promptType === "followup",
         parent_entry_id: currentThreadId, // Maintain parent-child relationship
         thread_id: currentThreadId,
