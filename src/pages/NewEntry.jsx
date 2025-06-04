@@ -286,7 +286,7 @@ export default function NewEntry() {
       setSaveLabel("Save Entry");
 
       // ✅ Trigger followUp modal
-      setShowFollow - upModal(true);
+      setShowFollowUpModal(true);
     } catch (err) {
       console.error("❌ Error saving entry:", err);
       alert(`Failed to save entry: ${err.message}`);
@@ -582,7 +582,7 @@ export default function NewEntry() {
               <div className="space-x-2">
                 <button
                   className="bg-purple-600 text-white px-4 py-2 rounded"
-                  onClick={handleFollowUp - upFromChain}
+                  onClick={handleFollowUpFromChain}
                 >
                   Yes, ask me
                 </button>
