@@ -75,7 +75,7 @@ export default function JournalHistory() {
 
       try {
         const res = await fetch(
-          `https://reflectionary-api.vercel.app/api/history?user_id=${encodeURIComponent(
+          `https://reflectionary-api.vercel.app/api/JournalHistory?user_id=${encodeURIComponent(
             userId
           )}&page=${page}`
         );
