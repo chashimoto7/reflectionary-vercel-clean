@@ -40,6 +40,8 @@ export default function History() {
           return;
         }
 
+        console.log("📦 Full session object:", data?.session);
+
         const sessionUser = data?.session?.user;
         if (!sessionUser) {
           console.warn("⚠️ No active session — redirecting to login");
