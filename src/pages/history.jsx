@@ -29,36 +29,33 @@ export default function History() {
   );
 
   useEffect(() => {
-    const fetchSession = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-
-        if (error) {
-          console.error("❌ Failed to get session:", error.message);
-          setError("Unable to retrieve session.");
-          setLoading(false);
-          return;
-        }
-
-        console.log("📦 Full session object:", data?.session);
-
-        const sessionUser = data?.session?.user;
-        if (!sessionUser) {
-          console.warn("⚠️ No active session — redirecting to login");
+    // Listen for auth state changes AND immediately fetch current session
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log("📡 Auth event:", event);
+        if (session?.user) {
+          console.log("✅ User from onAuthStateChange:", session.user.id);
+          setUserId(session.user.id);
+        } else {
+          console.warn("🚪 No session found — redirecting to login");
           navigate("/login");
-          return;
         }
-
-        console.log("✅ Session found. User ID:", sessionUser.id);
-        setUserId(sessionUser.id);
-      } catch (err) {
-        console.error("❌ Unexpected error during auth:", err.message);
-        setError("Unexpected error during authentication.");
-        setLoading(false);
       }
-    };
+    );
 
-    fetchSession();
+    // Manually trigger session fetch once after mount
+    supabase.auth.getSession().then(({ data }) => {
+      const user = data?.session?.user;
+      if (user) {
+        console.log("✅ User from getSession:", user.id);
+        setUserId(user.id);
+      } else {
+        console.warn("🚪 No session found on load — redirecting");
+        navigate("/login");
+      }
+    });
+
+    return () => listener.subscription.unsubscribe();
   }, [navigate]);
 
   useEffect(() => {
