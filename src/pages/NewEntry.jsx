@@ -227,7 +227,7 @@ export default function NewEntry() {
         content: htmlContent,
         prompt: prompt || null,
         user_id: userId,
-        is_follow_up: promptType === "followup",
+        is_follow_up: promptType === "followUp",
         parent_entry_id: currentThreadId, // Maintain parent-child relationship
         thread_id: currentThreadId,
       };
@@ -258,7 +258,7 @@ export default function NewEntry() {
         response: journalContent,
         htmlContent: htmlContent,
         created_at: new Date().toISOString(),
-        is_follow_up: promptType === "followup",
+        is_follow_up: promptType === "followUp",
         parent_id: currentThreadId,
       };
 
@@ -286,7 +286,7 @@ export default function NewEntry() {
       setSaveLabel("Save Entry");
 
       // ✅ Trigger follow-up modal
-      setShowFollowUpModal(true);
+      setShowFollow - upModal(true);
     } catch (err) {
       console.error("❌ Error saving entry:", err);
       alert(`Failed to save entry: ${err.message}`);
@@ -310,7 +310,7 @@ export default function NewEntry() {
 
     try {
       const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/followUp",
+        "https://reflectionary-api.vercel.app/api/follow-up",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -323,7 +323,7 @@ export default function NewEntry() {
 
       if (data.prompt) {
         setPrompt(data.prompt);
-        setPromptType("followup");
+        setPromptType("followUp");
         setSaveLabel("Save Follow-Up Answer");
         setShowPromptButton(false);
         setShowFollowUpButtons(true);
@@ -360,11 +360,11 @@ export default function NewEntry() {
       entries: conversationChain,
       thread_id: currentThreadId,
     };
-    console.log("📤 Sending to /api/followUp:", payload);
+    console.log("📤 Sending to /api/follow-up:", payload);
 
     try {
       const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/followUp",
+        "https://reflectionary-api.vercel.app/api/follow-up",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -377,7 +377,7 @@ export default function NewEntry() {
 
       if (response.ok && data.prompt) {
         setPrompt(data.prompt);
-        setPromptType("followup");
+        setPromptType("followUp");
         setSaveLabel("Save Follow-Up Answer");
         setShowPromptButton(false);
         setShowFollowUpButtons(true);
@@ -522,10 +522,10 @@ export default function NewEntry() {
           <div className={`bg-green-100 px-4 py-3 rounded mb-6 shadow`}>
             <p
               className={`text-lg font-bold ${
-                promptType === "followup" ? "text-purple-700" : "text-green-800"
+                promptType === "followUp" ? "text-purple-700" : "text-green-800"
               }`}
             >
-              {promptType === "followup"
+              {promptType === "followUp"
                 ? "Here's your follow-up prompt:"
                 : "Here's your journaling prompt:"}
             </p>
@@ -582,7 +582,7 @@ export default function NewEntry() {
               <div className="space-x-2">
                 <button
                   className="bg-purple-600 text-white px-4 py-2 rounded"
-                  onClick={handleFollowUpFromChain}
+                  onClick={handleFollow - upFromChain}
                 >
                   Yes, ask me
                 </button>
@@ -597,7 +597,7 @@ export default function NewEntry() {
           </div>
         )}
 
-        {showFollowUpModal && (
+        {showFollow - upModal && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
             <div className="bg-white p-6 rounded shadow-lg max-w-sm text-center">
               <p className="mb-2 text-lg font-semibold text-gray-800">
