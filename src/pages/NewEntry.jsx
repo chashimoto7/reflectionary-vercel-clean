@@ -135,11 +135,11 @@ export default function NewEntry() {
     try {
       setIsLoading(true);
       const res = await fetch(
-        "https://reflectionary-vercel-clean.vercel.app/api/generate-subject-prompt",
+        "https://reflectionary-api.app/api/generatePrompt",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_email: user.email, user_id: user.id }),
+          body: JSON.stringify({ user_id: user.id }),
         }
       );
 
@@ -173,7 +173,7 @@ export default function NewEntry() {
       setIsLoading(true);
 
       const response = await fetch(
-        "https://reflectory-api.onrender.com/api/generate-subject-prompt",
+        "https://reflectionary-api.vercel.app/api/generate-subject-prompt",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -214,14 +214,19 @@ export default function NewEntry() {
       }
 
       const htmlContent = quillRef.current?.root.innerHTML;
-      const userEmail = user?.email || "christine.puccini@yahoo.ca";
+      const userId = user?.id;
+
+      if (!userId) {
+        alert("Something went wrong. Please log in again.");
+        return;
+      }
 
       setSaveLabel("Saving...");
 
       const entryData = {
         content: htmlContent,
         prompt: prompt || null,
-        user_email: userEmail,
+        user_id: user_id,
         is_follow_up: promptType === "followup",
         parent_entry_id: currentThreadId, // Maintain parent-child relationship
         thread_id: currentThreadId,
@@ -230,7 +235,7 @@ export default function NewEntry() {
       console.log("📦 Sending entry data:", entryData);
 
       const response = await fetch(
-        "https://reflectory-api.onrender.com/api/save-entry",
+        "https://reflectionary-api.vercel.app/api/save-entry",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -305,7 +310,7 @@ export default function NewEntry() {
 
     try {
       const response = await fetch(
-        "https://reflectory-api.onrender.com/api/generate-followup",
+        "https://reflectionary-api.vercel.app/api/followUp",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -355,11 +360,11 @@ export default function NewEntry() {
       entries: conversationChain,
       thread_id: currentThreadId,
     };
-    console.log("📤 Sending to /api/generate-followup:", payload);
+    console.log("📤 Sending to /api/followUp:", payload);
 
     try {
       const response = await fetch(
-        "https://reflectory-api.onrender.com/api/generate-followup",
+        "https://reflectionary-api.vercel.app/api/followUp",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
