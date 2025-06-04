@@ -357,7 +357,7 @@ export default function NewEntry() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id, entryChain }),
+          body: JSON.stringify({ user_id, user?.id, entryChain }),
         }
       );
 
