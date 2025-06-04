@@ -294,6 +294,7 @@ export default function NewEntry() {
   };
 
   const handleFollowUp = async () => {
+    setShowFollowUpModal(false);
     if (!isUnlocked) {
       setShowUnlockModal(true);
       return;
@@ -314,7 +315,7 @@ export default function NewEntry() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: entry }), //should only send last entry
+          body: JSON.stringify({ user_id: user.id, entry: savedEntry }), //should only send last entry
         }
       );
 
