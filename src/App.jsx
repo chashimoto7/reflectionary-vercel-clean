@@ -6,7 +6,7 @@ import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Auth from "./pages/Auth";
 import NewEntry from "./pages/NewEntry";
-import JournalHistory from "./pages/JournalHistory";
+import history from "./pages/history";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
 import EmotionalOverviewModal from "./components/EmotionalOverviewModal";
 import Goals from "./pages/Goals";
@@ -30,7 +30,7 @@ function App() {
           >
             <Route index element={<Navigate to="/new-entry" replace />} />
             <Route path="new-entry" element={<NewEntry />} />
-            <Route path="journal-history" element={<JournalHistory />} />
+            <Route path="history" element={<history />} />
             <Route path="analytics" element={<AnalyticsDashboard />} />
             <Route
               path="emotional-overview"
