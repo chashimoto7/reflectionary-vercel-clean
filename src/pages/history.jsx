@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useEncryption } from "../contexts/EncryptionContext";
-import { useEncryption } from "../contexts/EncryptionContext";
 import supabase from "../supabaseClient";
 
 export default function History() {
