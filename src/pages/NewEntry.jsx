@@ -260,6 +260,8 @@ export default function NewEntry() {
         created_at: new Date().toISOString(),
         is_follow_up: promptType === "followUp",
         parent_id: currentThreadId,
+        // Store the encrypted entry data for follow-up API
+        encryptedData: result.encryptedData, // Assuming your save-entry API returns this
       };
 
       let updatedChain;
@@ -273,6 +275,7 @@ export default function NewEntry() {
       }
 
       setEntryChain(updatedChain);
+      setLastSavedEntry(newEntry); // Store the last saved entry
       window.currentConversationChain = updatedChain;
       window.currentThreadId = currentThreadId || result.entry_id;
 
@@ -290,88 +293,86 @@ export default function NewEntry() {
     } catch (err) {
       console.error("❌ Error saving entry:", err);
       alert(`Failed to save entry: ${err.message}`);
+      setSaveLabel("Save Entry");
     }
   };
 
-  const handleFollowUp = async () => {
-    setShowFollowUpModal(false);
-    if (!isUnlocked) {
-      setShowUnlockModal(true);
-      return;
-    }
+  const handleFollowUpFromChain = async () => {
+    console.log(
+      "🤔 Generating followUp with last saved entry:",
+      lastSavedEntry
+    );
 
-    console.log("🤔 Generating followUp with chain:", entryChain);
-
-    // Check if we have entries to work with
-    if (!entryChain || entryChain.length === 0) {
-      console.error("❌ No entry chain available for followUp");
+    // Check if we have a saved entry to work with
+    if (!lastSavedEntry) {
+      console.error("❌ No saved entry available for followUp");
       alert("No previous entries found. Please write a journal entry first.");
       return;
     }
 
     try {
+      setIsLoading(true);
+      setShowFollowUpModal(false); // Close modal immediately
+      setPrompt("Thinking..."); // Show loading state
+
+      // If we have encrypted data from the save response, use it
+      // Otherwise, we need to get the entry data from the database
+      let entryToSend = lastSavedEntry.encryptedData;
+
+      if (!entryToSend) {
+        // Fallback: fetch the encrypted entry from the database
+        console.log("Fetching encrypted entry data for follow-up...");
+        const fetchResponse = await fetch(
+          `https://reflectionary-api.vercel.app/api/get-entry?entry_id=${lastSavedEntry.id}&user_id=${user.id}`,
+          {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+
+        if (!fetchResponse.ok) {
+          throw new Error("Failed to fetch entry for follow-up");
+        }
+
+        const fetchData = await fetchResponse.json();
+        entryToSend = fetchData.entry;
+      }
+
+      console.log("Sending follow-up request...");
       const response = await fetch(
         "https://reflectionary-api.vercel.app/api/follow-up",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: user.id, entry: savedEntry }), //should only send last entry
+          body: JSON.stringify({
+            user_id: user.id,
+            entry: entryToSend,
+          }),
         }
       );
 
       const data = await response.json();
       console.log("🎯 FollowUp response:", data);
 
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch follow-up");
+      }
+
       if (data.prompt) {
+        // ✅ Update UI with the follow-up prompt
         setPrompt(data.prompt);
         setPromptType("followUp");
         setSaveLabel("Save Follow-Up Answer");
         setShowPromptButton(false);
         setShowFollowUpButtons(true);
-        // Don't clear editor here - let user start typing
       } else {
-        console.error("❌ No followUp prompt returned");
-        alert("No follow-up prompt returned. Please try again.");
+        throw new Error("No follow-up prompt returned");
       }
-    } catch (err) {
-      console.error("❌ FollowUp error:", err);
-      alert("Failed to generate follow-up question. Please try again.");
-    }
-  };
-
-  const handleFollowUpFromChain = async () => {
-    if (!user || entryChain.length === 0) return;
-
-    try {
-      setPrompt("Thinking...");
-      setIsLoading(true);
-
-      const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/follow-up",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: user.id, entryChain }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch follow-up");
-      }
-
-      // ✅ Update UI with the follow-up prompt
-      setPrompt(data.prompt);
-      setPromptType("followUp");
-      setSaveLabel("Save Follow-Up Answer");
-      setShowPromptButton(false);
-      setShowFollowUpButtons(true);
-      setShowFollowUpModal(false);
-      setIsLoading(false);
     } catch (error) {
-      console.error("Error generating follow-up:", error);
-      setPrompt("Sorry, I couldn’t generate a follow-up question this time.");
+      console.error("❌ FollowUp error:", error);
+      setPrompt("Sorry, I couldn't generate a follow-up question this time.");
+      alert(`Failed to generate follow-up question: ${error.message}`);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -381,6 +382,7 @@ export default function NewEntry() {
 
     // Reset for NEW conversation thread
     setEntryChain([]);
+    setLastSavedEntry(null);
     setPrompt("");
     setPromptType("initial"); // 🔑 Next save will start new thread
     setSaveLabel("Save Entry");
@@ -403,7 +405,9 @@ export default function NewEntry() {
     setPromptType("initial");
     setSaveLabel("Save Entry");
     setEntryChain([]);
+    setLastSavedEntry(null);
     setShowModal(false);
+    setShowFollowUpModal(false);
     setShowPromptButton(true);
     setCurrentThreadId(null);
     clearEditor();
@@ -592,12 +596,14 @@ export default function NewEntry() {
                 <button
                   className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
                   onClick={handleFollowUpFromChain}
+                  disabled={isLoading}
                 >
-                  Yes, please
+                  {isLoading ? "Thinking..." : "Yes, please"}
                 </button>
                 <button
                   className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
                   onClick={handleEndFollowUps}
+                  disabled={isLoading}
                 >
                   No, thank you
                 </button>
