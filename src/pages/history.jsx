@@ -52,6 +52,10 @@ export default function History() {
 
       const data = await res.json();
       console.log("📋 Raw entries data:", data);
+      console.log(
+        "📋 First entry fields:",
+        data[0] ? Object.keys(data[0]) : "No entries"
+      );
 
       if (!Array.isArray(data)) {
         setError("Invalid data format received.");
@@ -70,12 +74,20 @@ export default function History() {
           try {
             console.log(`Decrypting entry ${index + 1}/${data.length}`, {
               id: entry.id,
+              allFields: Object.keys(entry),
               hasEncryptedContent: !!entry.encrypted_content,
               hasDataKey: !!entry.encrypted_data_key,
               hasContentIv: !!entry.content_iv,
               hasDataKeyIv: !!entry.data_key_iv,
+              hasHtmlContentIv: !!entry.html_content_iv,
+              hasEncryptedHtmlContent: !!entry.encrypted_html_content,
               createdAt: entry.created_at,
             });
+
+            // Test if decryptJournalEntry function is available
+            if (typeof decryptJournalEntry !== "function") {
+              throw new Error("decryptJournalEntry is not a function");
+            }
 
             const decryptedEntry = await decryptJournalEntry(entry);
             console.log(`✅ Successfully decrypted entry ${index + 1}`);
