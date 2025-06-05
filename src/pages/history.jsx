@@ -69,57 +69,32 @@ export default function History() {
       }
 
       console.log("🔓 Starting decryption of", data.length, "entries");
-      const decrypted = await Promise.all(
-        data.map(async (entry, index) => {
-          try {
-            console.log(`Decrypting entry ${index + 1}/${data.length}`, {
-              id: entry.id,
-              encryptedContentLength: entry.encrypted_content?.length,
-              contentIvLength: entry.content_iv?.length,
-              encryptedDataKeyLength: entry.encrypted_data_key?.length,
-              dataKeyIvLength: entry.data_key_iv?.length,
-              encryptedHtmlContentLength: entry.encrypted_html_content?.length,
-              htmlContentIvLength: entry.html_content_iv?.length,
-              encryptedPromptLength: entry.encrypted_prompt?.length,
-              promptIvLength: entry.prompt_iv?.length,
-              // Show actual values to check for null/empty
-              encryptedContent: entry.encrypted_content ? "present" : "missing",
-              contentIv: entry.content_iv ? "present" : "missing",
-              encryptedDataKey: entry.encrypted_data_key
-                ? "present"
-                : "missing",
-              dataKeyIv: entry.data_key_iv ? "present" : "missing",
-            });
 
-            // Test if decryptJournalEntry function is available
-            if (typeof decryptJournalEntry !== "function") {
-              throw new Error("decryptJournalEntry is not a function");
-            }
+      // Try to decrypt entries one by one to see which ones fail
+      const decrypted = [];
+      for (let i = 0; i < data.length; i++) {
+        const entry = data[i];
+        try {
+          console.log(`Decrypting entry ${i + 1}/${data.length}:`, entry.id);
+          const decryptedEntry = await decryptJournalEntry(entry);
+          console.log(`✅ Successfully decrypted entry ${i + 1}`);
+          decrypted.push(decryptedEntry);
+        } catch (decryptError) {
+          console.error(`❌ Failed to decrypt entry ${entry.id}:`, {
+            error: decryptError.message,
+            entryCreatedAt: entry.created_at,
+            entryIndex: i + 1,
+          });
+          // Continue with other entries instead of failing completely
+          console.log(
+            `⏭️ Skipping entry ${entry.id} and continuing with others...`
+          );
+        }
+      }
 
-            const decryptedEntry = await decryptJournalEntry(entry);
-            console.log(`✅ Successfully decrypted entry ${index + 1}`);
-            return decryptedEntry;
-          } catch (decryptError) {
-            console.error(`❌ Failed to decrypt entry ${entry.id}:`, {
-              error: decryptError.message,
-              entry: {
-                id: entry.id,
-                hasEncryptedContent: !!entry.encrypted_content,
-                hasDataKey: !!entry.encrypted_data_key,
-                contentIvLength: entry.content_iv?.length,
-                dataKeyIvLength: entry.data_key_iv?.length,
-                encryptedContentLength: entry.encrypted_content?.length,
-                encryptedDataKeyLength: entry.encrypted_data_key?.length,
-              },
-            });
-            throw new Error(
-              `Failed to decrypt entry ${entry.id}: ${decryptError.message}`
-            );
-          }
-        })
+      console.log(
+        `📊 Decryption summary: ${decrypted.length}/${data.length} entries decrypted successfully`
       );
-
-      console.log("✅ Successfully decrypted", decrypted.length, "entries");
       setEntries(decrypted);
     } catch (err) {
       console.error("❌ Failed to load history:", err);
