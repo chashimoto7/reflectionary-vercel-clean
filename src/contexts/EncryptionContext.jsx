@@ -79,26 +79,36 @@ export const EncryptionProvider = ({ children }) => {
     sessionStorage.removeItem("encryption_unlocked");
   };
 
-  const encryptJournalEntry = async (content, htmlContent, prompt) => {
+  const encryptJournalEntry = async (entryData) => {
     if (!masterKey) {
       throw new Error("Encryption not unlocked");
     }
 
+    console.log("🔐 EncryptionContext: Starting encryption...");
+    console.log("📊 Input data:", {
+      hasContent: !!entryData.content,
+      hasPrompt: !!entryData.prompt,
+      contentLength: entryData.content?.length,
+    });
+
     const dataKey = await encryptionService.generateDataKey();
+    console.log("✅ Data key generated");
 
     const [encryptedContent, encryptedHtml, encryptedPrompt, encryptedDataKey] =
       await Promise.all([
-        encryptionService.encryptText(content, dataKey),
-        htmlContent
-          ? encryptionService.encryptText(htmlContent, dataKey)
+        encryptionService.encryptText(entryData.content, dataKey),
+        entryData.content
+          ? encryptionService.encryptText(entryData.content, dataKey) // Using content as HTML content
           : { encryptedData: "", iv: "" },
-        prompt
-          ? encryptionService.encryptText(prompt, dataKey)
+        entryData.prompt
+          ? encryptionService.encryptText(entryData.prompt, dataKey)
           : { encryptedData: "", iv: "" },
         encryptionService.encryptKey(dataKey, masterKey),
       ]);
 
-    return {
+    console.log("✅ All encryption completed");
+
+    const result = {
       encrypted_content: encryptedContent.encryptedData,
       content_iv: encryptedContent.iv,
       encrypted_html_content: encryptedHtml.encryptedData,
@@ -107,10 +117,20 @@ export const EncryptionProvider = ({ children }) => {
       prompt_iv: encryptedPrompt.iv,
       encrypted_data_key: encryptedDataKey.encryptedData,
       data_key_iv: encryptedDataKey.iv,
-      word_count: content
-        ? content.split(/\s+/).filter((word) => word.length > 0).length
+      word_count: entryData.content
+        ? entryData.content.split(/\s+/).filter((word) => word.length > 0)
+            .length
         : 0,
     };
+
+    console.log("🎉 Encryption result:", {
+      hasEncryptedContent: !!result.encrypted_content,
+      hasContentIv: !!result.content_iv,
+      hasEncryptedDataKey: !!result.encrypted_data_key,
+      hasDataKeyIv: !!result.data_key_iv,
+    });
+
+    return result;
   };
 
   // In your EncryptionContext.jsx, replace the decryptJournalEntry function with:
