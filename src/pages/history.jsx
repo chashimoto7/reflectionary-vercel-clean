@@ -2,11 +2,18 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useEncryption } from "../contexts/EncryptionContext";
+import EncryptionUnlockModal from "../components/EncryptionUnlockModal";
 import supabase from "../supabaseClient";
 
 export default function History() {
   const { user, loading: authLoading } = useAuth();
-  const { decryptJournalEntry } = useEncryption();
+  const {
+    decryptJournalEntry,
+    isUnlocked,
+    showUnlockModal,
+    setShowUnlockModal,
+  } = useEncryption();
+
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -14,9 +21,6 @@ export default function History() {
   const navigate = useNavigate();
 
   const page = parseInt(searchParams.get("page") || "1", 10);
-  const masterKeyHex =
-    import.meta.env.VITE_MASTER_DECRYPTION_KEY ||
-    import.meta.env.MASTER_DECRYPTION_KEY;
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -62,10 +66,19 @@ export default function History() {
       }
     }
 
-    if (!authLoading && user?.id) {
+    if (!authLoading && user?.id && isUnlocked) {
       fetchEntries();
+    } else if (!isUnlocked) {
+      setShowUnlockModal(true);
     }
-  }, [page, authLoading, user]);
+  }, [
+    page,
+    authLoading,
+    user,
+    isUnlocked,
+    decryptJournalEntry,
+    setShowUnlockModal,
+  ]);
 
   if (authLoading || loading) {
     return (
@@ -87,6 +100,13 @@ export default function History() {
 
   return (
     <div className="p-4">
+      {showUnlockModal && (
+        <EncryptionUnlockModal
+          onClose={() => setShowUnlockModal(false)}
+          message="To protect your privacy, all journal entries are encrypted. Please enter your password to unlock and view your entries."
+        />
+      )}
+
       <h1 className="text-2xl font-semibold mb-4">Journal History</h1>
 
       {entries.length === 0 ? (
@@ -99,17 +119,19 @@ export default function History() {
             <p className="text-sm text-gray-500 mb-2">
               {new Date(entry.created_at).toLocaleString()}
             </p>
-            {entry.decrypted_prompt && (
+            {entry.prompt && (
               <p className="italic text-purple-600 mb-2">
-                Prompt: {entry.decrypted_prompt}
+                Prompt: {entry.prompt}
               </p>
             )}
             <h2 className="font-bold mb-2">Journal Entry:</h2>
             <div
               className="prose mb-4"
-              dangerouslySetInnerHTML={{ __html: entry.decrypted_content }}
+              dangerouslySetInnerHTML={{
+                __html: entry.html_content || entry.content,
+              }}
             />
-            {entry.decrypted_followups?.map((fup, index) => (
+            {entry.followups?.map((fup, index) => (
               <div
                 key={index}
                 className="bg-gray-100 p-4 rounded-md mb-2 border"
@@ -121,14 +143,16 @@ export default function History() {
                     Follow-up Response
                   </span>
                 </p>
-                {fup.decrypted_prompt && (
+                {fup.prompt && (
                   <p className="italic text-purple-600 mb-2">
-                    Prompt: {fup.decrypted_prompt}
+                    Prompt: {fup.prompt}
                   </p>
                 )}
                 <div
                   className="prose"
-                  dangerouslySetInnerHTML={{ __html: fup.decrypted_content }}
+                  dangerouslySetInnerHTML={{
+                    __html: fup.html_content || fup.content,
+                  }}
                 />
               </div>
             ))}

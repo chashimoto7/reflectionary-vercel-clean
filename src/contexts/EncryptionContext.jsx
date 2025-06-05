@@ -18,8 +18,8 @@ export const EncryptionProvider = ({ children }) => {
   const [masterKey, setMasterKey] = useState(null);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [encryptionReady, setEncryptionReady] = useState(false);
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
 
-  // Check if encryption is supported
   useEffect(() => {
     if (!encryptionService.isSupported()) {
       console.error("Web Crypto API not supported in this browser");
@@ -28,7 +28,6 @@ export const EncryptionProvider = ({ children }) => {
     setEncryptionReady(true);
   }, []);
 
-  // Auto-unlock encryption when user signs in with password
   useEffect(() => {
     const autoUnlock = async () => {
       if (user && userPassword && encryptionReady && !isUnlocked) {
@@ -37,7 +36,6 @@ export const EncryptionProvider = ({ children }) => {
           await unlockEncryption(userPassword);
         } catch (error) {
           console.error("Auto-unlock failed:", error);
-          // Don't show error - user can manually unlock
         }
       }
     };
@@ -45,7 +43,6 @@ export const EncryptionProvider = ({ children }) => {
     autoUnlock();
   }, [user, userPassword, encryptionReady]);
 
-  // Clear encryption keys when user signs out
   useEffect(() => {
     if (!user) {
       setMasterKey(null);
@@ -54,7 +51,6 @@ export const EncryptionProvider = ({ children }) => {
     }
   }, [user]);
 
-  // Unlock encryption with user's password
   const unlockEncryption = async (password) => {
     if (!user || !encryptionReady) {
       throw new Error("User not authenticated or encryption not ready");
@@ -68,10 +64,7 @@ export const EncryptionProvider = ({ children }) => {
       );
       setMasterKey(key);
       setIsUnlocked(true);
-
-      // Store unlock status (but not the key) in sessionStorage
       sessionStorage.setItem("encryption_unlocked", "true");
-
       console.log("Encryption unlocked successfully");
       return true;
     } catch (error) {
@@ -80,23 +73,19 @@ export const EncryptionProvider = ({ children }) => {
     }
   };
 
-  // Lock encryption
   const lockEncryption = () => {
     setMasterKey(null);
     setIsUnlocked(false);
     sessionStorage.removeItem("encryption_unlocked");
   };
 
-  // Encrypt journal content
   const encryptJournalEntry = async (content, htmlContent, prompt) => {
     if (!masterKey) {
       throw new Error("Encryption not unlocked");
     }
 
-    // Generate a unique data encryption key for this entry
     const dataKey = await encryptionService.generateDataKey();
 
-    // Encrypt the content with the data key
     const [encryptedContent, encryptedHtml, encryptedPrompt, encryptedDataKey] =
       await Promise.all([
         encryptionService.encryptText(content, dataKey),
@@ -118,21 +107,18 @@ export const EncryptionProvider = ({ children }) => {
       prompt_iv: encryptedPrompt.iv,
       encrypted_data_key: encryptedDataKey.encryptedData,
       data_key_iv: encryptedDataKey.iv,
-      // Store word count unencrypted for analytics (doesn't reveal content)
       word_count: content
         ? content.split(/\s+/).filter((word) => word.length > 0).length
         : 0,
     };
   };
 
-  // Decrypt journal content
   const decryptJournalEntry = async (encryptedEntry) => {
     if (!masterKey) {
       throw new Error("Encryption not unlocked");
     }
 
     try {
-      // Decrypt the data key first
       const dataKey = await encryptionService.decryptKey(
         {
           encryptedData: encryptedEntry.encrypted_data_key,
@@ -141,7 +127,6 @@ export const EncryptionProvider = ({ children }) => {
         masterKey
       );
 
-      // Decrypt the content with the data key
       const [content, htmlContent, prompt] = await Promise.all([
         encryptionService.decryptText(
           encryptedEntry.encrypted_content,
@@ -176,7 +161,6 @@ export const EncryptionProvider = ({ children }) => {
     }
   };
 
-  // Encrypt goals
   const encryptGoal = async (goalText, description = "") => {
     if (!masterKey) {
       throw new Error("Encryption not unlocked");
@@ -203,7 +187,6 @@ export const EncryptionProvider = ({ children }) => {
     };
   };
 
-  // Decrypt goals
   const decryptGoal = async (encryptedGoal) => {
     if (!masterKey) {
       throw new Error("Encryption not unlocked");
@@ -253,6 +236,8 @@ export const EncryptionProvider = ({ children }) => {
     decryptJournalEntry,
     encryptGoal,
     decryptGoal,
+    showUnlockModal,
+    setShowUnlockModal,
   };
 
   return (

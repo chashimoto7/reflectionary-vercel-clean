@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useEncryption } from "../contexts/EncryptionContext";
 import { Lock, Eye, EyeOff } from "lucide-react";
 
-export default function EncryptionUnlockModal({ onClose }) {
+export default function EncryptionUnlockModal({ onClose, message }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -36,8 +36,8 @@ export default function EncryptionUnlockModal({ onClose }) {
             Unlock Your Journal
           </h2>
           <p className="text-sm text-gray-600">
-            Enter your password to decrypt and access your private journal
-            entries
+            {message ||
+              "Enter your password to decrypt and access your private journal entries"}
           </p>
         </div>
 
