@@ -122,23 +122,18 @@ export const EncryptionProvider = ({ children }) => {
 
     try {
       console.log("🔓 Starting decryption for entry:", encryptedEntry.id);
-      console.log("🔑 Master key check:", {
-        masterKeyExists: !!masterKey,
-        masterKeyType: typeof masterKey,
-        masterKeyConstructor: masterKey?.constructor?.name,
-        isUnlockedState: isUnlocked,
-      });
-
-      // Log the actual values we're trying to decrypt
-      console.log("🔍 Data key decryption inputs:", {
-        encryptedDataKey:
-          encryptedEntry.encrypted_data_key?.substring(0, 20) + "...",
-        dataKeyIv: encryptedEntry.data_key_iv?.substring(0, 20) + "...",
+      console.log("🔍 Entry data check:", {
+        hasEncryptedContent: !!encryptedEntry.encrypted_content,
+        hasContentIv: !!encryptedEntry.content_iv,
+        hasEncryptedDataKey: !!encryptedEntry.encrypted_data_key,
+        hasDataKeyIv: !!encryptedEntry.data_key_iv,
+        encryptedContentLength: encryptedEntry.encrypted_content?.length,
+        contentIvLength: encryptedEntry.content_iv?.length,
         encryptedDataKeyLength: encryptedEntry.encrypted_data_key?.length,
         dataKeyIvLength: encryptedEntry.data_key_iv?.length,
       });
 
-      console.log("🔑 Attempting data key decryption...");
+      console.log("🔑 Decrypting data key...");
       const dataKey = await encryptionService.decryptKey(
         {
           encryptedData: encryptedEntry.encrypted_data_key,
@@ -204,8 +199,7 @@ export const EncryptionProvider = ({ children }) => {
       );
       console.error("❌ Error details:", {
         message: error.message,
-        name: error.name,
-        stack: error.stack?.substring(0, 500),
+        stack: error.stack,
       });
       throw new Error(`Failed to decrypt journal entry: ${error.message}`);
     }
