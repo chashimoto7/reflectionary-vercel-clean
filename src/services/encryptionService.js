@@ -1,13 +1,14 @@
 // src/services/encryptionService.js
 class EncryptionService {
   constructor() {
-    this.algorithm = "AES-CBC"; // Changed from AES-GCM to AES-CBC
+    this.algorithm = "AES-CBC";
     this.keyLength = 256;
-    this.ivLength = 16; // Changed from 12 to 16 bytes for AES-CBC
+    this.ivLength = 16; // 16 bytes for AES-CBC
   }
 
   // Generate a master key from user password + email (deterministic)
   async generateMasterKey(email, password) {
+    console.log("🔑 Generating master key with AES-CBC");
     const encoder = new TextEncoder();
     const keyMaterial = await window.crypto.subtle.importKey(
       "raw",
@@ -23,7 +24,7 @@ class EncryptionService {
       encoder.encode(email)
     );
 
-    return await window.crypto.subtle.deriveKey(
+    const masterKey = await window.crypto.subtle.deriveKey(
       {
         name: "PBKDF2",
         salt: salt,
@@ -35,11 +36,15 @@ class EncryptionService {
       false,
       ["encrypt", "decrypt"]
     );
+
+    console.log("✅ Master key generated:", masterKey);
+    return masterKey;
   }
 
   // Generate a random data encryption key
   async generateDataKey() {
-    return await window.crypto.subtle.generateKey(
+    console.log("🗝️ Generating data key with AES-CBC");
+    const dataKey = await window.crypto.subtle.generateKey(
       {
         name: this.algorithm,
         length: this.keyLength,
@@ -47,6 +52,8 @@ class EncryptionService {
       true, // extractable
       ["encrypt", "decrypt"]
     );
+    console.log("✅ Data key generated:", dataKey);
+    return dataKey;
   }
 
   // Encrypt text data
@@ -55,6 +62,7 @@ class EncryptionService {
       return { encryptedData: "", iv: "", tag: "" };
     }
 
+    console.log("🔒 Encrypting text with AES-CBC, length:", text.length);
     const encoder = new TextEncoder();
     const data = encoder.encode(text);
     const iv = window.crypto.getRandomValues(new Uint8Array(this.ivLength));
@@ -69,11 +77,18 @@ class EncryptionService {
     );
 
     const encryptedArray = new Uint8Array(encryptedBuffer);
-
-    return {
+    const result = {
       encryptedData: this.arrayBufferToBase64(encryptedArray),
       iv: this.arrayBufferToBase64(iv),
     };
+
+    console.log(
+      "✅ Text encrypted, IV length:",
+      result.iv.length,
+      "Data length:",
+      result.encryptedData.length
+    );
+    return result;
   }
 
   // Decrypt text data
@@ -83,8 +98,23 @@ class EncryptionService {
     }
 
     try {
+      console.log("🔓 Decrypting text with AES-CBC");
+      console.log(
+        "📊 Input lengths - Data:",
+        encryptedData.length,
+        "IV:",
+        iv.length
+      );
+
       const encryptedBuffer = this.base64ToArrayBuffer(encryptedData);
       const ivBuffer = this.base64ToArrayBuffer(iv);
+
+      console.log(
+        "📊 Buffer lengths - Data:",
+        encryptedBuffer.byteLength,
+        "IV:",
+        ivBuffer.byteLength
+      );
 
       const decryptedBuffer = await window.crypto.subtle.decrypt(
         {
@@ -96,9 +126,11 @@ class EncryptionService {
       );
 
       const decoder = new TextDecoder();
-      return decoder.decode(decryptedBuffer);
+      const result = decoder.decode(decryptedBuffer);
+      console.log("✅ Text decrypted successfully, length:", result.length);
+      return result;
     } catch (error) {
-      console.error("Decryption failed:", error);
+      console.error("❌ Text decryption failed:", error);
       throw new Error(
         "Failed to decrypt data. This could indicate corrupted data or wrong key."
       );
@@ -107,29 +139,53 @@ class EncryptionService {
 
   // Encrypt a data encryption key with master key
   async encryptKey(dataKey, masterKey) {
+    console.log("🔒 Encrypting data key with master key");
     const exportedKey = await window.crypto.subtle.exportKey("raw", dataKey);
-    return await this.encryptText(
+    const result = await this.encryptText(
       this.arrayBufferToBase64(exportedKey),
       masterKey
     );
+    console.log("✅ Data key encrypted");
+    return result;
   }
 
   // Decrypt and import a data encryption key
   async decryptKey(encryptedKeyData, masterKey) {
-    const keyB64 = await this.decryptText(
-      encryptedKeyData.encryptedData,
-      encryptedKeyData.iv,
-      masterKey
-    );
-    const keyBuffer = this.base64ToArrayBuffer(keyB64);
+    console.log("🔓 Decrypting data key with master key");
+    console.log("📊 Encrypted key data:", {
+      encryptedData: encryptedKeyData.encryptedData.substring(0, 20) + "...",
+      encryptedDataLength: encryptedKeyData.encryptedData.length,
+      iv: encryptedKeyData.iv.substring(0, 20) + "...",
+      ivLength: encryptedKeyData.iv.length,
+      masterKeyType: typeof masterKey,
+      masterKeyAlgorithm: masterKey?.algorithm?.name,
+    });
 
-    return await window.crypto.subtle.importKey(
-      "raw",
-      keyBuffer,
-      { name: this.algorithm },
-      false,
-      ["encrypt", "decrypt"]
-    );
+    try {
+      const keyB64 = await this.decryptText(
+        encryptedKeyData.encryptedData,
+        encryptedKeyData.iv,
+        masterKey
+      );
+
+      console.log("✅ Data key decrypted as base64, length:", keyB64.length);
+      const keyBuffer = this.base64ToArrayBuffer(keyB64);
+      console.log("📊 Key buffer length:", keyBuffer.byteLength);
+
+      const importedKey = await window.crypto.subtle.importKey(
+        "raw",
+        keyBuffer,
+        { name: this.algorithm },
+        false,
+        ["encrypt", "decrypt"]
+      );
+
+      console.log("✅ Data key imported successfully:", importedKey);
+      return importedKey;
+    } catch (error) {
+      console.error("❌ Data key decryption failed:", error);
+      throw error;
+    }
   }
 
   // Utility functions
