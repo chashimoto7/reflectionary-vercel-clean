@@ -1,4 +1,3 @@
-// src/components/EncryptionUnlockModal.jsx
 import React, { useState } from "react";
 import { useEncryption } from "../contexts/EncryptionContext";
 import { Lock, Eye, EyeOff } from "lucide-react";
