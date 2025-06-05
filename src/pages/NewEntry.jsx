@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useEncryption } from "../contexts/EncryptionContext";
-import EncryptionUnlockModal from "../components/EncryptionUnLockModal";
+import EncryptionUnlockModal from "../components/EncryptionUnlockModal";
 import supabase from "../supabaseClient";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
