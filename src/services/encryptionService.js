@@ -161,14 +161,19 @@ class EncryptionService {
       masterKeyAlgorithm: masterKey?.algorithm?.name,
     });
 
+    // Try AES-CBC first (current method)
     try {
+      console.log("🔄 Attempting AES-CBC decryption...");
       const keyB64 = await this.decryptText(
         encryptedKeyData.encryptedData,
         encryptedKeyData.iv,
         masterKey
       );
 
-      console.log("✅ Data key decrypted as base64, length:", keyB64.length);
+      console.log(
+        "✅ Data key decrypted as base64 with AES-CBC, length:",
+        keyB64.length
+      );
       const keyBuffer = this.base64ToArrayBuffer(keyB64);
       console.log("📊 Key buffer length:", keyBuffer.byteLength);
 
@@ -180,11 +185,76 @@ class EncryptionService {
         ["encrypt", "decrypt"]
       );
 
-      console.log("✅ Data key imported successfully:", importedKey);
+      console.log(
+        "✅ Data key imported successfully with AES-CBC:",
+        importedKey
+      );
       return importedKey;
-    } catch (error) {
-      console.error("❌ Data key decryption failed:", error);
-      throw error;
+    } catch (cbcError) {
+      console.warn(
+        "⚠️ AES-CBC decryption failed, trying AES-GCM fallback...",
+        cbcError.message
+      );
+
+      // Fallback to AES-GCM for backwards compatibility
+      try {
+        console.log("🔄 Attempting AES-GCM fallback decryption...");
+
+        const encryptedBuffer = this.base64ToArrayBuffer(
+          encryptedKeyData.encryptedData
+        );
+        const ivBuffer = this.base64ToArrayBuffer(encryptedKeyData.iv);
+
+        // For AES-GCM, we need to create a master key with GCM algorithm
+        const gcmMasterKey = await window.crypto.subtle.importKey(
+          "raw",
+          await window.crypto.subtle.exportKey("raw", masterKey),
+          { name: "AES-GCM" },
+          false,
+          ["encrypt", "decrypt"]
+        );
+
+        const decryptedBuffer = await window.crypto.subtle.decrypt(
+          {
+            name: "AES-GCM",
+            iv: ivBuffer,
+          },
+          gcmMasterKey,
+          encryptedBuffer
+        );
+
+        const decoder = new TextDecoder();
+        const keyB64 = decoder.decode(decryptedBuffer);
+        console.log(
+          "✅ Data key decrypted as base64 with AES-GCM, length:",
+          keyB64.length
+        );
+
+        const keyBuffer = this.base64ToArrayBuffer(keyB64);
+        console.log("📊 Key buffer length:", keyBuffer.byteLength);
+
+        const importedKey = await window.crypto.subtle.importKey(
+          "raw",
+          keyBuffer,
+          { name: this.algorithm }, // Import as AES-CBC for current use
+          false,
+          ["encrypt", "decrypt"]
+        );
+
+        console.log(
+          "✅ Data key imported successfully with AES-GCM fallback:",
+          importedKey
+        );
+        return importedKey;
+      } catch (gcmError) {
+        console.error("❌ Both AES-CBC and AES-GCM decryption failed:", {
+          cbcError: cbcError.message,
+          gcmError: gcmError.message,
+        });
+        throw new Error(
+          `Failed to decrypt data key with both AES-CBC and AES-GCM: CBC(${cbcError.message}), GCM(${gcmError.message})`
+        );
+      }
     }
   }
 
