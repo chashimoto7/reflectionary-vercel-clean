@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useEncryption } from "../contexts/EncryptionContext";
 import EncryptionUnlockModal from "../components/EncryptionUnlockModal";
 import supabase from "../supabaseClient";
+import encryptionService from "../services/encryptionService";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
 
@@ -229,20 +230,28 @@ export default function NewEntry() {
       });
 
       // Encrypt the data on frontend before sending
+      console.log("🔐 Encrypting entry data on frontend...");
       const encryptedData = await encryptJournalEntry({
         content: htmlContent,
         prompt: prompt || null,
       });
 
+      console.log("✅ Entry encrypted successfully:", {
+        hasEncryptedContent: !!encryptedData.encrypted_content,
+        hasContentIv: !!encryptedData.content_iv,
+        hasEncryptedDataKey: !!encryptedData.encrypted_data_key,
+        hasDataKeyIv: !!encryptedData.data_key_iv,
+      });
+
       const entryData = {
-        ...encryptedData, // This should contain encrypted_content, content_iv, etc.
+        ...encryptedData, // Contains encrypted_content, content_iv, encrypted_data_key, etc.
         user_id: userId,
         is_follow_up: promptType === "followUp",
         parent_entry_id: currentThreadId,
         thread_id: currentThreadId,
       };
 
-      console.log("📦 Sending entry data:", entryData);
+      console.log("📦 Sending encrypted entry data to backend");
 
       const response = await fetch(
         "https://reflectionary-api.vercel.app/api/save-entry",
@@ -283,7 +292,7 @@ export default function NewEntry() {
       }
 
       setEntryChain(updatedChain);
-      setLastSavedEntry(newEntry); // Store the last saved entry
+      setLastSavedEntry(newEntry);
       window.currentConversationChain = updatedChain;
       window.currentThreadId = currentThreadId || result.entry_id;
 
