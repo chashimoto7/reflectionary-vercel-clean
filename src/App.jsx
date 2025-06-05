@@ -7,7 +7,6 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Auth from "./pages/Auth";
 import NewEntry from "./pages/NewEntry";
 import History from "./pages/history";
-import AnalyticsDashboard from "./components/AnalyticsDashboard";
 import EmotionalOverviewModal from "./components/EmotionalOverviewModal";
 import Goals from "./pages/Goals";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
