@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useEncryption } from "../contexts/EncryptionContext";
+import { useEncryption } from "../contexts/EncryptionContext";
 import supabase from "../supabaseClient";
 
 export default function History() {
@@ -48,7 +50,7 @@ export default function History() {
         }
 
         const decrypted = await Promise.all(
-          data.map(async (entry) => await decryptEntry(entry))
+          data.map((entry) => decryptJournalEntry(entry))
         );
 
         setEntries(decrypted);
@@ -64,89 +66,6 @@ export default function History() {
       fetchEntries();
     }
   }, [page, authLoading, user]);
-
-  async function decryptEntry(entry) {
-    const textDecoder = new TextDecoder();
-
-    function base64ToBytes(str) {
-      if (!str) throw new Error("Base64 string is undefined or empty");
-      return Uint8Array.from(atob(str), (c) => c.charCodeAt(0));
-    }
-
-    function hexToBytes(hex) {
-      if (!hex) throw new Error("Hex string is undefined or empty");
-      return Uint8Array.from(hex.match(/.{1,2}/g).map((b) => parseInt(b, 16)));
-    }
-
-    async function decryptAES(encryptedBase64, keyBytes, ivBase64) {
-      const iv = base64ToBytes(ivBase64);
-      const encrypted = base64ToBytes(encryptedBase64);
-      const cryptoKey = await window.crypto.subtle.importKey(
-        "raw",
-        keyBytes,
-        { name: "AES-CBC" },
-        false,
-        ["decrypt"]
-      );
-      const decrypted = await window.crypto.subtle.decrypt(
-        { name: "AES-CBC", iv },
-        cryptoKey,
-        encrypted
-      );
-      return textDecoder.decode(decrypted);
-    }
-
-    try {
-      const masterKeyBytes = hexToBytes(masterKeyHex);
-      const decryptedDataKeyBase64 = await decryptAES(
-        entry.encrypted_data_key,
-        masterKeyBytes,
-        entry.data_key_iv
-      );
-      const dataKey = base64ToBytes(decryptedDataKeyBase64);
-
-      const decryptedContent = await decryptAES(
-        entry.encrypted_content,
-        dataKey,
-        entry.content_iv
-      );
-
-      const decryptedPrompt = entry.encrypted_prompt
-        ? await decryptAES(entry.encrypted_prompt, dataKey, entry.prompt_iv)
-        : null;
-
-      const decryptedFollowups = await Promise.all(
-        (entry.followups || []).map(async (fup) => {
-          const fupContent = await decryptAES(
-            fup.encrypted_content,
-            dataKey,
-            fup.content_iv
-          );
-          const fupPrompt = fup.encrypted_prompt
-            ? await decryptAES(fup.encrypted_prompt, dataKey, fup.prompt_iv)
-            : null;
-          return {
-            ...fup,
-            decrypted_content: fupContent,
-            decrypted_prompt: fupPrompt,
-          };
-        })
-      );
-
-      return {
-        ...entry,
-        decrypted_content: decryptedContent,
-        decrypted_prompt: decryptedPrompt,
-        decrypted_followups: decryptedFollowups,
-      };
-    } catch (err) {
-      console.error("Decryption failed for entry:", entry.id, err);
-      return {
-        ...entry,
-        decrypted_content: "[Decryption failed]",
-      };
-    }
-  }
 
   if (authLoading || loading) {
     return (
