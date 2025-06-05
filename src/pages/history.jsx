@@ -23,11 +23,13 @@ export default function History() {
   const page = parseInt(searchParams.get("page") || "1", 10);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      console.warn("🚪 No user found — redirecting");
-      navigate("/login");
+    if (!authLoading && user?.id && isUnlocked) {
+      setShowUnlockModal(false); // hide modal
+      fetchEntries();
+    } else if (!isUnlocked) {
+      setShowUnlockModal(true); // show modal
     }
-  }, [authLoading, user, navigate]);
+  }, [page, authLoading, user, isUnlocked]);
 
   useEffect(() => {
     async function fetchEntries() {

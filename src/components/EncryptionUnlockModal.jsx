@@ -1,3 +1,4 @@
+// src/components/EncryptionUnlockModal.jsx
 import React, { useState } from "react";
 import { useEncryption } from "../contexts/EncryptionContext";
 import { Lock, Eye, EyeOff } from "lucide-react";
@@ -16,7 +17,6 @@ export default function EncryptionUnlockModal({ onClose, message }) {
 
     try {
       await unlockEncryption(password);
-      onClose();
     } catch (err) {
       setError("Incorrect password. Please try again.");
     } finally {
