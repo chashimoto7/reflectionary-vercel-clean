@@ -10,6 +10,7 @@ import History from "./pages/history";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
 import EmotionalOverviewModal from "./components/EmotionalOverviewModal";
 import Goals from "./pages/Goals";
+import AnalyticsDashboard from "./components/AnalyticsDashboard";
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
 
           {/* Catch all route */}
           <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/analytics" element={<AnalyticsDashboard />} />
         </Routes>
       </EncryptionProvider>
     </AuthProvider>

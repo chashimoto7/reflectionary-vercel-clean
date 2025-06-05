@@ -7,25 +7,29 @@ import supabase from "../supabaseClient";
 import encryptionService from "../services/encryptionService";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
+import { useFeatureAccess } from "../hooks/useFeatureAccess";
+import { FEATURES } from "../utils/featureFlags";
+import UpgradePrompt from "../components/UpgradePrompt";
+import PromptUsageService from "../services/promptUsageService";
+import BonusPromptChoice from "../components/BonusPromptChoice";
+import { AnalyticsIntegrationService } from "../services/AnalyticsIntegrationService";
 
 export default function NewEntry() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isUnlocked, encryptJournalEntry } = useEncryption();
 
-  // 🔐 Redirect to login if not authenticated
-  useEffect(() => {
-    const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/login");
-      }
-    };
-    checkSession();
-  }, [navigate]);
+  // Add feature access management - this gives us the tools to check membership levels
+  const {
+    checkFeatureAccess,
+    showUpgradePrompt,
+    requestedFeature,
+    handleUpgrade,
+    closeUpgradePrompt,
+    hasAccess,
+  } = useFeatureAccess(user?.user_metadata?.membership_level || "free");
 
+  // State declarations
   const [lastSavedEntry, setLastSavedEntry] = useState(null);
   const [prompt, setPrompt] = useState("");
   const [promptType, setPromptType] = useState("initial");
@@ -42,14 +46,38 @@ export default function NewEntry() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentThreadId, setCurrentThreadId] = useState(null);
   const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [promptUsageService] = useState(() => new PromptUsageService(supabase));
+  const [promptEligibility, setPromptEligibility] = useState(null);
+  const [showBonusChoice, setShowBonusChoice] = useState(false);
+  const [bonusEarnedMessage, setBonusEarnedMessage] = useState("");
 
   const editorRef = useRef(null);
   const quillRef = useRef(null);
+
+  // 🔐 Redirect to login if not authenticated
+  useEffect(() => {
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/login");
+      }
+    };
+    checkSession();
+  }, [navigate]);
 
   // Check if encryption needs to be unlocked
   useEffect(() => {
     if (user && !isUnlocked) {
       setShowUnlockModal(true);
+    }
+  }, [user, isUnlocked]);
+
+  // Load prompt eligibility when component mounts
+  useEffect(() => {
+    if (user && isUnlocked) {
+      updatePromptEligibility();
     }
   }, [user, isUnlocked]);
 
@@ -115,6 +143,20 @@ export default function NewEntry() {
     };
   }, [isUnlocked]); // Re-initialize when encryption is unlocked
 
+  // Function to update prompt eligibility status
+  const updatePromptEligibility = async () => {
+    if (user?.id) {
+      try {
+        const eligibility = await promptUsageService.getPromptEligibility(
+          user.id
+        );
+        setPromptEligibility(eligibility);
+      } catch (error) {
+        console.error("Error updating prompt eligibility:", error);
+      }
+    }
+  };
+
   const clearEditor = () => {
     if (quillRef.current && isEditorReady) {
       try {
@@ -133,6 +175,23 @@ export default function NewEntry() {
       return;
     }
 
+    // Check if free users can use a random prompt
+    const userMembership = user?.user_metadata?.membership_level || "free";
+    if (userMembership === "free") {
+      const eligibility = await promptUsageService.getPromptEligibility(
+        user.id
+      );
+      if (!eligibility.canUseRandomPrompt) {
+        // Show them what they need to do to get more prompts
+        const message =
+          eligibility.entriesNeededForBonus > 0
+            ? `Write ${eligibility.entriesNeededForBonus} more entries this week to earn a bonus prompt!`
+            : "You've used your weekly prompt. Upgrade for unlimited access.";
+        alert(message);
+        return;
+      }
+    }
+
     try {
       setIsLoading(true);
       const res = await fetch(
@@ -147,6 +206,13 @@ export default function NewEntry() {
       const data = await res.json();
       const generatedPrompt =
         data?.prompt || "Write about a recent moment that impacted you.";
+
+      // Mark that a random prompt was used (if they're a free user)
+      if (userMembership === "free") {
+        await promptUsageService.usePrompt(user.id, "random");
+        updatePromptEligibility();
+      }
+
       setPrompt(generatedPrompt);
       setPromptType("initial");
       setSaveLabel("Save Entry");
@@ -168,6 +234,23 @@ export default function NewEntry() {
       return;
     }
 
+    // Check if user has access to custom prompts feature
+    const hasCustomPromptAccess = checkFeatureAccess(
+      FEATURES.CUSTOM_PROMPTS,
+      () => {
+        // This callback runs only if the user has access
+        proceedWithSubjectPrompt();
+      }
+    );
+
+    // If they don't have access, the upgrade prompt will show automatically
+    if (!hasCustomPromptAccess) {
+      return;
+    }
+  };
+
+  // Extract the actual prompt logic into a separate function
+  const proceedWithSubjectPrompt = async () => {
     if (!subject.trim()) return;
 
     try {
@@ -189,9 +272,15 @@ export default function NewEntry() {
       const data = await response.json();
 
       if (data.prompt) {
+        // Mark that a custom prompt was used
+        await promptUsageService.usePrompt(user.id, "custom");
+
         setPrompt(data.prompt);
         setShowPromptButton(false);
         setSubject("");
+
+        // Refresh eligibility status
+        updatePromptEligibility();
       } else {
         alert("No prompt returned. Try again.");
       }
@@ -281,6 +370,27 @@ export default function NewEntry() {
         parent_id: currentThreadId,
       };
 
+      const analyticsService = new AnalyticsIntegrationService();
+
+      // After successfully saving your journal entry
+      const handleSaveEntry = async (entryText) => {
+        try {
+          // Your existing save logic here
+          const savedEntry = await saveJournalEntry(entryText);
+
+          // Add analytics processing
+          if (savedEntry) {
+            await analyticsService.processJournalEntry(
+              user.id,
+              entryText,
+              savedEntry.id,
+              new Date()
+            );
+          }
+        } catch (error) {
+          console.error("Error saving entry or processing analytics:", error);
+        }
+      };
       let updatedChain;
       if (promptType === "initial") {
         console.log("📝 Starting new conversation thread");
@@ -317,6 +427,21 @@ export default function NewEntry() {
   const handleFollowUpFromChain = async () => {
     console.log("🤔 Generating followUp for entry ID:", lastSavedEntry?.id);
 
+    // Check if user has access to follow-up prompts
+    const hasFollowUpAccess = checkFeatureAccess(
+      FEATURES.FOLLOW_UP_PROMPTS,
+      () => {
+        // This callback runs only if the user has access
+        proceedWithFollowUp();
+      }
+    );
+
+    if (!hasFollowUpAccess) {
+      return;
+    }
+  };
+
+  const proceedWithFollowUp = async () => {
     // Check if we have a saved entry to work with
     if (!lastSavedEntry?.id) {
       console.error("❌ No saved entry ID available for followUp");
