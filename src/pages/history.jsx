@@ -74,14 +74,21 @@ export default function History() {
           try {
             console.log(`Decrypting entry ${index + 1}/${data.length}`, {
               id: entry.id,
-              allFields: Object.keys(entry),
-              hasEncryptedContent: !!entry.encrypted_content,
-              hasDataKey: !!entry.encrypted_data_key,
-              hasContentIv: !!entry.content_iv,
-              hasDataKeyIv: !!entry.data_key_iv,
-              hasHtmlContentIv: !!entry.html_content_iv,
-              hasEncryptedHtmlContent: !!entry.encrypted_html_content,
-              createdAt: entry.created_at,
+              encryptedContentLength: entry.encrypted_content?.length,
+              contentIvLength: entry.content_iv?.length,
+              encryptedDataKeyLength: entry.encrypted_data_key?.length,
+              dataKeyIvLength: entry.data_key_iv?.length,
+              encryptedHtmlContentLength: entry.encrypted_html_content?.length,
+              htmlContentIvLength: entry.html_content_iv?.length,
+              encryptedPromptLength: entry.encrypted_prompt?.length,
+              promptIvLength: entry.prompt_iv?.length,
+              // Show actual values to check for null/empty
+              encryptedContent: entry.encrypted_content ? "present" : "missing",
+              contentIv: entry.content_iv ? "present" : "missing",
+              encryptedDataKey: entry.encrypted_data_key
+                ? "present"
+                : "missing",
+              dataKeyIv: entry.data_key_iv ? "present" : "missing",
             });
 
             // Test if decryptJournalEntry function is available
