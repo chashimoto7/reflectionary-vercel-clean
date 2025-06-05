@@ -6,6 +6,7 @@ import supabase from "../supabaseClient";
 
 export default function History() {
   const { user, loading: authLoading } = useAuth();
+  const { decryptJournalEntry } = useEncryption();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
