@@ -116,6 +116,7 @@ export const EncryptionProvider = ({ children }) => {
   // In your EncryptionContext.jsx, replace the decryptJournalEntry function with:
 
   const decryptJournalEntry = async (encryptedEntry) => {
+    //Updated debugging
     if (!masterKey) {
       throw new Error("Encryption not unlocked");
     }
