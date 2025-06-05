@@ -10,7 +10,7 @@ import "quill/dist/quill.snow.css";
 import { useFeatureAccess } from "../hooks/useFeatureAccess";
 import { FEATURES } from "../utils/featureFlags";
 import UpgradePrompt from "../components/UpgradePrompt";
-import PromptUsageService from "../services/promptUsageService";
+import PromptUsageService from "../services/PromptUsageService";
 import BonusPromptChoice from "../components/BonusPromptChoice";
 import { AnalyticsIntegrationService } from "../services/AnalyticsIntegrationService";
 
