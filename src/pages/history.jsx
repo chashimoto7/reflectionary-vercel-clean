@@ -28,7 +28,14 @@ export default function History() {
       return;
     }
 
+    if (!isUnlocked) {
+      console.log("Encryption not unlocked, cannot fetch entries");
+      setError("Please unlock encryption first");
+      return;
+    }
+
     console.log("📬 Fetching entries for user ID:", user.id, "page:", page);
+    console.log("🔑 Encryption status:", { isUnlocked });
     setLoading(true);
     setError(null);
 
@@ -61,10 +68,31 @@ export default function History() {
       const decrypted = await Promise.all(
         data.map(async (entry, index) => {
           try {
-            console.log(`Decrypting entry ${index + 1}/${data.length}`);
-            return await decryptJournalEntry(entry);
+            console.log(`Decrypting entry ${index + 1}/${data.length}`, {
+              id: entry.id,
+              hasEncryptedContent: !!entry.encrypted_content,
+              hasDataKey: !!entry.encrypted_data_key,
+              hasContentIv: !!entry.content_iv,
+              hasDataKeyIv: !!entry.data_key_iv,
+              createdAt: entry.created_at,
+            });
+
+            const decryptedEntry = await decryptJournalEntry(entry);
+            console.log(`✅ Successfully decrypted entry ${index + 1}`);
+            return decryptedEntry;
           } catch (decryptError) {
-            console.error(`Failed to decrypt entry ${entry.id}:`, decryptError);
+            console.error(`❌ Failed to decrypt entry ${entry.id}:`, {
+              error: decryptError.message,
+              entry: {
+                id: entry.id,
+                hasEncryptedContent: !!entry.encrypted_content,
+                hasDataKey: !!entry.encrypted_data_key,
+                contentIvLength: entry.content_iv?.length,
+                dataKeyIvLength: entry.data_key_iv?.length,
+                encryptedContentLength: entry.encrypted_content?.length,
+                encryptedDataKeyLength: entry.encrypted_data_key?.length,
+              },
+            });
             throw new Error(
               `Failed to decrypt entry ${entry.id}: ${decryptError.message}`
             );
