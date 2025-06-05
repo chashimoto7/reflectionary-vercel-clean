@@ -113,6 +113,8 @@ export const EncryptionProvider = ({ children }) => {
     };
   };
 
+  // In your EncryptionContext.jsx, replace the decryptJournalEntry function with:
+
   const decryptJournalEntry = async (encryptedEntry) => {
     if (!masterKey) {
       throw new Error("Encryption not unlocked");
@@ -133,14 +135,16 @@ export const EncryptionProvider = ({ children }) => {
           encryptedEntry.content_iv,
           dataKey
         ),
-        encryptedEntry.encrypted_html_content
+        // Fix: Check both encrypted data AND IV exist and are not null
+        encryptedEntry.encrypted_html_content && encryptedEntry.html_content_iv
           ? encryptionService.decryptText(
               encryptedEntry.encrypted_html_content,
               encryptedEntry.html_content_iv,
               dataKey
             )
           : "",
-        encryptedEntry.encrypted_prompt
+        // Fix: Check both encrypted data AND IV exist and are not null
+        encryptedEntry.encrypted_prompt && encryptedEntry.prompt_iv
           ? encryptionService.decryptText(
               encryptedEntry.encrypted_prompt,
               encryptedEntry.prompt_iv,
