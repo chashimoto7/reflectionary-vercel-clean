@@ -4,11 +4,16 @@ class EncryptionService {
     this.algorithm = "AES-CBC";
     this.keyLength = 256;
     this.ivLength = 16; // 16 bytes for AES-CBC
+    this._tempCredentials = null; // Store for GCM fallback
   }
 
   // Generate a master key from user password + email (deterministic)
   async generateMasterKey(email, password) {
     console.log("🔑 Generating master key with AES-CBC");
+
+    // Store credentials temporarily for potential GCM fallback
+    this._tempCredentials = { email, password };
+
     const encoder = new TextEncoder();
     const keyMaterial = await window.crypto.subtle.importKey(
       "raw",
@@ -39,6 +44,43 @@ class EncryptionService {
 
     console.log("✅ Master key generated:", masterKey);
     return masterKey;
+  }
+
+  // Generate GCM master key for backwards compatibility
+  async generateGCMMasterKey() {
+    if (!this._tempCredentials) {
+      throw new Error("No credentials available for GCM fallback");
+    }
+
+    console.log("🔑 Generating GCM master key for fallback");
+    const { email, password } = this._tempCredentials;
+
+    const encoder = new TextEncoder();
+    const keyMaterial = await window.crypto.subtle.importKey(
+      "raw",
+      encoder.encode(password),
+      { name: "PBKDF2" },
+      false,
+      ["deriveBits", "deriveKey"]
+    );
+
+    const salt = await window.crypto.subtle.digest(
+      "SHA-256",
+      encoder.encode(email)
+    );
+
+    return await window.crypto.subtle.deriveKey(
+      {
+        name: "PBKDF2",
+        salt: salt,
+        iterations: 100000,
+        hash: "SHA-256",
+      },
+      keyMaterial,
+      { name: "AES-GCM", length: this.keyLength },
+      false,
+      ["encrypt", "decrypt"]
+    );
   }
 
   // Generate a random data encryption key
@@ -206,13 +248,9 @@ class EncryptionService {
         const ivBuffer = this.base64ToArrayBuffer(encryptedKeyData.iv);
 
         // For AES-GCM, we need to create a master key with GCM algorithm
-        const gcmMasterKey = await window.crypto.subtle.importKey(
-          "raw",
-          await window.crypto.subtle.exportKey("raw", masterKey),
-          { name: "AES-GCM" },
-          false,
-          ["encrypt", "decrypt"]
-        );
+        // Since the master key is non-extractable, we need to derive a GCM version
+        // using the same parameters but different algorithm
+        const gcmMasterKey = await this.generateGCMMasterKey();
 
         const decryptedBuffer = await window.crypto.subtle.decrypt(
           {
