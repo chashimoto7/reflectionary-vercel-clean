@@ -260,8 +260,6 @@ export default function NewEntry() {
         created_at: new Date().toISOString(),
         is_follow_up: promptType === "followUp",
         parent_id: currentThreadId,
-        // Store the encrypted entry data for follow-up API
-        encryptedData: result.encryptedData, // Assuming your save-entry API returns this
       };
 
       let updatedChain;
@@ -298,14 +296,11 @@ export default function NewEntry() {
   };
 
   const handleFollowUpFromChain = async () => {
-    console.log(
-      "🤔 Generating followUp with last saved entry:",
-      lastSavedEntry
-    );
+    console.log("🤔 Generating followUp for entry ID:", lastSavedEntry?.id);
 
     // Check if we have a saved entry to work with
-    if (!lastSavedEntry) {
-      console.error("❌ No saved entry available for followUp");
+    if (!lastSavedEntry?.id) {
+      console.error("❌ No saved entry ID available for followUp");
       alert("No previous entries found. Please write a journal entry first.");
       return;
     }
@@ -315,30 +310,7 @@ export default function NewEntry() {
       setShowFollowUpModal(false); // Close modal immediately
       setPrompt("Thinking..."); // Show loading state
 
-      // If we have encrypted data from the save response, use it
-      // Otherwise, we need to get the entry data from the database
-      let entryToSend = lastSavedEntry.encryptedData;
-
-      if (!entryToSend) {
-        // Fallback: fetch the encrypted entry from the database
-        console.log("Fetching encrypted entry data for follow-up...");
-        const fetchResponse = await fetch(
-          `https://reflectionary-api.vercel.app/api/get-entry?entry_id=${lastSavedEntry.id}&user_id=${user.id}`,
-          {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-
-        if (!fetchResponse.ok) {
-          throw new Error("Failed to fetch entry for follow-up");
-        }
-
-        const fetchData = await fetchResponse.json();
-        entryToSend = fetchData.entry;
-      }
-
-      console.log("Sending follow-up request...");
+      console.log("Sending follow-up request for entry ID:", lastSavedEntry.id);
       const response = await fetch(
         "https://reflectionary-api.vercel.app/api/follow-up",
         {
@@ -346,7 +318,7 @@ export default function NewEntry() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             user_id: user.id,
-            entry: entryToSend,
+            entry_id: lastSavedEntry.id,
           }),
         }
       );
