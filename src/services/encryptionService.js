@@ -1,9 +1,9 @@
 // src/services/encryptionService.js
 class EncryptionService {
   constructor() {
-    this.algorithm = "AES-GCM";
+    this.algorithm = "AES-CBC"; // Changed from AES-GCM to AES-CBC
     this.keyLength = 256;
-    this.ivLength = 12; // 96 bits for AES-GCM
+    this.ivLength = 16; // Changed from 12 to 16 bytes for AES-CBC
   }
 
   // Generate a master key from user password + email (deterministic)
@@ -68,7 +68,6 @@ class EncryptionService {
       data
     );
 
-    // AES-GCM includes authentication tag in the result
     const encryptedArray = new Uint8Array(encryptedBuffer);
 
     return {
