@@ -121,6 +121,19 @@ export const EncryptionProvider = ({ children }) => {
     }
 
     try {
+      console.log("🔓 Starting decryption for entry:", encryptedEntry.id);
+      console.log("🔍 Entry data check:", {
+        hasEncryptedContent: !!encryptedEntry.encrypted_content,
+        hasContentIv: !!encryptedEntry.content_iv,
+        hasEncryptedDataKey: !!encryptedEntry.encrypted_data_key,
+        hasDataKeyIv: !!encryptedEntry.data_key_iv,
+        encryptedContentLength: encryptedEntry.encrypted_content?.length,
+        contentIvLength: encryptedEntry.content_iv?.length,
+        encryptedDataKeyLength: encryptedEntry.encrypted_data_key?.length,
+        dataKeyIvLength: encryptedEntry.data_key_iv?.length,
+      });
+
+      console.log("🔑 Decrypting data key...");
       const dataKey = await encryptionService.decryptKey(
         {
           encryptedData: encryptedEntry.encrypted_data_key,
@@ -128,30 +141,49 @@ export const EncryptionProvider = ({ children }) => {
         },
         masterKey
       );
+      console.log("✅ Data key decrypted successfully");
 
-      const [content, htmlContent, prompt] = await Promise.all([
-        encryptionService.decryptText(
-          encryptedEntry.encrypted_content,
-          encryptedEntry.content_iv,
+      console.log("📝 Decrypting content...");
+      const content = await encryptionService.decryptText(
+        encryptedEntry.encrypted_content,
+        encryptedEntry.content_iv,
+        dataKey
+      );
+      console.log("✅ Content decrypted successfully, length:", content.length);
+
+      let htmlContent = "";
+      if (
+        encryptedEntry.encrypted_html_content &&
+        encryptedEntry.html_content_iv
+      ) {
+        console.log("🌐 Decrypting HTML content...");
+        htmlContent = await encryptionService.decryptText(
+          encryptedEntry.encrypted_html_content,
+          encryptedEntry.html_content_iv,
           dataKey
-        ),
-        // Fix: Check both encrypted data AND IV exist and are not null
-        encryptedEntry.encrypted_html_content && encryptedEntry.html_content_iv
-          ? encryptionService.decryptText(
-              encryptedEntry.encrypted_html_content,
-              encryptedEntry.html_content_iv,
-              dataKey
-            )
-          : "",
-        // Fix: Check both encrypted data AND IV exist and are not null
-        encryptedEntry.encrypted_prompt && encryptedEntry.prompt_iv
-          ? encryptionService.decryptText(
-              encryptedEntry.encrypted_prompt,
-              encryptedEntry.prompt_iv,
-              dataKey
-            )
-          : "",
-      ]);
+        );
+        console.log("✅ HTML content decrypted successfully");
+      } else {
+        console.log("⏭️ Skipping HTML content (null values)");
+      }
+
+      let prompt = "";
+      if (encryptedEntry.encrypted_prompt && encryptedEntry.prompt_iv) {
+        console.log("💭 Decrypting prompt...");
+        prompt = await encryptionService.decryptText(
+          encryptedEntry.encrypted_prompt,
+          encryptedEntry.prompt_iv,
+          dataKey
+        );
+        console.log("✅ Prompt decrypted successfully");
+      } else {
+        console.log("⏭️ Skipping prompt (null values)");
+      }
+
+      console.log(
+        "🎉 All decryption completed successfully for entry:",
+        encryptedEntry.id
+      );
 
       return {
         ...encryptedEntry,
@@ -160,8 +192,16 @@ export const EncryptionProvider = ({ children }) => {
         prompt,
       };
     } catch (error) {
-      console.error("Failed to decrypt journal entry:", error);
-      throw new Error("Failed to decrypt journal entry");
+      console.error(
+        "❌ Decryption failed for entry:",
+        encryptedEntry.id,
+        error
+      );
+      console.error("❌ Error details:", {
+        message: error.message,
+        stack: error.stack,
+      });
+      throw new Error(`Failed to decrypt journal entry: ${error.message}`);
     }
   };
 
