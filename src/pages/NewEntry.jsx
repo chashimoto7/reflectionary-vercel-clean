@@ -223,12 +223,22 @@ export default function NewEntry() {
 
       setSaveLabel("Saving...");
 
-      const entryData = {
+      console.log("🔨 Creating entry with encryption service:", {
+        algorithm: encryptionService.algorithm,
+        ivLength: encryptionService.ivLength,
+      });
+
+      // Encrypt the data on frontend before sending
+      const encryptedData = await encryptJournalEntry({
         content: htmlContent,
         prompt: prompt || null,
+      });
+
+      const entryData = {
+        ...encryptedData, // This should contain encrypted_content, content_iv, etc.
         user_id: userId,
         is_follow_up: promptType === "followUp",
-        parent_entry_id: currentThreadId, // Maintain parent-child relationship
+        parent_entry_id: currentThreadId,
         thread_id: currentThreadId,
       };
 
