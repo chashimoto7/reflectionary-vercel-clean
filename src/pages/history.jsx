@@ -22,71 +22,122 @@ export default function History() {
 
   const page = parseInt(searchParams.get("page") || "1", 10);
 
-  useEffect(() => {
-    if (!authLoading && user?.id && isUnlocked) {
-      setShowUnlockModal(false); // hide modal
-      fetchEntries();
-    } else if (!isUnlocked) {
-      setShowUnlockModal(true); // show modal
+  const fetchEntries = async () => {
+    if (!user?.id) {
+      console.log("No user ID available");
+      return;
     }
-  }, [page, authLoading, user, isUnlocked]);
 
-  useEffect(() => {
-    async function fetchEntries() {
-      if (!user?.id) return;
+    console.log("📬 Fetching entries for user ID:", user.id, "page:", page);
+    setLoading(true);
+    setError(null);
 
-      console.log("📬 Fetching entries for user ID:", user.id, "page:", page);
+    try {
+      const res = await fetch(
+        `https://reflectionary-api.vercel.app/api/history?user_id=${encodeURIComponent(
+          user.id
+        )}&page=${page}`
+      );
 
-      try {
-        const res = await fetch(
-          `https://reflectionary-api.vercel.app/api/history?user_id=${encodeURIComponent(
-            user.id
-          )}&page=${page}`
-        );
-
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-
-        const data = await res.json();
-
-        if (!Array.isArray(data)) {
-          setError("Invalid data format received.");
-          return;
-        }
-
-        const decrypted = await Promise.all(
-          data.map((entry) => decryptJournalEntry(entry))
-        );
-
-        setEntries(decrypted);
-      } catch (err) {
-        console.error("❌ Failed to load history:", err);
-        setError(`Failed to load journal entries: ${err.message}`);
-      } finally {
-        setLoading(false);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
       }
+
+      const data = await res.json();
+      console.log("📋 Raw entries data:", data);
+
+      if (!Array.isArray(data)) {
+        setError("Invalid data format received.");
+        return;
+      }
+
+      if (data.length === 0) {
+        console.log("No entries found for this page");
+        setEntries([]);
+        return;
+      }
+
+      console.log("🔓 Starting decryption of", data.length, "entries");
+      const decrypted = await Promise.all(
+        data.map(async (entry, index) => {
+          try {
+            console.log(`Decrypting entry ${index + 1}/${data.length}`);
+            return await decryptJournalEntry(entry);
+          } catch (decryptError) {
+            console.error(`Failed to decrypt entry ${entry.id}:`, decryptError);
+            throw new Error(
+              `Failed to decrypt entry ${entry.id}: ${decryptError.message}`
+            );
+          }
+        })
+      );
+
+      console.log("✅ Successfully decrypted", decrypted.length, "entries");
+      setEntries(decrypted);
+    } catch (err) {
+      console.error("❌ Failed to load history:", err);
+      setError(`Failed to load journal entries: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    console.log("useEffect triggered:", {
+      authLoading,
+      userId: user?.id,
+      isUnlocked,
+      page,
+    });
+
+    if (authLoading) {
+      console.log("Auth still loading, waiting...");
+      return;
     }
 
-    if (!authLoading && user?.id && isUnlocked) {
-      fetchEntries();
-    } else if (!isUnlocked) {
+    if (!user?.id) {
+      console.log("No user found after auth completed");
+      setLoading(false);
+      setError("Please log in to view your journal history");
+      return;
+    }
+
+    if (!isUnlocked) {
+      console.log("Encryption not unlocked, showing modal");
       setShowUnlockModal(true);
+      setLoading(false);
+      return;
     }
-  }, [
-    page,
-    authLoading,
-    user,
-    isUnlocked,
-    decryptJournalEntry,
-    setShowUnlockModal,
-  ]);
 
-  if (authLoading || loading) {
+    // All conditions met, fetch entries
+    console.log("All conditions met, fetching entries");
+    setShowUnlockModal(false);
+    fetchEntries();
+  }, [page, authLoading, user?.id, isUnlocked]);
+
+  if (authLoading) {
     return (
       <div className="p-4">
         <h1 className="text-2xl font-semibold mb-4">Journal History</h1>
         <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="p-4">
+        <h1 className="text-2xl font-semibold mb-4">Journal History</h1>
+        <p>Please log in to view your journal history</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="p-4">
+        <h1 className="text-2xl font-semibold mb-4">Journal History</h1>
+        <p>Loading journal entries...</p>
       </div>
     );
   }
@@ -96,6 +147,12 @@ export default function History() {
       <div className="p-4">
         <h1 className="text-2xl font-semibold mb-4">Journal History</h1>
         <p className="text-red-500">{error}</p>
+        <button
+          onClick={fetchEntries}
+          className="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+        >
+          Try Again
+        </button>
       </div>
     );
   }
