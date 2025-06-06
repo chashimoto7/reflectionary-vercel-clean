@@ -1,3 +1,4 @@
+// src/hooks/useMembership.js
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
@@ -5,7 +6,7 @@ import { supabase } from "../lib/supabase";
 export function useMembership() {
   const { user } = useAuth();
   const [membershipData, setMembershipData] = useState({
-    tier: null, // Start with null - will be determined from database
+    tier: null,
     features: [],
     loading: true,
   });
@@ -14,7 +15,6 @@ export function useMembership() {
     if (user) {
       loadMembership();
     } else {
-      // No user = free tier (correct for production)
       setMembershipData({
         tier: "free",
         features: [],
@@ -29,11 +29,11 @@ export function useMembership() {
     try {
       console.log("🔍 Loading membership for user:", user.id);
 
-      // Query specifically for subscription_tier since that's what your DB uses
+      // Query by user_id column (not id column) since that's where the Supabase user ID is stored
       const { data: userData, error: userError } = await supabase
         .from("user_profiles")
         .select("subscription_tier")
-        .eq("id", user.id)
+        .eq("user_id", user.id) // Changed from 'id' to 'user_id'
         .single();
 
       console.log("📋 Raw user profile data:", userData);
@@ -41,7 +41,6 @@ export function useMembership() {
 
       if (userError) {
         if (userError.code === "PGRST116") {
-          // No profile found - this is a new user, default to free
           console.log("🆕 No user profile found - new user defaults to free");
           setMembershipData({
             tier: "free",
@@ -49,7 +48,6 @@ export function useMembership() {
             loading: false,
           });
         } else {
-          // Database error - log it but default to free for safety
           console.error("❌ Database error loading membership:", userError);
           setMembershipData({
             tier: "free",
@@ -64,7 +62,6 @@ export function useMembership() {
       const tier = userData?.subscription_tier;
       console.log("🎯 Raw subscription_tier from database:", tier);
 
-      // Validate that we got a real tier value
       if (!tier) {
         console.warn(
           "⚠️ subscription_tier is null/undefined in database, defaulting to free"
@@ -95,7 +92,6 @@ export function useMembership() {
       });
     } catch (error) {
       console.error("❌ Unexpected error loading membership:", error);
-      // On unexpected errors, default to free for safety
       setMembershipData({
         tier: "free",
         features: [],
@@ -107,7 +103,6 @@ export function useMembership() {
   function hasAccess(feature) {
     const { tier, features } = membershipData;
 
-    // If still loading, deny access for safety
     if (membershipData.loading) {
       console.log("🔐 Access denied: still loading membership data");
       return false;
@@ -141,7 +136,7 @@ export function useMembership() {
         );
 
       default:
-        return false; // Unknown features default to no access
+        return false;
     }
   }
 
