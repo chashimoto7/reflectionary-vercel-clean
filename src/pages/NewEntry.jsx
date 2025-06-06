@@ -14,7 +14,8 @@ export default function NewEntry() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isLocked, masterKey } = useSecurity();
-  const { hasAccess, tier } = useMembership();
+  const { hasAccess, tier, loading } = useMembership();
+
   console.log("🎯 Current membership tier:", tier, "Loading:", loading);
   console.log("🔍 Has access to journaling:", hasAccess("journaling"));
 

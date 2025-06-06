@@ -33,8 +33,8 @@ export function useMembership() {
       const { data: userData, error: userError } = await supabase
         .from("user_profiles")
         .select("subscription_tier")
-        .eq("user_id", user.id) // Changed from 'id' to 'user_id'
-        .single();
+        .eq("user_id", user.id)
+        .limit(1);
 
       console.log("📋 Raw user profile data:", userData);
       console.log("📋 User profile error:", userError);

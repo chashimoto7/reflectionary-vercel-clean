@@ -14,6 +14,7 @@ const SecurityContext = createContext({});
 export function SecurityProvider({ children }) {
   const { user } = useAuth();
   const [isLocked, setIsLocked] = useState(true);
+  const [isUnlocking, setIsUnlocking] = useState(false); // ✅ NEW STATE
   const [masterKey, setMasterKey] = useState(null);
   const [securitySettings, setSecuritySettings] = useState({
     autoLockEnabled: false,
@@ -21,7 +22,6 @@ export function SecurityProvider({ children }) {
     showLockStatus: true,
   });
 
-  // Auto-lock timer reference
   const autoLockTimer = useRef(null);
   const lastActivity = useRef(Date.now());
 
@@ -59,22 +59,20 @@ export function SecurityProvider({ children }) {
       lastActivity.current = Date.now();
     };
 
-    // Track user activity
     const events = ["mousedown", "keydown", "scroll", "touchstart"];
-    events.forEach((event) => {
-      document.addEventListener(event, handleActivity, true);
-    });
+    events.forEach((event) =>
+      document.addEventListener(event, handleActivity, true)
+    );
 
     return () => {
-      events.forEach((event) => {
-        document.removeEventListener(event, handleActivity, true);
-      });
+      events.forEach((event) =>
+        document.removeEventListener(event, handleActivity, true)
+      );
     };
   }, [securitySettings.autoLockEnabled, isLocked]);
 
   function startAutoLockTimer() {
     clearAutoLockTimer();
-
     if (!securitySettings.autoLockTimeout) return;
 
     autoLockTimer.current = setInterval(() => {
@@ -84,7 +82,7 @@ export function SecurityProvider({ children }) {
       if (timeSinceActivity >= timeoutMs) {
         lock();
       }
-    }, 30000); // Check every 30 seconds
+    }, 30000);
   }
 
   function clearAutoLockTimer() {
@@ -97,8 +95,8 @@ export function SecurityProvider({ children }) {
   async function unlock(password) {
     if (!user) throw new Error("No user logged in");
 
+    setIsUnlocking(true); // ✅ Start unlock delay
     try {
-      // Generate master key from user's password and email
       const key = await encryptionService.generateMasterKey(
         user.email,
         password
@@ -106,12 +104,13 @@ export function SecurityProvider({ children }) {
       setMasterKey(key);
       setIsLocked(false);
       lastActivity.current = Date.now();
-
-      console.log("Journal unlocked successfully");
+      console.log("🔓 Journal unlocked successfully");
       return true;
     } catch (error) {
-      console.error("Failed to unlock:", error);
+      console.error("❌ Failed to unlock:", error);
       throw new Error("Invalid password");
+    } finally {
+      setIsUnlocking(false); // ✅ Done unlocking
     }
   }
 
@@ -119,7 +118,7 @@ export function SecurityProvider({ children }) {
     setIsLocked(true);
     setMasterKey(null);
     clearAutoLockTimer();
-    console.log("Journal locked");
+    console.log("🔒 Journal locked");
   }
 
   function updateSecuritySettings(newSettings) {
@@ -128,6 +127,7 @@ export function SecurityProvider({ children }) {
 
   const value = {
     isLocked,
+    isUnlocking, // ✅ Expose this for App.jsx
     masterKey,
     securitySettings,
     unlock,

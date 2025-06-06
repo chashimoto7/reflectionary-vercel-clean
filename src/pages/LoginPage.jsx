@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
+import { useMembership } from "../hooks/useMembership";
 import { Eye, EyeOff } from "lucide-react";
 import logo from "../assets/reflectionary-square.png";
 
@@ -14,6 +15,7 @@ export default function LoginPage() {
 
   const { signIn } = useAuth();
   const { unlock } = useSecurity();
+  const { refresh } = useMembership(); // to re-fetch membership info
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,13 +23,13 @@ export default function LoginPage() {
     setIsLoggingIn(true);
 
     try {
-      // Step 1: Sign in to Supabase
       const { user, password: userPassword } = await signIn(email, password);
 
-      // Step 2: Unlock encryption with the same password
-      await unlock(userPassword);
-
-      console.log("Login and unlock successful");
+      // Wait briefly for user context to update before unlocking
+      setTimeout(async () => {
+        await unlock(userPassword);
+        await refresh(); // force refresh of membership data
+      }, 300);
     } catch (err) {
       console.error("Login error:", err);
       setError(err.message || "Login failed. Please try again.");
