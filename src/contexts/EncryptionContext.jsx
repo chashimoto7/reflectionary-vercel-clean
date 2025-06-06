@@ -28,27 +28,45 @@ export const EncryptionProvider = ({ children }) => {
     setEncryptionReady(true);
   }, []);
 
+  // Enhanced EncryptionContext with debouncing and better coordination
   useEffect(() => {
-    const autoUnlock = async () => {
-      // Add more specific conditions to prevent unnecessary unlocking
-      if (user && userPassword && encryptionReady && !isUnlocked) {
-        // Add a small delay to ensure other processes have time to stabilize
-        await new Promise((resolve) => setTimeout(resolve, 100));
+    // Create a debounced version of the auto-unlock function
+    const timeoutRef = { current: null };
 
-        // Double-check conditions after the delay in case state changed
+    const debouncedAutoUnlock = () => {
+      // Clear any existing timeout to prevent multiple concurrent unlocks
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      // Set a new timeout to delay the unlock operation
+      timeoutRef.current = setTimeout(async () => {
+        // Double-check conditions to ensure they're still valid after the delay
         if (user && userPassword && encryptionReady && !isUnlocked) {
           try {
-            console.log("Auto-unlocking encryption...");
+            console.log("Auto-unlocking encryption after debounce delay...");
             await unlockEncryption(userPassword);
           } catch (error) {
             console.error("Auto-unlock failed:", error);
           }
         }
-      }
+        timeoutRef.current = null;
+      }, 500); // 500ms delay to allow other processes to stabilize
     };
 
-    autoUnlock();
-  }, [user, userPassword, encryptionReady, isUnlocked]); // Added isUnlocked to dependencies
+    // Only trigger auto-unlock if all conditions are met
+    if (user && userPassword && encryptionReady && !isUnlocked) {
+      debouncedAutoUnlock();
+    }
+
+    // Cleanup function to prevent memory leaks
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [user, userPassword, encryptionReady, isUnlocked]);
 
   useEffect(() => {
     if (!user) {

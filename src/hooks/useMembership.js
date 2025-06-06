@@ -13,6 +13,8 @@ export function useMembership() {
   });
 
   useEffect(() => {
+    let timeoutId;
+
     if (!user) {
       setMembershipData({
         tier: "free",
@@ -23,7 +25,16 @@ export function useMembership() {
       return;
     }
 
-    fetchMembershipData();
+    // Debounce the membership data fetching to prevent rapid repeated calls
+    timeoutId = setTimeout(() => {
+      fetchMembershipData();
+    }, 100); // Shorter delay since this is less resource-intensive
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [user]);
 
   const fetchMembershipData = async () => {
