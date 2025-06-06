@@ -28,6 +28,7 @@ export function useMembership() {
 
     try {
       console.log("🔍 Loading membership for user:", user.id);
+      console.log("🔎 Looking for user profile with user_id:", user.id);
 
       // Query by user_id column (not id column) since that's where the Supabase user ID is stored
       const { data: userData, error: userError } = await supabase
