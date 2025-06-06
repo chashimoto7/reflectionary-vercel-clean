@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { useEncryption } from "../contexts/EncryptionContext";
-import EncryptionUnlockModal from "../components/EncryptionUnlockModal";
+import { useSecurity } from "../contexts/SecurityContext"; // Updated import
+import { useMembership } from "../hooks/useMembership"; // Updated import
 import supabase from "../supabaseClient";
 import encryptionService from "../services/encryptionService";
 import Quill from "quill";
@@ -11,23 +11,22 @@ import { useFeatureAccess } from "../hooks/useFeatureAccess";
 import { FEATURES } from "../utils/featureFlags";
 import UpgradePrompt from "../components/UpgradePrompt";
 import PromptUsageService from "../services/PromptUsageService";
-import BonusPromptChoice from "../components/BonusPromptChoice";
 import { AnalyticsIntegrationService } from "../services/AnalyticsIntegrationService";
 
 export default function NewEntry() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isUnlocked, encryptJournalEntry } = useEncryption();
+  const { isLocked, masterKey } = useSecurity(); // Updated to use SecurityContext
+  const { hasAccess, tier } = useMembership(); // Updated to use new membership hook
 
-  // Add feature access management - this gives us the tools to check membership levels
+  // Add feature access management - using tier from membership hook
   const {
     checkFeatureAccess,
     showUpgradePrompt,
     requestedFeature,
     handleUpgrade,
     closeUpgradePrompt,
-    hasAccess,
-  } = useFeatureAccess(user?.user_metadata?.membership_level || "free");
+  } = useFeatureAccess(tier);
 
   // State declarations
   const [lastSavedEntry, setLastSavedEntry] = useState(null);
@@ -45,16 +44,13 @@ export default function NewEntry() {
   const [subject, setSubject] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [currentThreadId, setCurrentThreadId] = useState(null);
-  const [showUnlockModal, setShowUnlockModal] = useState(false);
   const [promptUsageService] = useState(() => new PromptUsageService(supabase));
   const [promptEligibility, setPromptEligibility] = useState(null);
-  const [showBonusChoice, setShowBonusChoice] = useState(false);
-  const [bonusEarnedMessage, setBonusEarnedMessage] = useState("");
 
   const editorRef = useRef(null);
   const quillRef = useRef(null);
 
-  // 🔐 Redirect to login if not authenticated
+  // Redirect to login if not authenticated
   useEffect(() => {
     const checkSession = async () => {
       const {
@@ -67,24 +63,20 @@ export default function NewEntry() {
     checkSession();
   }, [navigate]);
 
-  // Check if encryption needs to be unlocked
-  useEffect(() => {
-    if (user && !isUnlocked) {
-      setShowUnlockModal(true);
-    }
-  }, [user, isUnlocked]);
+  // The security system handles showing unlock modal automatically
+  // So we don't need to check for unlocked state here anymore
 
   // Load prompt eligibility when component mounts
   useEffect(() => {
-    if (user && isUnlocked) {
+    if (user && !isLocked) {
       updatePromptEligibility();
     }
-  }, [user, isUnlocked]);
+  }, [user, isLocked]);
 
   // Initialize Quill editor when component mounts and encryption is ready
   useEffect(() => {
     const initEditor = () => {
-      if (editorRef.current && !quillRef.current && isUnlocked) {
+      if (editorRef.current && !quillRef.current && !isLocked) {
         try {
           console.log("Initializing Quill editor...");
 
@@ -109,7 +101,7 @@ export default function NewEntry() {
           quill.on("text-change", () => {
             const content = quill.getText().trim();
             const htmlContent = quill.root.innerHTML;
-            setEditorContent(content); // Store plain text for checking if content exists
+            setEditorContent(content);
             console.log("Editor content changed, length:", content.length);
           });
 
@@ -141,7 +133,47 @@ export default function NewEntry() {
         quillRef.current = null;
       }
     };
-  }, [isUnlocked]); // Re-initialize when encryption is unlocked
+  }, [isLocked]); // Re-initialize when encryption is unlocked
+
+  // Function to encrypt journal entry using the new system
+  const encryptJournalEntry = async (entryData) => {
+    if (!masterKey) {
+      throw new Error("No master key available for encryption");
+    }
+
+    // Generate a new data key for this entry
+    const dataKey = await encryptionService.generateDataKey();
+
+    // Encrypt the content with the data key
+    const encryptedContent = await encryptionService.encryptText(
+      entryData.content,
+      dataKey
+    );
+
+    // Encrypt the prompt if it exists
+    let encryptedPrompt = { encryptedData: "", iv: "" };
+    if (entryData.prompt) {
+      encryptedPrompt = await encryptionService.encryptText(
+        entryData.prompt,
+        dataKey
+      );
+    }
+
+    // Encrypt the data key with master key
+    const encryptedDataKey = await encryptionService.encryptKey(
+      dataKey,
+      masterKey
+    );
+
+    return {
+      encrypted_content: encryptedContent.encryptedData,
+      content_iv: encryptedContent.iv,
+      encrypted_prompt: encryptedPrompt.encryptedData,
+      prompt_iv: encryptedPrompt.iv,
+      encrypted_data_key: encryptedDataKey.encryptedData,
+      data_key_iv: encryptedDataKey.iv,
+    };
+  };
 
   // Function to update prompt eligibility status
   const updatePromptEligibility = async () => {
@@ -170,19 +202,17 @@ export default function NewEntry() {
   };
 
   const getPrompt = async () => {
-    if (!isUnlocked) {
-      setShowUnlockModal(true);
+    if (isLocked) {
+      console.log("App is locked, cannot get prompt");
       return;
     }
 
     // Check if free users can use a random prompt
-    const userMembership = user?.user_metadata?.membership_level || "free";
-    if (userMembership === "free") {
+    if (tier === "free") {
       const eligibility = await promptUsageService.getPromptEligibility(
         user.id
       );
       if (!eligibility.canUseRandomPrompt) {
-        // Show them what they need to do to get more prompts
         const message =
           eligibility.entriesNeededForBonus > 0
             ? `Write ${eligibility.entriesNeededForBonus} more entries this week to earn a bonus prompt!`
@@ -208,7 +238,7 @@ export default function NewEntry() {
         data?.prompt || "Write about a recent moment that impacted you.";
 
       // Mark that a random prompt was used (if they're a free user)
-      if (userMembership === "free") {
+      if (tier === "free") {
         await promptUsageService.usePrompt(user.id, "random");
         updatePromptEligibility();
       }
@@ -229,8 +259,8 @@ export default function NewEntry() {
   };
 
   const handleSubjectPrompt = async () => {
-    if (!isUnlocked) {
-      setShowUnlockModal(true);
+    if (isLocked) {
+      console.log("App is locked, cannot get custom prompt");
       return;
     }
 
@@ -238,12 +268,10 @@ export default function NewEntry() {
     const hasCustomPromptAccess = checkFeatureAccess(
       FEATURES.CUSTOM_PROMPTS,
       () => {
-        // This callback runs only if the user has access
         proceedWithSubjectPrompt();
       }
     );
 
-    // If they don't have access, the upgrade prompt will show automatically
     if (!hasCustomPromptAccess) {
       return;
     }
@@ -264,7 +292,7 @@ export default function NewEntry() {
           body: JSON.stringify({
             subject,
             user_id: user.id,
-            pastEntries: [], // We'll enhance this later with decrypted summaries
+            pastEntries: [],
           }),
         }
       );
@@ -272,14 +300,10 @@ export default function NewEntry() {
       const data = await response.json();
 
       if (data.prompt) {
-        // Mark that a custom prompt was used
         await promptUsageService.usePrompt(user.id, "custom");
-
         setPrompt(data.prompt);
         setShowPromptButton(false);
         setSubject("");
-
-        // Refresh eligibility status
         updatePromptEligibility();
       } else {
         alert("No prompt returned. Try again.");
@@ -313,27 +337,16 @@ export default function NewEntry() {
 
       setSaveLabel("Saving...");
 
-      console.log("🔨 Creating entry with encryption service:", {
-        algorithm: encryptionService.algorithm,
-        ivLength: encryptionService.ivLength,
-      });
-
-      // Encrypt the data on frontend before sending
       console.log("🔐 Encrypting entry data on frontend...");
       const encryptedData = await encryptJournalEntry({
         content: htmlContent,
         prompt: prompt || null,
       });
 
-      console.log("✅ Entry encrypted successfully:", {
-        hasEncryptedContent: !!encryptedData.encrypted_content,
-        hasContentIv: !!encryptedData.content_iv,
-        hasEncryptedDataKey: !!encryptedData.encrypted_data_key,
-        hasDataKeyIv: !!encryptedData.data_key_iv,
-      });
+      console.log("✅ Entry encrypted successfully");
 
       const entryData = {
-        ...encryptedData, // Contains encrypted_content, content_iv, encrypted_data_key, etc.
+        ...encryptedData,
         user_id: userId,
         is_follow_up: promptType === "followUp",
         parent_entry_id: currentThreadId,
@@ -370,27 +383,20 @@ export default function NewEntry() {
         parent_id: currentThreadId,
       };
 
+      // Analytics processing
       const analyticsService = new AnalyticsIntegrationService();
+      try {
+        await analyticsService.processJournalEntry(
+          user.id,
+          journalContent,
+          result.entry_id,
+          new Date()
+        );
+      } catch (analyticsError) {
+        console.error("Analytics processing failed:", analyticsError);
+        // Don't block the save process for analytics failures
+      }
 
-      // After successfully saving your journal entry
-      const handleSaveEntry = async (entryText) => {
-        try {
-          // Your existing save logic here
-          const savedEntry = await saveJournalEntry(entryText);
-
-          // Add analytics processing
-          if (savedEntry) {
-            await analyticsService.processJournalEntry(
-              user.id,
-              entryText,
-              savedEntry.id,
-              new Date()
-            );
-          }
-        } catch (error) {
-          console.error("Error saving entry or processing analytics:", error);
-        }
-      };
       let updatedChain;
       if (promptType === "initial") {
         console.log("📝 Starting new conversation thread");
@@ -410,12 +416,12 @@ export default function NewEntry() {
       setPrompt("");
       setShowPromptButton(true);
 
-      // ✅ Show success bar and reset label
+      // Show success bar and reset label
       setSaveConfirmation(true);
       setTimeout(() => setSaveConfirmation(false), 3000);
       setSaveLabel("Save Entry");
 
-      // ✅ Trigger followUp modal
+      // Trigger follow-up modal
       setShowFollowUpModal(true);
     } catch (err) {
       console.error("❌ Error saving entry:", err);
@@ -427,11 +433,9 @@ export default function NewEntry() {
   const handleFollowUpFromChain = async () => {
     console.log("🤔 Generating followUp for entry ID:", lastSavedEntry?.id);
 
-    // Check if user has access to follow-up prompts
     const hasFollowUpAccess = checkFeatureAccess(
       FEATURES.FOLLOW_UP_PROMPTS,
       () => {
-        // This callback runs only if the user has access
         proceedWithFollowUp();
       }
     );
@@ -442,7 +446,6 @@ export default function NewEntry() {
   };
 
   const proceedWithFollowUp = async () => {
-    // Check if we have a saved entry to work with
     if (!lastSavedEntry?.id) {
       console.error("❌ No saved entry ID available for followUp");
       alert("No previous entries found. Please write a journal entry first.");
@@ -451,8 +454,8 @@ export default function NewEntry() {
 
     try {
       setIsLoading(true);
-      setShowFollowUpModal(false); // Close modal immediately
-      setPrompt("Thinking..."); // Show loading state
+      setShowFollowUpModal(false);
+      setPrompt("Thinking...");
 
       console.log("Sending follow-up request for entry ID:", lastSavedEntry.id);
       const response = await fetch(
@@ -475,7 +478,6 @@ export default function NewEntry() {
       }
 
       if (data.prompt) {
-        // ✅ Update UI with the follow-up prompt
         setPrompt(data.prompt);
         setPromptType("followUp");
         setSaveLabel("Save Follow-Up Answer");
@@ -500,13 +502,13 @@ export default function NewEntry() {
     setEntryChain([]);
     setLastSavedEntry(null);
     setPrompt("");
-    setPromptType("initial"); // 🔑 Next save will start new thread
+    setPromptType("initial");
     setSaveLabel("Save Entry");
     setEditorContent("");
     setShowPromptButton(true);
     setShowFollowUpButtons(false);
     setShowFollowUpModal(false);
-    setCurrentThreadId(null); // 🔑 Clear thread ID
+    setCurrentThreadId(null);
 
     // Clear stored data
     window.currentConversationChain = [];
@@ -529,26 +531,15 @@ export default function NewEntry() {
     clearEditor();
   };
 
-  // Show unlock modal if encryption is not unlocked
-  if (showUnlockModal && !isUnlocked) {
-    return (
-      <EncryptionUnlockModal
-        onClose={() => {
-          if (isUnlocked) {
-            setShowUnlockModal(false);
-          }
-        }}
-      />
-    );
-  }
-
   // Show loading while encryption is being set up
-  if (!isUnlocked) {
+  if (isLocked) {
     return (
       <div className="max-w-4xl mx-auto mt-4 p-6 bg-white rounded-2xl shadow-md">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Setting up encryption...</p>
+          <p className="text-gray-600">
+            Journal is locked. Please unlock to continue.
+          </p>
         </div>
       </div>
     );

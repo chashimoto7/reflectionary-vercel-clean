@@ -4,137 +4,67 @@ import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 
 export function useMembership() {
-  const { user, authContext } = useAuth(); // Now using authContext
+  const { user } = useAuth();
   const [membershipData, setMembershipData] = useState({
     tier: "free",
     features: [],
     loading: true,
-    error: null,
   });
 
   useEffect(() => {
-    if (!user) {
-      // Clear membership data when user signs out
+    if (user) {
+      loadMembership();
+    } else {
+      // Reset to free when no user
       setMembershipData({
         tier: "free",
         features: [],
         loading: false,
-        error: null,
       });
-      return;
     }
+  }, [user]);
 
-    // Only reload membership data for significant authentication changes
-    // This prevents unnecessary reloading during routine validation events
-    if (user && authContext.isSignificantChange !== false) {
-      console.log(
-        "Significant auth change detected, loading membership data..."
-      );
-      const timeoutId = setTimeout(() => {
-        fetchMembershipData();
-      }, 100);
-
-      return () => {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-      };
-    } else if (user && authContext.isSignificantChange === false) {
-      console.log(
-        "Routine auth event detected, keeping existing membership data..."
-      );
-    }
-  }, [user, authContext.lastAuthTime]);
-
-  const fetchMembershipData = async () => {
-    if (!user) {
-      console.warn(
-        "Attempted to fetch membership data without authenticated user"
-      );
-      return;
-    }
-
-    const timestamp = new Date().toISOString();
-    console.log(
-      `[${timestamp}] useMembership: Starting to fetch membership data for user:`,
-      user.id
-    );
+  async function loadMembership() {
+    if (!user) return;
 
     try {
-      setMembershipData((prev) => ({ ...prev, loading: true }));
-
-      // Get user's base membership tier
-      console.log(
-        `[${timestamp}] useMembership: Querying user membership tier`
-      );
+      // Get user's membership tier
       const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("membership_tier, membership_expires_at")
+        .from("user_profiles")
+        .select("membership_tier")
         .eq("id", user.id)
         .single();
 
       if (userError) {
-        console.error(
-          `[${timestamp}] useMembership: Error fetching user data:`,
-          userError
-        );
-        throw userError;
+        console.error("Error loading membership:", userError);
+        setMembershipData((prev) => ({ ...prev, loading: false }));
+        return;
       }
 
-      console.log(
-        `[${timestamp}] useMembership: User data retrieved:`,
-        userData
-      );
-
-      // Get user's individual feature subscriptions (for Standard tier)
-      const { data: featureData, error: featureError } = await supabase
+      // Get any additional features for standard tier
+      const { data: featureData } = await supabase
         .from("user_feature_subscriptions")
-        .select("feature_name, active, expires_at")
+        .select("feature_name")
         .eq("user_id", user.id)
         .eq("active", true);
 
-      if (featureError) throw featureError;
-
-      // Filter out expired features
-      const activeFeatures =
-        featureData?.filter((feature) => {
-          if (!feature.expires_at) return true;
-          return new Date(feature.expires_at) > new Date();
-        }) || [];
+      const features = featureData?.map((f) => f.feature_name) || [];
 
       setMembershipData({
         tier: userData?.membership_tier || "free",
-        features: activeFeatures.map((f) => f.feature_name),
+        features,
         loading: false,
-        error: null,
-        expiresAt: userData?.membership_expires_at,
       });
-
-      console.log(
-        `[${timestamp}] useMembership: Successfully loaded membership data`
-      );
     } catch (error) {
-      console.error(
-        `[${timestamp}] useMembership: Error in fetchMembershipData:`,
-        error
-      );
-      setMembershipData((prev) => ({
-        ...prev,
-        loading: false,
-        error: error.message,
-      }));
+      console.error("Membership loading error:", error);
+      setMembershipData((prev) => ({ ...prev, loading: false }));
     }
-  };
+  }
 
-  // Helper function to check if user has access to a specific feature
-  const hasFeatureAccess = (featureName) => {
+  function hasAccess(feature) {
     const { tier, features } = membershipData;
 
-    // Premium users get everything
-    if (tier === "premium") return true;
-
-    // Check tier-specific access
-    switch (featureName) {
+    switch (feature) {
       case "journaling":
         return ["basic", "standard", "premium"].includes(tier);
 
@@ -162,30 +92,30 @@ export function useMembership() {
       default:
         return false;
     }
-  };
+  }
 
-  const getUpgradeMessage = (featureName) => {
+  function getUpgradeMessage(feature) {
     const { tier } = membershipData;
 
     if (tier === "free") {
-      return "Upgrade to Basic membership to unlock full journaling features, or Premium for everything!";
+      return "Upgrade to Basic for full journaling features, or Premium for everything!";
     }
 
     if (tier === "basic") {
-      return "Upgrade to Standard to add individual features, or Premium for everything!";
+      return "Upgrade to Standard to add features individually, or Premium for everything!";
     }
 
     if (tier === "standard") {
-      return `Add ${featureName} to your Standard membership or upgrade to Premium!`;
+      return `Add ${feature} to your Standard membership or upgrade to Premium!`;
     }
 
     return "Upgrade your membership to access this feature!";
-  };
+  }
 
   return {
     ...membershipData,
-    hasFeatureAccess,
+    hasAccess,
     getUpgradeMessage,
-    refreshMembership: fetchMembershipData,
+    refresh: loadMembership,
   };
 }

@@ -1,5 +1,5 @@
 // src/components/Layout.jsx
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import {
   Plus,
   Notebook,
@@ -10,30 +10,21 @@ import {
   Lock,
   Crown,
   Shield,
-  Unlock,
+  Settings,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { useSecurity } from "../contexts/SecurityContext";
 import { useMembership } from "../hooks/useMembership";
-import { useEncryption } from "../contexts/EncryptionContext";
 import { useState } from "react";
 import logo from "../assets/reflectionary-square.png";
 
-export default function Layout() {
+export default function Layout({ children }) {
   const { user, signOut } = useAuth();
-  const { hasFeatureAccess, getUpgradeMessage, tier, loading } =
-    useMembership();
+  const { lock, securitySettings } = useSecurity();
+  const { hasAccess, getUpgradeMessage, tier, loading } = useMembership();
 
-  // Add encryption context to access security controls
-  const { isUnlocked, lockEncryption, securityPreferences } = useEncryption();
-
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeMessage, setUpgradeMessage] = useState("");
-
-  const handleSignOut = async () => {
-    await signOut();
-    setShowUserMenu(false);
-  };
 
   // Handle clicks on locked features
   const handleLockedFeatureClick = (e, featureName) => {
@@ -42,13 +33,7 @@ export default function Layout() {
     setShowUpgradeModal(true);
   };
 
-  // Handle manual encryption lock
-  const handleManualLock = () => {
-    lockEncryption();
-    // Optionally show a brief confirmation that the app was locked
-  };
-
-  // Define navigation items with their access requirements
+  // Navigation items
   const navigationItems = [
     {
       to: "/new-entry",
@@ -137,11 +122,10 @@ export default function Layout() {
           {/* Navigation */}
           <nav className="space-y-3">
             {navigationItems.map((item) => {
-              const hasAccess = hasFeatureAccess(item.feature);
+              const userHasAccess = hasAccess(item.feature);
               const IconComponent = item.icon;
 
-              if (hasAccess) {
-                // User has access - render normal NavLink
+              if (userHasAccess) {
                 return (
                   <NavLink
                     key={item.feature}
@@ -159,7 +143,6 @@ export default function Layout() {
                   </NavLink>
                 );
               } else {
-                // User doesn't have access - render locked version
                 return (
                   <button
                     key={item.feature}
@@ -176,53 +159,34 @@ export default function Layout() {
           </nav>
         </div>
 
-        {/* User info and membership tier */}
+        {/* Bottom section */}
         <div className="space-y-4">
-          {/* Security Status Display - Only show if user has enabled security status visibility */}
-          {securityPreferences.showSecurityStatus && (
-            <div className="px-4 py-3 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {isUnlocked ? (
-                    <>
-                      <Unlock className="h-4 w-4 text-green-600" />
-                      <span className="text-sm font-medium text-purple-900">
-                        Journal Unlocked
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="h-4 w-4 text-orange-600" />
-                      <span className="text-sm font-medium text-purple-900">
-                        Journal Locked
-                      </span>
-                    </>
-                  )}
-                </div>
-                {/* Manual lock button - only show when unlocked */}
-                {isUnlocked && (
-                  <button
-                    onClick={handleManualLock}
-                    className="flex items-center gap-1 px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
-                    title="Lock your journal manually for security"
-                  >
-                    <Lock className="h-3 w-3" />
-                    Lock
-                  </button>
-                )}
-              </div>
-
-              {/* Show auto-lock status if enabled */}
-              {securityPreferences.autoLockEnabled &&
-                securityPreferences.autoLockTimeout &&
-                isUnlocked && (
-                  <div className="mt-2 text-xs text-purple-800">
-                    <Shield className="h-3 w-3 inline mr-1" />
-                    Auto-lock: {securityPreferences.autoLockTimeout} min
-                  </div>
-                )}
-            </div>
+          {/* Security Settings Link - only show if user wants status visible */}
+          {securitySettings.showLockStatus && (
+            <NavLink
+              to="/security"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
+                  isActive
+                    ? "bg-white/30 text-purple-900 shadow-md"
+                    : "bg-white/20 backdrop-blur-sm text-purple-900 hover:bg-white/30 hover:shadow-md"
+                }`
+              }
+            >
+              <Settings size={20} />
+              Security Settings
+            </NavLink>
           )}
+
+          {/* Manual Lock Button */}
+          <button
+            onClick={lock}
+            className="flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 bg-white/20 backdrop-blur-sm text-purple-900 hover:bg-white/30 hover:shadow-md w-full text-left"
+            title="Lock your journal for security"
+          >
+            <Lock size={20} />
+            Lock Journal
+          </button>
 
           {/* Membership tier display */}
           <div className="px-4 py-3 rounded-lg bg-white/20 backdrop-blur-sm">
@@ -241,7 +205,7 @@ export default function Layout() {
               <span className="truncate">{user?.email}</span>
             </div>
             <button
-              onClick={handleSignOut}
+              onClick={signOut}
               className="flex items-center gap-2 w-full px-3 py-2 rounded-md bg-purple-600 text-white hover:bg-purple-700 transition-colors"
             >
               <LogOut size={16} />
@@ -257,9 +221,7 @@ export default function Layout() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8">
-        <Outlet />
-      </main>
+      <main className="flex-1 p-8">{children}</main>
 
       {/* Upgrade Modal */}
       {showUpgradeModal && (
@@ -283,8 +245,7 @@ export default function Layout() {
                 <button
                   onClick={() => {
                     setShowUpgradeModal(false);
-                    // Here you would navigate to your upgrade/pricing page
-                    // For now, we'll just close the modal
+                    // Navigate to upgrade page when you build it
                   }}
                   className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-colors font-medium"
                 >
