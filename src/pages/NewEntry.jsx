@@ -15,6 +15,8 @@ export default function NewEntry() {
   const { user } = useAuth();
   const { isLocked, masterKey } = useSecurity();
   const { hasAccess, tier } = useMembership();
+  console.log("🎯 Current membership tier:", tier, "Loading:", loading);
+  console.log("🔍 Has access to journaling:", hasAccess("journaling"));
 
   // Add feature access management
   const {
