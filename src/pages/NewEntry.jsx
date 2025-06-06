@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { useSecurity } from "../contexts/SecurityContext"; // Updated import
-import { useMembership } from "../hooks/useMembership"; // Updated import
+import { useSecurity } from "../contexts/SecurityContext";
+import { useMembership } from "../hooks/useMembership";
 import supabase from "../supabaseClient";
 import encryptionService from "../services/encryptionService";
 import Quill from "quill";
@@ -11,15 +11,14 @@ import { useFeatureAccess } from "../hooks/useFeatureAccess";
 import { FEATURES } from "../utils/featureFlags";
 import UpgradePrompt from "../components/UpgradePrompt";
 import PromptUsageService from "../services/PromptUsageService";
-import { AnalyticsIntegrationService } from "../services/AnalyticsIntegrationService";
 
 export default function NewEntry() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isLocked, masterKey } = useSecurity(); // Updated to use SecurityContext
-  const { hasAccess, tier } = useMembership(); // Updated to use new membership hook
+  const { isLocked, masterKey } = useSecurity();
+  const { hasAccess, tier } = useMembership();
 
-  // Add feature access management - using tier from membership hook
+  // Add feature access management
   const {
     checkFeatureAccess,
     showUpgradePrompt,
@@ -62,9 +61,6 @@ export default function NewEntry() {
     };
     checkSession();
   }, [navigate]);
-
-  // The security system handles showing unlock modal automatically
-  // So we don't need to check for unlocked state here anymore
 
   // Load prompt eligibility when component mounts
   useEffect(() => {
@@ -133,7 +129,7 @@ export default function NewEntry() {
         quillRef.current = null;
       }
     };
-  }, [isLocked]); // Re-initialize when encryption is unlocked
+  }, [isLocked]);
 
   // Function to encrypt journal entry using the new system
   const encryptJournalEntry = async (entryData) => {
@@ -382,20 +378,6 @@ export default function NewEntry() {
         is_follow_up: promptType === "followUp",
         parent_id: currentThreadId,
       };
-
-      // Analytics processing
-      const analyticsService = new AnalyticsIntegrationService();
-      try {
-        await analyticsService.processJournalEntry(
-          user.id,
-          journalContent,
-          result.entry_id,
-          new Date()
-        );
-      } catch (analyticsError) {
-        console.error("Analytics processing failed:", analyticsError);
-        // Don't block the save process for analytics failures
-      }
 
       let updatedChain;
       if (promptType === "initial") {
