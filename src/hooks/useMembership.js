@@ -1,15 +1,10 @@
 // src/hooks/useMembership.js
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useEncryption } from "../contexts/EncryptionContext"; // Added missing import
 import { supabase } from "../lib/supabase";
 
 export function useMembership() {
-  // Get dependencies from other contexts
   const { user } = useAuth();
-  const { authenticationStable } = useEncryption(); // Access the stability signal
-
-  // Initialize state management
   const [membershipData, setMembershipData] = useState({
     tier: "free",
     features: [],
@@ -17,8 +12,32 @@ export function useMembership() {
     error: null,
   });
 
-  // Define the fetch function INSIDE the hook function
-  // This ensures it has access to the user state and setMembershipData function
+  // Simple, direct approach - fetch membership data whenever we have a user
+  useEffect(() => {
+    if (!user) {
+      // Clear membership data when user signs out
+      setMembershipData({
+        tier: "free",
+        features: [],
+        loading: false,
+        error: null,
+      });
+      return;
+    }
+
+    // Fetch membership data immediately when user is available
+    // Add a small delay to allow the authentication system to settle
+    const timeoutId = setTimeout(() => {
+      fetchMembershipData();
+    }, 100); // Very short delay just to ensure authentication is complete
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [user]); // Only depend on user, not on complex stability signals
+
   const fetchMembershipData = async () => {
     if (!user) {
       console.warn(
@@ -71,7 +90,7 @@ export function useMembership() {
       // Filter out expired features
       const activeFeatures =
         featureData?.filter((feature) => {
-          if (!feature.expires_at) return true; // No expiry date means permanent
+          if (!feature.expires_at) return true;
           return new Date(feature.expires_at) > new Date();
         }) || [];
 
@@ -82,6 +101,10 @@ export function useMembership() {
         error: null,
         expiresAt: userData?.membership_expires_at,
       });
+
+      console.log(
+        `[${timestamp}] useMembership: Successfully loaded membership data`
+      );
     } catch (error) {
       console.error(
         `[${timestamp}] useMembership: Error in fetchMembershipData:`,
@@ -95,8 +118,7 @@ export function useMembership() {
     }
   };
 
-  // Define helper functions INSIDE the hook function
-  // This ensures they have access to the current membershipData state
+  // Helper function to check if user has access to a specific feature
   const hasFeatureAccess = (featureName) => {
     const { tier, features } = membershipData;
 
@@ -152,36 +174,6 @@ export function useMembership() {
     return "Upgrade your membership to access this feature!";
   };
 
-  // Effect that manages when to fetch membership data
-  // This coordinates with the authentication stability from EncryptionContext
-  useEffect(() => {
-    if (!user) {
-      // Clear membership data when user signs out
-      setMembershipData({
-        tier: "free",
-        features: [],
-        loading: false,
-        error: null,
-      });
-      return;
-    }
-
-    // Wait for both user authentication and authentication stability
-    // This prevents fetching membership data during rapid authentication state changes
-    if (user && authenticationStable) {
-      console.log("Authentication stable, fetching membership data...");
-      fetchMembershipData();
-    } else if (user && !authenticationStable) {
-      // Keep loading state while waiting for authentication to stabilize
-      setMembershipData((prev) => ({ ...prev, loading: true }));
-      console.log(
-        "User authenticated but waiting for authentication to stabilize..."
-      );
-    }
-  }, [user, authenticationStable]);
-
-  // Return the hook's public interface
-  // This is what components will receive when they call useMembership()
   return {
     ...membershipData,
     hasFeatureAccess,
