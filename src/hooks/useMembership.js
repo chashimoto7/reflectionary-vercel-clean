@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 
 export function useMembership() {
-  const { user } = useAuth();
+  const { user, authContext } = useAuth(); // Now using authContext
   const [membershipData, setMembershipData] = useState({
     tier: "free",
     features: [],
@@ -12,7 +12,6 @@ export function useMembership() {
     error: null,
   });
 
-  // Simple, direct approach - fetch membership data whenever we have a user
   useEffect(() => {
     if (!user) {
       // Clear membership data when user signs out
@@ -25,18 +24,27 @@ export function useMembership() {
       return;
     }
 
-    // Fetch membership data immediately when user is available
-    // Add a small delay to allow the authentication system to settle
-    const timeoutId = setTimeout(() => {
-      fetchMembershipData();
-    }, 100); // Very short delay just to ensure authentication is complete
+    // Only reload membership data for significant authentication changes
+    // This prevents unnecessary reloading during routine validation events
+    if (user && authContext.isSignificantChange !== false) {
+      console.log(
+        "Significant auth change detected, loading membership data..."
+      );
+      const timeoutId = setTimeout(() => {
+        fetchMembershipData();
+      }, 100);
 
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [user]); // Only depend on user, not on complex stability signals
+      return () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      };
+    } else if (user && authContext.isSignificantChange === false) {
+      console.log(
+        "Routine auth event detected, keeping existing membership data..."
+      );
+    }
+  }, [user, authContext.lastAuthTime]);
 
   const fetchMembershipData = async () => {
     if (!user) {
