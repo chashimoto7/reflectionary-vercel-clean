@@ -28,10 +28,10 @@ export function useMembership() {
     if (!user) return;
 
     try {
-      // Get user's membership tier
+      // Get user's subscription tier (note: changed from membership_tier to subscription_tier)
       const { data: userData, error: userError } = await supabase
         .from("user_profiles")
-        .select("membership_tier")
+        .select("subscription_tier")
         .eq("id", user.id)
         .single();
 
@@ -51,7 +51,7 @@ export function useMembership() {
       const features = featureData?.map((f) => f.feature_name) || [];
 
       setMembershipData({
-        tier: userData?.membership_tier || "free",
+        tier: userData?.subscription_tier || "free",
         features,
         loading: false,
       });
