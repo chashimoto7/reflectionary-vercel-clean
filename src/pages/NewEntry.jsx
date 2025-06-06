@@ -8,9 +8,7 @@ import encryptionService from "../services/encryptionService";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
 import { useFeatureAccess } from "../hooks/useFeatureAccess";
-import { FEATURES } from "../utils/featureFlags";
 import UpgradePrompt from "../components/UpgradePrompt";
-import PromptUsageService from "../services/PromptUsageService";
 
 export default function NewEntry() {
   const navigate = useNavigate();
@@ -25,6 +23,7 @@ export default function NewEntry() {
     requestedFeature,
     handleUpgrade,
     closeUpgradePrompt,
+    getUpgradeMessage,
   } = useFeatureAccess(tier);
 
   // State declarations
@@ -43,8 +42,6 @@ export default function NewEntry() {
   const [subject, setSubject] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [currentThreadId, setCurrentThreadId] = useState(null);
-  const [promptUsageService] = useState(() => new PromptUsageService(supabase));
-  const [promptEligibility, setPromptEligibility] = useState(null);
 
   const editorRef = useRef(null);
   const quillRef = useRef(null);
@@ -61,13 +58,6 @@ export default function NewEntry() {
     };
     checkSession();
   }, [navigate]);
-
-  // Load prompt eligibility when component mounts
-  useEffect(() => {
-    if (user && !isLocked) {
-      updatePromptEligibility();
-    }
-  }, [user, isLocked]);
 
   // Initialize Quill editor when component mounts and encryption is ready
   useEffect(() => {
@@ -96,7 +86,6 @@ export default function NewEntry() {
           // Listen for content changes
           quill.on("text-change", () => {
             const content = quill.getText().trim();
-            const htmlContent = quill.root.innerHTML;
             setEditorContent(content);
             console.log("Editor content changed, length:", content.length);
           });
@@ -171,20 +160,6 @@ export default function NewEntry() {
     };
   };
 
-  // Function to update prompt eligibility status
-  const updatePromptEligibility = async () => {
-    if (user?.id) {
-      try {
-        const eligibility = await promptUsageService.getPromptEligibility(
-          user.id
-        );
-        setPromptEligibility(eligibility);
-      } catch (error) {
-        console.error("Error updating prompt eligibility:", error);
-      }
-    }
-  };
-
   const clearEditor = () => {
     if (quillRef.current && isEditorReady) {
       try {
@@ -203,21 +178,6 @@ export default function NewEntry() {
       return;
     }
 
-    // Check if free users can use a random prompt
-    if (tier === "free") {
-      const eligibility = await promptUsageService.getPromptEligibility(
-        user.id
-      );
-      if (!eligibility.canUseRandomPrompt) {
-        const message =
-          eligibility.entriesNeededForBonus > 0
-            ? `Write ${eligibility.entriesNeededForBonus} more entries this week to earn a bonus prompt!`
-            : "You've used your weekly prompt. Upgrade for unlimited access.";
-        alert(message);
-        return;
-      }
-    }
-
     try {
       setIsLoading(true);
       const res = await fetch(
@@ -232,12 +192,6 @@ export default function NewEntry() {
       const data = await res.json();
       const generatedPrompt =
         data?.prompt || "Write about a recent moment that impacted you.";
-
-      // Mark that a random prompt was used (if they're a free user)
-      if (tier === "free") {
-        await promptUsageService.usePrompt(user.id, "random");
-        updatePromptEligibility();
-      }
 
       setPrompt(generatedPrompt);
       setPromptType("initial");
@@ -260,21 +214,7 @@ export default function NewEntry() {
       return;
     }
 
-    // Check if user has access to custom prompts feature
-    const hasCustomPromptAccess = checkFeatureAccess(
-      FEATURES.CUSTOM_PROMPTS,
-      () => {
-        proceedWithSubjectPrompt();
-      }
-    );
-
-    if (!hasCustomPromptAccess) {
-      return;
-    }
-  };
-
-  // Extract the actual prompt logic into a separate function
-  const proceedWithSubjectPrompt = async () => {
+    // For free users, basic journaling is allowed
     if (!subject.trim()) return;
 
     try {
@@ -296,11 +236,9 @@ export default function NewEntry() {
       const data = await response.json();
 
       if (data.prompt) {
-        await promptUsageService.usePrompt(user.id, "custom");
         setPrompt(data.prompt);
         setShowPromptButton(false);
         setSubject("");
-        updatePromptEligibility();
       } else {
         alert("No prompt returned. Try again.");
       }
@@ -415,16 +353,14 @@ export default function NewEntry() {
   const handleFollowUpFromChain = async () => {
     console.log("🤔 Generating followUp for entry ID:", lastSavedEntry?.id);
 
-    const hasFollowUpAccess = checkFeatureAccess(
-      FEATURES.FOLLOW_UP_PROMPTS,
-      () => {
-        proceedWithFollowUp();
-      }
-    );
+    // Check if user has access to follow-up prompts
+    const hasFollowUpAccess = checkFeatureAccess("follow_up_prompts", () => {
+      // This callback runs if the user has access
+      proceedWithFollowUp();
+    });
 
-    if (!hasFollowUpAccess) {
-      return;
-    }
+    // If no access, the upgrade prompt will show automatically
+    // No need to do anything else here
   };
 
   const proceedWithFollowUp = async () => {
@@ -701,6 +637,16 @@ export default function NewEntry() {
           </div>
         )}
       </div>
+
+      {/* Upgrade Prompt Modal */}
+      {showUpgradePrompt && (
+        <UpgradePrompt
+          feature={requestedFeature}
+          onClose={closeUpgradePrompt}
+          onUpgrade={handleUpgrade}
+          message={getUpgradeMessage()}
+        />
+      )}
     </>
   );
 }
