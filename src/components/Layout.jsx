@@ -9,9 +9,12 @@ import {
   LogOut,
   Lock,
   Crown,
+  Shield,
+  Unlock,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMembership } from "../hooks/useMembership";
+import { useEncryption } from "../contexts/EncryptionContext";
 import { useState } from "react";
 import logo from "../assets/reflectionary-square.png";
 
@@ -19,6 +22,10 @@ export default function Layout() {
   const { user, signOut } = useAuth();
   const { hasFeatureAccess, getUpgradeMessage, tier, loading } =
     useMembership();
+
+  // Add encryption context to access security controls
+  const { isUnlocked, lockEncryption, securityPreferences } = useEncryption();
+
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeMessage, setUpgradeMessage] = useState("");
@@ -33,6 +40,12 @@ export default function Layout() {
     e.preventDefault();
     setUpgradeMessage(getUpgradeMessage(featureName));
     setShowUpgradeModal(true);
+  };
+
+  // Handle manual encryption lock
+  const handleManualLock = () => {
+    lockEncryption();
+    // Optionally show a brief confirmation that the app was locked
   };
 
   // Define navigation items with their access requirements
@@ -165,6 +178,52 @@ export default function Layout() {
 
         {/* User info and membership tier */}
         <div className="space-y-4">
+          {/* Security Status Display - Only show if user has enabled security status visibility */}
+          {securityPreferences.showSecurityStatus && (
+            <div className="px-4 py-3 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {isUnlocked ? (
+                    <>
+                      <Unlock className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium text-purple-900">
+                        Journal Unlocked
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="h-4 w-4 text-orange-600" />
+                      <span className="text-sm font-medium text-purple-900">
+                        Journal Locked
+                      </span>
+                    </>
+                  )}
+                </div>
+                {/* Manual lock button - only show when unlocked */}
+                {isUnlocked && (
+                  <button
+                    onClick={handleManualLock}
+                    className="flex items-center gap-1 px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                    title="Lock your journal manually for security"
+                  >
+                    <Lock className="h-3 w-3" />
+                    Lock
+                  </button>
+                )}
+              </div>
+
+              {/* Show auto-lock status if enabled */}
+              {securityPreferences.autoLockEnabled &&
+                securityPreferences.autoLockTimeout &&
+                isUnlocked && (
+                  <div className="mt-2 text-xs text-purple-800">
+                    <Shield className="h-3 w-3 inline mr-1" />
+                    Auto-lock: {securityPreferences.autoLockTimeout} min
+                  </div>
+                )}
+            </div>
+          )}
+
           {/* Membership tier display */}
           <div className="px-4 py-3 rounded-lg bg-white/20 backdrop-blur-sm">
             <div className="flex items-center gap-2 text-purple-900">
