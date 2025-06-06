@@ -27,17 +27,37 @@ export function useMembership() {
   }, [user]);
 
   const fetchMembershipData = async () => {
+    const timestamp = new Date().toISOString();
+    console.log(
+      `[${timestamp}] useMembership: Starting to fetch membership data for user:`,
+      user?.id
+    );
+
     try {
       setMembershipData((prev) => ({ ...prev, loading: true }));
 
       // Get user's base membership tier
+      console.log(
+        `[${timestamp}] useMembership: Querying user membership tier`
+      );
       const { data: userData, error: userError } = await supabase
         .from("users")
         .select("membership_tier, membership_expires_at")
         .eq("id", user.id)
         .single();
 
-      if (userError) throw userError;
+      if (userError) {
+        console.error(
+          `[${timestamp}] useMembership: Error fetching user data:`,
+          userError
+        );
+        throw userError;
+      }
+
+      console.log(
+        `[${timestamp}] useMembership: User data retrieved:`,
+        userData
+      );
 
       // Get user's individual feature subscriptions (for Standard tier)
       const { data: featureData, error: featureError } = await supabase
@@ -63,7 +83,10 @@ export function useMembership() {
         expiresAt: userData?.membership_expires_at,
       });
     } catch (error) {
-      console.error("Error fetching membership data:", error);
+      console.error(
+        `[${timestamp}] useMembership: Error in fetchMembershipData:`,
+        error
+      );
       setMembershipData((prev) => ({
         ...prev,
         loading: false,

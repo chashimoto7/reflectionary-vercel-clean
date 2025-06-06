@@ -40,19 +40,35 @@ export const AuthProvider = ({ children }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state changed:", event, session);
+      const timestamp = new Date().toISOString();
+      console.log(
+        `[${timestamp}] Auth state changed:`,
+        event,
+        session ? "Session exists" : "No session"
+      );
+
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
 
       // Clear password when user signs out
       if (event === "SIGNED_OUT") {
+        console.log(`[${timestamp}] Handling sign out event`);
         setUserPassword(null);
       }
 
       // Handle user profile creation/update on sign up or sign in
       if (event === "SIGNED_IN" && session?.user) {
+        console.log(
+          `[${timestamp}] Handling sign in event for user:`,
+          session.user.id
+        );
         await handleUserProfile(session.user);
+      }
+
+      // Log token refresh events specifically
+      if (event === "TOKEN_REFRESHED") {
+        console.log(`[${timestamp}] Token refresh occurred`);
       }
     });
 
