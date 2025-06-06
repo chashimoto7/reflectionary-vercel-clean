@@ -12,18 +12,22 @@ export function AuthProvider({ children }) {
     // Get initial session
     checkUser();
 
-    // Listen for auth changes (login/logout only)
+    // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth event:", event);
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth event:", event, session?.user?.email);
 
-      if (event === "SIGNED_IN") {
-        setUser(session?.user || null);
+      if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+        if (session?.user) {
+          setUser(session.user);
+          console.log("User set:", session.user.email);
+        }
       } else if (event === "SIGNED_OUT") {
         setUser(null);
+        console.log("User signed out");
       }
-      // Ignore other events like TOKEN_REFRESHED to avoid complexity
+      // Ignore TOKEN_REFRESHED to avoid complexity
     });
 
     return () => subscription.unsubscribe();
@@ -33,8 +37,19 @@ export function AuthProvider({ children }) {
     try {
       const {
         data: { session },
+        error,
       } = await supabase.auth.getSession();
-      setUser(session?.user || null);
+
+      if (error) {
+        console.error("Session check error:", error);
+        setUser(null);
+      } else if (session?.user) {
+        setUser(session.user);
+        console.log("Session found for:", session.user.email);
+      } else {
+        setUser(null);
+        console.log("No active session");
+      }
     } catch (error) {
       console.error("Error checking user:", error);
       setUser(null);
@@ -44,13 +59,19 @@ export function AuthProvider({ children }) {
   }
 
   async function signIn(email, password) {
+    console.log("Attempting sign in for:", email);
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error("Sign in error:", error);
+      throw error;
+    }
 
+    console.log("Sign in successful:", data.user?.email);
     // User state will be updated by the auth listener
     return { user: data.user, password }; // Return password for encryption
   }
@@ -66,7 +87,11 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
+    console.log("Signing out user");
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Sign out error:", error);
+    }
     // User state will be updated by the auth listener
   }
 
