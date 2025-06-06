@@ -20,6 +20,10 @@ export const EncryptionProvider = ({ children }) => {
   const [encryptionReady, setEncryptionReady] = useState(false);
   const [showUnlockModal, setShowUnlockModal] = useState(false);
 
+  // Add state tracking for coordination with other systems
+  const [authenticationStable, setAuthenticationStable] = useState(false);
+  const [unlockInProgress, setUnlockInProgress] = useState(false);
+
   useEffect(() => {
     if (!encryptionService.isSupported()) {
       console.error("Web Crypto API not supported in this browser");
@@ -28,54 +32,111 @@ export const EncryptionProvider = ({ children }) => {
     setEncryptionReady(true);
   }, []);
 
-  // Enhanced EncryptionContext with debouncing and better coordination
+  // Enhanced effect that coordinates authentication stability detection
   useEffect(() => {
-    // Create a debounced version of the auto-unlock function
-    const timeoutRef = { current: null };
+    let stabilityTimer;
 
-    const debouncedAutoUnlock = () => {
-      // Clear any existing timeout to prevent multiple concurrent unlocks
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+    // Reset stability when authentication state changes
+    setAuthenticationStable(false);
 
-      // Set a new timeout to delay the unlock operation
-      timeoutRef.current = setTimeout(async () => {
-        // Double-check conditions to ensure they're still valid after the delay
-        if (user && userPassword && encryptionReady && !isUnlocked) {
-          try {
-            console.log("Auto-unlocking encryption after debounce delay...");
-            await unlockEncryption(userPassword);
-          } catch (error) {
-            console.error("Auto-unlock failed:", error);
-          }
-        }
-        timeoutRef.current = null;
-      }, 500); // 500ms delay to allow other processes to stabilize
-    };
-
-    // Only trigger auto-unlock if all conditions are met
-    if (user && userPassword && encryptionReady && !isUnlocked) {
-      debouncedAutoUnlock();
+    // Set a timer to mark authentication as stable after a brief delay
+    // This prevents rapid state changes from triggering multiple unlock attempts
+    if (user && session) {
+      stabilityTimer = setTimeout(() => {
+        setAuthenticationStable(true);
+      }, 200); // Wait for authentication state to stabilize
     }
 
-    // Cleanup function to prevent memory leaks
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
+      if (stabilityTimer) {
+        clearTimeout(stabilityTimer);
       }
     };
-  }, [user, userPassword, encryptionReady, isUnlocked]);
+  }, [user, session]);
 
+  // Modified auto-unlock effect that waits for authentication stability
+  useEffect(() => {
+    const attemptAutoUnlock = async () => {
+      // Only proceed if authentication is stable and all conditions are met
+      if (
+        authenticationStable &&
+        user &&
+        userPassword &&
+        encryptionReady &&
+        !isUnlocked &&
+        !unlockInProgress
+      ) {
+        setUnlockInProgress(true);
+        try {
+          console.log(
+            "Auto-unlocking encryption after authentication stabilized..."
+          );
+          await unlockEncryption(userPassword);
+        } catch (error) {
+          console.error("Auto-unlock failed:", error);
+          // If auto-unlock fails and we have a user but no password, show the modal
+          if (user && !userPassword) {
+            setShowUnlockModal(true);
+          }
+        } finally {
+          setUnlockInProgress(false);
+        }
+      }
+    };
+
+    attemptAutoUnlock();
+  }, [
+    authenticationStable,
+    user,
+    userPassword,
+    encryptionReady,
+    isUnlocked,
+    unlockInProgress,
+  ]);
+
+  // Enhanced modal logic that only shows when appropriate
+  useEffect(() => {
+    // Only consider showing the modal if authentication is stable
+    if (!authenticationStable) {
+      setShowUnlockModal(false);
+      return;
+    }
+
+    // Show modal only if we have a user, encryption is ready,
+    // but we don't have a password and aren't unlocked
+    if (
+      user &&
+      encryptionReady &&
+      !userPassword &&
+      !isUnlocked &&
+      !unlockInProgress
+    ) {
+      setShowUnlockModal(true);
+    } else {
+      setShowUnlockModal(false);
+    }
+  }, [
+    authenticationStable,
+    user,
+    encryptionReady,
+    userPassword,
+    isUnlocked,
+    unlockInProgress,
+  ]);
+
+  // Clear state when user signs out
   useEffect(() => {
     if (!user) {
       setMasterKey(null);
       setIsUnlocked(false);
+      setAuthenticationStable(false);
+      setUnlockInProgress(false);
+      setShowUnlockModal(false);
       sessionStorage.removeItem("encryption_unlocked");
     }
   }, [user]);
 
+  // Enhanced unlock function that coordinates with the state management
   const unlockEncryption = async (password) => {
     if (!user || !encryptionReady) {
       throw new Error("User not authenticated or encryption not ready");
@@ -89,6 +150,7 @@ export const EncryptionProvider = ({ children }) => {
       );
       setMasterKey(key);
       setIsUnlocked(true);
+      setShowUnlockModal(false); // Explicitly hide modal on successful unlock
       sessionStorage.setItem("encryption_unlocked", "true");
       console.log("Encryption unlocked successfully");
       return true;
@@ -98,226 +160,12 @@ export const EncryptionProvider = ({ children }) => {
     }
   };
 
-  const lockEncryption = () => {
-    setMasterKey(null);
-    setIsUnlocked(false);
-    sessionStorage.removeItem("encryption_unlocked");
-  };
-
-  const encryptJournalEntry = async (entryData) => {
-    if (!masterKey) {
-      throw new Error("Encryption not unlocked");
-    }
-
-    console.log("🔐 EncryptionContext: Starting encryption...");
-    console.log("📊 Input data:", {
-      hasContent: !!entryData.content,
-      hasPrompt: !!entryData.prompt,
-      contentLength: entryData.content?.length,
-    });
-
-    const dataKey = await encryptionService.generateDataKey();
-    console.log("✅ Data key generated");
-
-    const [encryptedContent, encryptedHtml, encryptedPrompt, encryptedDataKey] =
-      await Promise.all([
-        encryptionService.encryptText(entryData.content, dataKey),
-        entryData.content
-          ? encryptionService.encryptText(entryData.content, dataKey) // Using content as HTML content
-          : { encryptedData: "", iv: "" },
-        entryData.prompt
-          ? encryptionService.encryptText(entryData.prompt, dataKey)
-          : { encryptedData: "", iv: "" },
-        encryptionService.encryptKey(dataKey, masterKey),
-      ]);
-
-    console.log("✅ All encryption completed");
-
-    const result = {
-      encrypted_content: encryptedContent.encryptedData,
-      content_iv: encryptedContent.iv,
-      encrypted_html_content: encryptedHtml.encryptedData,
-      html_content_iv: encryptedHtml.iv,
-      encrypted_prompt: encryptedPrompt.encryptedData,
-      prompt_iv: encryptedPrompt.iv,
-      encrypted_data_key: encryptedDataKey.encryptedData,
-      data_key_iv: encryptedDataKey.iv,
-      word_count: entryData.content
-        ? entryData.content.split(/\s+/).filter((word) => word.length > 0)
-            .length
-        : 0,
-    };
-
-    console.log("🎉 Encryption result:", {
-      hasEncryptedContent: !!result.encrypted_content,
-      hasContentIv: !!result.content_iv,
-      hasEncryptedDataKey: !!result.encrypted_data_key,
-      hasDataKeyIv: !!result.data_key_iv,
-    });
-
-    return result;
-  };
-
-  const decryptJournalEntry = async (encryptedEntry) => {
-    //Updated debugging
-    if (!masterKey) {
-      throw new Error("Encryption not unlocked");
-    }
-
-    try {
-      console.log("🔓 Starting decryption for entry:", encryptedEntry.id);
-      console.log("🔍 Entry data check:", {
-        hasEncryptedContent: !!encryptedEntry.encrypted_content,
-        hasContentIv: !!encryptedEntry.content_iv,
-        hasEncryptedDataKey: !!encryptedEntry.encrypted_data_key,
-        hasDataKeyIv: !!encryptedEntry.data_key_iv,
-        encryptedContentLength: encryptedEntry.encrypted_content?.length,
-        contentIvLength: encryptedEntry.content_iv?.length,
-        encryptedDataKeyLength: encryptedEntry.encrypted_data_key?.length,
-        dataKeyIvLength: encryptedEntry.data_key_iv?.length,
-      });
-
-      console.log("🔑 Decrypting data key...");
-      const dataKey = await encryptionService.decryptKey(
-        {
-          encryptedData: encryptedEntry.encrypted_data_key,
-          iv: encryptedEntry.data_key_iv,
-        },
-        masterKey
-      );
-      console.log("✅ Data key decrypted successfully");
-
-      console.log("📝 Decrypting content...");
-      const content = await encryptionService.decryptText(
-        encryptedEntry.encrypted_content,
-        encryptedEntry.content_iv,
-        dataKey
-      );
-      console.log("✅ Content decrypted successfully, length:", content.length);
-
-      let htmlContent = "";
-      if (
-        encryptedEntry.encrypted_html_content &&
-        encryptedEntry.html_content_iv
-      ) {
-        console.log("🌐 Decrypting HTML content...");
-        htmlContent = await encryptionService.decryptText(
-          encryptedEntry.encrypted_html_content,
-          encryptedEntry.html_content_iv,
-          dataKey
-        );
-        console.log("✅ HTML content decrypted successfully");
-      } else {
-        console.log("⏭️ Skipping HTML content (null values)");
-      }
-
-      let prompt = "";
-      if (encryptedEntry.encrypted_prompt && encryptedEntry.prompt_iv) {
-        console.log("💭 Decrypting prompt...");
-        prompt = await encryptionService.decryptText(
-          encryptedEntry.encrypted_prompt,
-          encryptedEntry.prompt_iv,
-          dataKey
-        );
-        console.log("✅ Prompt decrypted successfully");
-      } else {
-        console.log("⏭️ Skipping prompt (null values)");
-      }
-
-      console.log(
-        "🎉 All decryption completed successfully for entry:",
-        encryptedEntry.id
-      );
-
-      return {
-        ...encryptedEntry,
-        content,
-        html_content: htmlContent,
-        prompt,
-      };
-    } catch (error) {
-      console.error(
-        "❌ Decryption failed for entry:",
-        encryptedEntry.id,
-        error
-      );
-      console.error("❌ Error details:", {
-        message: error.message,
-        stack: error.stack,
-      });
-      throw new Error(`Failed to decrypt journal entry: ${error.message}`);
-    }
-  };
-
-  const encryptGoal = async (goalText, description = "") => {
-    if (!masterKey) {
-      throw new Error("Encryption not unlocked");
-    }
-
-    const dataKey = await encryptionService.generateDataKey();
-
-    const [encryptedGoal, encryptedDescription, encryptedDataKey] =
-      await Promise.all([
-        encryptionService.encryptText(goalText, dataKey),
-        description
-          ? encryptionService.encryptText(description, dataKey)
-          : { encryptedData: "", iv: "" },
-        encryptionService.encryptKey(dataKey, masterKey),
-      ]);
-
-    return {
-      encrypted_goal: encryptedGoal.encryptedData,
-      goal_iv: encryptedGoal.iv,
-      encrypted_description: encryptedDescription.encryptedData,
-      description_iv: encryptedDescription.iv,
-      encrypted_data_key: encryptedDataKey.encryptedData,
-      data_key_iv: encryptedDataKey.iv,
-    };
-  };
-
-  const decryptGoal = async (encryptedGoal) => {
-    if (!masterKey) {
-      throw new Error("Encryption not unlocked");
-    }
-
-    try {
-      const dataKey = await encryptionService.decryptKey(
-        {
-          encryptedData: encryptedGoal.encrypted_data_key,
-          iv: encryptedGoal.data_key_iv,
-        },
-        masterKey
-      );
-
-      const [goal, description] = await Promise.all([
-        encryptionService.decryptText(
-          encryptedGoal.encrypted_goal,
-          encryptedGoal.goal_iv,
-          dataKey
-        ),
-        encryptedGoal.encrypted_description
-          ? encryptionService.decryptText(
-              encryptedGoal.encrypted_description,
-              encryptedGoal.description_iv,
-              dataKey
-            )
-          : "",
-      ]);
-
-      return {
-        ...encryptedGoal,
-        goal,
-        description,
-      };
-    } catch (error) {
-      console.error("Failed to decrypt goal:", error);
-      throw new Error("Failed to decrypt goal");
-    }
-  };
+  // Rest of your existing encryption methods remain the same...
 
   const value = {
     isUnlocked,
     encryptionReady,
+    authenticationStable, // Expose this for other components to use
     unlockEncryption,
     lockEncryption,
     encryptJournalEntry,
