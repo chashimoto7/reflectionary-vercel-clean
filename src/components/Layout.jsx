@@ -22,7 +22,10 @@ export default function Layout({ children }) {
   const { user, signOut } = useAuth();
   const { lock, securitySettings } = useSecurity();
   const { hasAccess, getUpgradeMessage, tier, loading } = useMembership();
-
+  console.log("🎯 Current membership tier:", tier);
+  console.log("🔄 Membership loading:", loading);
+  console.log("🔍 Has access to analytics:", hasAccess("analytics"));
+  console.log("🔍 Has access to goals:", hasAccess("goals"));
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeMessage, setUpgradeMessage] = useState("");
 
