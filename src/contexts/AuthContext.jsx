@@ -4,6 +4,15 @@ import { supabase } from "../lib/supabase";
 
 const AuthContext = createContext({});
 
+// Export the useAuth hook so other files can import it
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+};
+
 // Enhanced AuthContext that distinguishes between different types of auth events
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -108,9 +117,155 @@ export const AuthProvider = ({ children }) => {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [authContext.lastAuthTime, authContext.isInitialLoad]); // Add dependencies to prevent stale closure issues
 
-  // Rest of your existing AuthContext methods remain the same...
+  // Handle user profile creation and updates
+  const handleUserProfile = async (user) => {
+    try {
+      // Check if user profile exists
+      const { data: existingProfile, error: fetchError } = await supabase
+        .from("user_profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (fetchError && fetchError.code !== "PGRST116") {
+        // Error other than "not found"
+        console.error("Error fetching user profile:", fetchError);
+        return;
+      }
+
+      if (!existingProfile) {
+        // Create new user profile
+        const { error: insertError } = await supabase
+          .from("user_profiles")
+          .insert([
+            {
+              user_id: user.id,
+              email: user.email,
+              full_name: user.user_metadata?.full_name || "",
+              subscription_tier: "free",
+              subscription_status: "active",
+              created_at: new Date().toISOString(),
+            },
+          ]);
+
+        if (insertError) {
+          console.error("Error creating user profile:", insertError);
+        } else {
+          console.log("User profile created successfully");
+        }
+
+        // Create default user settings
+        const { error: settingsError } = await supabase
+          .from("user_settings")
+          .insert([
+            {
+              user_id: user.id,
+              created_at: new Date().toISOString(),
+            },
+          ]);
+
+        if (settingsError) {
+          console.error("Error creating user settings:", settingsError);
+        }
+      }
+    } catch (error) {
+      console.error("Error handling user profile:", error);
+    }
+  };
+
+  // Authentication methods that your application uses
+  const signUp = async (email, password, options = {}) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: options.metadata || {},
+        },
+      });
+
+      // Store password for encryption (only on successful signup)
+      if (!error && data.user) {
+        setUserPassword(password);
+      }
+
+      return { data, error };
+    } catch (error) {
+      console.error("Sign up error:", error);
+      return { data: null, error };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signIn = async (email, password) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      // Store password for encryption (only on successful signin)
+      if (!error && data.user) {
+        setUserPassword(password);
+      }
+
+      return { data, error };
+    } catch (error) {
+      console.error("Sign in error:", error);
+      return { data: null, error };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signOut = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signOut();
+      setUserPassword(null); // Clear password on sign out
+      return { error };
+    } catch (error) {
+      console.error("Sign out error:", error);
+      return { error };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetPassword = async (email) => {
+    try {
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      return { data, error };
+    } catch (error) {
+      console.error("Reset password error:", error);
+      return { data: null, error };
+    }
+  };
+
+  const updatePassword = async (newPassword) => {
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      // Update stored password for encryption
+      if (!error) {
+        setUserPassword(newPassword);
+      }
+
+      return { data, error };
+    } catch (error) {
+      console.error("Update password error:", error);
+      return { data: null, error };
+    }
+  };
 
   const value = {
     user,
