@@ -8,7 +8,10 @@ import {
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { SecurityProvider, useSecurity } from "./contexts/SecurityContext";
-
+import { supabase } from "./supabaseClient";
+if (typeof window !== "undefined") {
+  window.supabase = supabase;
+}
 // Components
 import LoginPage from "./pages/LoginPage";
 import UnlockModal from "./components/UnlockModal";
