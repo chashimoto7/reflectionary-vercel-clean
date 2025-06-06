@@ -1,5 +1,4 @@
 // This file manages what features users can access based on their membership level
-// Think of this as the master key that unlocks different parts of your app
 
 // Define all possible features in your app
 export const FEATURES = {
@@ -42,8 +41,11 @@ export const MEMBERSHIP_FEATURES = {
 
 // The main function that checks if a user can access a feature
 export const hasFeatureAccess = (userMembership, feature) => {
-  // If no membership info, default to free tier
-  const membership = userMembership || "free";
+  // Only default to free if userMembership is truly undefined/null
+  const membership =
+    userMembership !== undefined && userMembership !== null
+      ? userMembership
+      : "free";
 
   // Check if the user's membership level includes this feature
   const allowedFeatures =
@@ -53,7 +55,10 @@ export const hasFeatureAccess = (userMembership, feature) => {
 
 // Helper function to get all features a user has access to
 export const getUserFeatures = (userMembership) => {
-  const membership = userMembership || "free";
+  const membership =
+    userMembership !== undefined && userMembership !== null
+      ? userMembership
+      : "free";
   return MEMBERSHIP_FEATURES[membership] || MEMBERSHIP_FEATURES.free;
 };
 
@@ -67,7 +72,7 @@ export const getFeatureName = (feature) => {
     [FEATURES.ANALYTICS]: "Analytics & Insights",
     [FEATURES.GOAL_TRACKING]: "Goal Tracking",
     [FEATURES.REFLECTIONARIAN]: "The Reflectionarian",
-    [FEATURES.AUDIO_PLAYBACK]: "Audio Playback",
+    [FEATURES.AUDIO_PLAYBOOK]: "Audio Playback",
     [FEATURES.DATA_EXPORT]: "Data Export",
   };
 
@@ -75,7 +80,6 @@ export const getFeatureName = (feature) => {
 };
 
 export const FEATURE_FLAGS = {
-  // ... existing flags
   ANALYTICS_DASHBOARD: {
     free: false,
     basic: false,
@@ -84,8 +88,7 @@ export const FEATURE_FLAGS = {
   },
 };
 
-// Enhanced functions that understand usage patterns and limits
-// These work with the PromptUsageService to handle free user limitations
+// Enhanced functions for prompt eligibility
 export const checkPromptEligibility = async (
   userMembership,
   promptUsageService,
@@ -95,7 +98,7 @@ export const checkPromptEligibility = async (
   if (hasFeatureAccess(userMembership, FEATURES.CUSTOM_PROMPTS)) {
     return {
       canUsePrompt: true,
-      reason: "unlimited", // They have a paid plan
+      reason: "unlimited",
       promptsRemaining: "unlimited",
     };
   }
@@ -113,19 +116,6 @@ export const checkPromptEligibility = async (
       };
     }
 
-    if (
-      eligibility.canUseRandomPrompt &&
-      eligibility.selectedBonusType === "random"
-    ) {
-      return {
-        canUsePrompt: true,
-        reason: "bonus_random_available",
-        promptsRemaining: 1,
-        additionalInfo: eligibility,
-      };
-    }
-
-    // No prompts available
     return {
       canUsePrompt: false,
       reason: "limits_exceeded",
@@ -134,7 +124,6 @@ export const checkPromptEligibility = async (
     };
   } catch (error) {
     console.error("Error checking prompt eligibility:", error);
-    // Fail safely - don't allow prompts if we can't verify eligibility
     return {
       canUsePrompt: false,
       reason: "error",
@@ -143,7 +132,6 @@ export const checkPromptEligibility = async (
   }
 };
 
-// Helper function to get user-friendly messages about prompt availability
 export const getPromptAvailabilityMessage = (eligibilityResult) => {
   const { canUsePrompt, reason, additionalInfo } = eligibilityResult;
 
@@ -154,20 +142,10 @@ export const getPromptAvailabilityMessage = (eligibilityResult) => {
     if (reason === "weekly_available") {
       return "You have your weekly free prompt available.";
     }
-    if (reason === "bonus_random_available") {
-      return "You can use your earned bonus random prompt!";
-    }
   } else {
     if (additionalInfo) {
-      const {
-        journalEntriesThisWeek,
-        entriesNeededForBonus,
-        needsToChooseBonus,
-      } = additionalInfo;
-
-      if (needsToChooseBonus) {
-        return "You've earned a bonus prompt! Choose between random or custom.";
-      } else if (entriesNeededForBonus > 0) {
+      const { entriesNeededForBonus } = additionalInfo;
+      if (entriesNeededForBonus > 0) {
         return `You've used your weekly prompt. Write ${entriesNeededForBonus} more journal ${
           entriesNeededForBonus === 1 ? "entry" : "entries"
         } this week to earn a bonus prompt!`;

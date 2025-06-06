@@ -1,4 +1,3 @@
-// src/hooks/useMembership.js
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
@@ -6,7 +5,7 @@ import { supabase } from "../lib/supabase";
 export function useMembership() {
   const { user } = useAuth();
   const [membershipData, setMembershipData] = useState({
-    tier: "free", // This is just the initial state - gets updated from database
+    tier: null, // Start with null - will be determined from database
     features: [],
     loading: true,
   });
@@ -15,7 +14,7 @@ export function useMembership() {
     if (user) {
       loadMembership();
     } else {
-      // Reset to free when no user
+      // No user = free tier (correct for production)
       setMembershipData({
         tier: "free",
         features: [],
@@ -30,39 +29,55 @@ export function useMembership() {
     try {
       console.log("🔍 Loading membership for user:", user.id);
 
-      // Get user's subscription tier from user_profiles
+      // Query specifically for subscription_tier since that's what your DB uses
       const { data: userData, error: userError } = await supabase
         .from("user_profiles")
         .select("subscription_tier")
         .eq("id", user.id)
         .single();
 
-      console.log("📋 User profile data:", userData);
-      console.log("❌ User profile error:", userError);
+      console.log("📋 Raw user profile data:", userData);
+      console.log("📋 User profile error:", userError);
 
       if (userError) {
-        console.error("Error loading membership:", userError);
-        setMembershipData((prev) => ({ ...prev, loading: false }));
+        if (userError.code === "PGRST116") {
+          // No profile found - this is a new user, default to free
+          console.log("🆕 No user profile found - new user defaults to free");
+          setMembershipData({
+            tier: "free",
+            features: [],
+            loading: false,
+          });
+        } else {
+          // Database error - log it but default to free for safety
+          console.error("❌ Database error loading membership:", userError);
+          setMembershipData({
+            tier: "free",
+            features: [],
+            loading: false,
+          });
+        }
         return;
       }
 
-      // Also check the user_subscriptions table for additional verification
-      const { data: subscriptionData, error: subError } = await supabase
-        .from("user_subscriptions")
-        .select(
-          `
-          status,
-          plan_id,
-          subscription_plans(name, features)
-        `
-        )
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .single();
+      // Successfully got user data - extract the tier
+      const tier = userData?.subscription_tier;
+      console.log("🎯 Raw subscription_tier from database:", tier);
 
-      console.log("📋 Subscription data:", subscriptionData);
+      // Validate that we got a real tier value
+      if (!tier) {
+        console.warn(
+          "⚠️ subscription_tier is null/undefined in database, defaulting to free"
+        );
+        setMembershipData({
+          tier: "free",
+          features: [],
+          loading: false,
+        });
+        return;
+      }
 
-      // Get any additional features for standard tier
+      // Get additional features for standard+ users
       const { data: featureData } = await supabase
         .from("user_feature_subscriptions")
         .select("feature_name")
@@ -71,13 +86,7 @@ export function useMembership() {
 
       const features = featureData?.map((f) => f.feature_name) || [];
 
-      // Use subscription_tier from profile, fallback to subscription plan name
-      const tier =
-        userData?.subscription_tier ||
-        subscriptionData?.subscription_plans?.name ||
-        "free";
-
-      console.log("✅ Final membership data:", { tier, features });
+      console.log("✅ Membership loaded successfully:", { tier, features });
 
       setMembershipData({
         tier,
@@ -85,13 +94,24 @@ export function useMembership() {
         loading: false,
       });
     } catch (error) {
-      console.error("Membership loading error:", error);
-      setMembershipData((prev) => ({ ...prev, loading: false }));
+      console.error("❌ Unexpected error loading membership:", error);
+      // On unexpected errors, default to free for safety
+      setMembershipData({
+        tier: "free",
+        features: [],
+        loading: false,
+      });
     }
   }
 
   function hasAccess(feature) {
     const { tier, features } = membershipData;
+
+    // If still loading, deny access for safety
+    if (membershipData.loading) {
+      console.log("🔐 Access denied: still loading membership data");
+      return false;
+    }
 
     console.log("🔐 Checking access:", { feature, tier, features });
 
@@ -121,7 +141,7 @@ export function useMembership() {
         );
 
       default:
-        return false;
+        return false; // Unknown features default to no access
     }
   }
 

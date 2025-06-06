@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-// Updated feature access based on your Vision Board requirements
+// Membership access rules - these are correct for your business model
 const FEATURE_ACCESS = {
   free: ["basic_journaling"], // Only basic journaling with limited prompts
   basic: ["basic_journaling", "follow_up_prompts"], // Full journaling functionality
@@ -25,19 +25,26 @@ const FEATURE_NAMES = {
 };
 
 // Custom hook that manages feature access checking and upgrade prompts
-export const useFeatureAccess = (userMembership = "free") => {
+export const useFeatureAccess = (userMembership) => {
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [requestedFeature, setRequestedFeature] = useState(null);
 
   // Function to check if user can access a feature, and show upgrade prompt if not
   const checkFeatureAccess = (feature, callback) => {
-    const membership = userMembership || "free";
+    // IMPORTANT: Only default to free if userMembership is explicitly undefined/null
+    // This prevents overriding valid database values
+    const membership =
+      userMembership !== undefined && userMembership !== null
+        ? userMembership
+        : "free";
+
     const allowedFeatures = FEATURE_ACCESS[membership] || FEATURE_ACCESS.free;
     const hasAccess = allowedFeatures.includes(feature);
 
     console.log("🔍 Feature access check:", {
       feature,
-      membership,
+      userMembership,
+      resolvedMembership: membership,
       allowedFeatures,
       hasAccess,
     });
@@ -58,7 +65,10 @@ export const useFeatureAccess = (userMembership = "free") => {
 
   // Function to check access without triggering prompts (for UI display)
   const hasAccess = (feature) => {
-    const membership = userMembership || "free";
+    const membership =
+      userMembership !== undefined && userMembership !== null
+        ? userMembership
+        : "free";
     const allowedFeatures = FEATURE_ACCESS[membership] || FEATURE_ACCESS.free;
     return allowedFeatures.includes(feature);
   };
@@ -67,8 +77,7 @@ export const useFeatureAccess = (userMembership = "free") => {
   const handleUpgrade = () => {
     setShowUpgradePrompt(false);
     setRequestedFeature(null);
-    // Navigate to membership page - you'll implement this based on your routing
-    // For now, we'll just close the modal
+    // Navigate to membership page when you build it
     window.location.href = "/membership";
   };
 
@@ -88,7 +97,10 @@ export const useFeatureAccess = (userMembership = "free") => {
     if (!requestedFeature) return "";
 
     const featureName = getFeatureName(requestedFeature);
-    const membership = userMembership || "free";
+    const membership =
+      userMembership !== undefined && userMembership !== null
+        ? userMembership
+        : "free";
 
     switch (membership) {
       case "free":
