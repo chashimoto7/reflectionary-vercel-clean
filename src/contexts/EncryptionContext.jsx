@@ -30,18 +30,25 @@ export const EncryptionProvider = ({ children }) => {
 
   useEffect(() => {
     const autoUnlock = async () => {
+      // Add more specific conditions to prevent unnecessary unlocking
       if (user && userPassword && encryptionReady && !isUnlocked) {
-        try {
-          console.log("Auto-unlocking encryption...");
-          await unlockEncryption(userPassword);
-        } catch (error) {
-          console.error("Auto-unlock failed:", error);
+        // Add a small delay to ensure other processes have time to stabilize
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Double-check conditions after the delay in case state changed
+        if (user && userPassword && encryptionReady && !isUnlocked) {
+          try {
+            console.log("Auto-unlocking encryption...");
+            await unlockEncryption(userPassword);
+          } catch (error) {
+            console.error("Auto-unlock failed:", error);
+          }
         }
       }
     };
 
     autoUnlock();
-  }, [user, userPassword, encryptionReady]);
+  }, [user, userPassword, encryptionReady, isUnlocked]); // Added isUnlocked to dependencies
 
   useEffect(() => {
     if (!user) {
@@ -132,8 +139,6 @@ export const EncryptionProvider = ({ children }) => {
 
     return result;
   };
-
-  // In your EncryptionContext.jsx, replace the decryptJournalEntry function with:
 
   const decryptJournalEntry = async (encryptedEntry) => {
     //Updated debugging
