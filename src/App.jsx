@@ -34,7 +34,7 @@ function AppContent() {
     if (user && isLocked) {
       setInitialUnlockWait(true);
       // Wait 500ms before rendering modal (adjust as needed for your speed)
-      const t = setTimeout(() => setInitialUnlockWait(false), 500);
+      const t = setTimeout(() => setInitialUnlockWait(false), 750);
       return () => clearTimeout(t);
     } else {
       setInitialUnlockWait(false); // reset if user logs out or unlocks
