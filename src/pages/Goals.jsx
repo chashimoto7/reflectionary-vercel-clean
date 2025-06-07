@@ -1,6 +1,6 @@
 // src/pages/Goals.jsx
 import React, { useState, useEffect } from "react";
-import supabase from "../supabaseClient";
+import { supabase } from "../lib/supabase";
 
 const predefinedGoals = [
   "Exercise regularly",

@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
 import encryptionService from "../services/encryptionService";
-import supabase from "../supabaseClient";
+import { supabase } from "../lib/supabase";
 
 export default function History() {
   const { user, loading: authLoading } = useAuth();

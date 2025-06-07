@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
 import { useMembership } from "../hooks/useMembership";
-import supabase from "../supabaseClient";
+import { supabase } from "../lib/supabase";
 import encryptionService from "../services/encryptionService";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";

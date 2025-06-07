@@ -8,7 +8,7 @@ import {
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { SecurityProvider, useSecurity } from "./contexts/SecurityContext";
-import { supabase } from "./supabaseClient";
+import { supabase } from "./lib/supabase";
 if (typeof window !== "undefined") {
   window.supabase = supabase;
 }
