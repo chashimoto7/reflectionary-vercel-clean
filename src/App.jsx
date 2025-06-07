@@ -14,7 +14,6 @@ if (typeof window !== "undefined") {
 }
 
 import LoginPage from "./pages/LoginPage";
-import UnlockModal from "./components/UnlockModal";
 import Layout from "./components/Layout";
 import Welcome from "./pages/Welcome";
 import NewEntryPage from "./pages/NewEntry";
