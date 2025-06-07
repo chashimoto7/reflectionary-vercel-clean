@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const { signIn } = useAuth();
+  const { signIn, user } = useAuth(); // ✅ add `user`
   const { unlock } = useSecurity();
   const { refresh } = useMembership(); // to re-fetch membership info
 
