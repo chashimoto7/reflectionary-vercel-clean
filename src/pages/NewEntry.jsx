@@ -51,6 +51,9 @@ export default function NewEntry() {
 
   const getStaticMasterKey = async () => {
     const STATIC_MASTER_KEY_HEX = process.env.VITE_MASTER_DECRYPTION_KEY;
+
+    console.log("🧪 ENV KEY:", process.env.VITE_MASTER_DECRYPTION_KEY);
+
     if (!STATIC_MASTER_KEY_HEX || STATIC_MASTER_KEY_HEX.length !== 64) {
       throw new Error("Static master key missing or invalid length");
     }
