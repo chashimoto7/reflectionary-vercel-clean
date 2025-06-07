@@ -52,14 +52,22 @@ export default function NewEntry() {
   const getStaticMasterKey = async () => {
     const STATIC_MASTER_KEY_HEX = import.meta.env.VITE_MASTER_DECRYPTION_KEY;
 
-    console.log("🧪 ENV KEY:", import.meta.env.VITE_MASTER_DECRYPTION_KEY);
+    console.log("🧪 Checking master key:", STATIC_MASTER_KEY_HEX);
 
-    if (!STATIC_MASTER_KEY_HEX || STATIC_MASTER_KEY_HEX.length !== 64) {
-      throw new Error("Static master key missing or invalid length");
+    if (!STATIC_MASTER_KEY_HEX) {
+      throw new Error("Master key is undefined. Check your .env or build.");
     }
+
+    if (STATIC_MASTER_KEY_HEX.length !== 64) {
+      throw new Error(
+        `Master key is the wrong length: ${STATIC_MASTER_KEY_HEX.length}. It must be exactly 64 characters.`
+      );
+    }
+
     const keyBuffer = new Uint8Array(
       STATIC_MASTER_KEY_HEX.match(/.{1,2}/g).map((b) => parseInt(b, 16))
     );
+
     return await window.crypto.subtle.importKey(
       "raw",
       keyBuffer,
