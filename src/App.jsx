@@ -24,7 +24,7 @@ import SecuritySettingsPage from "./pages/SecuritySettingsPage";
 
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
-  const { isLocked, isUnlocking } = useSecurity(); // ✅ use isUnlocking
+  const { isLocked, isUnlocking, unlockAttempted } = useSecurity();
 
   if (authLoading || isUnlocking) {
     return (
