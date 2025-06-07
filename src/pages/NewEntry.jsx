@@ -13,7 +13,7 @@ import UpgradePrompt from "../components/UpgradePrompt";
 export default function NewEntry() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isLocked, masterKey } = useSecurity();
+  const { isLocked } = useSecurity();
   const { hasAccess, tier, loading } = useMembership();
 
   console.log("🎯 Current membership tier:", tier, "Loading:", loading);
@@ -48,6 +48,23 @@ export default function NewEntry() {
 
   const editorRef = useRef(null);
   const quillRef = useRef(null);
+
+  const getStaticMasterKey = async () => {
+    const STATIC_MASTER_KEY_HEX = process.env.REACT_APP_MASTER_DECRYPTION_KEY;
+    if (!STATIC_MASTER_KEY_HEX || STATIC_MASTER_KEY_HEX.length !== 64) {
+      throw new Error("Static master key missing or invalid length");
+    }
+    const keyBuffer = new Uint8Array(
+      STATIC_MASTER_KEY_HEX.match(/.{1,2}/g).map((b) => parseInt(b, 16))
+    );
+    return await window.crypto.subtle.importKey(
+      "raw",
+      keyBuffer,
+      { name: "AES-CBC" },
+      false,
+      ["encrypt", "decrypt"]
+    );
+  };
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -125,9 +142,7 @@ export default function NewEntry() {
 
   // Function to encrypt journal entry using the new system
   const encryptJournalEntry = async (entryData) => {
-    if (!masterKey) {
-      throw new Error("No master key available for encryption");
-    }
+    const masterKey = await getStaticMasterKey();
 
     // Generate a new data key for this entry
     const dataKey = await encryptionService.generateDataKey();
