@@ -9,6 +9,8 @@ import {
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { SecurityProvider, useSecurity } from "./contexts/SecurityContext";
 import { supabase } from "./lib/supabase";
+import UnlockModal from "./components/UnlockModal";
+
 if (typeof window !== "undefined") {
   window.supabase = supabase;
 }
@@ -23,7 +25,7 @@ import SecuritySettingsPage from "./pages/SecuritySettingsPage";
 
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
-  const { isLocked, isUnlocking, unlockAttempted } = useSecurity();
+  const { isLocked, isUnlocking } = useSecurity();
 
   if (authLoading || isUnlocking) {
     return (
@@ -38,6 +40,11 @@ function AppContent() {
 
   if (!user) {
     return <LoginPage />;
+  }
+
+  // 🔑 Show unlock modal if user is logged in, but journal is locked
+  if (isLocked) {
+    return <UnlockModal />;
   }
 
   return (

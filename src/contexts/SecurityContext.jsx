@@ -1,4 +1,3 @@
-// src/contexts/SecurityContext.jsx
 import React, {
   createContext,
   useContext,
@@ -14,6 +13,7 @@ const SecurityContext = createContext({});
 export function SecurityProvider({ children }) {
   const { user, signOut } = useAuth();
   const [isUnlocking, setIsUnlocking] = useState(false);
+  const [isLocked, setIsLocked] = useState(true); // 🔑 This is the main lock flag!
   const [masterKey, setMasterKey] = useState(null);
   const [securitySettings, setSecuritySettings] = useState({
     autoLockEnabled: false,
@@ -24,19 +24,22 @@ export function SecurityProvider({ children }) {
   const autoLockTimer = useRef(null);
   const lastActivity = useRef(Date.now());
 
+  // Lock whenever the user logs out or user is null
   useEffect(() => {
     if (!user) {
-      clearAutoLockTimer();
+      setIsLocked(true);
       setMasterKey(null);
+      clearAutoLockTimer();
     }
   }, [user]);
 
+  // Auto-lock timer logic
   useEffect(() => {
     if (
       securitySettings.autoLockEnabled &&
       securitySettings.autoLockTimeout &&
       user &&
-      masterKey
+      !isLocked
     ) {
       startAutoLockTimer();
     } else {
@@ -48,11 +51,11 @@ export function SecurityProvider({ children }) {
     securitySettings.autoLockEnabled,
     securitySettings.autoLockTimeout,
     user,
-    masterKey,
+    isLocked,
   ]);
 
   useEffect(() => {
-    if (!securitySettings.autoLockEnabled || !user) return;
+    if (!securitySettings.autoLockEnabled || !user || isLocked) return;
 
     const handleActivity = () => {
       lastActivity.current = Date.now();
@@ -68,7 +71,7 @@ export function SecurityProvider({ children }) {
         document.removeEventListener(event, handleActivity, true)
       );
     };
-  }, [securitySettings.autoLockEnabled, user]);
+  }, [securitySettings.autoLockEnabled, user, isLocked]);
 
   function startAutoLockTimer() {
     clearAutoLockTimer();
@@ -79,8 +82,7 @@ export function SecurityProvider({ children }) {
       const timeoutMs = securitySettings.autoLockTimeout * 60 * 1000;
 
       if (timeSinceActivity >= timeoutMs) {
-        console.log("🔒 Auto-lock timeout reached. Signing out user.");
-        signOut();
+        lock();
       }
     }, 30000);
   }
@@ -98,15 +100,20 @@ export function SecurityProvider({ children }) {
     try {
       const key = await encryptionService.generateMasterKey(email, password);
       setMasterKey(key);
+      setIsLocked(false);
       lastActivity.current = Date.now();
-      console.log("🔓 Journal unlocked successfully");
       return true;
     } catch (error) {
-      console.error("❌ Failed to unlock:", error);
       throw new Error("Invalid password");
     } finally {
       setIsUnlocking(false);
     }
+  }
+
+  function lock() {
+    setIsLocked(true);
+    setMasterKey(null);
+    clearAutoLockTimer();
   }
 
   function updateSecuritySettings(newSettings) {
@@ -115,9 +122,11 @@ export function SecurityProvider({ children }) {
 
   const value = {
     isUnlocking,
+    isLocked,
     masterKey,
-    securitySettings,
     unlock,
+    lock,
+    securitySettings,
     updateSecuritySettings,
   };
 
