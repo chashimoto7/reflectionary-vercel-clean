@@ -41,8 +41,6 @@ function AppContent() {
     return <LoginPage />;
   }
 
-  if (isLocked && unlockAttempted) return <UnlockModal />;
-
   return (
     <Layout>
       <Routes>

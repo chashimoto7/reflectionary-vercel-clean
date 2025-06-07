@@ -12,10 +12,8 @@ import encryptionService from "../services/encryptionService";
 const SecurityContext = createContext({});
 
 export function SecurityProvider({ children }) {
-  const { user } = useAuth();
-  const [isLocked, setIsLocked] = useState(true);
+  const { user, signOut } = useAuth();
   const [isUnlocking, setIsUnlocking] = useState(false);
-  const [unlockAttempted, setUnlockAttempted] = useState(false); // ✅ NEW
   const [masterKey, setMasterKey] = useState(null);
   const [securitySettings, setSecuritySettings] = useState({
     autoLockEnabled: false,
@@ -27,14 +25,18 @@ export function SecurityProvider({ children }) {
   const lastActivity = useRef(Date.now());
 
   useEffect(() => {
-    if (!user) lock();
+    if (!user) {
+      clearAutoLockTimer();
+      setMasterKey(null);
+    }
   }, [user]);
 
   useEffect(() => {
     if (
       securitySettings.autoLockEnabled &&
       securitySettings.autoLockTimeout &&
-      !isLocked
+      user &&
+      masterKey
     ) {
       startAutoLockTimer();
     } else {
@@ -45,11 +47,12 @@ export function SecurityProvider({ children }) {
   }, [
     securitySettings.autoLockEnabled,
     securitySettings.autoLockTimeout,
-    isLocked,
+    user,
+    masterKey,
   ]);
 
   useEffect(() => {
-    if (!securitySettings.autoLockEnabled || isLocked) return;
+    if (!securitySettings.autoLockEnabled || !user) return;
 
     const handleActivity = () => {
       lastActivity.current = Date.now();
@@ -65,7 +68,7 @@ export function SecurityProvider({ children }) {
         document.removeEventListener(event, handleActivity, true)
       );
     };
-  }, [securitySettings.autoLockEnabled, isLocked]);
+  }, [securitySettings.autoLockEnabled, user]);
 
   function startAutoLockTimer() {
     clearAutoLockTimer();
@@ -76,7 +79,8 @@ export function SecurityProvider({ children }) {
       const timeoutMs = securitySettings.autoLockTimeout * 60 * 1000;
 
       if (timeSinceActivity >= timeoutMs) {
-        lock();
+        console.log("🔒 Auto-lock timeout reached. Signing out user.");
+        signOut();
       }
     }, 30000);
   }
@@ -88,16 +92,12 @@ export function SecurityProvider({ children }) {
     }
   }
 
-  // ✅ UPDATED: accepts email, and marks unlockAttempted
   async function unlock(email, password) {
     if (!email) throw new Error("No email provided for unlock");
     setIsUnlocking(true);
-    setUnlockAttempted(true); // ✅ Mark that unlock has been attempted
-
     try {
       const key = await encryptionService.generateMasterKey(email, password);
       setMasterKey(key);
-      setIsLocked(false);
       lastActivity.current = Date.now();
       console.log("🔓 Journal unlocked successfully");
       return true;
@@ -109,26 +109,15 @@ export function SecurityProvider({ children }) {
     }
   }
 
-  function lock() {
-    setIsLocked(true);
-    setMasterKey(null);
-    clearAutoLockTimer();
-    setUnlockAttempted(true); // ✅ Also mark as attempted when locked manually
-    console.log("🔒 Journal locked");
-  }
-
   function updateSecuritySettings(newSettings) {
     setSecuritySettings((prev) => ({ ...prev, ...newSettings }));
   }
 
   const value = {
-    isLocked,
     isUnlocking,
-    unlockAttempted, // ✅ expose this
     masterKey,
     securitySettings,
     unlock,
-    lock,
     updateSecuritySettings,
   };
 
