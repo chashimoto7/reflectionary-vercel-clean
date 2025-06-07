@@ -26,8 +26,22 @@ import SecuritySettingsPage from "./pages/SecuritySettingsPage";
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
   const { isLocked, isUnlocking } = useSecurity();
+  const [initialUnlockWait, setInitialUnlockWait] = React.useState(false);
 
-  if (authLoading || isUnlocking) {
+  // This effect adds a short delay after login/unlock to prevent modal flash
+  React.useEffect(() => {
+    // Only apply this after user logs in and before unlock completes
+    if (user && isLocked) {
+      setInitialUnlockWait(true);
+      // Wait 500ms before rendering modal (adjust as needed for your speed)
+      const t = setTimeout(() => setInitialUnlockWait(false), 500);
+      return () => clearTimeout(t);
+    } else {
+      setInitialUnlockWait(false); // reset if user logs out or unlocks
+    }
+  }, [user, isLocked]);
+
+  if (authLoading || isUnlocking || initialUnlockWait) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
@@ -42,7 +56,6 @@ function AppContent() {
     return <LoginPage />;
   }
 
-  // 🔑 Show unlock modal if user is logged in, but journal is locked
   if (isLocked) {
     return <UnlockModal />;
   }
