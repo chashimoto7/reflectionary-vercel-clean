@@ -15,6 +15,7 @@ export function SecurityProvider({ children }) {
   const { user } = useAuth();
   const [isLocked, setIsLocked] = useState(true);
   const [isUnlocking, setIsUnlocking] = useState(false);
+  const [unlockAttempted, setUnlockAttempted] = useState(false); // ✅ NEW
   const [masterKey, setMasterKey] = useState(null);
   const [securitySettings, setSecuritySettings] = useState({
     autoLockEnabled: false,
@@ -87,10 +88,12 @@ export function SecurityProvider({ children }) {
     }
   }
 
-  // ✅ UPDATED: Now accepts email directly, doesn't depend on user from context
+  // ✅ UPDATED: accepts email, and marks unlockAttempted
   async function unlock(email, password) {
     if (!email) throw new Error("No email provided for unlock");
     setIsUnlocking(true);
+    setUnlockAttempted(true); // ✅ Mark that unlock has been attempted
+
     try {
       const key = await encryptionService.generateMasterKey(email, password);
       setMasterKey(key);
@@ -110,6 +113,7 @@ export function SecurityProvider({ children }) {
     setIsLocked(true);
     setMasterKey(null);
     clearAutoLockTimer();
+    setUnlockAttempted(true); // ✅ Also mark as attempted when locked manually
     console.log("🔒 Journal locked");
   }
 
@@ -120,6 +124,7 @@ export function SecurityProvider({ children }) {
   const value = {
     isLocked,
     isUnlocking,
+    unlockAttempted, // ✅ expose this
     masterKey,
     securitySettings,
     unlock,

@@ -41,9 +41,7 @@ function AppContent() {
     return <LoginPage />;
   }
 
-  if (isLocked) {
-    return <UnlockModal />;
-  }
+  if (isLocked && unlockAttempted) return <UnlockModal />;
 
   return (
     <Layout>
