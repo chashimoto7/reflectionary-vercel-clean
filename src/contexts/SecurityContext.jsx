@@ -14,25 +14,21 @@ const SecurityContext = createContext({});
 export function SecurityProvider({ children }) {
   const { user } = useAuth();
   const [isLocked, setIsLocked] = useState(true);
-  const [isUnlocking, setIsUnlocking] = useState(false); // ✅ NEW STATE
+  const [isUnlocking, setIsUnlocking] = useState(false); // ✅ NEW
   const [masterKey, setMasterKey] = useState(null);
   const [securitySettings, setSecuritySettings] = useState({
     autoLockEnabled: false,
-    autoLockTimeout: null, // minutes
+    autoLockTimeout: null,
     showLockStatus: true,
   });
 
   const autoLockTimer = useRef(null);
   const lastActivity = useRef(Date.now());
 
-  // Lock when user changes (logout)
   useEffect(() => {
-    if (!user) {
-      lock();
-    }
+    if (!user) lock();
   }, [user]);
 
-  // Set up auto-lock if enabled
   useEffect(() => {
     if (
       securitySettings.autoLockEnabled &&
@@ -51,7 +47,6 @@ export function SecurityProvider({ children }) {
     isLocked,
   ]);
 
-  // Activity tracking for auto-lock
   useEffect(() => {
     if (!securitySettings.autoLockEnabled || isLocked) return;
 
@@ -94,8 +89,7 @@ export function SecurityProvider({ children }) {
 
   async function unlock(password) {
     if (!user) throw new Error("No user logged in");
-
-    setIsUnlocking(true); // ✅ Start unlock delay
+    setIsUnlocking(true); // ✅ start unlock delay
     try {
       const key = await encryptionService.generateMasterKey(
         user.email,
@@ -110,7 +104,7 @@ export function SecurityProvider({ children }) {
       console.error("❌ Failed to unlock:", error);
       throw new Error("Invalid password");
     } finally {
-      setIsUnlocking(false); // ✅ Done unlocking
+      setIsUnlocking(false); // ✅ done
     }
   }
 
@@ -127,7 +121,7 @@ export function SecurityProvider({ children }) {
 
   const value = {
     isLocked,
-    isUnlocking, // ✅ Expose this for App.jsx
+    isUnlocking, // ✅ expose it
     masterKey,
     securitySettings,
     unlock,

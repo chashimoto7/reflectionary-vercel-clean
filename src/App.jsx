@@ -12,12 +12,11 @@ import { supabase } from "./lib/supabase";
 if (typeof window !== "undefined") {
   window.supabase = supabase;
 }
-// Components
+
 import LoginPage from "./pages/LoginPage";
 import UnlockModal from "./components/UnlockModal";
 import Layout from "./components/Layout";
 
-// Pages
 import NewEntryPage from "./pages/NewEntry";
 import HistoryPage from "./pages/history";
 import GoalsPage from "./pages/Goals";
@@ -25,9 +24,8 @@ import SecuritySettingsPage from "./pages/SecuritySettingsPage";
 
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
-  const { isLocked, isUnlocking } = useSecurity(); // added isUnlocking
+  const { isLocked, isUnlocking } = useSecurity(); // ✅ use isUnlocking
 
-  // Show loading during initial auth check
   if (authLoading || isUnlocking) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
