@@ -50,7 +50,7 @@ export default function NewEntry() {
   const quillRef = useRef(null);
 
   const getStaticMasterKey = async () => {
-    const STATIC_MASTER_KEY_HEX = process.env.REACT_APP_MASTER_DECRYPTION_KEY;
+    const STATIC_MASTER_KEY_HEX = process.env.VITE_MASTER_DECRYPTION_KEY;
     if (!STATIC_MASTER_KEY_HEX || STATIC_MASTER_KEY_HEX.length !== 64) {
       throw new Error("Static master key missing or invalid length");
     }
