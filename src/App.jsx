@@ -16,7 +16,7 @@ if (typeof window !== "undefined") {
 import LoginPage from "./pages/LoginPage";
 import UnlockModal from "./components/UnlockModal";
 import Layout from "./components/Layout";
-
+import Welcome from "./pages/Welcome";
 import NewEntryPage from "./pages/NewEntry";
 import HistoryPage from "./pages/history";
 import GoalsPage from "./pages/Goals";
@@ -48,7 +48,8 @@ function AppContent() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Navigate to="/new-entry" replace />} />
+        <Route path="/" element={<Navigate to="/Welcome" replace />} />
+        <Route path="/welcome" element={<Welcome />} />
         <Route path="/new-entry" element={<NewEntryPage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/goals" element={<GoalsPage />} />
