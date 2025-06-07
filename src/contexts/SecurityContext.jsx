@@ -6,15 +6,17 @@ import React, {
   useEffect,
 } from "react";
 import { useAuth } from "./AuthContext";
-import encryptionService from "../services/encryptionService";
 
 const SecurityContext = createContext({});
 
 export function SecurityProvider({ children }) {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
+
   const [isUnlocking, setIsUnlocking] = useState(false);
-  const [isLocked, setIsLocked] = useState(true); // Now controlled!
-  const [masterKey, setMasterKey] = useState(null);
+  const [isLocked, setIsLocked] = useState(
+    () => localStorage.getItem("isLocked") !== "false"
+  );
+
   const [securitySettings, setSecuritySettings] = useState({
     autoLockEnabled: false,
     autoLockTimeout: null,
@@ -24,16 +26,14 @@ export function SecurityProvider({ children }) {
   const autoLockTimer = useRef(null);
   const lastActivity = useRef(Date.now());
 
-  // Lock whenever the user logs out or user is null
+  // Lock when user logs out
   useEffect(() => {
     if (!user) {
-      setIsLocked(true);
-      setMasterKey(null);
-      clearAutoLockTimer();
+      lock();
     }
   }, [user]);
 
-  // Auto-lock timer logic
+  // Auto-lock timer setup
   useEffect(() => {
     if (
       securitySettings.autoLockEnabled &&
@@ -54,6 +54,7 @@ export function SecurityProvider({ children }) {
     isLocked,
   ]);
 
+  // Activity tracking for auto-lock
   useEffect(() => {
     if (!securitySettings.autoLockEnabled || !user || isLocked) return;
 
@@ -94,32 +95,21 @@ export function SecurityProvider({ children }) {
     }
   }
 
-  async function unlock(email, password) {
-    if (!email) throw new Error("No email provided for unlock");
-    setIsUnlocking(true);
-    try {
-      const key = await encryptionService.generateMasterKey(email, password);
-      setMasterKey(key);
-      setIsLocked(false);
-      lastActivity.current = Date.now();
-      return true;
-    } catch (error) {
-      throw new Error("Invalid password");
-    } finally {
-      setIsUnlocking(false);
-    }
+  function unlock() {
+    setIsLocked(false);
+    localStorage.setItem("isLocked", "false");
+    lastActivity.current = Date.now();
   }
 
   function lock() {
     setIsLocked(true);
-    setMasterKey(null);
+    localStorage.setItem("isLocked", "true");
     clearAutoLockTimer();
   }
 
-  // **NEW: Set the lock state directly (for use after login to skip double modal)**
   function setLocked(value) {
     setIsLocked(value);
-    if (value) setMasterKey(null);
+    localStorage.setItem("isLocked", value ? "true" : "false");
     if (!value) lastActivity.current = Date.now();
   }
 
@@ -130,10 +120,9 @@ export function SecurityProvider({ children }) {
   const value = {
     isUnlocking,
     isLocked,
-    masterKey,
     unlock,
     lock,
-    setLocked, // <--- Expose this for LoginPage.jsx!
+    setLocked,
     securitySettings,
     updateSecuritySettings,
   };
