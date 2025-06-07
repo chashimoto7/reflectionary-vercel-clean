@@ -23,13 +23,20 @@ export default function LoginPage() {
     setIsLoggingIn(true);
 
     try {
-      const { user, password: userPassword } = await signIn(email, password);
+      const { password: userPassword } = await signIn(email, password);
 
-      // Wait briefly for user context to update before unlocking
-      setTimeout(async () => {
-        await unlock(userPassword);
-        await refresh(); // force refresh of membership data
-      }, 300);
+      // Wait for AuthContext to populate user
+      let retries = 0;
+      while (!user && retries < 10) {
+        await new Promise((res) => setTimeout(res, 100));
+        retries++;
+      }
+
+      if (!user) {
+        throw new Error("User not available after sign-in.");
+      }
+
+      await unlock(userPassword);
     } catch (err) {
       console.error("Login error:", err);
       setError(err.message || "Login failed. Please try again.");
