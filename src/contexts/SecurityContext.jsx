@@ -14,7 +14,7 @@ const SecurityContext = createContext({});
 export function SecurityProvider({ children }) {
   const { user } = useAuth();
   const [isLocked, setIsLocked] = useState(true);
-  const [isUnlocking, setIsUnlocking] = useState(false); // ✅ NEW
+  const [isUnlocking, setIsUnlocking] = useState(false);
   const [masterKey, setMasterKey] = useState(null);
   const [securitySettings, setSecuritySettings] = useState({
     autoLockEnabled: false,
@@ -87,14 +87,12 @@ export function SecurityProvider({ children }) {
     }
   }
 
-  async function unlock(password) {
-    if (!user) throw new Error("No user logged in");
-    setIsUnlocking(true); // ✅ start unlock delay
+  // ✅ UPDATED: Now accepts email directly, doesn't depend on user from context
+  async function unlock(email, password) {
+    if (!email) throw new Error("No email provided for unlock");
+    setIsUnlocking(true);
     try {
-      const key = await encryptionService.generateMasterKey(
-        user.email,
-        password
-      );
+      const key = await encryptionService.generateMasterKey(email, password);
       setMasterKey(key);
       setIsLocked(false);
       lastActivity.current = Date.now();
@@ -104,7 +102,7 @@ export function SecurityProvider({ children }) {
       console.error("❌ Failed to unlock:", error);
       throw new Error("Invalid password");
     } finally {
-      setIsUnlocking(false); // ✅ done
+      setIsUnlocking(false);
     }
   }
 
@@ -121,7 +119,7 @@ export function SecurityProvider({ children }) {
 
   const value = {
     isLocked,
-    isUnlocking, // ✅ expose it
+    isUnlocking,
     masterKey,
     securitySettings,
     unlock,

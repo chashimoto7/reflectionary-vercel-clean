@@ -36,7 +36,7 @@ export default function LoginPage() {
         throw new Error("User not available after sign-in.");
       }
 
-      await unlock(userPassword);
+      await unlock(email, userPassword);
     } catch (err) {
       console.error("Login error:", err);
       setError(err.message || "Login failed. Please try again.");
