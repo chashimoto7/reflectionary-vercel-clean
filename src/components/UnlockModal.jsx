@@ -39,10 +39,11 @@ export default function UnlockModal() {
             <Lock className="w-8 h-8 text-purple-600" />
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">
-            Journal Locked
+            Privacy Protection
           </h2>
           <p className="text-sm text-gray-600">
-            Enter your password to unlock your encrypted journal entries.
+            Your privacy is paramount. To decrypt your information, please enter
+            your password.
           </p>
         </div>
 
@@ -88,7 +89,7 @@ export default function UnlockModal() {
                 Unlocking...
               </div>
             ) : (
-              "Unlock Journal"
+              "Decrypt My Information"
             )}
           </button>
         </form>
