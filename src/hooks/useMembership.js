@@ -35,7 +35,7 @@ export function useMembership() {
         .from("user_profiles")
         .select("subscription_tier")
         .eq("user_id", user.id)
-        .limit(1);
+        .single();
 
       console.log("📋 Raw user profile data:", userData);
       console.log("📋 User profile error:", userError);
