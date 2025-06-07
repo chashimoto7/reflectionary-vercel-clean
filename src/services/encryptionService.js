@@ -1,6 +1,10 @@
 // src/services/encryptionService.js
 
-const STATIC_MASTER_KEY_HEX = process.env.VITE_MASTER_ENCRYPTION_KEY;
+decryptEntry(
+  entry,
+  process.env.VITE.MASTER_DECRYPTION_KEY ||
+    process.env.VITE.MASTER_ENCRYPTION_KEY
+);
 
 class EncryptionService {
   constructor() {
