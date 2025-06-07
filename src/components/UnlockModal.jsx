@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useSecurity } from "../contexts/SecurityContext";
 import { useAuth } from "../contexts/AuthContext";
 import { Lock, Eye, EyeOff } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 export default function UnlockModal() {
   const [password, setPassword] = useState("");
@@ -18,10 +19,19 @@ export default function UnlockModal() {
     setIsUnlocking(true);
 
     try {
-      // Use the current user's email for unlock
-      await unlock(user.email, password);
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password,
+      });
+
+      if (error) {
+        setError("Incorrect password. Please try again.");
+      } else {
+        unlock(); // Success! Unlock the app
+      }
     } catch (err) {
-      setError("Incorrect password. Please try again.");
+      console.error("Unlock error:", err);
+      setError("Something went wrong. Please try again.");
     } finally {
       setIsUnlocking(false);
       setPassword("");
