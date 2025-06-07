@@ -35,47 +35,56 @@ const QUOTES = [
     text: "To be yourself in a world that is constantly trying to make you something else is the greatest accomplishment.",
     author: "Ralph Waldo Emerson",
   },
-  // Add more!
 ];
 
-function getRandomQuote() {
-  return QUOTES[Math.floor(Math.random() * QUOTES.length)];
+function getRandomQuote(excludeIndex) {
+  let idx;
+  do {
+    idx = Math.floor(Math.random() * QUOTES.length);
+  } while (idx === excludeIndex);
+  return { ...QUOTES[idx], idx };
 }
 
 export default function Welcome() {
-  const [quote, setQuote] = React.useState(getRandomQuote());
+  const [quote, setQuote] = React.useState(() => getRandomQuote(-1));
 
-  const handleNewQuote = () => setQuote(getRandomQuote());
+  // Auto-rotate quote every 15 seconds (15000ms)
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setQuote((q) => getRandomQuote(q.idx));
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center text-center px-4 bg-gradient-to-br from-purple-50 to-purple-100">
-      <div className="max-w-2xl bg-white rounded-xl shadow-lg p-8">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-purple-50 to-purple-100 relative">
+      {/* Logo floating on top of the white box */}
+      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
         <img
           src={logo}
           alt="Reflectionary logo"
-          className="mx-auto mb-6 w-28 h-28 md:w-36 md:h-36"
+          className="mx-auto w-24 h-24 md:w-32 md:h-32 shadow-lg rounded-full bg-white p-2"
+          style={{
+            border: "5px solid white",
+          }}
         />
-        <h1 className="text-4xl md:text-5xl font-extrabold text-purple-700 mb-2">
+      </div>
+      <div className="max-w-2xl bg-white rounded-xl shadow-lg p-8 pt-20 mt-12 relative z-0">
+        <h1 className="text-4xl md:text-5xl font-extrabold text-purple-700 mb-2 mt-2">
           Welcome to Reflectionary
         </h1>
         <p className="text-lg md:text-xl text-gray-700 mb-4">
           Say what you feel. Discover what it means.
         </p>
         {/* QUOTE BLOCK */}
-        <div className="mb-6">
-          <blockquote className="italic text-xl text-gray-700">
+        <div className="mb-6 mt-8">
+          <blockquote className="italic text-xl text-gray-700 transition-opacity duration-500 ease-in-out">
             “{quote.text}”
           </blockquote>
           <div className="mt-2 text-purple-500 font-semibold">
             — {quote.author}
           </div>
         </div>
-        <button
-          onClick={handleNewQuote}
-          className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 mb-6"
-        >
-          Show Another Quote
-        </button>
         <hr className="my-6" />
         {/* Announcements/Updates */}
         <div className="mt-6">
@@ -84,7 +93,6 @@ export default function Welcome() {
             <li>New analytics features coming soon!</li>
             <li>Stay tuned for Deep Dive modules this fall.</li>
             <li>Have feedback? Share it in app settings!</li>
-            {/* Add or edit updates here */}
           </ul>
         </div>
       </div>

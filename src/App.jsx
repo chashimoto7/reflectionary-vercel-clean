@@ -25,19 +25,24 @@ import HistoryPage from "./pages/history";
 import GoalsPage from "./pages/Goals";
 import SecuritySettingsPage from "./pages/SecuritySettingsPage";
 
-// --- AppContent now uses navigate to push to /welcome after unlock ---
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
   const { isLocked, isUnlocking } = useSecurity();
   const navigate = useNavigate();
   const location = useLocation();
+  const [showedWelcome, setShowedWelcome] = React.useState(false);
 
-  // Redirect to /welcome after unlock if not already there
+  // Show /welcome **once** after unlock, not on every route change!
   React.useEffect(() => {
-    if (user && !isLocked && location.pathname !== "/welcome") {
+    if (user && !isLocked && !showedWelcome) {
+      setShowedWelcome(true);
       navigate("/welcome", { replace: true });
     }
-  }, [user, isLocked, location, navigate]);
+    // If user logs out, reset
+    if (!user) {
+      setShowedWelcome(false);
+    }
+  }, [user, isLocked, showedWelcome, navigate]);
 
   if (authLoading || isUnlocking) {
     return (
