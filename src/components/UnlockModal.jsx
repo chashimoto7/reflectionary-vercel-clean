@@ -42,8 +42,8 @@ export default function UnlockModal() {
             Privacy Protection
           </h2>
           <p className="text-sm text-gray-600">
-            Your privacy is paramount. To decrypt your information, please enter
-            your password.
+            To protect your privacy, your information is encrypted. Please enter
+            your password to access it.
           </p>
         </div>
 

@@ -5,6 +5,8 @@ import {
   Routes,
   Route,
   Navigate,
+  useNavigate,
+  useLocation,
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { SecurityProvider, useSecurity } from "./contexts/SecurityContext";
@@ -23,9 +25,19 @@ import HistoryPage from "./pages/history";
 import GoalsPage from "./pages/Goals";
 import SecuritySettingsPage from "./pages/SecuritySettingsPage";
 
+// --- AppContent now uses navigate to push to /welcome after unlock ---
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
   const { isLocked, isUnlocking } = useSecurity();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Redirect to /welcome after unlock if not already there
+  React.useEffect(() => {
+    if (user && !isLocked && location.pathname !== "/welcome") {
+      navigate("/welcome", { replace: true });
+    }
+  }, [user, isLocked, location, navigate]);
 
   if (authLoading || isUnlocking) {
     return (
@@ -42,7 +54,6 @@ function AppContent() {
     return <LoginPage />;
   }
 
-  // 🔑 Show unlock modal if user is logged in, but journal is locked
   if (isLocked) {
     return <UnlockModal />;
   }
@@ -50,13 +61,13 @@ function AppContent() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Navigate to="/Welcome" replace />} />
+        <Route path="/" element={<Navigate to="/welcome" replace />} />
         <Route path="/welcome" element={<Welcome />} />
         <Route path="/new-entry" element={<NewEntryPage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/goals" element={<GoalsPage />} />
         <Route path="/security" element={<SecuritySettingsPage />} />
-        <Route path="*" element={<Navigate to="/new-entry" replace />} />
+        <Route path="*" element={<Navigate to="/welcome" replace />} />
       </Routes>
     </Layout>
   );
