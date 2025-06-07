@@ -1,11 +1,5 @@
 // src/services/encryptionService.js
 
-decryptEntry(
-  entry,
-  process.env.VITE.MASTER_DECRYPTION_KEY ||
-    process.env.VITE.MASTER_ENCRYPTION_KEY
-);
-
 class EncryptionService {
   constructor() {
     this.algorithm = "AES-CBC";
