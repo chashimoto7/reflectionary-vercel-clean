@@ -13,7 +13,7 @@ const SecurityContext = createContext({});
 export function SecurityProvider({ children }) {
   const { user, signOut } = useAuth();
   const [isUnlocking, setIsUnlocking] = useState(false);
-  const [isLocked, setIsLocked] = useState(true); // 🔑 This is the main lock flag!
+  const [isLocked, setIsLocked] = useState(true); // Now controlled!
   const [masterKey, setMasterKey] = useState(null);
   const [securitySettings, setSecuritySettings] = useState({
     autoLockEnabled: false,
@@ -116,6 +116,13 @@ export function SecurityProvider({ children }) {
     clearAutoLockTimer();
   }
 
+  // **NEW: Set the lock state directly (for use after login to skip double modal)**
+  function setLocked(value) {
+    setIsLocked(value);
+    if (value) setMasterKey(null);
+    if (!value) lastActivity.current = Date.now();
+  }
+
   function updateSecuritySettings(newSettings) {
     setSecuritySettings((prev) => ({ ...prev, ...newSettings }));
   }
@@ -126,6 +133,7 @@ export function SecurityProvider({ children }) {
     masterKey,
     unlock,
     lock,
+    setLocked, // <--- Expose this for LoginPage.jsx!
     securitySettings,
     updateSecuritySettings,
   };

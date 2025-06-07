@@ -13,9 +13,8 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const { signIn, user } = useAuth(); // ✅ add `user`
-  const { unlock } = useSecurity();
-  const { refresh } = useMembership(); // to re-fetch membership info
+  const { signIn } = useAuth();
+  const { unlock, setLocked } = useSecurity();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,6 +36,10 @@ export default function LoginPage() {
       }
 
       await unlock(email, userPassword);
+      setLocked(false);
+
+      // This is the magic line: prevent unlock modal from appearing after login!
+      setLocked(false);
     } catch (err) {
       console.error("Login error:", err);
       setError(err.message || "Login failed. Please try again.");
