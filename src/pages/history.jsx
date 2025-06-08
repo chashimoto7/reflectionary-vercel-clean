@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
 import encryptionService from "../services/encryptionService";
+import { supabase } from "../lib/supabase";
 
 export default function History() {
   const { user, loading: authLoading } = useAuth();
@@ -13,72 +14,122 @@ export default function History() {
   const [searchParams, setSearchParams] = useSearchParams();
   const page = parseInt(searchParams.get("page") || "1", 10);
 
-  const decryptEntry = async (rawEntry, key) => {
-    const dataKey = await encryptionService.decryptKey(
-      {
-        encryptedData: rawEntry.encrypted_data_key,
-        iv: rawEntry.data_key_iv,
-      },
-      key
-    );
+  const decryptJournalEntry = async (entry) => {
+    try {
+      let key = masterKey;
+      if (!key) key = await encryptionService.getStaticMasterKey();
 
-    const decryptedContent = await encryptionService.decryptText(
-      rawEntry.encrypted_content,
-      rawEntry.content_iv,
-      dataKey
-    );
+      const dataKey = await encryptionService.decryptKey(
+        {
+          encryptedData: entry.encrypted_data_key,
+          iv: entry.data_key_iv,
+        },
+        key
+      );
 
-    let decryptedPrompt = null;
-    if (rawEntry.encrypted_prompt && rawEntry.prompt_iv) {
-      decryptedPrompt = await encryptionService.decryptText(
-        rawEntry.encrypted_prompt,
-        rawEntry.prompt_iv,
+      const decryptedContent = await encryptionService.decryptText(
+        entry.encrypted_content,
+        entry.content_iv,
         dataKey
       );
+
+      let decryptedPrompt = null;
+      if (entry.encrypted_prompt && entry.prompt_iv) {
+        decryptedPrompt = await encryptionService.decryptText(
+          entry.encrypted_prompt,
+          entry.prompt_iv,
+          dataKey
+        );
+      }
+
+      const { data: followupEntries } = await supabase
+        .from("journal_entries")
+        .select("*")
+        .eq("thread_id", entry.thread_id);
+
+      const decryptFollowUps = async (entries, parentId, level = 1) => {
+        const results = await Promise.all(
+          (entries || [])
+            .filter((f) => f.parent_entry_id === parentId)
+            .map(async (f) => {
+              const fDataKey = await encryptionService.decryptKey(
+                {
+                  encryptedData: f.encrypted_data_key,
+                  iv: f.data_key_iv,
+                },
+                key
+              );
+
+              const fContent = await encryptionService.decryptText(
+                f.encrypted_content,
+                f.content_iv,
+                fDataKey
+              );
+
+              let fPrompt = null;
+              if (f.encrypted_prompt && f.prompt_iv) {
+                fPrompt = await encryptionService.decryptText(
+                  f.encrypted_prompt,
+                  f.prompt_iv,
+                  fDataKey
+                );
+              }
+
+              const nestedFollowUps = await decryptFollowUps(
+                entries,
+                f.id,
+                level + 1
+              );
+
+              return {
+                ...f,
+                content: fContent,
+                html_content: fContent,
+                prompt: fPrompt,
+                follow_ups: nestedFollowUps,
+              };
+            })
+        );
+        return results;
+      };
+
+      const followUps = await decryptFollowUps(followupEntries, entry.id);
+
+      return {
+        ...entry,
+        content: decryptedContent,
+        html_content: decryptedContent,
+        prompt: decryptedPrompt,
+        follow_ups: followUps,
+      };
+    } catch (error) {
+      console.error("Decryption failed for entry:", entry.id, error);
+      throw error;
     }
-
-    return {
-      ...rawEntry,
-      content: decryptedContent,
-      html_content: decryptedContent,
-      prompt: decryptedPrompt,
-    };
-  };
-
-  const buildThreadTree = (entries, parentId) => {
-    return entries
-      .filter((e) => e.parent_entry_id === parentId)
-      .map((e) => ({
-        ...e,
-        follow_ups: buildThreadTree(entries, e.id),
-      }));
   };
 
   const fetchEntries = async () => {
     if (!user?.id || isLocked) return;
     setLoading(true);
     setError(null);
-
     try {
+      // Modified API call to only fetch parent entries (non-follow-ups)
       const res = await fetch(
-        `https://reflectionary-api.vercel.app/api/threads?user_id=${encodeURIComponent(
+        `https://reflectionary-api.vercel.app/api/history?user_id=${encodeURIComponent(
           user.id
-        )}&page=${page}`
+        )}&page=${page}&parent_only=true`
       );
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
+      if (!Array.isArray(data)) return setError("Invalid data format");
 
-      const key = masterKey || (await encryptionService.getStaticMasterKey());
-      const decryptedParent = await decryptEntry(data.parent, key);
-      const decryptedEntries = await Promise.all(
-        data.entries.map((e) => decryptEntry(e, key))
-      );
+      const parentOnly = data[0];
+      if (!parentOnly) {
+        return setEntry(null); // No more entries
+      }
 
-      decryptedParent.follow_ups = buildThreadTree(
-        decryptedEntries,
-        decryptedParent.id
-      );
-      setEntry(decryptedParent);
+      const decrypted = await decryptJournalEntry(parentOnly);
+      setEntry(decrypted);
     } catch (err) {
       setError(`Failed to load journal entry: ${err.message}`);
     } finally {
@@ -119,6 +170,7 @@ export default function History() {
     ));
   };
 
+  const navigate = useNavigate();
   const handleNext = () => setSearchParams({ page: page + 1 });
   const handlePrevious = () => setSearchParams({ page: Math.max(1, page - 1) });
 
