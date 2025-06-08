@@ -24,55 +24,33 @@ export default function Layout({ children }) {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeMessage, setUpgradeMessage] = useState("");
 
-  // Navigation items (all purple)
   const navigationItems = [
     {
       to: "/new-entry",
       icon: Plus,
       label: "New Entry",
       feature: "journaling",
-      colors: {
-        bg: "bg-gradient-to-br from-purple-400 to-purple-600",
-        text: "text-white",
-        hover: "hover:from-purple-500 hover:to-purple-700",
-      },
     },
     {
       to: "/history",
       icon: Notebook,
       label: "Journal History",
       feature: "history",
-      colors: {
-        bg: "bg-gradient-to-br from-purple-400 to-purple-600",
-        text: "text-white",
-        hover: "hover:from-purple-500 hover:to-purple-700",
-      },
     },
     {
       to: "/analytics",
       icon: BarChart3,
       label: "Analytics",
       feature: "analytics",
-      colors: {
-        bg: "bg-gradient-to-br from-purple-400 to-purple-600",
-        text: "text-white",
-        hover: "hover:from-purple-500 hover:to-purple-700",
-      },
     },
     {
       to: "/goals",
       icon: Target,
       label: "Goals",
       feature: "goals",
-      colors: {
-        bg: "bg-gradient-to-br from-purple-400 to-purple-600",
-        text: "text-white",
-        hover: "hover:from-purple-500 hover:to-purple-700",
-      },
     },
   ];
 
-  // Membership badge
   const getMembershipDisplayInfo = () => {
     switch (tier) {
       case "premium":
@@ -97,24 +75,25 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F5F5F5] text-gray-800">
+    <div className="flex bg-[#F5F5F5] text-gray-800 min-h-screen overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-64 bg-gradient-to-b from-[#E5E3EA] to-[#D9D6DF] p-6 flex flex-col h-screen shadow-lg">
-        <div className="flex flex-col flex-1">
-          {/* Logo */}
-          <Link to="/" className="flex items-center justify-center mb-8">
-            <img
-              src={logo}
-              alt="Reflectionary Logo"
-              className="w-17 h-17 hover:scale-105 transition-transform"
-            />
-          </Link>
+      <aside className="w-64 bg-gradient-to-b from-[#E5E3EA] to-[#D9D6DF] p-6 shadow-lg overflow-y-auto">
+        {/* Logo */}
+        <Link to="/" className="flex items-center justify-center mb-8">
+          <img
+            src={logo}
+            alt="Reflectionary Logo"
+            className="w-17 h-17 hover:scale-105 transition-transform"
+          />
+        </Link>
 
-          {/* Navigation */}
-          <nav className="space-y-3 mb-8">
+        {/* All Buttons Grouped */}
+        <div className="flex flex-col space-y-4">
+          {/* Navigation Links */}
+          <nav className="space-y-3">
             {navigationItems.map((item) => {
-              const userHasAccess = hasAccess(item.feature);
               const IconComponent = item.icon;
+              const userHasAccess = hasAccess(item.feature);
 
               if (userHasAccess) {
                 return (
@@ -124,8 +103,8 @@ export default function Layout({ children }) {
                     className={({ isActive }) =>
                       `flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
                         isActive
-                          ? `${item.colors.bg} ${item.colors.text} shadow-md transform scale-105`
-                          : `bg-white/20 backdrop-blur-sm text-purple-900 ${item.colors.hover} hover:shadow-md hover:scale-102`
+                          ? "bg-gradient-to-br from-purple-400 to-purple-600 text-white shadow-md transform scale-105"
+                          : "bg-white/20 backdrop-blur-sm text-purple-900 hover:from-purple-500 hover:to-purple-700 hover:bg-gradient-to-br hover:text-white hover:shadow-md hover:scale-102"
                       }`
                     }
                   >
@@ -153,13 +132,7 @@ export default function Layout({ children }) {
             })}
           </nav>
 
-          {/* Spacer */}
-          <div className="flex-1"></div>
-        </div>
-
-        {/* Bottom section */}
-        <div className="space-y-4 mt-8">
-          {/* Security Settings Link */}
+          {/* Security Settings */}
           {securitySettings.showLockStatus && (
             <NavLink
               to="/security"
@@ -186,7 +159,7 @@ export default function Layout({ children }) {
             Lock Journal
           </button>
 
-          {/* Membership tier display */}
+          {/* Membership Info */}
           <div className="px-4 py-3 rounded-lg bg-white/20 backdrop-blur-sm">
             <div className="flex items-center gap-2 text-purple-900">
               <membershipInfo.icon size={16} className={membershipInfo.color} />
@@ -196,7 +169,7 @@ export default function Layout({ children }) {
             </div>
           </div>
 
-          {/* User info */}
+          {/* User Info & Sign Out */}
           <div className="px-4 py-3 rounded-lg bg-white/20 backdrop-blur-sm text-purple-900 text-sm space-y-2">
             <div className="flex items-center gap-2">
               <User size={16} />
@@ -211,15 +184,15 @@ export default function Layout({ children }) {
             </button>
           </div>
 
-          {/* Copyright */}
-          <div className="text-xs text-purple-100 text-center">
+          {/* Footer */}
+          <div className="text-xs text-purple-100 text-center pt-2">
             <p>&copy; {new Date().getFullYear()} Reflectionary</p>
           </div>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 p-8">{children}</main>
+      {/* Main content */}
+      <main className="flex-1 p-8 overflow-y-auto">{children}</main>
 
       {/* Upgrade Modal */}
       {showUpgradeModal && (
@@ -243,7 +216,7 @@ export default function Layout({ children }) {
                 <button
                   onClick={() => {
                     setShowUpgradeModal(false);
-                    // Navigate to upgrade page when you build it
+                    // Navigate to upgrade page when built
                   }}
                   className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-colors font-medium"
                 >
