@@ -113,22 +113,31 @@ export default function History() {
     setLoading(true);
     setError(null);
     try {
-      // Modified API call to only fetch parent entries (non-follow-ups)
-      const res = await fetch(
-        `https://reflectionary-api.vercel.app/api/history?user_id=${encodeURIComponent(
-          user.id
-        )}&page=${page}&parent_only=true`
-      );
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      const data = await res.json();
-      if (!Array.isArray(data)) return setError("Invalid data format");
+      let currentPage = page;
+      let foundParentEntry = null;
 
-      const parentOnly = data[0];
-      if (!parentOnly) {
-        return setEntry(null); // No more entries
+      // Keep fetching until we find a parent entry (not a follow-up)
+      while (!foundParentEntry) {
+        const res = await fetch(
+          `https://reflectionary-api.vercel.app/api/history?user_id=${encodeURIComponent(
+            user.id
+          )}&page=${currentPage}`
+        );
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+        if (!Array.isArray(data) || data.length === 0) {
+          return setEntry(null); // No more entries
+        }
+
+        const entry = data[0];
+        if (!entry.is_follow_up) {
+          foundParentEntry = entry;
+        } else {
+          currentPage++; // Skip this follow-up and try the next page
+        }
       }
 
-      const decrypted = await decryptJournalEntry(parentOnly);
+      const decrypted = await decryptJournalEntry(foundParentEntry);
       setEntry(decrypted);
     } catch (err) {
       setError(`Failed to load journal entry: ${err.message}`);
