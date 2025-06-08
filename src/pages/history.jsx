@@ -18,6 +18,7 @@ export default function History() {
     try {
       let key = masterKey;
       if (!key) key = await encryptionService.getStaticMasterKey();
+
       const dataKey = await encryptionService.decryptKey(
         {
           encryptedData: entry.encrypted_data_key,
@@ -44,8 +45,7 @@ export default function History() {
       const { data: followupEntries } = await supabase
         .from("journal_entries")
         .select("*")
-        .eq("parent_entry_id", entry.id)
-        .order("created_at", { ascending: true });
+        .eq("thread_id", entry.thread_id);
 
       const decryptFollowUps = async (entries, parentId, level = 1) => {
         const results = await Promise.all(
@@ -121,7 +121,13 @@ export default function History() {
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       if (!Array.isArray(data)) return setError("Invalid data format");
-      const decrypted = await decryptJournalEntry(data[0]);
+
+      const parentOnly = data[0];
+      if (parentOnly?.is_follow_up) {
+        return setEntry(null); // Don’t render follow-up entries on their own
+      }
+
+      const decrypted = await decryptJournalEntry(parentOnly);
       setEntry(decrypted);
     } catch (err) {
       setError(`Failed to load journal entry: ${err.message}`);
@@ -149,7 +155,7 @@ export default function History() {
           Follow-up response
         </p>
         {f.prompt && (
-          <p className="text-base text-indigo-600 italic mb-1">
+          <p className="text-base text-purple-600 italic mb-1">
             Prompt: {f.prompt}
           </p>
         )}
@@ -198,7 +204,7 @@ export default function History() {
 
         <button
           onClick={handleNext}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
         >
           Next Entry
         </button>
@@ -212,7 +218,7 @@ export default function History() {
             {new Date(entry.created_at).toLocaleString()}
           </p>
           {entry.prompt && (
-            <p className="text-base text-indigo-600 italic mb-1">
+            <p className="text-base text-purple-600 italic mb-1">
               Prompt: {entry.prompt}
             </p>
           )}
@@ -229,7 +235,7 @@ export default function History() {
           <div className="mt-6 text-right">
             <button
               onClick={handleNext}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
             >
               Next Entry
             </button>
