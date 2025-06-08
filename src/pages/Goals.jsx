@@ -414,4 +414,15 @@ function GoalSidebarItem({ goal, isSelected, onClick }) {
   );
 }
 
-// ... (GoalOverview, GoalProgress, GoalJournalEntries, GoalTips remain unchanged from your version)
+function GoalOverview({ goal }) {
+  return <div>Overview for: {goal?.decryptedTitle}</div>;
+}
+function GoalProgress({ goal }) {
+  return <div>Progress for: {goal?.decryptedTitle}</div>;
+}
+function GoalJournalEntries({ goal }) {
+  return <div>Journal entries for: {goal?.decryptedTitle}</div>;
+}
+function GoalTips({ goal }) {
+  return <div>Tips for: {goal?.decryptedTitle}</div>;
+}
