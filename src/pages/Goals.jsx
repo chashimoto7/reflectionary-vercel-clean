@@ -5,6 +5,30 @@ import encryptionService from "../services/encryptionService";
 import { Plus, Award } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import AddGoalModal from "../components/AddGoalModal";
+import ReactConfetti from "react-confetti";
+import { useWindowSize } from "@uidotdev/usehooks"; // lightweight window size hook
+
+// Helper: Parse decrypted milestones/tier data
+function parseProgress(goal, dataKey) {
+  try {
+    if (!goal.encrypted_progress || !goal.progress_iv)
+      return { type: null, data: null };
+    // Decrypt progress JSON
+    return encryptionService
+      .decryptText(goal.encrypted_progress, goal.progress_iv, dataKey)
+      .then((progressJson) => {
+        const parsed = JSON.parse(progressJson);
+        if (parsed.tiers) {
+          return { type: "tiered", data: parsed.tiers };
+        } else if (parsed.milestones) {
+          return { type: "list", data: parsed.milestones };
+        }
+        return { type: null, data: null };
+      });
+  } catch {
+    return Promise.resolve({ type: null, data: null });
+  }
+}
 
 // For MVP, you can adjust as needed:
 const TABS = ["Overview", "Progress", "Journal Entries", "Tips"];
@@ -373,14 +397,254 @@ function GoalOverview({ goal }) {
     </div>
   );
 }
+import ReactConfetti from "react-confetti";
+import { useWindowSize } from "@uidotdev/usehooks";
+
 function GoalProgress({ goal }) {
+  const [loading, setLoading] = useState(true);
+  const [type, setType] = useState(null); // "tiered" or "list"
+  const [milestones, setMilestones] = useState(null); // for single-list
+  const [tiers, setTiers] = useState(null); // for tiered
+  const [activeTier, setActiveTier] = useState("Beginner");
+  const [saving, setSaving] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const { width, height } = useWindowSize();
+
+  // Helper: Parse decrypted milestones/tier data
+  async function parseProgress(goal, dataKey) {
+    try {
+      if (!goal.encrypted_progress || !goal.progress_iv)
+        return { type: null, data: null };
+      // Decrypt progress JSON
+      const progressJson = await encryptionService.decryptText(
+        goal.encrypted_progress,
+        goal.progress_iv,
+        dataKey
+      );
+      const parsed = JSON.parse(progressJson);
+      if (parsed.tiers) {
+        return { type: "tiered", data: parsed.tiers };
+      } else if (parsed.milestones) {
+        return { type: "list", data: parsed.milestones };
+      }
+      return { type: null, data: null };
+    } catch {
+      return { type: null, data: null };
+    }
+  }
+
+  // Load and decrypt progress data
+  useEffect(() => {
+    let ignore = false;
+    async function load() {
+      setLoading(true);
+      // Decrypt data key for this goal
+      const encryptedDataKey = {
+        encryptedData: goal.encrypted_data_key,
+        iv: goal.data_key_iv,
+      };
+      const masterKey = await encryptionService.getStaticMasterKey();
+      const dataKey = await encryptionService.decryptKey(
+        encryptedDataKey,
+        masterKey
+      );
+      const { type, data } = await parseProgress(goal, dataKey);
+      if (ignore) return;
+      setType(type);
+      if (type === "tiered") {
+        setTiers(data);
+        setActiveTier(Object.keys(data)[0] || "Beginner");
+      } else if (type === "list") {
+        setMilestones(data);
+      }
+      setLoading(false);
+    }
+    load();
+    return () => {
+      ignore = true;
+    };
+    // eslint-disable-next-line
+  }, [goal.id, goal.encrypted_progress, goal.progress_iv]);
+
+  // Handle checkbox toggle
+  function handleToggle(idx, tierName = null) {
+    if (type === "list") {
+      setMilestones((ms) =>
+        ms.map((m, i) => (i === idx ? { ...m, completed: !m.completed } : m))
+      );
+    } else if (type === "tiered" && tierName) {
+      setTiers((ts) => ({
+        ...ts,
+        [tierName]: ts[tierName].map((m, i) =>
+          i === idx ? { ...m, completed: !m.completed } : m
+        ),
+      }));
+    }
+  }
+
+  // Save progress to Supabase
+  async function saveProgress() {
+    setSaving(true);
+    try {
+      const encryptedDataKey = {
+        encryptedData: goal.encrypted_data_key,
+        iv: goal.data_key_iv,
+      };
+      const masterKey = await encryptionService.getStaticMasterKey();
+      const dataKey = await encryptionService.decryptKey(
+        encryptedDataKey,
+        masterKey
+      );
+
+      // Prepare encrypted payload
+      let payload, plaintext;
+      if (type === "tiered") {
+        plaintext = JSON.stringify({ tiers });
+      } else if (type === "list") {
+        plaintext = JSON.stringify({ milestones });
+      }
+      payload = await encryptionService.encryptText(plaintext, dataKey);
+
+      // Update Supabase
+      const { error } = await supabase
+        .from("user_goals")
+        .update({
+          encrypted_progress: payload.encryptedData,
+          progress_iv: payload.iv,
+        })
+        .eq("id", goal.id);
+      if (error) throw new Error("Could not save progress: " + error.message);
+
+      // Confetti if tier or goal completed
+      let allComplete = false;
+      if (type === "tiered") {
+        allComplete = Object.values(tiers).every(
+          (tierArr) => tierArr.length > 0 && tierArr.every((m) => m.completed)
+        );
+        // Or: only show confetti for active tier completion
+        const currentTierArr = tiers[activeTier];
+        if (currentTierArr && currentTierArr.every((m) => m.completed)) {
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 2500);
+        }
+      } else if (type === "list") {
+        allComplete =
+          milestones.length > 0 && milestones.every((m) => m.completed);
+        if (allComplete) {
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 2500);
+        }
+      }
+
+      setSaving(false);
+    } catch (err) {
+      setSaving(false);
+      alert(err.message || "Failed to save.");
+    }
+  }
+
+  // Render
+  if (loading) return <div className="text-gray-400">Loading progress...</div>;
+  if (!type)
+    return (
+      <div className="text-gray-400">No milestones set for this goal yet.</div>
+    );
+
   return (
-    <div className="text-gray-500">
-      Progress tab for {goal.decryptedTitle} (checklists, tiered milestones, and
-      progress bars coming soon!)
+    <div className="relative">
+      {showConfetti && (
+        <ReactConfetti
+          width={width}
+          height={height}
+          numberOfPieces={130}
+          recycle={false}
+        />
+      )}
+      {type === "tiered" && (
+        <>
+          {/* Horizontal Tier Tabs */}
+          <div className="flex gap-2 mb-4">
+            {Object.keys(tiers).map((tier) => (
+              <button
+                key={tier}
+                onClick={() => setActiveTier(tier)}
+                className={`px-3 py-1 rounded font-bold ${
+                  activeTier === tier
+                    ? "bg-purple-600 text-white shadow"
+                    : "bg-purple-100 text-purple-700"
+                }`}
+              >
+                {tier}
+              </button>
+            ))}
+          </div>
+          {/* Checklist for active tier */}
+          <div className="space-y-2 mb-6">
+            {tiers[activeTier] && tiers[activeTier].length === 0 && (
+              <div className="text-gray-400 text-sm">
+                No milestones yet for this tier.
+              </div>
+            )}
+            {tiers[activeTier] &&
+              tiers[activeTier].map((milestone, idx) => (
+                <label key={idx} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={!!milestone.completed}
+                    onChange={() => handleToggle(idx, activeTier)}
+                  />
+                  <span
+                    className={`${
+                      milestone.completed
+                        ? "line-through text-gray-400"
+                        : "text-gray-700"
+                    }`}
+                  >
+                    {milestone.label || milestone}
+                  </span>
+                </label>
+              ))}
+          </div>
+        </>
+      )}
+      {type === "list" && (
+        <div className="space-y-2 mb-6">
+          {milestones.length === 0 && (
+            <div className="text-gray-400 text-sm">
+              No milestones yet for this goal.
+            </div>
+          )}
+          {milestones.map((milestone, idx) => (
+            <label key={idx} className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={!!milestone.completed}
+                onChange={() => handleToggle(idx)}
+              />
+              <span
+                className={`${
+                  milestone.completed
+                    ? "line-through text-gray-400"
+                    : "text-gray-700"
+                }`}
+              >
+                {milestone.label || milestone}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+      <button
+        onClick={saveProgress}
+        className="px-5 py-2 bg-purple-600 text-white font-semibold rounded hover:bg-purple-700 transition disabled:opacity-60"
+        disabled={saving}
+      >
+        {saving ? "Saving..." : "Save Progress"}
+      </button>
     </div>
   );
 }
+
 function GoalJournalEntries({ goal }) {
   return (
     <div className="text-gray-500">
