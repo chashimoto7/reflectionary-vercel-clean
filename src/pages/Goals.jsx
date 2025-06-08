@@ -14,6 +14,7 @@ export default function Goals() {
   const [loading, setLoading] = useState(true);
   const [selectedGoalId, setSelectedGoalId] = useState(null);
   const [activeTab, setActiveTab] = useState("Overview");
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const selectedGoal = goals.find((g) => g.id === selectedGoalId);
 
@@ -63,19 +64,15 @@ export default function Goals() {
                 dataKey
               );
             }
-            // (Add more decrypted fields as needed!)
-
             return {
               ...goal,
               decryptedTitle,
               decryptedDescription,
-              // For MVP, you can add: isTiered, tier, priority, etc. from other columns or defaults
             };
           })
         );
         setGoals(decryptedGoals);
         setLoading(false);
-        // Auto-select first goal (if not already selected)
         if (!selectedGoalId && decryptedGoals.length > 0) {
           setSelectedGoalId(decryptedGoals[0].id);
         }
@@ -96,6 +93,93 @@ export default function Goals() {
     }
   }, [goals, selectedGoalId]);
 
+  // Handler for adding a new goal
+  const handleAddGoal = async ({ title, description, priority }) => {
+    try {
+      // 1. Get master key and generate a random data key
+      const masterKey = await encryptionService.getStaticMasterKey();
+      const dataKey = await encryptionService.generateDataKey();
+
+      // 2. Encrypt title and description
+      const encTitle = await encryptionService.encryptText(title, dataKey);
+      let encDescription = { encryptedData: "", iv: "" };
+      if (description && description.trim() !== "") {
+        encDescription = await encryptionService.encryptText(
+          description,
+          dataKey
+        );
+      }
+
+      // 3. Encrypt data key with master key
+      const encDataKey = await encryptionService.encryptKey(dataKey, masterKey);
+
+      // 4. Insert to Supabase
+      const { error } = await supabase.from("user_goals").insert([
+        {
+          user_id: user.id,
+          encrypted_goal: encTitle.encryptedData,
+          goal_iv: encTitle.iv,
+          encrypted_description: encDescription.encryptedData,
+          description_iv: encDescription.iv,
+          encrypted_data_key: encDataKey.encryptedData,
+          data_key_iv: encDataKey.iv,
+          priority,
+        },
+      ]);
+      if (error) throw new Error("Failed to save goal: " + error.message);
+
+      // 5. Reload goals
+      setSelectedGoalId(null);
+      setLoading(true);
+      // Re-fetch goals after insert
+      const { data, error: fetchError } = await supabase
+        .from("user_goals")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
+      if (fetchError) throw fetchError;
+
+      // Decrypt as before
+      const masterKeyReload = await encryptionService.getStaticMasterKey();
+      const decryptedGoals = await Promise.all(
+        data.map(async (goal) => {
+          const encryptedDataKey = {
+            encryptedData: goal.encrypted_data_key,
+            iv: goal.data_key_iv,
+          };
+          const dataKey = await encryptionService.decryptKey(
+            encryptedDataKey,
+            masterKeyReload
+          );
+          const decryptedTitle = await encryptionService.decryptText(
+            goal.encrypted_goal,
+            goal.goal_iv,
+            dataKey
+          );
+          let decryptedDescription = "";
+          if (goal.encrypted_description && goal.description_iv) {
+            decryptedDescription = await encryptionService.decryptText(
+              goal.encrypted_description,
+              goal.description_iv,
+              dataKey
+            );
+          }
+          return {
+            ...goal,
+            decryptedTitle,
+            decryptedDescription,
+          };
+        })
+      );
+      setGoals(decryptedGoals);
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      alert(error.message);
+      throw error;
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-4rem)] bg-white rounded-2xl shadow-lg overflow-hidden mt-6 max-w-6xl mx-auto">
       {/* Sidebar */}
@@ -105,7 +189,7 @@ export default function Goals() {
           <button
             className="rounded-full bg-purple-500 hover:bg-purple-600 p-2 text-white"
             title="Add New Goal"
-            // TODO: Add goal creation logic!
+            onClick={() => setShowAddModal(true)}
           >
             <Plus size={20} />
           </button>
@@ -180,13 +264,20 @@ export default function Goals() {
           </div>
         )}
       </main>
+
+      {/* Add Goal Modal */}
+      {showAddModal && (
+        <AddGoalModal
+          onClose={() => setShowAddModal(false)}
+          onSave={handleAddGoal}
+        />
+      )}
     </div>
   );
 }
 
 // Sidebar Item
 function GoalSidebarItem({ goal, isSelected, onClick }) {
-  // Placeholder for tier logic and badge (adapt when you add tiers)
   const badge = goal.tier || "List";
   const badgeColor =
     badge === "Advanced"
@@ -216,7 +307,6 @@ function GoalSidebarItem({ goal, isSelected, onClick }) {
         <span className="text-base">{goal.decryptedTitle}</span>
       </div>
       <div className="text-xs text-gray-400 flex items-center gap-2 mt-1">
-        {/* TODO: Add mentions/last mentioned if available */}
         <span>{goal.mention_count || 0} mentions</span>
         <span>•</span>
         <span>
@@ -227,6 +317,102 @@ function GoalSidebarItem({ goal, isSelected, onClick }) {
         </span>
       </div>
     </button>
+  );
+}
+
+// Add Goal Modal
+function AddGoalModal({ onClose, onSave }) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!title.trim()) {
+      setError("Goal title is required.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await onSave({ title, description, priority });
+      setSaving(false);
+      onClose();
+    } catch (err) {
+      setError(err.message);
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <form
+        className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 space-y-5"
+        onSubmit={handleSubmit}
+      >
+        <h2 className="text-xl font-bold text-purple-900 mb-2">Add New Goal</h2>
+        {error && <div className="text-red-600 text-sm">{error}</div>}
+        <div>
+          <label className="block font-medium text-gray-700 mb-1">
+            Title<span className="text-red-500">*</span>
+          </label>
+          <input
+            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-400"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            maxLength={100}
+          />
+        </div>
+        <div>
+          <label className="block font-medium text-gray-700 mb-1">
+            Description
+          </label>
+          <textarea
+            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-400"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            maxLength={300}
+          />
+        </div>
+        <div>
+          <label className="block font-medium text-gray-700 mb-1">
+            Priority
+          </label>
+          <select
+            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-400"
+            value={priority}
+            onChange={(e) => setPriority(Number(e.target.value))}
+          >
+            {[1, 2, 3, 4, 5].map((num) => (
+              <option key={num} value={num}>
+                {num} {num === 1 ? "(Lowest)" : num === 5 ? "(Highest)" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex justify-end gap-3 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-100"
+            disabled={saving}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700"
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
