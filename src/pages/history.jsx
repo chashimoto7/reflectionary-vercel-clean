@@ -41,52 +41,66 @@ export default function History() {
         );
       }
 
-      // Fetch and decrypt follow-up entries
-      const { data: followupEntries, error: followupError } = await supabase
+      const { data: followupEntries } = await supabase
         .from("journal_entries")
         .select("*")
-        .eq("parent_entry_id", entry.id);
+        .eq("parent_entry_id", entry.id)
+        .order("created_at", { ascending: true });
 
-      const followUps = await Promise.all(
-        (followupEntries || []).map(async (f) => {
-          const fDataKey = await encryptionService.decryptKey(
-            {
-              encryptedData: f.encrypted_data_key,
-              iv: f.data_key_iv,
-            },
-            key
-          );
+      const decryptFollowUps = async (entries, parentId, level = 1) => {
+        const results = await Promise.all(
+          (entries || [])
+            .filter((f) => f.parent_entry_id === parentId)
+            .map(async (f) => {
+              const fDataKey = await encryptionService.decryptKey(
+                {
+                  encryptedData: f.encrypted_data_key,
+                  iv: f.data_key_iv,
+                },
+                key
+              );
 
-          const fContent = await encryptionService.decryptText(
-            f.encrypted_content,
-            f.content_iv,
-            fDataKey
-          );
+              const fContent = await encryptionService.decryptText(
+                f.encrypted_content,
+                f.content_iv,
+                fDataKey
+              );
 
-          let fPrompt = null;
-          if (f.encrypted_prompt && f.prompt_iv) {
-            fPrompt = await encryptionService.decryptText(
-              f.encrypted_prompt,
-              f.prompt_iv,
-              fDataKey
-            );
-          }
+              let fPrompt = null;
+              if (f.encrypted_prompt && f.prompt_iv) {
+                fPrompt = await encryptionService.decryptText(
+                  f.encrypted_prompt,
+                  f.prompt_iv,
+                  fDataKey
+                );
+              }
 
-          return {
-            ...f,
-            content: fContent,
-            html_content: fContent,
-            prompt: fPrompt,
-          };
-        })
-      );
+              const nestedFollowUps = await decryptFollowUps(
+                entries,
+                f.id,
+                level + 1
+              );
+
+              return {
+                ...f,
+                content: fContent,
+                html_content: fContent,
+                prompt: fPrompt,
+                follow_ups: nestedFollowUps,
+              };
+            })
+        );
+        return results;
+      };
+
+      const followUps = await decryptFollowUps(followupEntries, entry.id);
 
       return {
         ...entry,
         content: decryptedContent,
         html_content: decryptedContent,
         prompt: decryptedPrompt,
-        followups: followUps,
+        follow_ups: followUps,
       };
     } catch (error) {
       console.error("Decryption failed for entry:", entry.id, error);
@@ -144,6 +158,7 @@ export default function History() {
             __html: f.html_content || `<p>${f.content}</p>`,
           }}
         />
+        {f.follow_ups?.length > 0 && renderFollowUps(f.follow_ups, level + 1)}
       </div>
     ));
   };
@@ -209,12 +224,7 @@ export default function History() {
             }}
           />
 
-          {entry.followups?.length > 0 && (
-            <div className="mt-6 border-t pt-4">
-              <h3 className="text-lg font-semibold">Follow-up Entries</h3>
-              {renderFollowUps(entry.followups)}
-            </div>
-          )}
+          {entry.follow_ups?.length > 0 && renderFollowUps(entry.follow_ups)}
 
           <div className="mt-6 text-right">
             <button
