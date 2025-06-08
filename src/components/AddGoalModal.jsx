@@ -50,7 +50,76 @@ const PREDEFINED_GOALS = [
       ],
     },
   },
-  // Add more as desired...
+  {
+    emoji: "💤",
+    title: "Improve Sleep",
+    description: "Create habits that support restful sleep and better energy.",
+    priority: 3,
+    tiers: {
+      Beginner: [
+        "Stick to a consistent bedtime for 3 days",
+        "Avoid screens for 30 minutes before bed",
+        "Write down worries before sleeping",
+      ],
+      Intermediate: [
+        "Establish a calming bedtime routine",
+        "Track sleep for a full week",
+        "Limit caffeine after noon",
+      ],
+      Advanced: [
+        "Go a week with no late-night work or TV",
+        "Try meditation or gentle yoga before bed",
+        "Wake up feeling refreshed three days in a row",
+      ],
+    },
+  },
+  {
+    emoji: "🏃‍♀️",
+    title: "Boost Physical Activity",
+    description: "Move more often to increase energy and mood.",
+    priority: 4,
+    tiers: {
+      Beginner: [
+        "Take a 10-minute walk three times this week",
+        "Stretch for five minutes daily",
+        "Try a new physical activity",
+      ],
+      Intermediate: [
+        "Meet a step or movement goal for a full week",
+        "Exercise with a friend or group",
+        "Track your progress in your journal",
+      ],
+      Advanced: [
+        "Complete a new personal best (distance/time)",
+        "Incorporate strength training",
+        "Teach someone else a favorite activity",
+      ],
+    },
+  },
+  {
+    emoji: "🤝",
+    title: "Strengthen Relationships",
+    description: "Build deeper connections with friends and family.",
+    priority: 3,
+    tiers: {
+      Beginner: [
+        "Reach out to someone you haven’t talked to in a while",
+        "Share appreciation with a friend",
+        "Schedule a check-in call",
+      ],
+      Intermediate: [
+        "Have a meaningful one-on-one conversation",
+        "Resolve a small conflict with kindness",
+        "Support someone in need",
+      ],
+      Advanced: [
+        "Organize a get-together or group event",
+        "Initiate a vulnerable conversation",
+        "Offer mentorship or guidance to someone",
+      ],
+    },
+  },
+  // ...add more as you wish!
 ];
 
 const TABS = ["Predefined Goals", "Custom Goal"];
