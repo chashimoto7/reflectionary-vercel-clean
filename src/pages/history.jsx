@@ -18,19 +18,24 @@ export default function History() {
   const page = parseInt(searchParams.get("page") || "1", 10);
 
   // Function to decrypt journal entry using the new system
+  // Function to decrypt journal entry using the new system
   const decryptJournalEntry = async (entry) => {
-    if (!masterKey) {
-      throw new Error("No master key available for decryption");
-    }
-
     try {
+      let key = masterKey;
+
+      // Load the static master key if not already available
+      if (!key) {
+        console.log("🔑 No masterKey found — loading static key manually");
+        key = await encryptionService.getStaticMasterKey();
+      }
+
       // First decrypt the data key
       const dataKey = await encryptionService.decryptKey(
         {
           encryptedData: entry.encrypted_data_key,
           iv: entry.data_key_iv,
         },
-        masterKey
+        key
       );
 
       // Decrypt the content
