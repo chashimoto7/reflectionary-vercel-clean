@@ -42,53 +42,65 @@ export default function History() {
         );
       }
 
-      const { data: followupEntries } = await supabase
+      const { data: followupEntries, error: followupError } = await supabase
         .from("journal_entries")
         .select("*")
         .eq("thread_id", entry.thread_id);
 
-      const decryptFollowUps = async (entries, parentId, level = 1) => {
-        const results = await Promise.all(
-          (entries || [])
-            .filter((f) => f.parent_entry_id === parentId)
-            .map(async (f) => {
-              const fDataKey = await encryptionService.decryptKey(
-                {
-                  encryptedData: f.encrypted_data_key,
-                  iv: f.data_key_iv,
-                },
-                key
-              );
+      // Debug logging
+      console.log("Parent entry ID:", entry.id);
+      console.log("Thread ID:", entry.thread_id);
+      console.log("Follow-up entries found:", followupEntries);
+      console.log("Follow-up fetch error:", followupError);
 
-              const fContent = await encryptionService.decryptText(
-                f.encrypted_content,
-                f.content_iv,
+      const decryptFollowUps = async (entries, parentId, level = 1) => {
+        const filteredEntries = (entries || []).filter(
+          (f) => f.parent_entry_id === parentId
+        );
+        console.log(
+          `Looking for follow-ups with parent_entry_id=${parentId}, found:`,
+          filteredEntries
+        );
+
+        const results = await Promise.all(
+          filteredEntries.map(async (f) => {
+            const fDataKey = await encryptionService.decryptKey(
+              {
+                encryptedData: f.encrypted_data_key,
+                iv: f.data_key_iv,
+              },
+              key
+            );
+
+            const fContent = await encryptionService.decryptText(
+              f.encrypted_content,
+              f.content_iv,
+              fDataKey
+            );
+
+            let fPrompt = null;
+            if (f.encrypted_prompt && f.prompt_iv) {
+              fPrompt = await encryptionService.decryptText(
+                f.encrypted_prompt,
+                f.prompt_iv,
                 fDataKey
               );
+            }
 
-              let fPrompt = null;
-              if (f.encrypted_prompt && f.prompt_iv) {
-                fPrompt = await encryptionService.decryptText(
-                  f.encrypted_prompt,
-                  f.prompt_iv,
-                  fDataKey
-                );
-              }
+            const nestedFollowUps = await decryptFollowUps(
+              entries,
+              f.id,
+              level + 1
+            );
 
-              const nestedFollowUps = await decryptFollowUps(
-                entries,
-                f.id,
-                level + 1
-              );
-
-              return {
-                ...f,
-                content: fContent,
-                html_content: fContent,
-                prompt: fPrompt,
-                follow_ups: nestedFollowUps,
-              };
-            })
+            return {
+              ...f,
+              content: fContent,
+              html_content: fContent,
+              prompt: fPrompt,
+              follow_ups: nestedFollowUps,
+            };
+          })
         );
         return results;
       };
