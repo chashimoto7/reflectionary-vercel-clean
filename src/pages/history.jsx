@@ -42,14 +42,15 @@ export default function History() {
         );
       }
 
+      // Fetch follow-ups using is_followup flag and parent_entry_id instead of thread_id
       const { data: followupEntries, error: followupError } = await supabase
         .from("journal_entries")
         .select("*")
-        .eq("thread_id", entry.thread_id);
+        .eq("is_followup", true)
+        .eq("user_id", entry.user_id || user.id); // Get all follow-ups for this user
 
       // Debug logging
       console.log("Parent entry ID:", entry.id);
-      console.log("Thread ID:", entry.thread_id);
       console.log("Follow-up entries found:", followupEntries);
       console.log("Follow-up fetch error:", followupError);
 
