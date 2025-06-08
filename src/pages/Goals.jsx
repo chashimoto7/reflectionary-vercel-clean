@@ -509,14 +509,14 @@ function GoalProgress({ goal }) {
         const currentTierArr = tiers[activeTier];
         if (currentTierArr && currentTierArr.every((m) => m.completed)) {
           setShowConfetti(true);
-          setTimeout(() => setShowConfetti(false), 2500);
+          setTimeout(() => setShowConfetti(false), 4500);
         }
       } else if (type === "list") {
         allComplete =
           milestones.length > 0 && milestones.every((m) => m.completed);
         if (allComplete) {
           setShowConfetti(true);
-          setTimeout(() => setShowConfetti(false), 2500);
+          setTimeout(() => setShowConfetti(false), 4500);
         }
       }
 
