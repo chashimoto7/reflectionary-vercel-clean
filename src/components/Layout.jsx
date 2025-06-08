@@ -185,7 +185,7 @@ export default function Layout({ children }) {
           </div>
 
           {/* Footer */}
-          <div className="text-xs text-purple-100 text-center pt-2">
+          <div className="text-xs text-purple-700 text-center pt-2">
             <p>&copy; {new Date().getFullYear()} Reflectionary</p>
           </div>
         </div>
