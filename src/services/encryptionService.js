@@ -7,18 +7,21 @@ class EncryptionService {
     this.ivLength = 16; // 16 bytes for AES-CBC
   }
 
-  // --- NEW: Use static master key for everything! ---
   async getStaticMasterKey() {
-    const hex = STATIC_MASTER_KEY_HEX;
-    if (!hex || hex.length !== 64)
-      throw new Error("Static master key is missing or invalid length");
+    const STATIC_MASTER_KEY_HEX = import.meta.env.VITE_MASTER_DECRYPTION_KEY;
+
+    if (!STATIC_MASTER_KEY_HEX || STATIC_MASTER_KEY_HEX.length !== 64) {
+      throw new Error("Static master key missing or invalid length");
+    }
+
     const keyBuffer = new Uint8Array(
-      hex.match(/.{1,2}/g).map((b) => parseInt(b, 16))
+      STATIC_MASTER_KEY_HEX.match(/.{1,2}/g).map((b) => parseInt(b, 16))
     );
+
     return await window.crypto.subtle.importKey(
       "raw",
       keyBuffer,
-      { name: this.algorithm },
+      { name: "AES-CBC" },
       false,
       ["encrypt", "decrypt"]
     );

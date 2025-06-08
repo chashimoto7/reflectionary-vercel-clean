@@ -18,7 +18,6 @@ export default function History() {
   const page = parseInt(searchParams.get("page") || "1", 10);
 
   // Function to decrypt journal entry using the new system
-  // Function to decrypt journal entry using the new system
   const decryptJournalEntry = async (entry) => {
     try {
       let key = masterKey;
