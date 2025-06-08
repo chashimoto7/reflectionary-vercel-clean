@@ -114,6 +114,7 @@ export default function AddGoalModal({ onClose, onSave }) {
   }
 
   // Save goal
+  // Save goal (REPLACE your function with this version)
   async function handleSave() {
     setSaving(true);
     setError("");
@@ -123,11 +124,15 @@ export default function AddGoalModal({ onClose, onSave }) {
         // Convert each milestone to an object with label & completed
         const tiersToSave = {};
         Object.entries(editableTiers).forEach(([tier, arr]) => {
-          tiersToSave[tier] = arr.map((milestone) =>
-            typeof milestone === "string"
-              ? { label: milestone, completed: false }
-              : milestone
-          );
+          tiersToSave[tier] = arr
+            .filter(Boolean)
+            .map((milestone) =>
+              typeof milestone === "string"
+                ? { label: milestone, completed: false }
+                : milestone && typeof milestone === "object"
+                ? { label: milestone.label, completed: !!milestone.completed }
+                : { label: "", completed: false }
+            );
         });
         await onSave({
           title: selectedPre.title,
@@ -149,7 +154,9 @@ export default function AddGoalModal({ onClose, onSave }) {
               .map((milestone) =>
                 typeof milestone === "string"
                   ? { label: milestone, completed: false }
-                  : milestone
+                  : milestone && typeof milestone === "object"
+                  ? { label: milestone.label, completed: !!milestone.completed }
+                  : { label: "", completed: false }
               ),
           };
         } else {
@@ -158,7 +165,9 @@ export default function AddGoalModal({ onClose, onSave }) {
             .map((milestone) =>
               typeof milestone === "string"
                 ? { label: milestone, completed: false }
-                : milestone
+                : milestone && typeof milestone === "object"
+                ? { label: milestone.label, completed: !!milestone.completed }
+                : { label: "", completed: false }
             );
         }
         await onSave(goalObj);

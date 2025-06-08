@@ -408,12 +408,11 @@ function GoalProgress({ goal }) {
   const [showConfetti, setShowConfetti] = useState(false);
   const { width, height } = useWindowSize();
 
-  // Helper: Parse decrypted milestones/tier data
+  // Helper: Parse and normalize milestones/tier data
   async function parseProgress(goal, dataKey) {
     try {
       if (!goal.encrypted_progress || !goal.progress_iv)
         return { type: null, data: null };
-      // Decrypt progress JSON
       const progressJson = await encryptionService.decryptText(
         goal.encrypted_progress,
         goal.progress_iv,
@@ -421,9 +420,28 @@ function GoalProgress({ goal }) {
       );
       const parsed = JSON.parse(progressJson);
       if (parsed.tiers) {
+        // Always convert all to objects
+        Object.keys(parsed.tiers).forEach((tier) => {
+          parsed.tiers[tier] = parsed.tiers[tier].map((m) =>
+            typeof m === "string"
+              ? { label: m, completed: false }
+              : m && typeof m === "object"
+              ? { label: m.label, completed: !!m.completed }
+              : { label: "", completed: false }
+          );
+        });
         return { type: "tiered", data: parsed.tiers };
       } else if (parsed.milestones) {
-        return { type: "list", data: parsed.milestones };
+        return {
+          type: "list",
+          data: parsed.milestones.map((m) =>
+            typeof m === "string"
+              ? { label: m, completed: false }
+              : m && typeof m === "object"
+              ? { label: m.label, completed: !!m.completed }
+              : { label: "", completed: false }
+          ),
+        };
       }
       return { type: null, data: null };
     } catch {
@@ -436,7 +454,6 @@ function GoalProgress({ goal }) {
     let ignore = false;
     async function load() {
       setLoading(true);
-      // Decrypt data key for this goal
       const encryptedDataKey = {
         encryptedData: goal.encrypted_data_key,
         iv: goal.data_key_iv,
@@ -519,7 +536,6 @@ function GoalProgress({ goal }) {
         allComplete = Object.values(tiers).every(
           (tierArr) => tierArr.length > 0 && tierArr.every((m) => m.completed)
         );
-        // Or: only show confetti for active tier completion
         const currentTierArr = tiers[activeTier];
         if (currentTierArr && currentTierArr.every((m) => m.completed)) {
           setShowConfetti(true);
@@ -560,7 +576,6 @@ function GoalProgress({ goal }) {
       )}
       {type === "tiered" && (
         <>
-          {/* Horizontal Tier Tabs */}
           <div className="flex gap-2 mb-4">
             {Object.keys(tiers).map((tier) => (
               <button
@@ -576,7 +591,6 @@ function GoalProgress({ goal }) {
               </button>
             ))}
           </div>
-          {/* Checklist for active tier */}
           <div className="space-y-2 mb-6">
             {tiers[activeTier] && tiers[activeTier].length === 0 && (
               <div className="text-gray-400 text-sm">
