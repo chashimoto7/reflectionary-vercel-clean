@@ -1,6 +1,6 @@
-// src/components/AddGoalModal.jsx (or inline in Goals.jsx)
+// src/components/AddGoalModal.jsx
 import React, { useState } from "react";
-import { Check, X, Plus } from "lucide-react";
+import { X } from "lucide-react";
 
 // MVP: List of predefined Reflectionary goals (expand as needed)
 const PREDEFINED_GOALS = [
@@ -73,7 +73,7 @@ export default function AddGoalModal({ onClose, onSave }) {
     selectedPredefinedIdx !== null
       ? { ...PREDEFINED_GOALS[selectedPredefinedIdx] }
       : null;
-  const [preTierEdits, setPreTierEdits] = useState({}); // { idx: { Beginner: [...], ... }, ... }
+  const [preTierEdits, setPreTierEdits] = useState({});
   const [activeTierTab, setActiveTierTab] = useState("Beginner");
 
   // Handle milestone editing for predefined
@@ -113,26 +113,27 @@ export default function AddGoalModal({ onClose, onSave }) {
     });
   }
 
-  // Save goal
-  // Save goal (REPLACE your function with this version)
+  // Always return { label, completed: false }
+  function normalizeMilestone(m) {
+    if (typeof m === "string") return { label: m, completed: false };
+    if (m && typeof m === "object") {
+      return {
+        label: m.label || "",
+        completed: !!m.completed,
+      };
+    }
+    return { label: "", completed: false };
+  }
+
   async function handleSave() {
     setSaving(true);
     setError("");
     try {
       if (activeTab === "Predefined Goals") {
         if (selectedPre === null) throw new Error("Select a goal.");
-        // Convert each milestone to an object with label & completed
         const tiersToSave = {};
         Object.entries(editableTiers).forEach(([tier, arr]) => {
-          tiersToSave[tier] = arr
-            .filter(Boolean)
-            .map((milestone) =>
-              typeof milestone === "string"
-                ? { label: milestone, completed: false }
-                : milestone && typeof milestone === "object"
-                ? { label: milestone.label, completed: !!milestone.completed }
-                : { label: "", completed: false }
-            );
+          tiersToSave[tier] = arr.filter(Boolean).map(normalizeMilestone);
         });
         await onSave({
           title: selectedPre.title,
@@ -149,30 +150,15 @@ export default function AddGoalModal({ onClose, onSave }) {
         };
         if (customTiers) {
           goalObj.tiers = {
-            Beginner: customMilestones
-              .filter(Boolean)
-              .map((milestone) =>
-                typeof milestone === "string"
-                  ? { label: milestone, completed: false }
-                  : milestone && typeof milestone === "object"
-                  ? { label: milestone.label, completed: !!milestone.completed }
-                  : { label: "", completed: false }
-              ),
+            Beginner: customMilestones.filter(Boolean).map(normalizeMilestone),
           };
         } else {
           goalObj.milestones = customMilestones
             .filter(Boolean)
-            .map((milestone) =>
-              typeof milestone === "string"
-                ? { label: milestone, completed: false }
-                : milestone && typeof milestone === "object"
-                ? { label: milestone.label, completed: !!milestone.completed }
-                : { label: "", completed: false }
-            );
+            .map(normalizeMilestone);
         }
         await onSave(goalObj);
       }
-
       setSaving(false);
       onClose();
     } catch (err) {
@@ -181,7 +167,6 @@ export default function AddGoalModal({ onClose, onSave }) {
     }
   }
 
-  // Custom goal: manage milestones
   function handleMilestoneChange(idx, value) {
     setCustomMilestones((milestones) => {
       const arr = [...milestones];
@@ -228,7 +213,6 @@ export default function AddGoalModal({ onClose, onSave }) {
 
         {activeTab === "Predefined Goals" && (
           <div>
-            {/* List of predefined */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               {PREDEFINED_GOALS.map((g, idx) => (
                 <button
@@ -246,7 +230,6 @@ export default function AddGoalModal({ onClose, onSave }) {
                 </button>
               ))}
             </div>
-            {/* Preview and edit when selected */}
             {selectedPre && (
               <div className="bg-gray-50 rounded-xl p-4 mt-4 border max-h-[60vh] overflow-y-auto">
                 <h3 className="font-bold mb-1">Preview and Edit</h3>
@@ -292,7 +275,11 @@ export default function AddGoalModal({ onClose, onSave }) {
                     <div className="flex items-center gap-1 my-1" key={idx}>
                       <input
                         type="text"
-                        value={milestone}
+                        value={
+                          typeof milestone === "string"
+                            ? milestone
+                            : milestone.label
+                        }
                         onChange={(e) =>
                           handleEditPreMilestone(
                             activeTierTab,
@@ -337,7 +324,159 @@ export default function AddGoalModal({ onClose, onSave }) {
           </div>
         )}
 
-        {/* ...rest of your Custom Goal tab remains unchanged... */}
+        {/* --- Custom Goal tab below (unchanged) --- */}
+        {activeTab === "Custom Goal" && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSave();
+            }}
+          >
+            <div className="mb-2">
+              <label className="block text-xs font-medium text-gray-500">
+                Title<span className="text-red-500">*</span>
+              </label>
+              <input
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-400"
+                value={customTitle}
+                onChange={(e) => setCustomTitle(e.target.value)}
+                required
+                maxLength={100}
+              />
+            </div>
+            <div className="mb-2">
+              <label className="block text-xs font-medium text-gray-500">
+                Description
+              </label>
+              <textarea
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-400"
+                value={customDescription}
+                onChange={(e) => setCustomDescription(e.target.value)}
+                rows={3}
+                maxLength={300}
+              />
+            </div>
+            <div className="mb-2">
+              <label className="block text-xs font-medium text-gray-500">
+                Priority
+              </label>
+              <select
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-400"
+                value={customPriority}
+                onChange={(e) => setCustomPriority(Number(e.target.value))}
+              >
+                {[1, 2, 3, 4, 5].map((num) => (
+                  <option key={num} value={num}>
+                    {num}{" "}
+                    {num === 1 ? "(Lowest)" : num === 5 ? "(Highest)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="mb-2 flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="tiers"
+                checked={customTiers}
+                onChange={(e) => setCustomTiers(e.target.checked)}
+              />
+              <label htmlFor="tiers" className="text-sm text-gray-600">
+                Advanced: Use beginner/intermediate/advanced tiers
+              </label>
+            </div>
+            {customTiers ? (
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-500">
+                  Beginner Milestones
+                </label>
+                {customMilestones.map((milestone, idx) => (
+                  <div key={idx} className="flex items-center gap-1 my-1">
+                    <input
+                      className="flex-1 px-2 py-1 border rounded"
+                      value={
+                        typeof milestone === "string"
+                          ? milestone
+                          : milestone.label
+                      }
+                      onChange={(e) =>
+                        handleMilestoneChange(idx, e.target.value)
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="text-gray-400 hover:text-red-500"
+                      onClick={() => removeMilestone(idx)}
+                      title="Remove"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="mt-1 text-xs text-purple-600 hover:underline"
+                  onClick={addMilestone}
+                >
+                  + Add Beginner Milestone
+                </button>
+              </div>
+            ) : (
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-500">
+                  Milestones (optional)
+                </label>
+                {customMilestones.map((milestone, idx) => (
+                  <div key={idx} className="flex items-center gap-1 my-1">
+                    <input
+                      className="flex-1 px-2 py-1 border rounded"
+                      value={
+                        typeof milestone === "string"
+                          ? milestone
+                          : milestone.label
+                      }
+                      onChange={(e) =>
+                        handleMilestoneChange(idx, e.target.value)
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="text-gray-400 hover:text-red-500"
+                      onClick={() => removeMilestone(idx)}
+                      title="Remove"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="mt-1 text-xs text-purple-600 hover:underline"
+                  onClick={addMilestone}
+                >
+                  + Add Milestone
+                </button>
+              </div>
+            )}
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-100"
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700"
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Save Goal"}
+              </button>
+            </div>
+            {error && <div className="text-red-600 mt-2">{error}</div>}
+          </form>
+        )}
       </div>
     </div>
   );

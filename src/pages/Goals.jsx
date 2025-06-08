@@ -408,45 +408,15 @@ function GoalProgress({ goal }) {
   const [showConfetti, setShowConfetti] = useState(false);
   const { width, height } = useWindowSize();
 
-  // Helper: Parse and normalize milestones/tier data
-  async function parseProgress(goal, dataKey) {
-    try {
-      if (!goal.encrypted_progress || !goal.progress_iv)
-        return { type: null, data: null };
-      const progressJson = await encryptionService.decryptText(
-        goal.encrypted_progress,
-        goal.progress_iv,
-        dataKey
-      );
-      const parsed = JSON.parse(progressJson);
-      if (parsed.tiers) {
-        // Always convert all to objects
-        Object.keys(parsed.tiers).forEach((tier) => {
-          parsed.tiers[tier] = parsed.tiers[tier].map((m) =>
-            typeof m === "string"
-              ? { label: m, completed: false }
-              : m && typeof m === "object"
-              ? { label: m.label, completed: !!m.completed }
-              : { label: "", completed: false }
-          );
-        });
-        return { type: "tiered", data: parsed.tiers };
-      } else if (parsed.milestones) {
-        return {
-          type: "list",
-          data: parsed.milestones.map((m) =>
-            typeof m === "string"
-              ? { label: m, completed: false }
-              : m && typeof m === "object"
-              ? { label: m.label, completed: !!m.completed }
-              : { label: "", completed: false }
-          ),
-        };
-      }
-      return { type: null, data: null };
-    } catch {
-      return { type: null, data: null };
+  function normalizeMilestone(m) {
+    if (typeof m === "string") return { label: m, completed: false };
+    if (m && typeof m === "object") {
+      return {
+        label: m.label || "",
+        completed: !!m.completed,
+      };
     }
+    return { label: "", completed: false };
   }
 
   // Load and decrypt progress data
