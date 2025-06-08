@@ -120,12 +120,20 @@ export default function AddGoalModal({ onClose, onSave }) {
     try {
       if (activeTab === "Predefined Goals") {
         if (selectedPre === null) throw new Error("Select a goal.");
-        const tiers = editableTiers;
+        // Convert each milestone to an object with label & completed
+        const tiersToSave = {};
+        Object.entries(editableTiers).forEach(([tier, arr]) => {
+          tiersToSave[tier] = arr.map((milestone) =>
+            typeof milestone === "string"
+              ? { label: milestone, completed: false }
+              : milestone
+          );
+        });
         await onSave({
           title: selectedPre.title,
           description: selectedPre.description,
           priority: selectedPre.priority,
-          tiers,
+          tiers: tiersToSave,
         });
       } else {
         if (!customTitle.trim()) throw new Error("Title required.");
@@ -135,13 +143,27 @@ export default function AddGoalModal({ onClose, onSave }) {
           priority: customPriority,
         };
         if (customTiers) {
-          // Demo: just put all milestones under "Beginner" for now
-          goalObj.tiers = { Beginner: customMilestones.filter(Boolean) };
+          goalObj.tiers = {
+            Beginner: customMilestones
+              .filter(Boolean)
+              .map((milestone) =>
+                typeof milestone === "string"
+                  ? { label: milestone, completed: false }
+                  : milestone
+              ),
+          };
         } else {
-          goalObj.milestones = customMilestones.filter(Boolean);
+          goalObj.milestones = customMilestones
+            .filter(Boolean)
+            .map((milestone) =>
+              typeof milestone === "string"
+                ? { label: milestone, completed: false }
+                : milestone
+            );
         }
         await onSave(goalObj);
       }
+
       setSaving(false);
       onClose();
     } catch (err) {
