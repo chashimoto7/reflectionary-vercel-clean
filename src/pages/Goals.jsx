@@ -8,7 +8,6 @@ import AddGoalModal from "../components/AddGoalModal";
 import EditGoalModal from "../components/EditGoalModal";
 import ReactConfetti from "react-confetti";
 import { useWindowSize } from "@uidotdev/usehooks"; // lightweight window size hook
-import EditGoalModal from "../components/EditGoalModal";
 
 // Helper: Parse decrypted milestones/tier data
 function parseProgress(goal, dataKey) {
@@ -265,7 +264,7 @@ export default function Goals() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-white rounded-2xl shadow-lg overflow-hidden mt-6 max-w-6xl mx-auto">
+    <div className="flex h-[calc(100vh-4rem)] bg-white rounded-2xl shadow-lg mt-6 max-w-6xl mx-auto">
       {/* Sidebar */}
       <aside className="w-72 bg-gradient-to-b from-[#E5E3EA] to-[#D9D6DF] border-r p-6 flex flex-col min-h-full">
         <div className="flex items-center justify-between mb-4">
