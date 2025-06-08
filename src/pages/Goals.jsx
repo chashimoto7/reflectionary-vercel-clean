@@ -415,9 +415,6 @@ function GoalSidebarItem({ goal, isSelected, onClick }) {
   );
 }
 
-function GoalOverview({ goal }) {
-  return <div>Overview for: {goal?.decryptedTitle}</div>;
-}
 function GoalProgress({ goal }) {
   const [loading, setLoading] = useState(true);
   const [type, setType] = useState(null); // "tiered" or "list"
