@@ -1,53 +1,95 @@
 // src/pages/Goals.jsx
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { Plus, Award, ChevronDown } from "lucide-react";
+import encryptionService from "../services/encryptionService";
+import { Plus, Award } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 
+// For MVP, you can adjust as needed:
 const TABS = ["Overview", "Progress", "Journal Entries", "Tips"];
 
-// --- Temporary for visual only; real data will be loaded soon!
-const sampleGoals = [
-  {
-    id: "1",
-    title: "Build Confidence",
-    tier: "Advanced",
-    mentions: 12,
-    lastMentioned: "2025-06-08",
-    priority: 4,
-    status: "active",
-    isTiered: true,
-  },
-  {
-    id: "2",
-    title: "Exercise 5x/week",
-    tier: null,
-    mentions: 8,
-    lastMentioned: "2025-06-09",
-    priority: 2,
-    status: "active",
-    isTiered: false,
-  },
-  {
-    id: "3",
-    title: "Read Every Day",
-    tier: "Beginner",
-    mentions: 3,
-    lastMentioned: "2025-06-02",
-    priority: 1,
-    status: "paused",
-    isTiered: true,
-  },
-];
-
 export default function Goals() {
-  // Replace these with real Supabase data soon!
-  const [goals, setGoals] = useState(sampleGoals);
+  const { user } = useAuth();
+  const [goals, setGoals] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedGoalId, setSelectedGoalId] = useState(null);
   const [activeTab, setActiveTab] = useState("Overview");
 
   const selectedGoal = goals.find((g) => g.id === selectedGoalId);
 
-  // -- For demo, automatically select the first goal
+  // Fetch & decrypt goals for this user
+  useEffect(() => {
+    if (!user) return;
+
+    async function fetchGoals() {
+      setLoading(true);
+      try {
+        // 1. Fetch raw goal rows
+        const { data, error } = await supabase
+          .from("user_goals")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: true });
+
+        if (error) throw error;
+
+        // 2. Load master key for decryption
+        const masterKey = await encryptionService.getStaticMasterKey();
+
+        // 3. Decrypt each goal (title and description)
+        const decryptedGoals = await Promise.all(
+          data.map(async (goal) => {
+            // Decrypt data key for this goal
+            const encryptedDataKey = {
+              encryptedData: goal.encrypted_data_key,
+              iv: goal.data_key_iv,
+            };
+            const dataKey = await encryptionService.decryptKey(
+              encryptedDataKey,
+              masterKey
+            );
+            // Decrypt goal text
+            const decryptedTitle = await encryptionService.decryptText(
+              goal.encrypted_goal,
+              goal.goal_iv,
+              dataKey
+            );
+            // Decrypt description if available
+            let decryptedDescription = "";
+            if (goal.encrypted_description && goal.description_iv) {
+              decryptedDescription = await encryptionService.decryptText(
+                goal.encrypted_description,
+                goal.description_iv,
+                dataKey
+              );
+            }
+            // (Add more decrypted fields as needed!)
+
+            return {
+              ...goal,
+              decryptedTitle,
+              decryptedDescription,
+              // For MVP, you can add: isTiered, tier, priority, etc. from other columns or defaults
+            };
+          })
+        );
+        setGoals(decryptedGoals);
+        setLoading(false);
+        // Auto-select first goal (if not already selected)
+        if (!selectedGoalId && decryptedGoals.length > 0) {
+          setSelectedGoalId(decryptedGoals[0].id);
+        }
+      } catch (err) {
+        setLoading(false);
+        alert("Error loading your goals: " + err.message);
+      }
+    }
+
+    fetchGoals();
+    // eslint-disable-next-line
+  }, [user]);
+
+  // Auto-select first goal when goals are loaded
   useEffect(() => {
     if (!selectedGoalId && goals.length > 0) {
       setSelectedGoalId(goals[0].id);
@@ -63,12 +105,17 @@ export default function Goals() {
           <button
             className="rounded-full bg-purple-500 hover:bg-purple-600 p-2 text-white"
             title="Add New Goal"
+            // TODO: Add goal creation logic!
           >
             <Plus size={20} />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto space-y-2">
-          {goals.length === 0 ? (
+          {loading ? (
+            <div className="text-gray-400 text-center mt-10">
+              Loading goals...
+            </div>
+          ) : goals.length === 0 ? (
             <div className="text-gray-400 text-center mt-10">
               No goals yet.
               <br />
@@ -85,7 +132,6 @@ export default function Goals() {
             ))
           )}
         </div>
-        {/* Completed goals section can be added here */}
       </aside>
 
       {/* Main Panel */}
@@ -124,6 +170,10 @@ export default function Goals() {
               {activeTab === "Tips" && <GoalTips goal={selectedGoal} />}
             </div>
           </>
+        ) : loading ? (
+          <div className="flex-1 flex items-center justify-center text-gray-400 text-xl">
+            Loading...
+          </div>
         ) : (
           <div className="flex-1 flex items-center justify-center text-gray-400 text-xl">
             Select a goal to see details!
@@ -136,13 +186,14 @@ export default function Goals() {
 
 // Sidebar Item
 function GoalSidebarItem({ goal, isSelected, onClick }) {
-  const badge = goal.isTiered ? goal.tier : "List";
+  // Placeholder for tier logic and badge (adapt when you add tiers)
+  const badge = goal.tier || "List";
   const badgeColor =
-    goal.tier === "Advanced"
+    badge === "Advanced"
       ? "bg-purple-700"
-      : goal.tier === "Intermediate"
+      : badge === "Intermediate"
       ? "bg-purple-400"
-      : goal.tier === "Beginner"
+      : badge === "Beginner"
       ? "bg-purple-200"
       : "bg-gray-300";
 
@@ -162,15 +213,16 @@ function GoalSidebarItem({ goal, isSelected, onClick }) {
         >
           {badge}
         </span>
-        <span className="text-base">{goal.title}</span>
+        <span className="text-base">{goal.decryptedTitle}</span>
       </div>
       <div className="text-xs text-gray-400 flex items-center gap-2 mt-1">
-        <span>{goal.mentions} mentions</span>
+        {/* TODO: Add mentions/last mentioned if available */}
+        <span>{goal.mention_count || 0} mentions</span>
         <span>•</span>
         <span>
           Last:{" "}
-          {goal.lastMentioned
-            ? new Date(goal.lastMentioned).toLocaleDateString()
+          {goal.last_mentioned_date
+            ? new Date(goal.last_mentioned_date).toLocaleDateString()
             : "—"}
         </span>
       </div>
@@ -182,13 +234,13 @@ function GoalSidebarItem({ goal, isSelected, onClick }) {
 function GoalOverview({ goal }) {
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-2">{goal.title}</h1>
+      <h1 className="text-2xl font-bold mb-2">{goal.decryptedTitle}</h1>
       <div className="flex items-center gap-4 mb-4">
         <span className="inline-block rounded-full px-3 py-1 text-xs font-bold bg-purple-100 text-purple-800">
           {goal.tier || "Single-list"}
         </span>
         <span className="inline-block rounded-full px-3 py-1 text-xs bg-gray-100 text-gray-600">
-          Priority: {goal.priority}
+          Priority: {goal.priority || 1}
         </span>
         <span
           className={`inline-block rounded-full px-3 py-1 text-xs ${
@@ -197,17 +249,22 @@ function GoalOverview({ goal }) {
               : "bg-gray-200 text-gray-500"
           }`}
         >
-          {goal.status.charAt(0).toUpperCase() + goal.status.slice(1)}
+          {goal.status
+            ? goal.status.charAt(0).toUpperCase() + goal.status.slice(1)
+            : "Active"}
         </span>
       </div>
       <p className="text-gray-700 mb-2">
-        Description: (will show full description here)
+        Description: {goal.decryptedDescription || "(No description yet)"}
       </p>
-      <div className="mt-4 text-sm text-gray-500">Created: 2025-05-01</div>
+      <div className="mt-4 text-sm text-gray-500">
+        Created:{" "}
+        {goal.created_at ? new Date(goal.created_at).toLocaleDateString() : ""}
+      </div>
       <div className="mt-1 text-sm text-gray-500">
         Last Mentioned:{" "}
-        {goal.lastMentioned
-          ? new Date(goal.lastMentioned).toLocaleDateString()
+        {goal.last_mentioned_date
+          ? new Date(goal.last_mentioned_date).toLocaleDateString()
           : "—"}
       </div>
     </div>
@@ -216,24 +273,24 @@ function GoalOverview({ goal }) {
 function GoalProgress({ goal }) {
   return (
     <div className="text-gray-500">
-      Progress tab for {goal.title} (checklists, tiered milestones, and progress
-      bars coming soon!)
+      Progress tab for {goal.decryptedTitle} (checklists, tiered milestones, and
+      progress bars coming soon!)
     </div>
   );
 }
 function GoalJournalEntries({ goal }) {
   return (
     <div className="text-gray-500">
-      Journal entries mentioning "{goal.title}" will be listed here (with
-      date/snippet/expand).
+      Journal entries mentioning "{goal.decryptedTitle}" will be listed here
+      (with date/snippet/expand).
     </div>
   );
 }
 function GoalTips({ goal }) {
   return (
     <div className="text-gray-500">
-      AI tips and your own tips for "{goal.title}" go here. (Tier-aware,
-      editable!)
+      AI tips and your own tips for "{goal.decryptedTitle}" go here.
+      (Tier-aware, editable!)
     </div>
   );
 }
