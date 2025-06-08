@@ -397,8 +397,6 @@ function GoalOverview({ goal }) {
     </div>
   );
 }
-import ReactConfetti from "react-confetti";
-import { useWindowSize } from "@uidotdev/usehooks";
 
 function GoalProgress({ goal }) {
   const [loading, setLoading] = useState(true);
