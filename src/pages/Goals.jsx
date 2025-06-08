@@ -653,3 +653,79 @@ function GoalJournalEntries({ goal }) {
 function GoalTips({ goal }) {
   return <div>Tips for: {goal?.decryptedTitle}</div>;
 }
+function GoalOverview({ goal }) {
+  if (!goal) return null;
+
+  // Nice badge for priority
+  const getPriorityLabel = (priority) => {
+    if (!priority) return "N/A";
+    switch (priority) {
+      case 1:
+        return "Lowest";
+      case 2:
+        return "Low";
+      case 3:
+        return "Medium";
+      case 4:
+        return "High";
+      case 5:
+        return "Highest";
+      default:
+        return priority;
+    }
+  };
+
+  // Show if it is tiered or list
+  let kind = goal.tier
+    ? goal.tier
+    : goal.tiers
+    ? "Tiered"
+    : goal.milestones
+    ? "Single-list"
+    : "Custom";
+
+  // Status badge (placeholder for now, e.g., 'Active', 'Completed')
+  const status = goal.status
+    ? goal.status.charAt(0).toUpperCase() + goal.status.slice(1)
+    : "Active";
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold mb-2">{goal.decryptedTitle}</h1>
+      <div className="flex items-center gap-4 mb-4 flex-wrap">
+        <span className="inline-block rounded-full px-3 py-1 text-xs font-bold bg-purple-100 text-purple-800">
+          {kind}
+        </span>
+        <span className="inline-block rounded-full px-3 py-1 text-xs bg-gray-100 text-gray-600">
+          Priority: {goal.priority || 1} ({getPriorityLabel(goal.priority)})
+        </span>
+        <span
+          className={`inline-block rounded-full px-3 py-1 text-xs ${
+            status === "Active"
+              ? "bg-green-100 text-green-700"
+              : "bg-gray-200 text-gray-500"
+          }`}
+        >
+          {status}
+        </span>
+      </div>
+      <p className="text-gray-700 mb-2">
+        {goal.decryptedDescription || <em>(No description yet)</em>}
+      </p>
+      <div className="mt-4 text-sm text-gray-500">
+        Created:{" "}
+        {goal.created_at ? new Date(goal.created_at).toLocaleDateString() : "—"}
+      </div>
+      <div className="mt-1 text-sm text-gray-500">
+        Last Mentioned:{" "}
+        {goal.last_mentioned_date
+          ? new Date(goal.last_mentioned_date).toLocaleDateString()
+          : "—"}
+      </div>
+      {/* Optionally show number of times mentioned */}
+      <div className="mt-1 text-sm text-gray-500">
+        Journal Mentions: {goal.mention_count || 0}
+      </div>
+    </div>
+  );
+}
