@@ -9,7 +9,6 @@ import {
   LogOut,
   Lock,
   Crown,
-  Shield,
   Settings,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -22,21 +21,10 @@ export default function Layout({ children }) {
   const { user, signOut } = useAuth();
   const { lock, securitySettings } = useSecurity();
   const { hasAccess, getUpgradeMessage, tier, loading } = useMembership();
-  console.log("🎯 Current membership tier:", tier);
-  console.log("🔄 Membership loading:", loading);
-  console.log("🔍 Has access to analytics:", hasAccess("analytics"));
-  console.log("🔍 Has access to goals:", hasAccess("goals"));
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeMessage, setUpgradeMessage] = useState("");
 
-  // Handle clicks on locked features
-  const handleLockedFeatureClick = (e, featureName) => {
-    e.preventDefault();
-    setUpgradeMessage(getUpgradeMessage(featureName));
-    setShowUpgradeModal(true);
-  };
-
-  // Navigation items
+  // Navigation items (all purple)
   const navigationItems = [
     {
       to: "/new-entry",
@@ -55,9 +43,9 @@ export default function Layout({ children }) {
       label: "Journal History",
       feature: "history",
       colors: {
-        bg: "bg-gradient-to-br from-blue-400 to-blue-600",
+        bg: "bg-gradient-to-br from-purple-400 to-purple-600",
         text: "text-white",
-        hover: "hover:from-blue-500 hover:to-blue-700",
+        hover: "hover:from-purple-500 hover:to-purple-700",
       },
     },
     {
@@ -66,9 +54,9 @@ export default function Layout({ children }) {
       label: "Analytics",
       feature: "analytics",
       colors: {
-        bg: "bg-gradient-to-br from-green-400 to-green-600",
+        bg: "bg-gradient-to-br from-purple-400 to-purple-600",
         text: "text-white",
-        hover: "hover:from-green-500 hover:to-green-700",
+        hover: "hover:from-purple-500 hover:to-purple-700",
       },
     },
     {
@@ -77,14 +65,14 @@ export default function Layout({ children }) {
       label: "Goals",
       feature: "goals",
       colors: {
-        bg: "bg-gradient-to-br from-orange-400 to-orange-600",
+        bg: "bg-gradient-to-br from-purple-400 to-purple-600",
         text: "text-white",
-        hover: "hover:from-orange-500 hover:to-orange-700",
+        hover: "hover:from-purple-500 hover:to-purple-700",
       },
     },
   ];
 
-  // Get membership display info
+  // Membership badge
   const getMembershipDisplayInfo = () => {
     switch (tier) {
       case "premium":
@@ -111,8 +99,8 @@ export default function Layout({ children }) {
   return (
     <div className="flex min-h-screen bg-[#F5F5F5] text-gray-800">
       {/* Sidebar */}
-      <aside className="w-64 bg-gradient-to-b from-[#A8A3B4] to-[#9B96A6] p-6 flex flex-col justify-between shadow-lg">
-        <div>
+      <aside className="w-64 bg-gradient-to-b from-[#E5E3EA] to-[#D9D6DF] p-6 flex flex-col h-screen shadow-lg">
+        <div className="flex flex-col flex-1">
           {/* Logo */}
           <Link to="/" className="flex items-center justify-center mb-8">
             <img
@@ -123,7 +111,7 @@ export default function Layout({ children }) {
           </Link>
 
           {/* Navigation */}
-          <nav className="space-y-3">
+          <nav className="space-y-3 mb-8">
             {navigationItems.map((item) => {
               const userHasAccess = hasAccess(item.feature);
               const IconComponent = item.icon;
@@ -149,7 +137,11 @@ export default function Layout({ children }) {
                 return (
                   <button
                     key={item.feature}
-                    onClick={(e) => handleLockedFeatureClick(e, item.feature)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setUpgradeMessage(getUpgradeMessage(item.feature));
+                      setShowUpgradeModal(true);
+                    }}
                     className="flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 bg-white/10 backdrop-blur-sm text-purple-800 hover:bg-white/20 hover:shadow-md w-full text-left opacity-75 cursor-pointer"
                   >
                     <IconComponent size={20} />
@@ -160,11 +152,14 @@ export default function Layout({ children }) {
               }
             })}
           </nav>
+
+          {/* Spacer */}
+          <div className="flex-1"></div>
         </div>
 
         {/* Bottom section */}
-        <div className="space-y-4">
-          {/* Security Settings Link - only show if user wants status visible */}
+        <div className="space-y-4 mt-8">
+          {/* Security Settings Link */}
           {securitySettings.showLockStatus && (
             <NavLink
               to="/security"
