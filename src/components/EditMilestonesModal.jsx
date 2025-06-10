@@ -34,7 +34,7 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
   const [activeTier, setActiveTier] = useState("Beginner");
   const [saving, setSaving] = useState(false);
 
-  // Auto-close if locked (don't let user interact if not unlocked)
+  // Auto-close if locked
   useEffect(() => {
     if (isLocked) {
       onClose();
@@ -54,18 +54,33 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
         encryptedData: goal.encrypted_data_key,
         iv: goal.data_key_iv,
       };
-      const dataKey = await encryptionService.decryptKey(
-        encryptedDataKey,
-        masterKey
-      );
-      const { type, data } = await parseProgress(goal, dataKey);
-      if (ignore) return;
-      setType(type);
-      if (type === "tiered") {
-        setTiers(JSON.parse(JSON.stringify(data))); // deep copy for editing
-        setActiveTier(Object.keys(data)[0] || "Beginner");
-      } else if (type === "list") {
-        setMilestones(JSON.parse(JSON.stringify(data)) || []);
+      try {
+        const dataKey = await encryptionService.decryptKey(
+          encryptedDataKey,
+          masterKey
+        );
+        const result = await parseProgress(goal, dataKey);
+
+        if (ignore) return;
+        setType(result.type);
+        if (result.type === "tiered") {
+          setTiers(
+            result.data && typeof result.data === "object"
+              ? JSON.parse(JSON.stringify(result.data))
+              : { Beginner: [] }
+          );
+          setActiveTier(
+            result.data && Object.keys(result.data).length > 0
+              ? Object.keys(result.data)[0]
+              : "Beginner"
+          );
+        } else if (result.type === "list") {
+          setMilestones(Array.isArray(result.data) ? result.data : []);
+        }
+      } catch (e) {
+        setType(null);
+        setMilestones([]);
+        setTiers({});
       }
       setLoading(false);
     }
