@@ -34,7 +34,6 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
   const [activeTier, setActiveTier] = useState("Beginner");
   const [saving, setSaving] = useState(false);
 
-  // Auto-close if locked
   useEffect(() => {
     if (isLocked) {
       onClose();
@@ -61,21 +60,24 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
         );
         const result = await parseProgress(goal, dataKey);
 
+        // DEBUGGING: See what's coming in
+        console.log("PARSED PROGRESS", result);
+        console.log("GOAL PROPS", goal);
+
         if (ignore) return;
         setType(result.type);
-        if (result.type === "tiered") {
-          setTiers(
-            result.data && typeof result.data === "object"
-              ? JSON.parse(JSON.stringify(result.data))
-              : { Beginner: [] }
-          );
-          setActiveTier(
-            result.data && Object.keys(result.data).length > 0
-              ? Object.keys(result.data)[0]
-              : "Beginner"
-          );
-        } else if (result.type === "list") {
-          setMilestones(Array.isArray(result.data) ? result.data : []);
+        if (
+          result.type === "tiered" &&
+          result.data &&
+          typeof result.data === "object"
+        ) {
+          setTiers({ ...result.data }); // defensive shallow copy
+          setActiveTier(Object.keys(result.data)[0] || "Beginner");
+        } else if (result.type === "list" && Array.isArray(result.data)) {
+          setMilestones(result.data);
+        } else {
+          setMilestones([]);
+          setTiers({});
         }
       } catch (e) {
         setType(null);
@@ -91,45 +93,55 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
     // eslint-disable-next-line
   }, [goal.id, goal.encrypted_progress, goal.progress_iv, isLocked, masterKey]);
 
-  // Helper for updating milestone text
   function handleMilestoneText(idx, val, tier) {
     if (type === "tiered") {
       setTiers((ts) => ({
         ...ts,
-        [tier]: ts[tier].map((m, i) => (i === idx ? { ...m, label: val } : m)),
+        [tier]: Array.isArray(ts[tier])
+          ? ts[tier].map((m, i) => (i === idx ? { ...m, label: val } : m))
+          : [],
       }));
     } else if (type === "list") {
       setMilestones((ms) =>
-        ms.map((m, i) => (i === idx ? { ...m, label: val } : m))
+        Array.isArray(ms)
+          ? ms.map((m, i) => (i === idx ? { ...m, label: val } : m))
+          : []
       );
     }
   }
 
-  // Add milestone
   function handleAddMilestone(tier) {
     if (type === "tiered") {
       setTiers((ts) => ({
         ...ts,
-        [tier]: [...(ts[tier] || []), { label: "", completed: false }],
+        [tier]: Array.isArray(ts[tier])
+          ? [...ts[tier], { label: "", completed: false }]
+          : [{ label: "", completed: false }],
       }));
     } else if (type === "list") {
-      setMilestones((ms) => [...ms, { label: "", completed: false }]);
+      setMilestones((ms) =>
+        Array.isArray(ms)
+          ? [...ms, { label: "", completed: false }]
+          : [{ label: "", completed: false }]
+      );
     }
   }
 
-  // Delete milestone
   function handleDeleteMilestone(idx, tier) {
     if (type === "tiered") {
       setTiers((ts) => ({
         ...ts,
-        [tier]: ts[tier].filter((_, i) => i !== idx),
+        [tier]: Array.isArray(ts[tier])
+          ? ts[tier].filter((_, i) => i !== idx)
+          : [],
       }));
     } else if (type === "list") {
-      setMilestones((ms) => ms.filter((_, i) => i !== idx));
+      setMilestones((ms) =>
+        Array.isArray(ms) ? ms.filter((_, i) => i !== idx) : []
+      );
     }
   }
 
-  // Save milestones
   async function handleSave() {
     setSaving(true);
     try {
@@ -199,12 +211,13 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
                 </button>
               ))}
             </div>
-            {tiers[activeTier] && tiers[activeTier].length === 0 && (
-              <div className="text-gray-400 text-sm mb-3">
-                No milestones yet for this tier.
-              </div>
-            )}
-            {tiers[activeTier] &&
+            {Array.isArray(tiers[activeTier]) &&
+              tiers[activeTier].length === 0 && (
+                <div className="text-gray-400 text-sm mb-3">
+                  No milestones yet for this tier.
+                </div>
+              )}
+            {Array.isArray(tiers[activeTier]) &&
               tiers[activeTier].map((milestone, idx) => (
                 <div key={idx} className="flex items-center gap-2 mb-2">
                   <input
@@ -232,27 +245,28 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
           </>
         ) : (
           <>
-            {milestones.length === 0 && (
+            {Array.isArray(milestones) && milestones.length === 0 && (
               <div className="text-gray-400 text-sm mb-3">
                 No milestones yet.
               </div>
             )}
-            {milestones.map((milestone, idx) => (
-              <div key={idx} className="flex items-center gap-2 mb-2">
-                <input
-                  className="flex-1 px-2 py-1 border rounded"
-                  value={milestone.label}
-                  onChange={(e) => handleMilestoneText(idx, e.target.value)}
-                  placeholder={`Milestone ${idx + 1}`}
-                />
-                <button
-                  className="text-red-500 p-1"
-                  onClick={() => handleDeleteMilestone(idx)}
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
-            ))}
+            {Array.isArray(milestones) &&
+              milestones.map((milestone, idx) => (
+                <div key={idx} className="flex items-center gap-2 mb-2">
+                  <input
+                    className="flex-1 px-2 py-1 border rounded"
+                    value={milestone.label}
+                    onChange={(e) => handleMilestoneText(idx, e.target.value)}
+                    placeholder={`Milestone ${idx + 1}`}
+                  />
+                  <button
+                    className="text-red-500 p-1"
+                    onClick={() => handleDeleteMilestone(idx)}
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              ))}
             <button
               className="mt-2 inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 text-green-700 font-bold hover:bg-green-200"
               onClick={() => handleAddMilestone()}
