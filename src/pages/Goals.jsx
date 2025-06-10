@@ -527,10 +527,6 @@ function GoalOverview({ goal, handleStatusChange, handleRemoveGoal }) {
         Created:{" "}
         {goal.created_at ? new Date(goal.created_at).toLocaleDateString() : "—"}
       </div>
-      <div className="mt-4 text-sm text-gray-500">
-        Created:{" "}
-        {goal.created_at ? new Date(goal.created_at).toLocaleDateString() : "—"}
-      </div>
       <div className="mt-1 text-sm text-gray-500">
         Last Mentioned:{" "}
         {goal.last_mentioned_date
