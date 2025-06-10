@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSecurity } from "../contexts/SecurityContext";
 import { X, Trash2, PlusCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import encryptionService from "../services/encryptionService";
@@ -25,6 +26,7 @@ function parseProgress(goal, dataKey) {
 }
 
 export default function EditMilestonesModal({ goal, onClose, onSave }) {
+  const { isLocked, masterKey } = useSecurity();
   const [loading, setLoading] = useState(true);
   const [type, setType] = useState(null);
   const [milestones, setMilestones] = useState([]);
@@ -32,11 +34,24 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
   const [activeTier, setActiveTier] = useState("Beginner");
   const [saving, setSaving] = useState(false);
 
+  // Close modal if locked
+  useEffect(() => {
+    if (isLocked) {
+      onClose();
+    }
+  }, [isLocked, onClose]);
+
   useEffect(() => {
     let ignore = false;
 
     async function load() {
       setLoading(true);
+
+      // Don't load if locked or no master key
+      if (isLocked || !masterKey) {
+        setLoading(false);
+        return;
+      }
 
       try {
         const encryptedDataKey = {
@@ -44,7 +59,6 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
           iv: goal.data_key_iv,
         };
 
-        const masterKey = await encryptionService.getStaticMasterKey();
         const dataKey = await encryptionService.decryptKey(
           encryptedDataKey,
           masterKey
@@ -90,7 +104,7 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
     return () => {
       ignore = true;
     };
-  }, [goal.id, goal.encrypted_progress, goal.progress_iv]);
+  }, [goal.id, goal.encrypted_progress, goal.progress_iv, isLocked, masterKey]);
 
   function handleMilestoneText(idx, val, tier = null) {
     if (type === "tiered" && tier) {
@@ -144,12 +158,17 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
   async function handleSave() {
     setSaving(true);
     try {
+      // Check if we're locked or missing master key
+      if (isLocked || !masterKey) {
+        throw new Error("Session expired. Please unlock again.");
+      }
+
       const encryptedDataKey = {
         encryptedData: goal.encrypted_data_key,
         iv: goal.data_key_iv,
       };
 
-      const masterKey = await encryptionService.getStaticMasterKey();
+      // Use the master key from SecurityContext instead of calling getStaticMasterKey()
       const dataKey = await encryptionService.decryptKey(
         encryptedDataKey,
         masterKey
