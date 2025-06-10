@@ -504,6 +504,13 @@ function GoalOverview({ goal, handleStatusChange, handleRemoveGoal }) {
     statusClass = "bg-red-100 text-red-700";
   }
 
+  // Button badge classes
+  const badgeBtn =
+    "inline-block rounded-full px-4 py-1 text-sm font-bold shadow cursor-pointer transition-colors";
+  const pauseBtn = `${badgeBtn} bg-yellow-100 text-yellow-800 hover:bg-yellow-200`;
+  const cancelBtn = `${badgeBtn} bg-red-100 text-red-700 hover:bg-red-200`;
+  const removeBtn = `${badgeBtn} bg-gray-100 text-gray-700 hover:bg-gray-200`;
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-2">{goal.decryptedTitle}</h1>
@@ -523,10 +530,6 @@ function GoalOverview({ goal, handleStatusChange, handleRemoveGoal }) {
       <p className="text-gray-700 mb-2">
         {goal.decryptedDescription || <em>(No description yet)</em>}
       </p>
-      <div className="mt-4 text-sm text-gray-500">
-        Created:{" "}
-        {goal.created_at ? new Date(goal.created_at).toLocaleDateString() : "—"}
-      </div>
       <div className="mt-1 text-sm text-gray-500">
         Last Mentioned:{" "}
         {goal.last_mentioned_date
@@ -536,11 +539,15 @@ function GoalOverview({ goal, handleStatusChange, handleRemoveGoal }) {
       <div className="mt-1 text-sm text-gray-500">
         Journal Mentions: {goal.mention_count || 0}
       </div>
+      <div className="mt-1 text-sm text-gray-500">
+        Created:{" "}
+        {goal.created_at ? new Date(goal.created_at).toLocaleDateString() : "—"}
+      </div>
       {/* --- New Action Buttons --- */}
       <div className="flex gap-3 mt-6">
         {rawStatus !== "paused" && (
           <button
-            className="px-4 py-2 rounded bg-yellow-100 text-yellow-800 font-semibold hover:bg-yellow-200"
+            className={pauseBtn}
             onClick={() => handleStatusChange(goal, "paused")}
           >
             Pause
@@ -548,16 +555,13 @@ function GoalOverview({ goal, handleStatusChange, handleRemoveGoal }) {
         )}
         {rawStatus !== "cancelled" && (
           <button
-            className="px-4 py-2 rounded bg-red-100 text-red-700 font-semibold hover:bg-red-200"
+            className={cancelBtn}
             onClick={() => handleStatusChange(goal, "cancelled")}
           >
             Cancel
           </button>
         )}
-        <button
-          className="px-4 py-2 rounded bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200"
-          onClick={() => handleRemoveGoal(goal)}
-        >
+        <button className={removeBtn} onClick={() => handleRemoveGoal(goal)}>
           Remove
         </button>
       </div>
