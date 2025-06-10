@@ -26,7 +26,7 @@ function parseProgress(goal, dataKey) {
 }
 
 export default function EditMilestonesModal({ goal, onClose, onSave }) {
-  const { isLocked, masterKey } = useSecurity();
+  const { isLocked } = useSecurity();
   const [loading, setLoading] = useState(true);
   const [type, setType] = useState(null);
   const [milestones, setMilestones] = useState([]);
@@ -47,8 +47,8 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
     async function load() {
       setLoading(true);
 
-      // Don't load if locked or no master key
-      if (isLocked || !masterKey) {
+      // Don't load if locked
+      if (isLocked) {
         setLoading(false);
         return;
       }
@@ -59,6 +59,7 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
           iv: goal.data_key_iv,
         };
 
+        const masterKey = await encryptionService.getStaticMasterKey();
         const dataKey = await encryptionService.decryptKey(
           encryptedDataKey,
           masterKey
@@ -104,7 +105,7 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
     return () => {
       ignore = true;
     };
-  }, [goal.id, goal.encrypted_progress, goal.progress_iv, isLocked, masterKey]);
+  }, [goal.id, goal.encrypted_progress, goal.progress_iv, isLocked]);
 
   function handleMilestoneText(idx, val, tier = null) {
     if (type === "tiered" && tier) {
@@ -158,8 +159,8 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
   async function handleSave() {
     setSaving(true);
     try {
-      // Check if we're locked or missing master key
-      if (isLocked || !masterKey) {
+      // Check if we're locked
+      if (isLocked) {
         throw new Error("Session expired. Please unlock again.");
       }
 
@@ -168,7 +169,8 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
         iv: goal.data_key_iv,
       };
 
-      // Use the master key from SecurityContext instead of calling getStaticMasterKey()
+      // Use getStaticMasterKey() since SecurityContext doesn't store the actual master key
+      const masterKey = await encryptionService.getStaticMasterKey();
       const dataKey = await encryptionService.decryptKey(
         encryptedDataKey,
         masterKey
