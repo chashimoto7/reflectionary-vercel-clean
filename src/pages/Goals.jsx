@@ -843,21 +843,6 @@ function GoalProgress({ goal, onEditMilestones, refreshGoal }) {
       </button>
     </div>
   );
-
-  {
-    showEditMilestonesModal && (
-      <EditMilestonesModal
-        goal={selectedGoal}
-        onClose={() => setShowEditMilestonesModal(false)}
-        onSave={async () => {
-          setShowEditMilestonesModal(false);
-          if (typeof window !== "undefined") {
-            window.location.reload();
-          }
-        }}
-      />
-    );
-  }
 }
 
 // (GoalJournalEntries and GoalTips remain unchanged from previous version!)
