@@ -263,6 +263,45 @@ export default function Goals() {
     }
   };
 
+  // --- HANDLERS FOR STATUS ---
+  const handleStatusChange = async (goal, newStatus) => {
+    try {
+      const { error } = await supabase
+        .from("user_goals")
+        .update({ status: newStatus })
+        .eq("id", goal.id);
+      if (error) throw new Error(error.message);
+
+      // Update the goal in local state for instant feedback
+      setGoals((goals) =>
+        goals.map((g) => (g.id === goal.id ? { ...g, status: newStatus } : g))
+      );
+    } catch (err) {
+      alert("Failed to update goal status: " + err.message);
+    }
+  };
+
+  const handleRemoveGoal = async (goal) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to remove this goal? This cannot be undone."
+      )
+    )
+      return;
+    try {
+      const { error } = await supabase
+        .from("user_goals")
+        .delete()
+        .eq("id", goal.id);
+      if (error) throw new Error(error.message);
+
+      setGoals((goals) => goals.filter((g) => g.id !== goal.id));
+      setSelectedGoalId(null);
+    } catch (err) {
+      alert("Failed to remove goal: " + err.message);
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-4rem)] bg-white rounded-2xl shadow-lg mt-6 max-w-6xl mx-auto">
       {/* Sidebar */}
@@ -333,7 +372,13 @@ export default function Goals() {
             </div>
             {/* Tab Content */}
             <div className="p-8 flex-1 overflow-y-auto">
-              {activeTab === "Overview" && <GoalOverview goal={selectedGoal} />}
+              {activeTab === "Overview" && (
+                <GoalOverview
+                  goal={selectedGoal}
+                  handleStatusChange={handleStatusChange}
+                  handleRemoveGoal={handleRemoveGoal}
+                />
+              )}
               {activeTab === "Progress" && <GoalProgress goal={selectedGoal} />}
               {activeTab === "Journal Entries" && (
                 <GoalJournalEntries goal={selectedGoal} />
@@ -415,490 +460,11 @@ function GoalSidebarItem({ goal, isSelected, onClick }) {
   );
 }
 
-function GoalProgress({ goal }) {
-  const [loading, setLoading] = useState(true);
-  const [type, setType] = useState(null); // "tiered" or "list"
-  const [milestones, setMilestones] = useState(null); // for single-list
-  const [tiers, setTiers] = useState(null); // for tiered
-  const [activeTier, setActiveTier] = useState("Beginner");
-  const [saving, setSaving] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
-  const { width, height } = useWindowSize();
-
-  function normalizeMilestone(m) {
-    if (typeof m === "string") return { label: m, completed: false };
-    if (m && typeof m === "object") {
-      return {
-        label: m.label || "",
-        completed: !!m.completed,
-      };
-    }
-    return { label: "", completed: false };
-  }
-
-  // Load and decrypt progress data
-  useEffect(() => {
-    let ignore = false;
-    async function load() {
-      setLoading(true);
-      const encryptedDataKey = {
-        encryptedData: goal.encrypted_data_key,
-        iv: goal.data_key_iv,
-      };
-      const masterKey = await encryptionService.getStaticMasterKey();
-      const dataKey = await encryptionService.decryptKey(
-        encryptedDataKey,
-        masterKey
-      );
-      const { type, data } = await parseProgress(goal, dataKey);
-      if (ignore) return;
-      setType(type);
-      if (type === "tiered") {
-        setTiers(data);
-        setActiveTier(Object.keys(data)[0] || "Beginner");
-      } else if (type === "list") {
-        setMilestones(data);
-      }
-      setLoading(false);
-    }
-    load();
-    return () => {
-      ignore = true;
-    };
-    // eslint-disable-next-line
-  }, [goal.id, goal.encrypted_progress, goal.progress_iv]);
-
-  // Handle checkbox toggle
-  function handleToggle(idx, tierName = null) {
-    if (type === "list") {
-      setMilestones((ms) =>
-        ms.map((m, i) => (i === idx ? { ...m, completed: !m.completed } : m))
-      );
-    } else if (type === "tiered" && tierName) {
-      setTiers((ts) => ({
-        ...ts,
-        [tierName]: ts[tierName].map((m, i) =>
-          i === idx ? { ...m, completed: !m.completed } : m
-        ),
-      }));
-    }
-  }
-
-  // Save progress to Supabase
-  async function saveProgress() {
-    setSaving(true);
-    try {
-      const encryptedDataKey = {
-        encryptedData: goal.encrypted_data_key,
-        iv: goal.data_key_iv,
-      };
-      const masterKey = await encryptionService.getStaticMasterKey();
-      const dataKey = await encryptionService.decryptKey(
-        encryptedDataKey,
-        masterKey
-      );
-
-      // Prepare encrypted payload
-      let payload, plaintext;
-      if (type === "tiered") {
-        plaintext = JSON.stringify({ tiers });
-      } else if (type === "list") {
-        plaintext = JSON.stringify({ milestones });
-      }
-      payload = await encryptionService.encryptText(plaintext, dataKey);
-
-      // Update Supabase
-      const { error } = await supabase
-        .from("user_goals")
-        .update({
-          encrypted_progress: payload.encryptedData,
-          progress_iv: payload.iv,
-        })
-        .eq("id", goal.id);
-      if (error) throw new Error("Could not save progress: " + error.message);
-
-      // Confetti if tier or goal completed
-      let allComplete = false;
-      if (type === "tiered") {
-        allComplete = Object.values(tiers).every(
-          (tierArr) => tierArr.length > 0 && tierArr.every((m) => m.completed)
-        );
-        const currentTierArr = tiers[activeTier];
-        if (currentTierArr && currentTierArr.every((m) => m.completed)) {
-          setShowConfetti(true);
-          setTimeout(() => setShowConfetti(false), 4500);
-        }
-      } else if (type === "list") {
-        allComplete =
-          milestones.length > 0 && milestones.every((m) => m.completed);
-        if (allComplete) {
-          setShowConfetti(true);
-          setTimeout(() => setShowConfetti(false), 4500);
-        }
-      }
-
-      setSaving(false);
-    } catch (err) {
-      setSaving(false);
-      alert(err.message || "Failed to save.");
-    }
-  }
-
-  // Render
-  if (loading) return <div className="text-gray-400">Loading progress...</div>;
-  if (!type)
-    return (
-      <div className="text-gray-400">No milestones set for this goal yet.</div>
-    );
-
-  return (
-    <div className="relative">
-      {showConfetti && (
-        <ReactConfetti
-          width={width}
-          height={height}
-          numberOfPieces={130}
-          recycle={false}
-        />
-      )}
-      {type === "tiered" && (
-        <>
-          <div className="flex gap-2 mb-4">
-            {Object.keys(tiers).map((tier) => (
-              <button
-                key={tier}
-                onClick={() => setActiveTier(tier)}
-                className={`px-3 py-1 rounded font-bold ${
-                  activeTier === tier
-                    ? "bg-purple-600 text-white shadow"
-                    : "bg-purple-100 text-purple-700"
-                }`}
-              >
-                {tier}
-              </button>
-            ))}
-          </div>
-          <div className="space-y-2 mb-6">
-            {tiers[activeTier] && tiers[activeTier].length === 0 && (
-              <div className="text-gray-400 text-sm">
-                No milestones yet for this tier.
-              </div>
-            )}
-            {tiers[activeTier] &&
-              tiers[activeTier].map((milestone, idx) => (
-                <label key={idx} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={!!milestone.completed}
-                    onChange={() => handleToggle(idx, activeTier)}
-                  />
-                  <span
-                    className={`${
-                      milestone.completed
-                        ? "line-through text-gray-400"
-                        : "text-gray-700"
-                    }`}
-                  >
-                    {milestone.label || milestone}
-                  </span>
-                </label>
-              ))}
-          </div>
-        </>
-      )}
-      {type === "list" && (
-        <div className="space-y-2 mb-6">
-          {milestones.length === 0 && (
-            <div className="text-gray-400 text-sm">
-              No milestones yet for this goal.
-            </div>
-          )}
-          {milestones.map((milestone, idx) => (
-            <label key={idx} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={!!milestone.completed}
-                onChange={() => handleToggle(idx)}
-              />
-              <span
-                className={`${
-                  milestone.completed
-                    ? "line-through text-gray-400"
-                    : "text-gray-700"
-                }`}
-              >
-                {milestone.label || milestone}
-              </span>
-            </label>
-          ))}
-        </div>
-      )}
-      <button
-        onClick={saveProgress}
-        className="px-5 py-2 bg-purple-600 text-white font-semibold rounded hover:bg-purple-700 transition disabled:opacity-60"
-        disabled={saving}
-      >
-        {saving ? "Saving..." : "Save Progress"}
-      </button>
-    </div>
-  );
-}
-
-function GoalJournalEntries({ goal }) {
-  const { user } = useAuth();
-  const [entries, setEntries] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [expandedEntryId, setExpandedEntryId] = useState(null);
-
-  useEffect(() => {
-    if (!goal || !user) return;
-
-    async function fetchGoalEntries() {
-      setLoading(true);
-
-      try {
-        // 1. Fetch all journal entries that reference this goal
-        // Update this query if your schema is different!
-        const { data, error } = await supabase
-          .from("journal_entries")
-          .select("*")
-          .eq("user_id", user.id)
-          // This assumes an array column; adjust if you use a single goal_id or string match
-          .contains("goal_ids", [goal.id])
-          .order("created_at", { ascending: false });
-
-        if (error) throw error;
-
-        // 2. Decrypt each entry and their follow-ups
-        const masterKey = await encryptionService.getStaticMasterKey();
-        const entriesWithDecryptedData = await Promise.all(
-          data.map(async (entry) => {
-            const dataKey = await encryptionService.decryptKey(
-              {
-                encryptedData: entry.encrypted_data_key,
-                iv: entry.data_key_iv,
-              },
-              masterKey
-            );
-            const content = await encryptionService.decryptText(
-              entry.encrypted_content,
-              entry.content_iv,
-              dataKey
-            );
-            let prompt = "";
-            if (entry.encrypted_prompt && entry.prompt_iv) {
-              prompt = await encryptionService.decryptText(
-                entry.encrypted_prompt,
-                entry.prompt_iv,
-                dataKey
-              );
-            }
-
-            // Fetch and decrypt follow-ups for this entry (recursive)
-            const { data: followups } = await supabase
-              .from("journal_entries")
-              .select("*")
-              .eq("is_followup", true)
-              .eq("parent_entry_id", entry.id)
-              .eq("user_id", user.id);
-
-            async function decryptFollowUps(entries, parentId, level = 1) {
-              const filtered = (entries || []).filter(
-                (f) => f.parent_entry_id === parentId
-              );
-              return Promise.all(
-                filtered.map(async (f) => {
-                  const fDataKey = await encryptionService.decryptKey(
-                    { encryptedData: f.encrypted_data_key, iv: f.data_key_iv },
-                    masterKey
-                  );
-                  const fContent = await encryptionService.decryptText(
-                    f.encrypted_content,
-                    f.content_iv,
-                    fDataKey
-                  );
-                  let fPrompt = "";
-                  if (f.encrypted_prompt && f.prompt_iv) {
-                    fPrompt = await encryptionService.decryptText(
-                      f.encrypted_prompt,
-                      f.prompt_iv,
-                      fDataKey
-                    );
-                  }
-                  const nested = await decryptFollowUps(
-                    entries,
-                    f.id,
-                    level + 1
-                  );
-                  return {
-                    ...f,
-                    content: fContent,
-                    prompt: fPrompt,
-                    follow_ups: nested,
-                  };
-                })
-              );
-            }
-
-            const followUps = await decryptFollowUps(followups, entry.id);
-
-            return {
-              ...entry,
-              content,
-              prompt,
-              follow_ups: followUps,
-            };
-          })
-        );
-
-        setEntries(entriesWithDecryptedData);
-      } catch (err) {
-        alert("Error loading journal entries: " + err.message);
-        setEntries([]);
-      }
-      setLoading(false);
-    }
-
-    fetchGoalEntries();
-  }, [goal, user]);
-
-  // Render helper for follow-ups
-  const renderFollowUps = (followUps, level = 1) =>
-    followUps.map((f) => (
-      <div
-        key={f.id}
-        className={`pl-${
-          level * 4
-        } mt-4 border-l-2 border-gray-200 ml-2 space-y-2`}
-      >
-        <p className="text-xs text-gray-500">
-          {new Date(f.created_at).toLocaleString()}
-        </p>
-        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-          Follow-up response
-        </p>
-        {f.prompt && (
-          <p className="text-base text-purple-600 italic mb-1">
-            Prompt: {f.prompt}
-          </p>
-        )}
-        <div
-          className="text-base"
-          dangerouslySetInnerHTML={{ __html: f.content }}
-        />
-        {f.follow_ups?.length > 0 && renderFollowUps(f.follow_ups, level + 1)}
-      </div>
-    ));
-
-  if (loading) return <div>Loading journal entries…</div>;
-  if (entries.length === 0)
-    return <div>No journal entries found for this goal.</div>;
-
-  return (
-    <div className="space-y-6">
-      {entries.map((entry) => (
-        <div
-          key={entry.id}
-          className="border p-4 rounded-xl bg-gray-50 shadow-md"
-        >
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-xs text-gray-500 mb-1">
-                {new Date(entry.created_at).toLocaleString()}
-              </p>
-              {entry.prompt && (
-                <p className="text-base text-purple-600 italic mb-1">
-                  Prompt: {entry.prompt}
-                </p>
-              )}
-              <div className="text-base font-medium mb-1">
-                {entry.content.slice(0, 80)}…
-              </div>
-            </div>
-            <button
-              className="ml-4 text-sm text-purple-700 underline"
-              onClick={() =>
-                setExpandedEntryId(
-                  expandedEntryId === entry.id ? null : entry.id
-                )
-              }
-            >
-              {expandedEntryId === entry.id ? "Hide" : "Expand"}
-            </button>
-          </div>
-          {expandedEntryId === entry.id && (
-            <div className="mt-2">
-              <div
-                className="text-base leading-relaxed mb-2"
-                dangerouslySetInnerHTML={{ __html: entry.content }}
-              />
-              {entry.follow_ups?.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-xs font-bold text-gray-700 mb-2">
-                    Follow-up responses:
-                  </p>
-                  {renderFollowUps(entry.follow_ups)}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function GoalTips({ goal }) {
-  return <div>Tips for: {goal?.decryptedTitle}</div>;
-}
-
-// Add this inside your main Goals component (not inside GoalOverview)
-const handleStatusChange = async (goal, newStatus) => {
-  try {
-    const { error } = await supabase
-      .from("user_goals")
-      .update({ status: newStatus })
-      .eq("id", goal.id);
-    if (error) throw new Error(error.message);
-
-    // Update the goal in local state for instant feedback
-    setGoals((goals) =>
-      goals.map((g) => (g.id === goal.id ? { ...g, status: newStatus } : g))
-    );
-    // Optionally: Show a toast/snackbar for feedback
-  } catch (err) {
-    alert("Failed to update goal status: " + err.message);
-  }
-};
-
-const handleRemoveGoal = async (goal) => {
-  // Optional: Confirm before removing
-  if (
-    !window.confirm(
-      "Are you sure you want to remove this goal? This cannot be undone."
-    )
-  )
-    return;
-  try {
-    const { error } = await supabase
-      .from("user_goals")
-      .delete()
-      .eq("id", goal.id);
-    if (error) throw new Error(error.message);
-
-    // Remove from local state
-    setGoals((goals) => goals.filter((g) => g.id !== goal.id));
-    setSelectedGoalId(null);
-    // Optionally: Show a toast/snackbar for feedback
-  } catch (err) {
-    alert("Failed to remove goal: " + err.message);
-  }
-};
-
-function GoalOverview({ goal }) {
+// ---- OVERVIEW COMPONENT WITH STATUS BADGE ----
+function GoalOverview({ goal, handleStatusChange, handleRemoveGoal }) {
   if (!goal) return null;
 
-  // Nice badge for priority
+  // Priority badge
   const getPriorityLabel = (priority) => {
     if (!priority) return "N/A";
     switch (priority) {
@@ -917,7 +483,7 @@ function GoalOverview({ goal }) {
     }
   };
 
-  // Show if it is tiered or list
+  // Tier/type badge
   let kind = goal.tier
     ? goal.tier
     : goal.tiers
@@ -926,21 +492,57 @@ function GoalOverview({ goal }) {
     ? "Single-list"
     : "Custom";
 
-  // Status badge (placeholder for now, e.g., 'Active', 'Completed')
-  const status = goal.status
-    ? goal.status.charAt(0).toUpperCase() + goal.status.slice(1)
-    : "Active";
+  // Status badge color and text
+  const rawStatus = goal.status ? goal.status.toLowerCase() : "active";
+  let statusLabel = "Active";
+  let statusClass = "bg-green-100 text-green-700";
+  if (rawStatus === "paused") {
+    statusLabel = "Paused";
+    statusClass = "bg-yellow-100 text-yellow-700";
+  } else if (rawStatus === "cancelled") {
+    statusLabel = "Cancelled";
+    statusClass = "bg-red-100 text-red-700";
+  }
 
   return (
     <div>
       <h1 className="text-2xl font-bold mb-2">{goal.decryptedTitle}</h1>
-      {/* ...other badges... */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <span className="inline-block rounded-full px-3 py-1 text-xs font-bold bg-purple-100 text-purple-800">
+          {kind}
+        </span>
+        <span className="inline-block rounded-full px-3 py-1 text-xs bg-gray-100 text-gray-600">
+          Priority: {goal.priority || 1} ({getPriorityLabel(goal.priority)})
+        </span>
+        <span
+          className={`inline-block rounded-full px-3 py-1 text-xs font-bold ${statusClass}`}
+        >
+          {statusLabel}
+        </span>
+      </div>
+      <p className="text-gray-700 mb-2">
+        {goal.decryptedDescription || <em>(No description yet)</em>}
+      </p>
+      <div className="mt-4 text-sm text-gray-500">
+        Created:{" "}
+        {goal.created_at ? new Date(goal.created_at).toLocaleDateString() : "—"}
+      </div>
+      <div className="mt-4 text-sm text-gray-500">
+        Created:{" "}
+        {goal.created_at ? new Date(goal.created_at).toLocaleDateString() : "—"}
+      </div>
+      <div className="mt-1 text-sm text-gray-500">
+        Last Mentioned:{" "}
+        {goal.last_mentioned_date
+          ? new Date(goal.last_mentioned_date).toLocaleDateString()
+          : "—"}
+      </div>
       <div className="mt-1 text-sm text-gray-500">
         Journal Mentions: {goal.mention_count || 0}
       </div>
       {/* --- New Action Buttons --- */}
       <div className="flex gap-3 mt-6">
-        {goal.status !== "paused" && (
+        {rawStatus !== "paused" && (
           <button
             className="px-4 py-2 rounded bg-yellow-100 text-yellow-800 font-semibold hover:bg-yellow-200"
             onClick={() => handleStatusChange(goal, "paused")}
@@ -948,7 +550,7 @@ function GoalOverview({ goal }) {
             Pause
           </button>
         )}
-        {goal.status !== "cancelled" && (
+        {rawStatus !== "cancelled" && (
           <button
             className="px-4 py-2 rounded bg-red-100 text-red-700 font-semibold hover:bg-red-200"
             onClick={() => handleStatusChange(goal, "cancelled")}
@@ -966,3 +568,5 @@ function GoalOverview({ goal }) {
     </div>
   );
 }
+
+// ... (the rest of your GoalProgress, GoalJournalEntries, and GoalTips components remain unchanged!)
