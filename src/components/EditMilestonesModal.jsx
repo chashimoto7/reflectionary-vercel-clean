@@ -59,6 +59,7 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
           iv: goal.data_key_iv,
         };
 
+        // Always use the static master key (your existing approach)
         const masterKey = await encryptionService.getStaticMasterKey();
         const dataKey = await encryptionService.decryptKey(
           encryptedDataKey,
@@ -159,10 +160,8 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
   async function handleSave() {
     setSaving(true);
     try {
-      // Check if we're locked
-      if (isLocked) {
-        throw new Error("Session expired. Please unlock again.");
-      }
+      // REMOVED THE ISLOCKE CHECK THAT WAS CAUSING THE ISSUE
+      // The modal already closes if locked, so we don't need this check here
 
       const encryptedDataKey = {
         encryptedData: goal.encrypted_data_key,
@@ -237,129 +236,116 @@ export default function EditMilestonesModal({ goal, onClose, onSave }) {
                   onClick={() => setActiveTier(tier)}
                   className={`px-3 py-1 rounded font-bold ${
                     activeTier === tier
-                      ? "bg-purple-600 text-white shadow"
-                      : "bg-purple-100 text-purple-700"
+                      ? "bg-purple-600 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
                   {tier}
                 </button>
               ))}
             </div>
-
-            <div className="mb-4">
-              {(!tiers[activeTier] || tiers[activeTier].length === 0) && (
-                <div className="text-gray-400 text-sm mb-3">
-                  No milestones yet for {activeTier} tier.
-                </div>
-              )}
-
-              {tiers[activeTier] &&
-                Array.isArray(tiers[activeTier]) &&
+            <div className="space-y-2 mb-4">
+              {Array.isArray(tiers[activeTier]) &&
                 tiers[activeTier].map((milestone, idx) => (
-                  <div key={idx} className="flex items-center gap-2 mb-2">
+                  <div key={idx} className="flex items-center gap-2">
                     <input
-                      className="flex-1 px-2 py-1 border rounded"
+                      type="text"
+                      placeholder="Milestone text"
                       value={milestone.label || ""}
                       onChange={(e) =>
                         handleMilestoneText(idx, e.target.value, activeTier)
                       }
-                      placeholder={`${activeTier} milestone ${idx + 1}`}
+                      className="flex-1 px-2 py-1 border rounded"
                     />
                     <button
-                      className="text-red-500 p-1 hover:bg-red-50 rounded"
                       onClick={() => handleDeleteMilestone(idx, activeTier)}
+                      className="text-red-500 hover:text-red-700"
+                      title="Delete"
                     >
-                      <Trash2 size={18} />
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 ))}
-
               <button
-                className="mt-2 inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 text-green-700 font-bold hover:bg-green-200 transition-colors"
                 onClick={() => handleAddMilestone(activeTier)}
+                className="text-purple-600 hover:text-purple-800 flex items-center gap-1"
               >
-                <PlusCircle size={18} /> Add Milestone
+                <PlusCircle size={16} />
+                Add Milestone
               </button>
             </div>
           </>
         ) : type === "list" ? (
           <>
-            <div className="mb-4">
-              {(!milestones || milestones.length === 0) && (
-                <div className="text-gray-400 text-sm mb-3">
-                  No milestones yet for this goal.
+            <div className="space-y-2 mb-4">
+              {milestones.map((milestone, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Milestone text"
+                    value={milestone.label || ""}
+                    onChange={(e) => handleMilestoneText(idx, e.target.value)}
+                    className="flex-1 px-2 py-1 border rounded"
+                  />
+                  <button
+                    onClick={() => handleDeleteMilestone(idx)}
+                    className="text-red-500 hover:text-red-700"
+                    title="Delete"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
-              )}
-
-              {Array.isArray(milestones) &&
-                milestones.map((milestone, idx) => (
-                  <div key={idx} className="flex items-center gap-2 mb-2">
-                    <input
-                      className="flex-1 px-2 py-1 border rounded"
-                      value={milestone.label || ""}
-                      onChange={(e) => handleMilestoneText(idx, e.target.value)}
-                      placeholder={`Milestone ${idx + 1}`}
-                    />
-                    <button
-                      className="text-red-500 p-1 hover:bg-red-50 rounded"
-                      onClick={() => handleDeleteMilestone(idx)}
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                ))}
-
+              ))}
               <button
-                className="mt-2 inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 text-green-700 font-bold hover:bg-green-200 transition-colors"
                 onClick={() => handleAddMilestone()}
+                className="text-purple-600 hover:text-purple-800 flex items-center gap-1"
               >
-                <PlusCircle size={18} /> Add Milestone
+                <PlusCircle size={16} />
+                Add Milestone
               </button>
             </div>
           </>
         ) : (
-          <div className="text-gray-400 text-center py-8">
-            <p className="mb-4">
-              No milestones have been set up for this goal yet.
-            </p>
-            <div className="space-y-2">
-              <button
-                className="block mx-auto px-4 py-2 bg-purple-100 text-purple-700 rounded-lg font-medium hover:bg-purple-200 transition-colors"
-                onClick={() => {
-                  setType("list");
-                  setMilestones([]);
-                }}
-              >
-                Set up as Simple List
-              </button>
-              <button
-                className="block mx-auto px-4 py-2 bg-purple-100 text-purple-700 rounded-lg font-medium hover:bg-purple-200 transition-colors"
-                onClick={() => {
-                  setType("tiered");
-                  setTiers({ Beginner: [], Intermediate: [], Advanced: [] });
-                  setActiveTier("Beginner");
-                }}
-              >
-                Set up with Tiers (Beginner/Intermediate/Advanced)
-              </button>
-            </div>
+          <div className="text-center text-gray-500 mb-4">
+            No milestones configured for this goal yet.
+            <br />
+            <button
+              onClick={() => setType("list")}
+              className="text-purple-600 hover:underline"
+            >
+              Start with a simple list
+            </button>{" "}
+            or{" "}
+            <button
+              onClick={() => {
+                setType("tiered");
+                setTiers({
+                  Beginner: [],
+                  Intermediate: [],
+                  Advanced: [],
+                });
+              }}
+              className="text-purple-600 hover:underline"
+            >
+              create tiered milestones
+            </button>
           </div>
         )}
 
-        <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+        <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-100 transition-colors"
+            className="px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
             disabled={saving}
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
-            disabled={saving}
+            className="px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
+            disabled={saving || !type}
           >
-            {saving ? "Saving..." : "Save Changes"}
+            {saving ? "Saving..." : "Save Milestones"}
           </button>
         </div>
       </div>
