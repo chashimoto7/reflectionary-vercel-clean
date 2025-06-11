@@ -9,6 +9,7 @@ import EditGoalModal from "../components/EditGoalModal";
 import ReactConfetti from "react-confetti";
 import { useWindowSize } from "@uidotdev/usehooks"; // lightweight window size hook
 import EditMilestonesModal from "../components/EditMilestonesModal";
+import GoalTips from "../components/GoalTips";
 
 // Helper: Parse decrypted milestones/tier data
 function parseProgress(goal, dataKey) {
