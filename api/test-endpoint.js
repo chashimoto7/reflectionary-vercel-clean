@@ -1,5 +1,5 @@
-// pages/api/test-endpoint.js
-// Legacy Next.js compatible version
+// api/test-endpoint.js (note: /api not /pages/api)
+// Vercel serverless function for Vite projects
 
 export default function handler(req, res) {
   // Add CORS headers
@@ -20,16 +20,16 @@ export default function handler(req, res) {
   if (req.method === "GET") {
     console.log("✅ Handling GET request");
     return res.status(200).json({
-      message: "GET test successful!",
+      message: "GET test successful with Vite!",
       timestamp: new Date().toISOString(),
-      headers: req.headers,
+      framework: "Vite + Vercel Functions",
     });
   }
 
   if (req.method === "POST") {
     console.log("✅ Handling POST request");
     return res.status(200).json({
-      message: "POST test successful!",
+      message: "POST test successful with Vite!",
       body: req.body,
       timestamp: new Date().toISOString(),
       contentType: req.headers["content-type"],

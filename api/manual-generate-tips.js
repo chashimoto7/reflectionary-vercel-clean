@@ -1,5 +1,5 @@
-// pages/api/manual-generate-tips.js
-// Simplified version to test POST functionality first
+// api/manual-generate-tips.js (note: /api not /pages/api)
+// Vite-compatible version
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -8,13 +8,13 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
-function handler(req, res) {
+export default async function handler(req, res) {
   // Add CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  console.log(`Received ${req.method} request to manual-generate-tips`);
+  console.log(`🔍 Received ${req.method} request to manual-generate-tips`);
 
   if (req.method === "OPTIONS") {
     res.status(200).end();
@@ -42,8 +42,34 @@ function handler(req, res) {
       });
     }
 
-    // For now, just return success without actually doing the work
-    // We'll add the real functionality once POST is working
+    // Test Supabase connection first
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+      throw new Error("Supabase environment variables not configured");
+    }
+
+    // If specific goal_id provided, update just that goal
+    if (goal_id) {
+      const { error } = await supabase
+        .from("user_goals")
+        .update({ tips_last_generated: null }) // Force regeneration
+        .eq("id", goal_id);
+
+      if (error) throw error;
+      console.log(`✅ Forced regeneration for goal ${goal_id}`);
+    }
+
+    // If user_id provided, update all their goals
+    if (user_id && !goal_id) {
+      const { error } = await supabase
+        .from("user_goals")
+        .update({ tips_last_generated: null }) // Force regeneration
+        .eq("user_id", user_id);
+
+      if (error) throw error;
+      console.log(`✅ Forced regeneration for all goals of user ${user_id}`);
+    }
+
+    // For now, just return success - we'll add batch triggering once basic POST works
     res.json({
       message: "Tips generation request received successfully",
       debug: {
@@ -53,6 +79,7 @@ function handler(req, res) {
         hasSupabaseConfig: !!(
           process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY
         ),
+        framework: "Vite + Vercel",
       },
     });
   } catch (error) {
@@ -63,5 +90,3 @@ function handler(req, res) {
     });
   }
 }
-
-export default handler;
