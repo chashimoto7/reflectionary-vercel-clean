@@ -1,3 +1,4 @@
+// src/contexts/SecurityContext.jsx
 import React, {
   createContext,
   useContext,
@@ -13,9 +14,11 @@ export function SecurityProvider({ children }) {
   const { user } = useAuth();
 
   const [isUnlocking, setIsUnlocking] = useState(false);
-  const [isLocked, setIsLocked] = useState(
-    () => localStorage.getItem("isLocked") !== "false"
-  );
+  const [isLocked, setIsLocked] = useState(() => {
+    const stored = localStorage.getItem("isLocked");
+    console.log("🔒 Initial lock state from localStorage:", stored);
+    return stored !== "false";
+  });
 
   const [securitySettings, setSecuritySettings] = useState({
     autoLockEnabled: false,
@@ -29,6 +32,7 @@ export function SecurityProvider({ children }) {
   // Lock when user logs out
   useEffect(() => {
     if (!user) {
+      console.log("🔒 Locking because user logged out");
       lock();
     }
   }, [user]);
@@ -41,6 +45,7 @@ export function SecurityProvider({ children }) {
       user &&
       !isLocked
     ) {
+      console.log("🔒 Starting auto-lock timer");
       startAutoLockTimer();
     } else {
       clearAutoLockTimer();
@@ -83,6 +88,7 @@ export function SecurityProvider({ children }) {
       const timeoutMs = securitySettings.autoLockTimeout * 60 * 1000;
 
       if (timeSinceActivity >= timeoutMs) {
+        console.log("🔒 Auto-lock triggered due to inactivity");
         lock();
       }
     }, 30000);
@@ -96,24 +102,29 @@ export function SecurityProvider({ children }) {
   }
 
   function unlock() {
+    console.log("🔓 Unlocking app");
     setIsLocked(false);
     localStorage.setItem("isLocked", "false");
     lastActivity.current = Date.now();
   }
 
   function lock() {
+    console.log("🔒 Locking app");
     setIsLocked(true);
     localStorage.setItem("isLocked", "true");
     clearAutoLockTimer();
   }
 
   function setLocked(value) {
+    console.log("🔄 setLocked called with:", value);
+    console.trace("🔄 setLocked call stack");
     setIsLocked(value);
     localStorage.setItem("isLocked", value ? "true" : "false");
     if (!value) lastActivity.current = Date.now();
   }
 
   function updateSecuritySettings(newSettings) {
+    console.log("⚙️ Updating security settings:", newSettings);
     setSecuritySettings((prev) => ({ ...prev, ...newSettings }));
   }
 
