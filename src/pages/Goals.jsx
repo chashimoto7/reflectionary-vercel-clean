@@ -431,10 +431,6 @@ export default function Goals() {
                 onClose={() => setShowEditMilestonesModal(false)}
                 onSave={async () => {
                   setShowEditMilestonesModal(false);
-                  // Just refresh the goal progress after editing milestones
-                  if (typeof window !== "undefined") {
-                    window.location.reload();
-                  }
                 }}
               />
             )}
