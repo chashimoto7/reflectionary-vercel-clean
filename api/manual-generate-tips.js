@@ -85,9 +85,35 @@ export default async function handler(req, res) {
       console.log(`✅ Forced regeneration for all goals of user ${user_id}`);
     }
 
-    // For now, just return success - we'll add batch triggering once basic POST works
+    // Determine the base URL for the batch API call
+    const protocol = req.headers["x-forwarded-proto"] || "https";
+    const host = req.headers["x-forwarded-host"] || req.headers.host;
+    const baseUrl = `${protocol}://${host}`;
+
+    console.log(
+      `Making batch request to: ${baseUrl}/api/start-batch-tips-generator`
+    );
+
+    // Now trigger the batch process
+    const batchResponse = await fetch(
+      `${baseUrl}/api/start-batch-tips-generator`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const batchData = await batchResponse.json();
+
+    if (!batchResponse.ok) {
+      throw new Error(batchData.error || "Failed to start batch process");
+    }
+
     res.json({
-      message: "Tips generation request received successfully",
+      message: "Tips generation started successfully",
+      batch_info: batchData,
       debug: {
         goal_id,
         user_id,
