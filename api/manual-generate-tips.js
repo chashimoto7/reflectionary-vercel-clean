@@ -1,5 +1,5 @@
 // api/manual-generate-tips.js (note: /api not /pages/api)
-// Vite-compatible version
+// Vite-compatible version with proper body parsing
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -24,11 +24,35 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
+// Helper function to parse JSON body for Vercel serverless
+async function parseBody(req) {
+  if (req.body) {
+    // Body is already parsed (newer Vercel runtime)
+    return req.body;
+  }
+
+  // Manual parsing for older runtime or edge cases
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk.toString();
+    });
+    req.on("end", () => {
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch (error) {
+        reject(new Error(`Invalid JSON: ${error.message}`));
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
 export default async function handler(req, res) {
   // Add CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   console.log(`🔍 Received ${req.method} request to manual-generate-tips`);
 
@@ -47,14 +71,19 @@ export default async function handler(req, res) {
 
   try {
     console.log("🎯 Manual tips generation triggered");
-    console.log("Request body:", req.body);
 
-    const { goal_id, user_id } = req.body;
+    // Parse the request body properly
+    const body = await parseBody(req);
+    console.log("Request body:", body);
+
+    const { goal_id, user_id } = body;
 
     if (!goal_id && !user_id) {
       return res.status(400).json({
         error:
           "Provide either goal_id for a specific goal, or user_id for all user's goals",
+        received: { goal_id, user_id },
+        bodyType: typeof body,
       });
     }
 
@@ -122,6 +151,7 @@ export default async function handler(req, res) {
           process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY
         ),
         framework: "Vite + Vercel",
+        bodyParsed: true,
       },
     });
   } catch (error) {
@@ -129,6 +159,7 @@ export default async function handler(req, res) {
     res.status(500).json({
       error: "Failed to trigger tips generation",
       details: error.message,
+      stack: error.stack,
     });
   }
 }
