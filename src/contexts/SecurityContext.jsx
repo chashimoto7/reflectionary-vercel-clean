@@ -11,7 +11,7 @@ import { useAuth } from "./AuthContext";
 const SecurityContext = createContext({});
 
 export function SecurityProvider({ children }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth(); // Get loading state from AuthContext
 
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [isLocked, setIsLocked] = useState(() => {
@@ -28,14 +28,43 @@ export function SecurityProvider({ children }) {
 
   const autoLockTimer = useRef(null);
   const lastActivity = useRef(Date.now());
+  const hasInitialized = useRef(false); // Track if we've finished initial load
 
-  // Lock when user logs out
+  // Lock when user logs out (but NOT during initial loading)
   useEffect(() => {
+    // Wait for AuthContext to finish loading before making decisions
+    if (authLoading) {
+      console.log("🔄 Auth still loading, waiting...");
+      return;
+    }
+
+    // Mark that we've finished initialization
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      console.log(
+        "✅ Auth initialization complete, user:",
+        user?.email || "none"
+      );
+
+      // If user exists but app is locked, this is likely a page refresh while logged in
+      if (user && isLocked) {
+        console.log(
+          "🔓 User found after initialization, keeping locked state from localStorage"
+        );
+        // Keep the locked state as-is (from localStorage)
+      } else if (!user && !isLocked) {
+        console.log("🔒 No user found after initialization, locking app");
+        lock();
+      }
+      return;
+    }
+
+    // Only lock on actual logout (after initialization is complete)
     if (!user) {
-      console.log("🔒 Locking because user logged out");
+      console.log("🔒 User logged out, locking app");
       lock();
     }
-  }, [user]);
+  }, [user, authLoading, isLocked]);
 
   // Auto-lock timer setup
   useEffect(() => {
@@ -43,7 +72,8 @@ export function SecurityProvider({ children }) {
       securitySettings.autoLockEnabled &&
       securitySettings.autoLockTimeout &&
       user &&
-      !isLocked
+      !isLocked &&
+      hasInitialized.current
     ) {
       console.log("🔒 Starting auto-lock timer");
       startAutoLockTimer();
@@ -61,7 +91,13 @@ export function SecurityProvider({ children }) {
 
   // Activity tracking for auto-lock
   useEffect(() => {
-    if (!securitySettings.autoLockEnabled || !user || isLocked) return;
+    if (
+      !securitySettings.autoLockEnabled ||
+      !user ||
+      isLocked ||
+      !hasInitialized.current
+    )
+      return;
 
     const handleActivity = () => {
       lastActivity.current = Date.now();
