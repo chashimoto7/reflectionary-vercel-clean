@@ -1,8 +1,7 @@
 // pages/api/manual-generate-tips.js
-// This is a simple endpoint for testing - you can call it manually to generate tips for a specific goal
+// Fixed version with proper CORS and import handling
 
 import { createClient } from "@supabase/supabase-js";
-import encryptionService from "../src/services/encryptionService";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -10,21 +9,36 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+  // Add CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.status(200).end();
+    return;
   }
 
-  const { goal_id, user_id } = req.body;
-
-  if (!goal_id && !user_id) {
-    return res.status(400).json({
-      error:
-        "Provide either goal_id for a specific goal, or user_id for all user's goals",
+  if (req.method !== "POST") {
+    return res.status(405).json({
+      error: "Method not allowed",
+      allowedMethods: ["POST"],
+      receivedMethod: req.method,
     });
   }
 
   try {
     console.log("🎯 Manual tips generation triggered");
+    console.log("Request body:", req.body);
+
+    const { goal_id, user_id } = req.body;
+
+    if (!goal_id && !user_id) {
+      return res.status(400).json({
+        error:
+          "Provide either goal_id for a specific goal, or user_id for all user's goals",
+      });
+    }
 
     // If specific goal_id provided, update just that goal
     if (goal_id) {
@@ -48,11 +62,18 @@ export default async function handler(req, res) {
       console.log(`✅ Forced regeneration for all goals of user ${user_id}`);
     }
 
+    // Determine the base URL for the batch API call
+    const protocol = req.headers["x-forwarded-proto"] || "https";
+    const host = req.headers["x-forwarded-host"] || req.headers.host;
+    const baseUrl = `${protocol}://${host}`;
+
+    console.log(
+      `Making batch request to: ${baseUrl}/api/start-batch-tips-generator`
+    );
+
     // Now trigger the batch process
     const batchResponse = await fetch(
-      `${
-        req.headers.origin || "http://localhost:3000"
-      }/api/start-batch-tips-generator`,
+      `${baseUrl}/api/start-batch-tips-generator`,
       {
         method: "POST",
         headers: {
@@ -70,6 +91,11 @@ export default async function handler(req, res) {
     res.json({
       message: "Tips generation started successfully",
       batch_info: batchData,
+      debug: {
+        goal_id,
+        user_id,
+        baseUrl,
+      },
     });
   } catch (error) {
     console.error("Manual tips generation error:", error);
