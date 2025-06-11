@@ -3,6 +3,22 @@
 
 import { createClient } from "@supabase/supabase-js";
 
+// Debug environment variables
+console.log("Environment check:", {
+  hasSupabaseUrl: !!process.env.SUPABASE_URL,
+  hasSupabaseServiceKey: !!process.env.SUPABASE_SERVICE_KEY,
+  hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+  // Don't log actual values for security
+});
+
+if (!process.env.SUPABASE_URL) {
+  throw new Error("SUPABASE_URL environment variable is required");
+}
+
+if (!process.env.SUPABASE_SERVICE_KEY) {
+  throw new Error("SUPABASE_SERVICE_KEY environment variable is required");
+}
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
