@@ -1,27 +1,3 @@
 {
-  "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "framework": "vite",
-  "cleanUrls": true,
-  "crons": [
-    {
-      "path": "/api/start-batch-tips-generator",
-      "schedule": "55 23 * * 6"
-    },
-    {
-      "path": "/api/process-batch-tips-results",
-      "schedule": "0 0 * * 0"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
-  ]
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
