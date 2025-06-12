@@ -10,15 +10,6 @@ import ReactConfetti from "react-confetti";
 import { useWindowSize } from "@uidotdev/usehooks"; // lightweight window size hook
 import EditMilestonesModal from "../components/EditMilestonesModal";
 import GoalTips from "../components/GoalTips";
-import {
-  Plus,
-  Award,
-  Edit2,
-  Trash2,
-  X,
-  PlusCircle,
-  BookOpen,
-} from "lucide-react";
 
 // Helper: Parse decrypted milestones/tier data
 function parseProgress(goal, dataKey) {
