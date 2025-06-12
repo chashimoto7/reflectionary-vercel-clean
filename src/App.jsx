@@ -19,7 +19,7 @@ if (typeof window !== "undefined") {
 
 import LoginPage from "./pages/LoginPage";
 import Layout from "./components/Layout";
-import Welcome from "../pages/Welcome";
+import Welcome from "./pages/Welcome";
 import NewEntryPage from "./pages/NewEntry";
 import HistoryPage from "./pages/history";
 import GoalsPage from "./pages/Goals";
