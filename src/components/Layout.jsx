@@ -15,7 +15,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
 import { useMembership } from "../hooks/useMembership";
 import { useState } from "react";
-import logo from "../assets/reflectionary-square.png";
+import logo from "../assets/reflectionaryLogoSidebar.png";
 
 export default function Layout({ children }) {
   const { user, signOut } = useAuth();
