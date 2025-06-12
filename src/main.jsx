@@ -15,3 +15,4 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <App />
   </React.StrictMode>
 );
+"// DNS fix deploy $(date)" 
