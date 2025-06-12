@@ -1,6 +1,6 @@
 // src/pages/Welcome.jsx
 import React from "react";
-import logo from "../assets/reflectionaryLogoWelcome.png";
+import logo from "../assets/ReflectionaryLogoWelcome.png";
 
 const QUOTES = [
   {
