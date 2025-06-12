@@ -1,17 +1,16 @@
-@import "@fontsource/ibm-plex-sans"; /* Defaults to 400 weight */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
 
-@layer base {
-  body {
-    @apply font-sans;
-  }
+body {
+  font-family: "IBM Plex Sans", sans-serif;
 }
+
 .ql-editor {
-  font-size: 1.125rem; /* Tailwind’s text-lg */
-  line-height: 1.75rem; /* Tailwind’s leading-relaxed */
+  font-size: 1.125rem;
+  line-height: 1.75rem;
 }
+
 @keyframes gentle-wave {
   0% {
     background-position: 0% 100%;
