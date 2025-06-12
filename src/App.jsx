@@ -17,13 +17,13 @@ if (typeof window !== "undefined") {
   window.supabase = supabase;
 }
 
-import LoginPage from "../pages/LoginPage";
-import Layout from "../components/Layout";
+import LoginPage from "./pages/LoginPage";
+import Layout from "./components/Layout";
 import Welcome from "../pages/Welcome";
-import NewEntryPage from "../pages/NewEntry";
-import HistoryPage from "../pages/history";
-import GoalsPage from "../pages/Goals";
-import SecuritySettingsPage from "../pages/SecuritySettingsPage";
+import NewEntryPage from "./pages/NewEntry";
+import HistoryPage from "./pages/history";
+import GoalsPage from "./pages/Goals";
+import SecuritySettingsPage from "./pages/SecuritySettingsPage";
 
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
