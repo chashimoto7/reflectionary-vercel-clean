@@ -125,12 +125,19 @@ export default function History() {
     if (!user?.id || isLocked) return;
     setLoading(true);
     setError(null);
+
+    console.log("🔍 About to fetch with:");
+    console.log("🔍 User ID:", user.id);
+    console.log("🔍 Is Locked:", isLocked);
+    console.log("🔍 Page:", page);
+
     try {
       const res = await fetch(
         `https://reflectionary-api.vercel.app/api/history?user_id=${encodeURIComponent(
           user.id
         )}&page=${page}`
       );
+
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       if (!Array.isArray(data)) return setError("Invalid data format");
