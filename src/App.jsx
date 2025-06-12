@@ -34,7 +34,8 @@ function AppContent() {
 
   // Show /welcome **once** after unlock, not on every route change!
   React.useEffect(() => {
-    if (user && !isLocked && !showedWelcome) {
+    // Only redirect to welcome if we're on the root path "/"
+    if (user && !isLocked && !showedWelcome && location.pathname === "/") {
       setShowedWelcome(true);
       navigate("/welcome", { replace: true });
     }
@@ -42,7 +43,7 @@ function AppContent() {
     if (!user) {
       setShowedWelcome(false);
     }
-  }, [user, isLocked, showedWelcome, navigate]);
+  }, [user, isLocked, showedWelcome, navigate, location.pathname]);
 
   if (authLoading || isUnlocking) {
     return (
