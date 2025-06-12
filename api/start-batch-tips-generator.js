@@ -1,9 +1,12 @@
 // api/start-batch-tips-generator.js
-// OPTIMIZED version that leverages existing goal matching data
+// Creates batch jobs for OpenAI tips generation (scalable version)
 
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import crypto from "crypto";
+import fs from "fs";
+import fsp from "fs/promises";
+import path from "path";
 
 // Environment validation
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
@@ -28,11 +31,11 @@ const CONFIG = {
   TEMPERATURE: 0.7,
   MODEL: "gpt-4o-mini",
   MAX_CONTENT_LENGTH: 12000,
-  BATCH_SIZE: 50, // Process this many goals at once
-  MIN_ENTRIES_FOR_PERSONALIZED: 2, // Need at least 2 entries for personalized tips
+  MIN_ENTRIES_FOR_PERSONALIZED: 2,
+  DEBUG_ONE_ONLY: false, // Set to true for testing
 };
 
-// === ENCRYPTION HELPERS (same as before) ===
+// === ENCRYPTION HELPERS ===
 function decryptDataKey(encryptedDataKeyBase64, dataKeyIvBase64, masterKeyHex) {
   try {
     const encryptedBuffer = Buffer.from(encryptedDataKeyBase64, "base64");
@@ -87,21 +90,6 @@ function decryptContent(
   }
 }
 
-function encryptText(plaintext, dataKeyBuffer) {
-  try {
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv("aes-256-cbc", dataKeyBuffer, iv);
-    let encrypted = cipher.update(plaintext, "utf8", "base64");
-    encrypted += cipher.final("base64");
-    return {
-      encryptedData: encrypted,
-      iv: iv.toString("base64"),
-    };
-  } catch (error) {
-    throw new Error(`Failed to encrypt text: ${error.message}`);
-  }
-}
-
 // === MAIN FUNCTIONS ===
 
 // Get goals that need tip updates
@@ -114,22 +102,20 @@ async function getGoalsNeedingTips() {
     .select(
       "id, user_id, encrypted_goal, goal_iv, encrypted_data_key, data_key_iv, tips_last_generated, status, mention_count"
     )
-    .eq("status", "active") // Only active goals
+    .eq("status", "active")
     .or(
       `encrypted_tips.is.null,tips_last_generated.lt.${sevenDaysAgo.toISOString()}`
     )
-    .limit(CONFIG.BATCH_SIZE);
+    .limit(50); // Process up to 50 goals per batch
 
-  if (error) {
-    throw new Error(`Failed to fetch goals: ${error.message}`);
-  }
-
+  if (error) throw new Error(`Failed to fetch goals: ${error.message}`);
   return goals || [];
 }
 
-// Decrypt goal title and prepare goal object
-async function decryptGoal(goal, masterKeyHex) {
+// Decrypt goal and get relevant journal entries
+async function prepareGoalData(goal, masterKeyHex) {
   try {
+    // Decrypt goal title
     const dataKey = decryptDataKey(
       goal.encrypted_data_key,
       goal.data_key_iv,
@@ -140,91 +126,78 @@ async function decryptGoal(goal, masterKeyHex) {
       goal.goal_iv,
       dataKey
     );
-    return { ...goal, decryptedTitle: goalTitle.trim(), _dataKey: dataKey };
+
+    // Get journal entries that mention this goal
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setDate(threeMonthsAgo.getDate() - CONFIG.DAYS_BACK);
+
+    const { data: entries, error } = await supabase
+      .from("journal_entries")
+      .select(
+        "id, encrypted_content, content_iv, encrypted_data_key, data_key_iv, created_at, goals_mentioned"
+      )
+      .contains("goal_ids", [goal.id])
+      .gte("created_at", threeMonthsAgo.toISOString())
+      .order("created_at", { ascending: false })
+      .limit(10); // Max 10 most recent entries
+
+    if (error) {
+      console.warn(
+        `Failed to fetch entries for goal ${goal.id}:`,
+        error.message
+      );
+      return { goal, goalTitle: goalTitle.trim(), journalEntries: [] };
+    }
+
+    // Decrypt journal entries
+    const journalEntries = [];
+    for (const entry of entries || []) {
+      try {
+        const entryDataKey = decryptDataKey(
+          entry.encrypted_data_key,
+          entry.data_key_iv,
+          masterKeyHex
+        );
+        const content = decryptContent(
+          entry.encrypted_content,
+          entry.content_iv,
+          entryDataKey
+        );
+
+        const truncatedContent =
+          content.length > CONFIG.MAX_CONTENT_LENGTH
+            ? content.substring(0, CONFIG.MAX_CONTENT_LENGTH) + "..."
+            : content;
+
+        journalEntries.push({
+          content: truncatedContent,
+          date: entry.created_at,
+          goals_mentioned: entry.goals_mentioned || [],
+        });
+      } catch (error) {
+        console.warn(`Failed to decrypt entry ${entry.id}:`, error.message);
+      }
+    }
+
+    return { goal, goalTitle: goalTitle.trim(), journalEntries };
   } catch (error) {
-    console.warn(`Failed to decrypt goal ${goal.id}:`, error.message);
+    console.warn(`Failed to prepare data for goal ${goal.id}:`, error.message);
     return null;
   }
 }
 
-// Get journal entries that mention this specific goal (using existing goal matching data!)
-async function getRelevantJournalEntries(goalId, masterKeyHex) {
-  const threeMonthsAgo = new Date();
-  threeMonthsAgo.setDate(threeMonthsAgo.getDate() - CONFIG.DAYS_BACK);
+// Create batch request for a goal
+function createTipGenerationRequest(goalData) {
+  const { goal, goalTitle, journalEntries } = goalData;
 
-  // Use the existing goal_ids array to find entries that mention this goal
-  const { data: entries, error } = await supabase
-    .from("journal_entries")
-    .select(
-      "id, encrypted_content, content_iv, encrypted_data_key, data_key_iv, created_at, goals_mentioned"
-    )
-    .contains("goal_ids", [goalId]) // This uses your existing goal matching!
-    .gte("created_at", threeMonthsAgo.toISOString())
-    .order("created_at", { ascending: false })
-    .limit(15); // Look at last 15 relevant entries max
+  let prompt;
 
-  if (error) {
-    console.warn(`Failed to fetch entries for goal ${goalId}:`, error.message);
-    return [];
-  }
-
-  if (!entries || entries.length === 0) {
-    console.log(`No journal entries found that mention goal ${goalId}`);
-    return [];
-  }
-
-  console.log(`Found ${entries.length} entries that mention this goal`);
-
-  // Decrypt the content of relevant entries
-  const relevantEntries = [];
-  for (const entry of entries.slice(0, 10)) {
-    // Use max 10 most recent
-    try {
-      const dataKey = decryptDataKey(
-        entry.encrypted_data_key,
-        entry.data_key_iv,
-        masterKeyHex
-      );
-      const content = decryptContent(
-        entry.encrypted_content,
-        entry.content_iv,
-        dataKey
-      );
-
-      // Truncate if too long
-      const truncatedContent =
-        content.length > CONFIG.MAX_CONTENT_LENGTH
-          ? content.substring(0, CONFIG.MAX_CONTENT_LENGTH) + "..."
-          : content;
-
-      relevantEntries.push({
-        content: truncatedContent,
-        date: entry.created_at,
-        goals_mentioned: entry.goals_mentioned || [],
-      });
-    } catch (error) {
-      console.warn(`Failed to decrypt entry ${entry.id}:`, error.message);
-      continue;
-    }
-  }
-
-  return relevantEntries;
-}
-
-// Generate tips using OpenAI
-async function generateTipsForGoal(goal, journalEntries) {
-  const { decryptedTitle, mention_count } = goal;
-
-  // If no relevant journal entries, generate generic tips
   if (journalEntries.length < CONFIG.MIN_ENTRIES_FOR_PERSONALIZED) {
-    console.log(
-      `Only ${journalEntries.length} relevant entries found for goal: ${decryptedTitle}. Generating generic tips.`
-    );
-
-    const prompt = `Generate 3 helpful, specific, and psychologically-informed tips for someone whose personal goal is: "${decryptedTitle}". 
+    // Generic tips prompt
+    prompt = `Generate 3 helpful, specific, and psychologically-informed tips for someone whose personal goal is: "${goalTitle}". 
 
 This goal has been mentioned ${
-      mention_count || 0
+      goal.mention_count || 0
     } times in their journal entries, suggesting it's important to them.
 
 Format your response as a JSON array of strings. Each tip should be:
@@ -235,52 +208,27 @@ Format your response as a JSON array of strings. Each tip should be:
 - Focused on practical strategies they can implement
 
 Return only the JSON array, no other text.`;
+  } else {
+    // Personalized tips prompt
+    const entrySummaries = journalEntries
+      .map((entry, index) => {
+        const date = entry.date.split("T")[0];
+        const content = entry.content.substring(0, 800);
+        const mentioned =
+          entry.goals_mentioned.length > 0
+            ? ` (also mentioned: ${entry.goals_mentioned
+                .slice(0, 3)
+                .join(", ")})`
+            : "";
+        return `Entry ${index + 1} (${date})${mentioned}: ${content}...`;
+      })
+      .join("\n\n");
 
-    try {
-      const response = await openai.chat.completions.create({
-        model: CONFIG.MODEL,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a compassionate personal development coach with expertise in psychology and behavioral science. Always return valid JSON.",
-          },
-          { role: "user", content: prompt },
-        ],
-        temperature: CONFIG.TEMPERATURE,
-        max_tokens: CONFIG.MAX_TOKENS,
-      });
-
-      const content = response.choices[0].message.content.trim();
-      const tips = JSON.parse(content);
-      return Array.isArray(tips) ? tips.slice(0, 3) : [];
-    } catch (error) {
-      console.error(
-        `Failed to generate generic tips for goal ${decryptedTitle}:`,
-        error.message
-      );
-      return [];
-    }
-  }
-
-  // Generate personalized tips based on journal entries
-  const entrySummaries = journalEntries
-    .map((entry, index) => {
-      const date = entry.date.split("T")[0];
-      const content = entry.content.substring(0, 800); // Limit each entry
-      const mentioned =
-        entry.goals_mentioned.length > 0
-          ? ` (also mentioned: ${entry.goals_mentioned.slice(0, 3).join(", ")})`
-          : "";
-      return `Entry ${index + 1} (${date})${mentioned}: ${content}...`;
-    })
-    .join("\n\n");
-
-  const prompt = `Based on this person's journal entries related to their goal "${decryptedTitle}", generate 3 personalized, specific tips to help them achieve this goal.
+    prompt = `Based on this person's journal entries related to their goal "${goalTitle}", generate 3 personalized, specific tips to help them achieve this goal.
 
 This goal has been mentioned ${
-    mention_count || 0
-  } times across their journal entries, showing consistent engagement.
+      goal.mention_count || 0
+    } times across their journal entries, showing consistent engagement.
 
 Their recent relevant journal entries:
 ${entrySummaries}
@@ -294,64 +242,26 @@ Generate tips that are:
 - 1-2 sentences each
 
 Format your response as a JSON array of strings. Return only the JSON array, no other text.`;
+  }
 
-  try {
-    const response = await openai.chat.completions.create({
+  return {
+    custom_id: goal.id,
+    method: "POST",
+    url: "/v1/chat/completions",
+    body: {
       model: CONFIG.MODEL,
       messages: [
         {
           role: "system",
           content:
-            "You are a compassionate personal development coach with expertise in psychology. Analyze the journal entries carefully to provide highly personalized advice that references their specific situation. Always return valid JSON.",
+            "You are a compassionate personal development coach with expertise in psychology and behavioral science. Always return valid JSON.",
         },
         { role: "user", content: prompt },
       ],
       temperature: CONFIG.TEMPERATURE,
       max_tokens: CONFIG.MAX_TOKENS,
-    });
-
-    const content = response.choices[0].message.content.trim();
-    const tips = JSON.parse(content);
-    return Array.isArray(tips) ? tips.slice(0, 3) : [];
-  } catch (error) {
-    console.error(
-      `Failed to generate personalized tips for goal ${decryptedTitle}:`,
-      error.message
-    );
-    return [];
-  }
-}
-
-// Save encrypted tips to database
-async function saveTipsToGoal(goal, tips) {
-  try {
-    // Encrypt the tips using the goal's data key
-    const tipsJson = JSON.stringify(tips);
-    const encryptedTips = encryptText(tipsJson, goal._dataKey);
-
-    const { error } = await supabase
-      .from("user_goals")
-      .update({
-        encrypted_tips: encryptedTips.encryptedData,
-        tips_iv: encryptedTips.iv,
-        tips_last_generated: new Date().toISOString(),
-      })
-      .eq("id", goal.id);
-
-    if (error) {
-      throw new Error(
-        `Failed to save tips for goal ${goal.id}: ${error.message}`
-      );
-    }
-
-    console.log(
-      `✅ Successfully saved ${tips.length} tips for goal: ${goal.decryptedTitle}`
-    );
-    return true;
-  } catch (error) {
-    console.error(`Failed to save tips for goal ${goal.id}:`, error.message);
-    return false;
-  }
+    },
+  };
 }
 
 // === MAIN HANDLER ===
@@ -370,9 +280,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log(
-      "==== Starting OPTIMIZED batch tips generator (using existing goal matching)... ===="
-    );
+    console.log("==== Starting batch tips generation process... ====");
 
     // Get master key
     const masterKeyHex =
@@ -395,108 +303,131 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log(`📝 Found ${goals.length} goals that need tip updates`);
+    // Optionally process only one goal for debugging
+    let goalsToProcess = goals;
+    if (CONFIG.DEBUG_ONE_ONLY) {
+      goalsToProcess = [goals[0]];
+      console.log("🐛 DEBUG MODE: Processing ONLY one goal:", goals[0].id);
+    }
 
-    // 2. Process each goal
-    let processedCount = 0;
-    let successCount = 0;
-    let errorCount = 0;
+    console.log(
+      `📝 Found ${goalsToProcess.length} goals that need tip updates`
+    );
 
-    for (const goalData of goals) {
+    // 2. Prepare goal data and create batch requests
+    console.log("🔄 Preparing goal data and creating batch requests...");
+    const batchRequests = [];
+
+    for (const goal of goalsToProcess) {
       try {
-        console.log(`\n🎯 Processing goal ${goalData.id}...`);
+        console.log(`   Processing goal ${goal.id}...`);
+        const goalData = await prepareGoalData(goal, masterKeyHex);
 
-        // Decrypt goal
-        const goal = await decryptGoal(goalData, masterKeyHex);
-        if (!goal) {
-          errorCount++;
+        if (!goalData) {
+          console.warn(
+            `   ⚠️ Skipping goal ${goal.id} due to processing error`
+          );
           continue;
         }
 
+        const request = createTipGenerationRequest(goalData);
+        batchRequests.push(JSON.stringify(request));
+
         console.log(
-          `   Goal: "${goal.decryptedTitle}" (mentioned ${
-            goal.mention_count || 0
-          } times)`
+          `   ✅ Created tip generation request for: "${goalData.goalTitle}"`
         );
-
-        // Get relevant journal entries using existing goal matching data
-        console.log(
-          "   📖 Finding entries that mention this goal (using existing goal_ids data)..."
-        );
-        const journalEntries = await getRelevantJournalEntries(
-          goal.id,
-          masterKeyHex
-        );
-
-        const tipType =
-          journalEntries.length >= CONFIG.MIN_ENTRIES_FOR_PERSONALIZED
-            ? "personalized"
-            : "generic";
-        console.log(
-          `   Found ${journalEntries.length} relevant entries, generating ${tipType} tips`
-        );
-
-        // Generate tips
-        console.log("   🤖 Generating AI tips...");
-        const tips = await generateTipsForGoal(goal, journalEntries);
-
-        if (tips.length === 0) {
-          console.log("   ⚠️ No tips generated");
-          errorCount++;
-          continue;
-        }
-
-        console.log(`   Generated ${tips.length} ${tipType} tips`);
-
-        // Save tips
-        console.log("   💾 Saving encrypted tips...");
-        const saved = await saveTipsToGoal(goal, tips);
-
-        if (saved) {
-          successCount++;
-        } else {
-          errorCount++;
-        }
-
-        processedCount++;
-
-        // Add small delay to avoid rate limits
-        await new Promise((resolve) => setTimeout(resolve, 200));
       } catch (error) {
         console.error(
-          `❌ Error processing goal ${goalData.id}:`,
+          `   ❌ Failed to process goal ${goal.id}:`,
           error.message
         );
-        errorCount++;
-        processedCount++;
       }
     }
 
-    console.log("\n==== Batch processing complete ====");
+    if (batchRequests.length === 0) {
+      return res
+        .status(500)
+        .json({ error: "No valid tip generation requests could be created" });
+    }
+
     console.log(
-      `📊 Results: ${successCount} successful, ${errorCount} errors, ${processedCount} total`
+      `✅ Successfully created ${batchRequests.length} batch requests`
     );
 
+    // 3. Write batch input to /tmp for OpenAI SDK
+    const filePath = path.join("/tmp", `tips_batch_${Date.now()}.jsonl`);
+    const jsonlContent = batchRequests.join("\n");
+    await fsp.writeFile(filePath, jsonlContent, "utf8");
+    console.log(`📁 Wrote batch input to file: ${filePath}`);
+
+    // 4. Upload file to OpenAI Files API
+    let file;
+    try {
+      console.log("📤 Uploading batch file to OpenAI...");
+      file = await openai.files.create({
+        file: fs.createReadStream(filePath),
+        purpose: "batch",
+      });
+      console.log("✅ OpenAI file upload successful:", file.id);
+    } catch (err) {
+      console.error("❌ Failed to upload file to OpenAI:", err);
+      return res.status(500).json({
+        error: "Failed to upload file to OpenAI",
+        details: err.message,
+      });
+    }
+
+    // 5. Create batch job using uploaded file
+    let batch;
+    try {
+      console.log("🚀 Creating OpenAI batch job...");
+      batch = await openai.batches.create({
+        input_file_id: file.id,
+        endpoint: "/v1/chat/completions",
+        completion_window: "24h",
+      });
+      console.log("✅ Batch job started:", batch.id);
+
+      // 6. Save batch job info to Supabase
+      try {
+        await supabase.from("batch_jobs").insert([
+          {
+            batch_id: batch.id, // This is the correct batch ID, not the file ID
+            file_id: file.id,
+            job_type: "tips_generation",
+            started_at: new Date().toISOString(),
+            status: batch.status,
+            input_count: batchRequests.length,
+            total_goals: goalsToProcess.length,
+          },
+        ]);
+        console.log("💾 Batch job info saved to database");
+      } catch (insertError) {
+        console.error("⚠️ Failed to save batch job info:", insertError);
+      }
+    } catch (err) {
+      console.error("❌ Failed to create batch job:", err);
+      return res.status(500).json({
+        error: "Failed to create batch job",
+        details: err.message,
+      });
+    }
+
+    console.log("==== Batch tips generation process complete ====");
+
     return res.status(200).json({
-      message: "Optimized batch tips generation completed",
-      results: {
-        total_goals: goals.length,
-        processed: processedCount,
-        successful: successCount,
-        errors: errorCount,
-      },
-      optimization: "Using existing goal matching data from journal entries",
-      debug: {
-        hasOpenAI: !!process.env.OPENAI_API_KEY,
-        hasSupabase: !!process.env.SUPABASE_URL,
-        hasMasterKey: !!masterKeyHex,
-        config: CONFIG,
-      },
+      message: "Batch tips generation job started successfully",
+      batch_id: batch.id,
+      file_id: file.id,
+      goals_processed: batchRequests.length,
+      total_goals: goalsToProcess.length,
+      status: batch.status,
+      job_type: "tips_generation",
     });
   } catch (error) {
-    console.error("💥 Fatal batch processing error:", error);
+    console.error("💥 Batch tips generation error:", error);
     return res.status(500).json({
-      error: "Batch processing failed",
+      error: "Internal server error",
       details: error.message,
     });
   }
