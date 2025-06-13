@@ -1150,7 +1150,7 @@ const CycleEducationModal = ({ isOpen, onClose }) => {
       days: "Days 1-13",
       color: "#10B981",
       description:
-        "Your body prepares to release an egg - energy starts rising",
+        "This phase begins on the day you get your period and overlaps with the menstrual phase. Your body prepares to release an egg - energy starts rising",
       signs: [
         "Increasing energy levels",
         "Clearer, more optimistic thinking",
