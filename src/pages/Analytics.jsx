@@ -31,6 +31,8 @@ import {
   Target,
   Lock,
   Crown,
+  Info,
+  HelpCircle,
 } from "lucide-react";
 
 const Analytics = () => {
@@ -40,6 +42,7 @@ const Analytics = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [dateRange, setDateRange] = useState("3months");
+  const [showInfoModal, setShowInfoModal] = useState(null);
 
   // Chart colors matching your brand
   const colors = [
@@ -419,7 +422,11 @@ const Analytics = () => {
           {/* Tab Content */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             {activeTab === "overview" && (
-              <OverviewTab data={analyticsData.overview} colors={colors} />
+              <OverviewTab
+                data={analyticsData.overview}
+                colors={colors}
+                onShowInfo={setShowInfoModal}
+              />
             )}
             {activeTab === "mood" && (
               <MoodTab data={analyticsData.mood} colors={colors} />
@@ -438,6 +445,14 @@ const Analytics = () => {
             )}
           </div>
         </>
+      )}
+
+      {/* Info Modal */}
+      {showInfoModal && (
+        <InfoModal
+          type={showInfoModal}
+          onClose={() => setShowInfoModal(null)}
+        />
       )}
     </div>
   );
@@ -458,7 +473,7 @@ const EmptyState = () => (
 );
 
 // Overview Tab Component
-const OverviewTab = ({ data, colors }) => (
+const OverviewTab = ({ data, colors, onShowInfo }) => (
   <div className="p-6">
     <h2 className="text-2xl font-bold text-gray-900 mb-6">Overview</h2>
 
@@ -477,6 +492,8 @@ const OverviewTab = ({ data, colors }) => (
         subtitle="Emotional wellbeing score"
         color="bg-gradient-to-r from-blue-500 to-blue-600"
         icon={Heart}
+        showInfo={true}
+        onInfoClick={() => onShowInfo("mood")}
       />
       <MetricCard
         title="Average Energy"
@@ -484,6 +501,8 @@ const OverviewTab = ({ data, colors }) => (
         subtitle="Vitality and motivation"
         color="bg-gradient-to-r from-green-500 to-green-600"
         icon={Zap}
+        showInfo={true}
+        onInfoClick={() => onShowInfo("energy")}
       />
       <MetricCard
         title="Current Streak"
@@ -535,7 +554,7 @@ const OverviewTab = ({ data, colors }) => (
                 <div className="flex items-center gap-2">
                   <div className="w-20 bg-gray-200 rounded-full h-2">
                     <div
-                      className={`h-2 rounded-full transition-all duration-500`}
+                      className="h-2 rounded-full transition-all duration-500"
                       style={{
                         backgroundColor: colors[index % colors.length],
                         width: `${
@@ -561,12 +580,31 @@ const OverviewTab = ({ data, colors }) => (
   </div>
 );
 
-// Metric Card Component
-const MetricCard = ({ title, value, subtitle, color, icon: Icon }) => (
-  <div className={`${color} p-6 rounded-lg text-white`}>
+// Metric Card Component with optional info tooltip
+const MetricCard = ({
+  title,
+  value,
+  subtitle,
+  color,
+  icon: Icon,
+  showInfo,
+  onInfoClick,
+}) => (
+  <div className={`${color} p-6 rounded-lg text-white relative`}>
     <div className="flex items-center justify-between">
-      <div>
-        <h3 className="text-lg font-semibold mb-2">{title}</h3>
+      <div className="flex-1">
+        <div className="flex items-center gap-2 mb-2">
+          <h3 className="text-lg font-semibold">{title}</h3>
+          {showInfo && (
+            <button
+              onClick={onInfoClick}
+              className="text-white/80 hover:text-white transition-colors"
+              title="How is this calculated?"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          )}
+        </div>
         <p className="text-3xl font-bold">{value}</p>
         <p className="text-sm opacity-90 mt-1">{subtitle}</p>
       </div>
@@ -581,26 +619,49 @@ const MoodTab = ({ data, colors }) => (
     <h2 className="text-2xl font-bold text-gray-900 mb-6">Mood Trends</h2>
 
     {data.daily.length > 0 ? (
-      <div className="h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data.daily}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="displayDate" tick={{ fontSize: 12 }} />
-            <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
-            <Tooltip
-              formatter={(value) => [`${value}/10`, "Mood Score"]}
-              labelFormatter={(value) => `Date: ${value}`}
-            />
-            <Area
-              type="monotone"
-              dataKey="mood"
-              stroke={colors[0]}
-              fill={colors[0]}
-              fillOpacity={0.3}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+      <>
+        <div className="h-80 mb-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data.daily}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="displayDate" tick={{ fontSize: 12 }} />
+              <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
+              <Tooltip
+                formatter={(value) => [`${value}/10`, "Mood Score"]}
+                labelFormatter={(value) => `Date: ${value}`}
+              />
+              <Area
+                type="monotone"
+                dataKey="mood"
+                stroke={colors[0]}
+                fill={colors[0]}
+                fillOpacity={0.3}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Explanation */}
+        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+          <div className="flex items-start gap-2">
+            <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm">
+              <p className="text-blue-800 font-medium mb-1">
+                How mood scores are calculated:
+              </p>
+              <p className="text-blue-700">
+                Your mood score is the rating you gave (1-10) when creating each
+                journal entry. If you wrote multiple entries on the same day, we
+                show the average mood for that day.
+              </p>
+              <p className="text-blue-600 mt-2 text-xs">
+                💡 <strong>Tip:</strong> Hover over any point on the chart to
+                see the exact mood score and date.
+              </p>
+            </div>
+          </div>
+        </div>
+      </>
     ) : (
       <div className="text-center py-12">
         <Heart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -618,26 +679,49 @@ const EnergyTab = ({ data, colors }) => (
     <h2 className="text-2xl font-bold text-gray-900 mb-6">Energy Patterns</h2>
 
     {data.daily.length > 0 ? (
-      <div className="h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data.daily}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="displayDate" tick={{ fontSize: 12 }} />
-            <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
-            <Tooltip
-              formatter={(value) => [`${value}/10`, "Energy Level"]}
-              labelFormatter={(value) => `Date: ${value}`}
-            />
-            <Area
-              type="monotone"
-              dataKey="energy"
-              stroke={colors[2]}
-              fill={colors[2]}
-              fillOpacity={0.3}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+      <>
+        <div className="h-80 mb-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data.daily}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="displayDate" tick={{ fontSize: 12 }} />
+              <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
+              <Tooltip
+                formatter={(value) => [`${value}/10`, "Energy Level"]}
+                labelFormatter={(value) => `Date: ${value}`}
+              />
+              <Area
+                type="monotone"
+                dataKey="energy"
+                stroke={colors[2]}
+                fill={colors[2]}
+                fillOpacity={0.3}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Explanation */}
+        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+          <div className="flex items-start gap-2">
+            <Info className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm">
+              <p className="text-green-800 font-medium mb-1">
+                How energy levels are calculated:
+              </p>
+              <p className="text-green-700">
+                Your energy level is the rating you gave (1-10) when creating
+                each journal entry. If you wrote multiple entries on the same
+                day, we show the average energy for that day.
+              </p>
+              <p className="text-green-600 mt-2 text-xs">
+                💡 <strong>Tip:</strong> Hover over any point on the chart to
+                see the exact energy level and date.
+              </p>
+            </div>
+          </div>
+        </div>
+      </>
     ) : (
       <div className="text-center py-12">
         <Zap className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -655,23 +739,47 @@ const ThemesTab = ({ data, colors }) => (
     <h2 className="text-2xl font-bold text-gray-900 mb-6">Common Themes</h2>
 
     {data.topThemes.length > 0 ? (
-      <div className="h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data.topThemes}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
-              dataKey="theme"
-              tick={{ fontSize: 10 }}
-              angle={-45}
-              textAnchor="end"
-              height={100}
-            />
-            <YAxis tick={{ fontSize: 12 }} />
-            <Tooltip formatter={(value) => [value, "Mentions"]} />
-            <Bar dataKey="count" fill={colors[0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      <>
+        <div className="h-80 mb-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data.topThemes}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis
+                dataKey="theme"
+                tick={{ fontSize: 12 }}
+                angle={-45}
+                textAnchor="end"
+                height={120}
+                interval={0}
+              />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip formatter={(value) => [value, "Mentions"]} />
+              <Bar dataKey="count" fill={colors[0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Explanation */}
+        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+          <div className="flex items-start gap-2">
+            <Info className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm">
+              <p className="text-purple-800 font-medium mb-1">
+                How themes are identified:
+              </p>
+              <p className="text-purple-700">
+                Themes are automatically detected from your journal entries
+                using AI analysis. The chart shows your most frequently
+                mentioned topics and subjects.
+              </p>
+              <p className="text-purple-600 mt-2 text-xs">
+                💡 <strong>Tip:</strong> Hover over any bar to see the exact
+                number of times you've written about that theme.
+              </p>
+            </div>
+          </div>
+        </div>
+      </>
     ) : (
       <div className="text-center py-12">
         <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -690,20 +798,43 @@ const ConsistencyTab = ({ data, colors }) => (
     <h2 className="text-2xl font-bold text-gray-900 mb-6">Journaling Habits</h2>
 
     {data.weekly.length > 0 ? (
-      <div className="h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data.weekly}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="week" tick={{ fontSize: 10 }} />
-            <YAxis tick={{ fontSize: 12 }} />
-            <Tooltip
-              formatter={(value) => [value, "Entries"]}
-              labelFormatter={(value) => `Week of ${value}`}
-            />
-            <Bar dataKey="entries" fill={colors[3]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      <>
+        <div className="h-80 mb-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data.weekly}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="week" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip
+                formatter={(value) => [value, "Entries"]}
+                labelFormatter={(value) => `Week of ${value}`}
+              />
+              <Bar dataKey="entries" fill={colors[3]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Explanation */}
+        <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
+          <div className="flex items-start gap-2">
+            <Info className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm">
+              <p className="text-amber-800 font-medium mb-1">
+                How consistency is measured:
+              </p>
+              <p className="text-amber-700">
+                This chart shows how many journal entries you created each week.
+                Consistent journaling helps build self-awareness and emotional
+                intelligence over time.
+              </p>
+              <p className="text-amber-600 mt-2 text-xs">
+                💡 <strong>Tip:</strong> Hover over any bar to see the exact
+                number of entries for that week.
+              </p>
+            </div>
+          </div>
+        </div>
+      </>
     ) : (
       <div className="text-center py-12">
         <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -714,5 +845,133 @@ const ConsistencyTab = ({ data, colors }) => (
     )}
   </div>
 );
+
+// Info Modal Component
+const InfoModal = ({ type, onClose }) => {
+  const getModalContent = () => {
+    switch (type) {
+      case "mood":
+        return {
+          title: "Average Mood Score",
+          content: (
+            <div className="space-y-3">
+              <p>
+                Your average mood score is calculated from the mood ratings
+                (1-10) you provide when creating journal entries.
+              </p>
+
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <h4 className="font-semibold text-blue-900 mb-2">
+                  How it works:
+                </h4>
+                <ul className="text-blue-800 text-sm space-y-1">
+                  <li>
+                    • <strong>1-3:</strong> Low mood days (sadness, frustration,
+                    stress)
+                  </li>
+                  <li>
+                    • <strong>4-6:</strong> Neutral mood (okay, balanced days)
+                  </li>
+                  <li>
+                    • <strong>7-10:</strong> High mood days (happiness, joy,
+                    excitement)
+                  </li>
+                </ul>
+              </div>
+
+              <p className="text-sm text-gray-600">
+                <strong>Example:</strong> If you rated your mood as 7, 5, and 8
+                over three entries, your average would be 6.7/10.
+              </p>
+            </div>
+          ),
+        };
+
+      case "energy":
+        return {
+          title: "Average Energy Level",
+          content: (
+            <div className="space-y-3">
+              <p>
+                Your average energy level is calculated from the energy ratings
+                (1-10) you provide when creating journal entries.
+              </p>
+
+              <div className="bg-green-50 p-3 rounded-lg">
+                <h4 className="font-semibold text-green-900 mb-2">
+                  How it works:
+                </h4>
+                <ul className="text-green-800 text-sm space-y-1">
+                  <li>
+                    • <strong>1-3:</strong> Low energy (tired, drained,
+                    sluggish)
+                  </li>
+                  <li>
+                    • <strong>4-6:</strong> Moderate energy (steady, normal
+                    levels)
+                  </li>
+                  <li>
+                    • <strong>7-10:</strong> High energy (energetic, motivated,
+                    vibrant)
+                  </li>
+                </ul>
+              </div>
+
+              <p className="text-sm text-gray-600">
+                <strong>Example:</strong> If you rated your energy as 4, 6, and
+                7 over three entries, your average would be 5.7/10.
+              </p>
+            </div>
+          ),
+        };
+
+      default:
+        return {
+          title: "Information",
+          content: <p>No information available.</p>,
+        };
+    }
+  };
+
+  const { title, content } = getModalContent();
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-md w-full p-6 relative">
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+        >
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+
+        <h3 className="text-lg font-bold text-gray-900 mb-4 pr-8">{title}</h3>
+
+        <div className="text-gray-700">{content}</div>
+
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            Got it!
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default Analytics;
