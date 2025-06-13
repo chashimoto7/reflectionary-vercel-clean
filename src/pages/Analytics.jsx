@@ -33,6 +33,9 @@ import {
   Crown,
   Info,
   HelpCircle,
+  Moon,
+  Droplets,
+  Thermometer,
 } from "lucide-react";
 
 const Analytics = () => {
@@ -55,6 +58,13 @@ const Analytics = () => {
     "#6366F1", // Indigo
     "#84CC16", // Lime
   ];
+
+  const cycleColors = {
+    Menstrual: "#EF4444", // Red
+    Follicular: "#10B981", // Green
+    Ovulatory: "#F59E0B", // Amber
+    Luteal: "#8B5CF6", // Purple
+  };
 
   useEffect(() => {
     if (user) {
@@ -141,6 +151,8 @@ const Analytics = () => {
           topics: entry.topics || [],
           word_count: entry.word_count || 0,
           tone: entry.tone,
+          cycle_day: entry.cycle_day,
+          cycle_phase: entry.cycle_phase,
         });
       } catch (err) {
         console.warn("Failed to process entry for analytics:", err);
@@ -154,6 +166,7 @@ const Analytics = () => {
       energy: processEnergyData(processedEntries),
       themes: processThemesData(processedEntries),
       consistency: processConsistencyData(processedEntries),
+      cycle: processCycleData(processedEntries), // New cycle data
       totalEntries: processedEntries.length,
     };
   };
@@ -209,6 +222,17 @@ const Analytics = () => {
       .slice(0, 5)
       .map(([emotion, count]) => ({ emotion, count }));
 
+    // Cycle tracking summary
+    const cycleEntries = entries.filter((entry) => entry.cycle_phase);
+    const cycleInsights =
+      cycleEntries.length > 0
+        ? {
+            totalCycleEntries: cycleEntries.length,
+            mostCommonPhase: getMostCommonCyclePhase(cycleEntries),
+            currentPhase: getCurrentCyclePhase(cycleEntries),
+          }
+        : null;
+
     return {
       totalEntries,
       totalWords,
@@ -217,6 +241,7 @@ const Analytics = () => {
       avgEnergy: avgEnergy.toFixed(1),
       currentStreak: streak,
       topEmotions,
+      cycleInsights,
     };
   };
 
@@ -308,12 +333,216 @@ const Analytics = () => {
     return { weekly: weeklyConsistency };
   };
 
+  const getMostCommonCyclePhase = (cycleEntries) => {
+    const phaseCount = {};
+    cycleEntries.forEach((entry) => {
+      if (entry.cycle_phase) {
+        phaseCount[entry.cycle_phase] =
+          (phaseCount[entry.cycle_phase] || 0) + 1;
+      }
+    });
+
+    const mostCommon = Object.entries(phaseCount).reduce((a, b) =>
+      phaseCount[a[0]] > phaseCount[b[0]] ? a : b
+    );
+
+    return mostCommon ? mostCommon[0] : null;
+  };
+
+  const getCurrentCyclePhase = (cycleEntries) => {
+    // Get the most recent entry with cycle data
+    const sortedEntries = cycleEntries.sort(
+      (a, b) => new Date(b.created_at) - new Date(a.created_at)
+    );
+    return sortedEntries.length > 0 ? sortedEntries[0].cycle_phase : null;
+  };
+
+  const processCycleData = (entries) => {
+    const cycleEntries = entries.filter((entry) => entry.cycle_phase);
+
+    if (cycleEntries.length === 0) {
+      return {
+        phaseDistribution: [],
+        moodByPhase: [],
+        energyByPhase: [],
+        dailyTracking: [],
+        insights: null,
+      };
+    }
+
+    // Phase distribution
+    const phaseCount = {};
+    cycleEntries.forEach((entry) => {
+      phaseCount[entry.cycle_phase] = (phaseCount[entry.cycle_phase] || 0) + 1;
+    });
+
+    const phaseDistribution = Object.entries(phaseCount).map(
+      ([phase, count]) => ({
+        phase,
+        count,
+        percentage: ((count / cycleEntries.length) * 100).toFixed(1),
+      })
+    );
+
+    // Mood by phase
+    const moodByPhase = {};
+    const energyByPhase = {};
+
+    cycleEntries.forEach((entry) => {
+      if (!moodByPhase[entry.cycle_phase]) {
+        moodByPhase[entry.cycle_phase] = { sum: 0, count: 0 };
+        energyByPhase[entry.cycle_phase] = { sum: 0, count: 0 };
+      }
+
+      if (entry.mood) {
+        moodByPhase[entry.cycle_phase].sum += entry.mood;
+        moodByPhase[entry.cycle_phase].count++;
+      }
+
+      if (entry.energy) {
+        energyByPhase[entry.cycle_phase].sum += entry.energy;
+        energyByPhase[entry.cycle_phase].count++;
+      }
+    });
+
+    const moodByPhaseData = Object.entries(moodByPhase).map(
+      ([phase, data]) => ({
+        phase,
+        avgMood: data.count > 0 ? (data.sum / data.count).toFixed(1) : 0,
+      })
+    );
+
+    const energyByPhaseData = Object.entries(energyByPhase).map(
+      ([phase, data]) => ({
+        phase,
+        avgEnergy: data.count > 0 ? (data.sum / data.count).toFixed(1) : 0,
+      })
+    );
+
+    // Daily tracking with cycle overlay
+    const dailyData = {};
+    cycleEntries.forEach((entry) => {
+      const date = new Date(entry.created_at).toISOString().split("T")[0];
+      if (!dailyData[date]) {
+        dailyData[date] = {
+          date,
+          mood: 0,
+          energy: 0,
+          moodCount: 0,
+          energyCount: 0,
+          cycle_phase: entry.cycle_phase,
+          cycle_day: entry.cycle_day,
+        };
+      }
+
+      if (entry.mood) {
+        dailyData[date].mood += entry.mood;
+        dailyData[date].moodCount++;
+      }
+
+      if (entry.energy) {
+        dailyData[date].energy += entry.energy;
+        dailyData[date].energyCount++;
+      }
+    });
+
+    const dailyTracking = Object.values(dailyData)
+      .map((day) => ({
+        ...day,
+        mood: day.moodCount > 0 ? (day.mood / day.moodCount).toFixed(1) : null,
+        energy:
+          day.energyCount > 0
+            ? (day.energy / day.energyCount).toFixed(1)
+            : null,
+        displayDate: new Date(day.date).toLocaleDateString(),
+      }))
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // Generate insights
+    const insights = generateCycleInsights(
+      moodByPhaseData,
+      energyByPhaseData,
+      phaseDistribution
+    );
+
+    return {
+      phaseDistribution,
+      moodByPhase: moodByPhaseData,
+      energyByPhase: energyByPhaseData,
+      dailyTracking,
+      insights,
+    };
+  };
+
+  const generateCycleInsights = (moodData, energyData, phaseData) => {
+    const insights = [];
+
+    // Find best and worst mood phases
+    if (moodData.length > 0) {
+      const bestMoodPhase = moodData.reduce((best, current) =>
+        parseFloat(current.avgMood) > parseFloat(best.avgMood) ? current : best
+      );
+      const worstMoodPhase = moodData.reduce((worst, current) =>
+        parseFloat(current.avgMood) < parseFloat(worst.avgMood)
+          ? current
+          : worst
+      );
+
+      insights.push({
+        type: "mood_pattern",
+        title: "Mood Patterns by Cycle Phase",
+        content: `Your mood tends to be highest during the ${bestMoodPhase.phase} phase (${bestMoodPhase.avgMood}/10) and lowest during the ${worstMoodPhase.phase} phase (${worstMoodPhase.avgMood}/10).`,
+      });
+    }
+
+    // Find best and worst energy phases
+    if (energyData.length > 0) {
+      const bestEnergyPhase = energyData.reduce((best, current) =>
+        parseFloat(current.avgEnergy) > parseFloat(best.avgEnergy)
+          ? current
+          : best
+      );
+      const worstEnergyPhase = energyData.reduce((worst, current) =>
+        parseFloat(current.avgEnergy) < parseFloat(worst.avgEnergy)
+          ? current
+          : worst
+      );
+
+      insights.push({
+        type: "energy_pattern",
+        title: "Energy Patterns by Cycle Phase",
+        content: `Your energy levels peak during the ${bestEnergyPhase.phase} phase (${bestEnergyPhase.avgEnergy}/10) and dip during the ${worstEnergyPhase.phase} phase (${worstEnergyPhase.avgEnergy}/10).`,
+      });
+    }
+
+    // Most tracked phase
+    if (phaseData.length > 0) {
+      const mostTracked = phaseData.reduce((most, current) =>
+        current.count > most.count ? current : most
+      );
+
+      insights.push({
+        type: "tracking_pattern",
+        title: "Your Tracking Habits",
+        content: `You journal most frequently during the ${mostTracked.phase} phase (${mostTracked.percentage}% of cycle entries). This could indicate when you're most reflective or when you need the most support.`,
+      });
+    }
+
+    return insights;
+  };
   const getEmptyAnalytics = () => ({
     overview: getEmptyOverview(),
     mood: { daily: [] },
     energy: { daily: [] },
     themes: { topThemes: [] },
     consistency: { weekly: [] },
+    cycle: {
+      phaseDistribution: [],
+      moodByPhase: [],
+      energyByPhase: [],
+      dailyTracking: [],
+      insights: null,
+    },
     totalEntries: 0,
   });
 
@@ -325,12 +554,14 @@ const Analytics = () => {
     avgEnergy: "0.0",
     currentStreak: 0,
     topEmotions: [],
+    cycleInsights: null,
   });
 
   const tabs = [
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "mood", label: "Mood Trends", icon: Heart },
     { id: "energy", label: "Energy Patterns", icon: Zap },
+    { id: "cycle", label: "Cycle Tracking", icon: Moon },
     { id: "themes", label: "Common Themes", icon: BookOpen },
     { id: "consistency", label: "Journaling Habits", icon: Calendar },
   ];
@@ -434,6 +665,9 @@ const Analytics = () => {
             {activeTab === "energy" && (
               <EnergyTab data={analyticsData.energy} colors={colors} />
             )}
+            {activeTab === "cycle" && (
+              <CycleTab data={analyticsData.cycle} colors={cycleColors} />
+            )}
             {activeTab === "themes" && (
               <ThemesTab data={analyticsData.themes} colors={colors} />
             )}
@@ -513,7 +747,7 @@ const OverviewTab = ({ data, colors, onShowInfo }) => (
       />
     </div>
 
-    {/* Writing Stats */}
+    {/* Writing Stats and Cycle Insights Grid */}
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
       <div className="bg-gray-50 p-6 rounded-lg">
         <h3 className="text-xl font-semibold text-gray-900 mb-4">
@@ -537,45 +771,88 @@ const OverviewTab = ({ data, colors, onShowInfo }) => (
         </div>
       </div>
 
-      <div className="bg-gray-50 p-6 rounded-lg">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">
-          Most Common Emotions
-        </h3>
-        {data.topEmotions.length > 0 ? (
-          <div className="space-y-3">
-            {data.topEmotions.map((emotion, index) => (
-              <div
-                key={emotion.emotion}
-                className="flex items-center justify-between"
-              >
-                <span className="text-gray-700 capitalize font-medium">
-                  {emotion.emotion}
-                </span>
-                <div className="flex items-center gap-2">
-                  <div className="w-20 bg-gray-200 rounded-full h-2">
-                    <div
-                      className="h-2 rounded-full transition-all duration-500"
-                      style={{
-                        backgroundColor: colors[index % colors.length],
-                        width: `${
-                          (emotion.count / data.topEmotions[0].count) * 100
-                        }%`,
-                      }}
-                    />
-                  </div>
-                  <span className="text-sm text-gray-500 w-8 text-right">
-                    {emotion.count}
-                  </span>
-                </div>
-              </div>
-            ))}
+      {/* Cycle Insights or Top Emotions */}
+      {data.cycleInsights ? (
+        <div className="bg-gradient-to-br from-pink-50 to-purple-50 p-6 rounded-lg border border-pink-200">
+          <div className="flex items-center gap-2 mb-4">
+            <Moon className="w-5 h-5 text-purple-600" />
+            <h3 className="text-xl font-semibold text-gray-900">
+              Cycle Insights
+            </h3>
           </div>
-        ) : (
-          <p className="text-gray-500 text-sm">
-            No emotion data available yet.
-          </p>
-        )}
-      </div>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Cycle Entries:</span>
+              <span className="font-semibold">
+                {data.cycleInsights.totalCycleEntries}
+              </span>
+            </div>
+            {data.cycleInsights.currentPhase && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Current Phase:</span>
+                <span className="font-semibold">
+                  {data.cycleInsights.currentPhase}
+                </span>
+              </div>
+            )}
+            {data.cycleInsights.mostCommonPhase && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Most Tracked Phase:</span>
+                <span className="font-semibold">
+                  {data.cycleInsights.mostCommonPhase}
+                </span>
+              </div>
+            )}
+            <div className="mt-4 p-3 bg-white rounded-md">
+              <p className="text-sm text-purple-700">
+                💜 <strong>Free for all paid members!</strong> Cycle tracking
+                helps you understand your emotional patterns and optimize your
+                well-being.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gray-50 p-6 rounded-lg">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">
+            Most Common Emotions
+          </h3>
+          {data.topEmotions.length > 0 ? (
+            <div className="space-y-3">
+              {data.topEmotions.map((emotion, index) => (
+                <div
+                  key={emotion.emotion}
+                  className="flex items-center justify-between"
+                >
+                  <span className="text-gray-700 capitalize font-medium">
+                    {emotion.emotion}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-20 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="h-2 rounded-full transition-all duration-500"
+                        style={{
+                          backgroundColor: colors[index % colors.length],
+                          width: `${
+                            (emotion.count / data.topEmotions[0].count) * 100
+                          }%`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-sm text-gray-500 w-8 text-right">
+                      {emotion.count}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm">
+              No emotion data available yet.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   </div>
 );
@@ -841,6 +1118,236 @@ const ConsistencyTab = ({ data, colors }) => (
         <p className="text-gray-500">
           No consistency data available yet. Keep journaling to see your habits!
         </p>
+      </div>
+    )}
+  </div>
+);
+
+// NEW: Cycle Tab Component
+const CycleTab = ({ data, colors }) => (
+  <div className="p-6">
+    <div className="flex items-center gap-2 mb-6">
+      <Moon className="w-6 h-6 text-purple-600" />
+      <h2 className="text-2xl font-bold text-gray-900">Cycle Tracking</h2>
+      <div className="ml-auto bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">
+        Free for all paid members! 💜
+      </div>
+    </div>
+
+    {data.phaseDistribution.length > 0 ? (
+      <>
+        {/* Insights Section */}
+        {data.insights && data.insights.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Your Cycle Insights
+            </h3>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {data.insights.map((insight, index) => (
+                <div
+                  key={index}
+                  className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-lg border border-purple-200"
+                >
+                  <h4 className="font-semibold text-purple-900 mb-2">
+                    {insight.title}
+                  </h4>
+                  <p className="text-purple-700 text-sm">{insight.content}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          {/* Phase Distribution */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Journaling by Cycle Phase
+            </h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={data.phaseDistribution}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    dataKey="count"
+                    nameKey="phase"
+                  >
+                    {data.phaseDistribution.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={colors[entry.phase] || colors.Menstrual}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value, name) => [
+                      `${value} entries`,
+                      `${name} Phase`,
+                    ]}
+                  />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Mood by Phase */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Average Mood by Cycle Phase
+            </h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.moodByPhase}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="phase" tick={{ fontSize: 12 }} />
+                  <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    formatter={(value) => [`${value}/10`, "Average Mood"]}
+                  />
+                  <Bar dataKey="avgMood" fill="#8B5CF6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Energy by Phase */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Average Energy by Cycle Phase
+            </h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.energyByPhase}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="phase" tick={{ fontSize: 12 }} />
+                  <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    formatter={(value) => [`${value}/10`, "Average Energy"]}
+                  />
+                  <Bar dataKey="avgEnergy" fill="#10B981" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Daily Tracking with Cycle Overlay */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Daily Mood & Energy with Cycle Phases
+            </h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={data.dailyTracking}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="displayDate" tick={{ fontSize: 10 }} />
+                  <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    formatter={(value, name) => {
+                      if (name === "mood") return [`${value}/10`, "Mood"];
+                      if (name === "energy") return [`${value}/10`, "Energy"];
+                      return [value, name];
+                    }}
+                    labelFormatter={(value, payload) => {
+                      if (payload && payload[0] && payload[0].payload) {
+                        return `${value} (${payload[0].payload.cycle_phase})`;
+                      }
+                      return value;
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="mood"
+                    stroke="#8B5CF6"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="energy"
+                    stroke="#10B981"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Explanation */}
+        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+          <div className="flex items-start gap-2">
+            <Info className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm">
+              <p className="text-purple-800 font-medium mb-1">
+                How cycle tracking works:
+              </p>
+              <p className="text-purple-700 mb-2">
+                Track your menstrual cycle phases alongside your mood and energy
+                to identify patterns. This helps you understand your natural
+                rhythms and plan accordingly.
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: colors.Menstrual }}
+                  ></div>
+                  <span className="text-xs text-purple-700">Menstrual</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: colors.Follicular }}
+                  ></div>
+                  <span className="text-xs text-purple-700">Follicular</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: colors.Ovulatory }}
+                  ></div>
+                  <span className="text-xs text-purple-700">Ovulatory</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: colors.Luteal }}
+                  ></div>
+                  <span className="text-xs text-purple-700">Luteal</span>
+                </div>
+              </div>
+              <p className="text-purple-600 mt-3 text-xs">
+                💡 <strong>Tip:</strong> Tracking your cycle helps optimize your
+                energy, plan challenging tasks, and practice self-compassion
+                during harder phases.
+              </p>
+            </div>
+          </div>
+        </div>
+      </>
+    ) : (
+      <div className="text-center py-12">
+        <Moon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-600 mb-2">
+          Start Tracking Your Cycle
+        </h3>
+        <p className="text-gray-500 max-w-md mx-auto mb-6">
+          Add cycle information to your journal entries to see how your
+          menstrual cycle affects your mood, energy, and emotional patterns.
+        </p>
+        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 max-w-md mx-auto">
+          <p className="text-purple-700 text-sm">
+            <strong>How to get started:</strong> When creating a journal entry,
+            you can optionally add your current cycle day and phase. Over time,
+            you'll see powerful insights about your patterns.
+          </p>
+        </div>
       </div>
     )}
   </div>

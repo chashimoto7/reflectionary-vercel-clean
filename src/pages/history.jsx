@@ -195,7 +195,7 @@ export default function History() {
   const handleNext = () => setSearchParams({ page: page + 1 });
   const handlePrevious = () => setSearchParams({ page: Math.max(1, page - 1) });
 
-  if (loading) return <div className="p-4">Loading journal history...</div>;
+  if (loading) return <div className="p-4">decrypting journal history...</div>;
 
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-6">
