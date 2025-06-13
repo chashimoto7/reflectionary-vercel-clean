@@ -203,7 +203,17 @@ const CrisisResourceModal = ({
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
         {/* Header */}
         <div
-          className={`bg-gradient-to-r ${getHeaderBgColor()} text-white p-6`}
+          className="bg-gradient-to-r from-red-500 to-red-600 text-white p-6"
+          style={{
+            background:
+              analysisResult?.level === "immediate"
+                ? "linear-gradient(to right, #ef4444, #dc2626)"
+                : analysisResult?.level === "escalating"
+                ? "linear-gradient(to right, #f97316, #ea580c)"
+                : analysisResult?.level === "concerning"
+                ? "linear-gradient(to right, #3b82f6, #2563eb)"
+                : "linear-gradient(to right, #8b5cf6, #7c3aed)",
+          }}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -214,7 +224,7 @@ const CrisisResourceModal = ({
                 <h2 className="text-2xl font-bold text-white">
                   {getModalTitle()}
                 </h2>
-                <p className="text-white text-opacity-90 text-sm">
+                <p className="text-white opacity-90 text-sm">
                   You're not alone - help is available 24/7
                 </p>
               </div>
@@ -224,7 +234,7 @@ const CrisisResourceModal = ({
               className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition-colors flex-shrink-0"
               title="Close"
             >
-              <X className="w-6 h-6" />
+              <X className="w-6 h-6 text-white" />
             </button>
           </div>
         </div>
