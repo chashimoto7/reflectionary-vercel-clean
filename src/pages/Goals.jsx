@@ -2,7 +2,17 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import encryptionService from "../services/encryptionService";
-import { Plus, Award, Edit2, Trash2, X, PlusCircle } from "lucide-react";
+import {
+  Plus,
+  Award,
+  Edit2,
+  Trash2,
+  X,
+  PlusCircle,
+  BookOpen,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import AddGoalModal from "../components/AddGoalModal";
 import EditGoalModal from "../components/EditGoalModal";
@@ -1085,109 +1095,445 @@ function GoalJournalEntries({ goal }) {
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-xl font-semibold text-gray-900">
-          Journal Entries About This Goal
-        </h3>
-        <div className="text-sm text-gray-500">
-          {entries.length} {entries.length === 1 ? "entry" : "entries"} found
-        </div>
-      </div>
+  // At the very end of your Goals.jsx file, you'll see this comment:
+  // (GoalJournalEntries and GoalTips remain unchanged from previous version!)
 
-      <div className="space-y-6">
-        {entries.map((entry) => (
-          <div
-            key={entry.id}
-            className="border border-gray-200 p-6 rounded-2xl shadow-sm bg-white hover:shadow-md transition-shadow"
-          >
-            {/* Entry Header */}
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-gray-500">
-                {new Date(entry.created_at).toLocaleString()}
+  // REPLACE that comment with the GoalJournalEntries function like this:
+
+  function GoalJournalEntries({ goal }) {
+    const { user } = useAuth();
+    const [entries, setEntries] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
+    const [expandedEntries, setExpandedEntries] = useState(new Set());
+
+    useEffect(() => {
+      if (goal && user) {
+        loadEntries();
+      }
+    }, [goal?.id, user, page]);
+
+    const toggleExpanded = (entryId) => {
+      setExpandedEntries((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(entryId)) {
+          newSet.delete(entryId);
+        } else {
+          newSet.add(entryId);
+        }
+        return newSet;
+      });
+    };
+
+    const truncateContent = (content, maxLength = 300) => {
+      if (!content) return "";
+      // Remove HTML tags for length calculation
+      const textContent = content.replace(/<[^>]+>/g, "");
+      if (textContent.length <= maxLength) return content;
+
+      // Find a good breaking point (end of sentence or word)
+      const truncated = textContent.substring(0, maxLength);
+      const lastSentence = truncated.lastIndexOf(".");
+      const lastSpace = truncated.lastIndexOf(" ");
+
+      const breakPoint =
+        lastSentence > maxLength * 0.7
+          ? lastSentence + 1
+          : lastSpace > maxLength * 0.7
+          ? lastSpace
+          : maxLength;
+
+      return textContent.substring(0, breakPoint) + "...";
+    };
+
+    const loadEntries = async () => {
+      if (!goal || !user) return;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        // Search for entries that mention this goal
+        // We'll search in the decrypted content for the goal title
+        const { data: allEntries, error: fetchError } = await supabase
+          .from("journal_entries")
+          .select(
+            `
+          id,
+          created_at,
+          is_followup,
+          parent_entry_id,
+          encrypted_data_key,
+          data_key_iv,
+          encrypted_content,
+          content_iv,
+          encrypted_prompt,
+          prompt_iv,
+          mood,
+          energy,
+          tone,
+          emotions,
+          topics,
+          goal_ids
+        `
+          )
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(50); // Get last 50 entries to search through
+
+        if (fetchError) throw fetchError;
+
+        // Decrypt and filter entries that mention this goal
+        const masterKey = await encryptionService.getStaticMasterKey();
+        const goalMentionEntries = [];
+
+        for (const entry of allEntries || []) {
+          try {
+            const dataKey = await encryptionService.decryptKey(
+              {
+                encryptedData: entry.encrypted_data_key,
+                iv: entry.data_key_iv,
+              },
+              masterKey
+            );
+
+            const decryptedContent = await encryptionService.decryptText(
+              entry.encrypted_content,
+              entry.content_iv,
+              dataKey
+            );
+
+            let decryptedPrompt = null;
+            if (entry.encrypted_prompt && entry.prompt_iv) {
+              decryptedPrompt = await encryptionService.decryptText(
+                entry.encrypted_prompt,
+                entry.prompt_iv,
+                dataKey
+              );
+            }
+
+            // Check if this entry mentions the goal (case insensitive)
+            const goalTitle = goal.decryptedTitle.toLowerCase();
+            const contentLower = decryptedContent.toLowerCase();
+            const promptLower = (decryptedPrompt || "").toLowerCase();
+
+            const mentionsGoal =
+              contentLower.includes(goalTitle) ||
+              promptLower.includes(goalTitle) ||
+              (entry.goal_ids && entry.goal_ids.includes(goal.id));
+
+            if (mentionsGoal) {
+              // Get follow-ups for this entry if it's a parent
+              let followUps = [];
+              if (!entry.is_followup) {
+                const { data: followupEntries } = await supabase
+                  .from("journal_entries")
+                  .select("*")
+                  .eq("parent_entry_id", entry.id)
+                  .order("created_at", { ascending: true });
+
+                // Decrypt follow-ups
+                if (followupEntries) {
+                  for (const followup of followupEntries) {
+                    try {
+                      const fDataKey = await encryptionService.decryptKey(
+                        {
+                          encryptedData: followup.encrypted_data_key,
+                          iv: followup.data_key_iv,
+                        },
+                        masterKey
+                      );
+
+                      const fContent = await encryptionService.decryptText(
+                        followup.encrypted_content,
+                        followup.content_iv,
+                        fDataKey
+                      );
+
+                      let fPrompt = null;
+                      if (followup.encrypted_prompt && followup.prompt_iv) {
+                        fPrompt = await encryptionService.decryptText(
+                          followup.encrypted_prompt,
+                          followup.prompt_iv,
+                          fDataKey
+                        );
+                      }
+
+                      followUps.push({
+                        ...followup,
+                        content: fContent,
+                        html_content: fContent,
+                        prompt: fPrompt,
+                      });
+                    } catch (err) {
+                      console.warn("Failed to decrypt follow-up:", err);
+                    }
+                  }
+                }
+              }
+
+              goalMentionEntries.push({
+                ...entry,
+                content: decryptedContent,
+                html_content: decryptedContent,
+                prompt: decryptedPrompt,
+                follow_ups: followUps,
+              });
+            }
+          } catch (err) {
+            console.warn("Failed to decrypt entry:", entry.id, err);
+          }
+        }
+
+        setEntries(goalMentionEntries);
+        setHasMore(false); // For now, we're loading all at once
+      } catch (err) {
+        console.error("Failed to load goal entries:", err);
+        setError("Failed to load journal entries for this goal.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const renderFollowUps = (followUps, level = 1) => {
+      return followUps.map((f) => (
+        <div
+          key={f.id}
+          className={`pl-${
+            level * 4
+          } mt-4 border-l-2 border-purple-200 ml-2 space-y-2`}
+        >
+          <p className="text-sm text-gray-500">
+            {new Date(f.created_at).toLocaleString()}
+          </p>
+          <p className="text-xs font-medium text-purple-600 uppercase tracking-wide">
+            Follow-up response
+          </p>
+          {f.prompt && (
+            <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+              <p className="text-sm text-purple-700 italic">
+                <strong>Prompt:</strong> {f.prompt}
               </p>
-              <div className="flex items-center gap-3 text-xs">
-                {entry.mood && (
-                  <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
-                    Mood: {entry.mood}/10
-                  </span>
-                )}
-                {entry.energy && (
-                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">
-                    Energy: {entry.energy}/10
-                  </span>
-                )}
-                {entry.tone && (
-                  <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full capitalize">
-                    {entry.tone}
-                  </span>
-                )}
-              </div>
             </div>
+          )}
+          <div
+            className="prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{
+              __html: f.html_content || `<p>${f.content}</p>`,
+            }}
+          />
+        </div>
+      ));
+    };
 
-            {/* Prompt */}
-            {entry.prompt && (
-              <div className="bg-green-50 p-4 rounded-lg border border-green-200 mb-4">
-                <p className="text-sm text-green-700">
-                  <strong>Prompt:</strong> {entry.prompt}
-                </p>
-              </div>
-            )}
-
-            {/* Entry Content */}
-            <div className="mb-4">
-              <p className="font-medium text-gray-900 mb-2">Journal Entry:</p>
-              <div
-                className="prose prose-sm max-w-none text-gray-700 leading-relaxed"
-                dangerouslySetInnerHTML={{
-                  __html: entry.html_content || `<p>${entry.content}</p>`,
-                }}
-              />
-            </div>
-
-            {/* Emotions & Topics */}
-            {(entry.emotions?.length > 0 || entry.topics?.length > 0) && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {entry.emotions?.map((emotion, idx) => (
-                  <span
-                    key={idx}
-                    className="px-2 py-1 bg-pink-100 text-pink-700 text-xs rounded-full"
-                  >
-                    😊 {emotion}
-                  </span>
-                ))}
-                {entry.topics?.map((topic, idx) => (
-                  <span
-                    key={idx}
-                    className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
-                  >
-                    🏷️ {topic}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Follow-ups */}
-            {entry.follow_ups?.length > 0 && (
-              <div className="mt-4">{renderFollowUps(entry.follow_ups)}</div>
-            )}
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <div className="flex items-center gap-3 text-gray-500">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+            <span>Loading journal entries about this goal...</span>
           </div>
-        ))}
-      </div>
+        </div>
+      );
+    }
 
-      {/* Load More Button (for future pagination) */}
-      {hasMore && (
-        <div className="text-center">
+    if (error) {
+      return (
+        <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-700">{error}</p>
           <button
-            onClick={() => setPage((p) => p + 1)}
-            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-            disabled={loading}
+            onClick={loadEntries}
+            className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
           >
-            {loading ? "Loading..." : "Load More Entries"}
+            Try Again
           </button>
         </div>
-      )}
-    </div>
-  );
+      );
+    }
+
+    if (entries.length === 0) {
+      return (
+        <div className="text-center py-12">
+          <div className="max-w-md mx-auto">
+            <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h4 className="text-lg font-semibold text-gray-700 mb-2">
+              No Journal Entries Yet
+            </h4>
+            <p className="text-gray-600 mb-4">
+              You haven't written any journal entries that mention this goal
+              yet. Start journaling about "{goal.decryptedTitle}" to see your
+              entries here!
+            </p>
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-blue-800 text-sm">
+                💡 <strong>Tip:</strong> When journaling, mention your goal by
+                name or write about related experiences, challenges, and
+                progress.
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-semibold text-gray-900">
+            Journal Entries About This Goal
+          </h3>
+          <div className="text-sm text-gray-500">
+            {entries.length} {entries.length === 1 ? "entry" : "entries"} found
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {entries.map((entry) => {
+            const isExpanded = expandedEntries.has(entry.id);
+            const shouldShowReadMore =
+              entry.content &&
+              entry.content.replace(/<[^>]+>/g, "").length > 300;
+
+            return (
+              <div
+                key={entry.id}
+                className="border border-gray-200 p-6 rounded-2xl shadow-sm bg-white hover:shadow-md transition-shadow"
+              >
+                {/* Entry Header */}
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-sm text-gray-500">
+                    {new Date(entry.created_at).toLocaleString()}
+                  </p>
+                  <div className="flex items-center gap-3 text-xs">
+                    {entry.mood && (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                        Mood: {entry.mood}/10
+                      </span>
+                    )}
+                    {entry.energy && (
+                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">
+                        Energy: {entry.energy}/10
+                      </span>
+                    )}
+                    {entry.tone && (
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full capitalize">
+                        {entry.tone}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Prompt */}
+                {entry.prompt && (
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200 mb-4">
+                    <p className="text-sm text-green-700">
+                      <strong>Prompt:</strong> {entry.prompt}
+                    </p>
+                  </div>
+                )}
+
+                {/* Entry Content */}
+                <div className="mb-4">
+                  <p className="font-medium text-gray-900 mb-2">
+                    Journal Entry:
+                  </p>
+                  <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
+                    {isExpanded ? (
+                      <div
+                        dangerouslySetInnerHTML={{
+                          __html:
+                            entry.html_content || `<p>${entry.content}</p>`,
+                        }}
+                      />
+                    ) : (
+                      <div>
+                        <p>{truncateContent(entry.content)}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Read More/Less Button */}
+                  {shouldShowReadMore && (
+                    <button
+                      onClick={() => toggleExpanded(entry.id)}
+                      className="mt-2 text-purple-600 hover:text-purple-800 text-sm font-medium flex items-center gap-1"
+                    >
+                      {isExpanded ? (
+                        <>
+                          <ChevronUp className="h-4 w-4" />
+                          Show Less
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="h-4 w-4" />
+                          Read More
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {/* Emotions & Topics */}
+                {(entry.emotions?.length > 0 || entry.topics?.length > 0) && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {entry.emotions?.map((emotion, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2 py-1 bg-pink-100 text-pink-700 text-xs rounded-full"
+                      >
+                        😊 {emotion}
+                      </span>
+                    ))}
+                    {entry.topics?.map((topic, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+                      >
+                        🏷️ {topic}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Follow-ups - Only show when expanded */}
+                {isExpanded && entry.follow_ups?.length > 0 && (
+                  <div className="mt-4">
+                    <p className="font-medium text-gray-900 mb-2">
+                      Follow-up Responses:
+                    </p>
+                    {renderFollowUps(entry.follow_ups)}
+                  </div>
+                )}
+
+                {/* Follow-up indicator when collapsed */}
+                {!isExpanded && entry.follow_ups?.length > 0 && (
+                  <div className="mt-2">
+                    <span className="text-sm text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
+                      💬 {entry.follow_ups.length} follow-up response
+                      {entry.follow_ups.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Load More Button (for future pagination) */}
+        {hasMore && (
+          <div className="text-center">
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              disabled={loading}
+            >
+              {loading ? "Loading..." : "Load More Entries"}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
 }
