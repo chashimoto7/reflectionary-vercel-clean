@@ -864,6 +864,44 @@ function GoalJournalEntries({ goal }) {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
+  // 🎯 ADD THESE MISSING STATE AND FUNCTIONS
+  const [expandedEntries, setExpandedEntries] = useState(new Set());
+
+  // Function to toggle entry expansion
+  const toggleExpanded = (entryId) => {
+    setExpandedEntries((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(entryId)) {
+        newSet.delete(entryId);
+      } else {
+        newSet.add(entryId);
+      }
+      return newSet;
+    });
+  };
+
+  // Function to truncate content for preview
+  const truncateContent = (content, maxLength = 300) => {
+    if (!content) return "";
+
+    // Remove HTML tags for length calculation
+    const textOnly = content.replace(/<[^>]+>/g, "");
+
+    if (textOnly.length <= maxLength) {
+      return textOnly;
+    }
+
+    // Find a good place to cut (try to avoid cutting mid-word)
+    let truncated = textOnly.substring(0, maxLength);
+    const lastSpaceIndex = truncated.lastIndexOf(" ");
+
+    if (lastSpaceIndex > maxLength * 0.8) {
+      truncated = truncated.substring(0, lastSpaceIndex);
+    }
+
+    return truncated + "...";
+  };
+
   useEffect(() => {
     if (goal && user) {
       loadEntries();
@@ -1098,7 +1136,6 @@ function GoalJournalEntries({ goal }) {
       </div>
     );
   }
-  // Add this RIGHT AFTER the closing brace of: if (entries.length === 0)
 
   return (
     <div className="space-y-6">
@@ -1110,7 +1147,7 @@ function GoalJournalEntries({ goal }) {
           {entries.length} {entries.length === 1 ? "entry" : "entries"} found
         </div>
       </div>
-      // Replace your entries.map section with this:
+
       <div className="space-y-6">
         {entries.map((entry) => {
           const isExpanded = expandedEntries.has(entry.id);
@@ -1238,6 +1275,7 @@ function GoalJournalEntries({ goal }) {
           );
         })}
       </div>
+
       {/* Load More Button (for future pagination) */}
       {hasMore && (
         <div className="text-center">
@@ -1252,4 +1290,4 @@ function GoalJournalEntries({ goal }) {
       )}
     </div>
   );
-} // <- This closing brace ends the GoalJournalEntries function
+}
