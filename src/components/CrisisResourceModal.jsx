@@ -203,16 +203,16 @@ const CrisisResourceModal = ({
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
         {/* Header */}
         <div
-          className="bg-gradient-to-r from-red-500 to-red-600 text-white p-6"
+          className="text-white p-6"
           style={{
             background:
               analysisResult?.level === "immediate"
-                ? "linear-gradient(to right, #ef4444, #dc2626)"
+                ? "#dc2626"
                 : analysisResult?.level === "escalating"
-                ? "linear-gradient(to right, #f97316, #ea580c)"
+                ? "#ea580c"
                 : analysisResult?.level === "concerning"
-                ? "linear-gradient(to right, #3b82f6, #2563eb)"
-                : "linear-gradient(to right, #8b5cf6, #7c3aed)",
+                ? "#2563eb"
+                : "#7c3aed",
           }}
         >
           <div className="flex items-center justify-between">
@@ -587,15 +587,21 @@ const ResourceCard = ({ resource }) => {
 
           <p className="text-gray-600 text-sm mb-3">{resource.description}</p>
 
-          {/* Contact Information */}
-          <div className="flex items-center gap-2 mb-3">
-            <span className="font-medium text-gray-900">{contact.display}</span>
-            {resource.languages && (
-              <span className="text-xs text-gray-500">
-                ({resource.languages.join(", ")})
+          {/* Contact Information - Only show for resources that have contact info */}
+          {(resource.type === "phone" ||
+            resource.type === "text" ||
+            resource.type === "emergency") && (
+            <div className="flex items-center gap-2 mb-3">
+              <span className="font-medium text-gray-900">
+                {contact.display}
               </span>
-            )}
-          </div>
+              {resource.languages && (
+                <span className="text-xs text-gray-500">
+                  ({resource.languages.join(", ")})
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Special Instructions for Techniques */}
           {resource.instructions && (
@@ -620,8 +626,8 @@ const ResourceCard = ({ resource }) => {
           )}
         </div>
 
-        {/* Action Button */}
-        {contact.action && (
+        {/* Action Button - Only show for resources with actions */}
+        {contact.action && resource.type !== "technique" && (
           <button
             onClick={() =>
               window.open(
