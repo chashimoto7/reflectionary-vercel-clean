@@ -19,7 +19,7 @@ import {
   Cell,
   AreaChart,
   Area,
-  ComposedCharts,
+  ComposedChart,
 } from "recharts";
 import {
   TrendingUp,
