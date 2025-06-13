@@ -1791,9 +1791,9 @@ const CycleTab = ({ data, colors }) => {
           <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 max-w-md mx-auto">
             <p className="text-purple-700 text-sm">
               <strong>How to get started:</strong> Start writing consistent
-              journal etries. Include physical symptoms you might be experience,
-              energy level, mood, emotions, food cravings, etc. Over time,
-              you'll see powerful insights about your patterns.
+              journal entries. Include physical symptoms you might be
+              experiencing, energy level, mood, emotions, food cravings, etc.
+              Over time, you'll see powerful insights about your patterns.
             </p>
           </div>
         </div>
