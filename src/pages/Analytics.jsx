@@ -1124,6 +1124,193 @@ const ConsistencyTab = ({ data, colors }) => (
   </div>
 );
 
+// Cycle Education Modal Component
+const CycleEducationModal = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+
+  const phaseInfo = [
+    {
+      phase: "Menstrual",
+      emoji: "🩸",
+      days: "Days 1-5",
+      color: "#EF4444",
+      description: "Your period - the lining of your uterus sheds",
+      signs: [
+        "Bleeding (light to heavy)",
+        "Cramping or pelvic pain",
+        "Lower energy levels",
+        "Mood may be more introspective",
+        "Cravings for comfort foods",
+      ],
+      tips: "Be gentle with yourself. Rest, use heat pads, and practice self-compassion.",
+    },
+    {
+      phase: "Follicular",
+      emoji: "🌱",
+      days: "Days 1-13",
+      color: "#10B981",
+      description:
+        "Your body prepares to release an egg - energy starts rising",
+      signs: [
+        "Increasing energy levels",
+        "Clearer, more optimistic thinking",
+        "Skin often improves",
+        "Feel more social and motivated",
+        "Discharge is minimal or sticky",
+      ],
+      tips: "Great time to start new projects and plan challenging tasks!",
+    },
+    {
+      phase: "Ovulatory",
+      emoji: "🌟",
+      days: "Days 12-16",
+      color: "#F59E0B",
+      description: "Peak fertility - your body releases an egg",
+      signs: [
+        "Highest energy and confidence",
+        "Clear, stretchy cervical mucus",
+        "Slight increase in body temperature",
+        "Feel most attractive and social",
+        "Peak communication skills",
+      ],
+      tips: "Perfect time for important conversations, presentations, and social events!",
+    },
+    {
+      phase: "Luteal",
+      emoji: "🌙",
+      days: "Days 15-28",
+      color: "#8B5CF6",
+      description: "Your body waits to see if pregnancy occurred",
+      signs: [
+        "Energy gradually decreases",
+        "May feel more emotional or sensitive",
+        "Possible PMS symptoms",
+        "Cravings for carbs or sweets",
+        "Need more sleep and downtime",
+      ],
+      tips: "Focus on self-care, gentle exercise, and completing existing projects.",
+    },
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-xl">🌙</span>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                Understanding Your Menstrual Cycle
+              </h2>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-2xl"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+            <p className="text-purple-800 text-sm">
+              <strong>💜 Your cycle is unique!</strong> These are general
+              patterns - every person's cycle is different. Track your own
+              patterns to understand what's normal for you. A typical cycle is
+              21-35 days long.
+            </p>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            {phaseInfo.map((phase, index) => (
+              <div
+                key={phase.phase}
+                className="border rounded-lg p-6"
+                style={{ borderColor: phase.color }}
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-2xl">{phase.emoji}</span>
+                  <div>
+                    <h3
+                      className="text-xl font-semibold"
+                      style={{ color: phase.color }}
+                    >
+                      {phase.phase} Phase
+                    </h3>
+                    <p className="text-sm text-gray-600">{phase.days}</p>
+                  </div>
+                </div>
+
+                <p className="text-gray-700 mb-4">{phase.description}</p>
+
+                <div className="mb-4">
+                  <h4 className="font-semibold text-gray-900 mb-2">
+                    What you might notice:
+                  </h4>
+                  <ul className="text-sm text-gray-700 space-y-1">
+                    {phase.signs.map((sign, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="text-purple-500 mt-1">•</span>
+                        <span>{sign}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div
+                  className="p-3 rounded-lg"
+                  style={{ backgroundColor: `${phase.color}15` }}
+                >
+                  <p
+                    className="text-sm font-medium"
+                    style={{ color: phase.color }}
+                  >
+                    💡 {phase.tips}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+            <h4 className="font-semibold text-gray-900 mb-2">
+              How to track your phase:
+            </h4>
+            <div className="text-sm text-gray-700 space-y-2">
+              <p>
+                <strong>Start with your period:</strong> Day 1 is the first day
+                of full menstrual flow.
+              </p>
+              <p>
+                <strong>Count forward:</strong> Use the day ranges above as a
+                guide, but pay attention to your body's signals.
+              </p>
+              <p>
+                <strong>Track symptoms:</strong> Note energy, mood, physical
+                signs, and cervical mucus changes.
+              </p>
+              <p>
+                <strong>Be patient:</strong> It takes 2-3 cycles to start seeing
+                your personal patterns clearly.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              Got it, thanks!
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Cycle Input Section Component
 const CycleInputSection = () => {
   const [currentCycleDay, setCurrentCycleDay] = useState(null);
@@ -1131,6 +1318,7 @@ const CycleInputSection = () => {
   const [lastPeriodStart, setLastPeriodStart] = useState("");
   const [cycleLength, setCycleLength] = useState(28);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showEducation, setShowEducation] = useState(false);
 
   const phases = ["Menstrual", "Follicular", "Ovulatory", "Luteal"];
 
@@ -1185,12 +1373,22 @@ const CycleInputSection = () => {
         <h3 className="text-lg font-semibold text-gray-900">
           Track Your Cycle
         </h3>
-        <button
-          onClick={() => setShowCalendar(!showCalendar)}
-          className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-        >
-          {showCalendar ? "Hide" : "Show"} Calendar
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowEducation(true)}
+            className="flex items-center gap-1 text-purple-600 hover:text-purple-700 text-sm font-medium"
+            title="Learn about cycle phases"
+          >
+            <Info className="w-4 h-4" />
+            How cycles work
+          </button>
+          <button
+            onClick={() => setShowCalendar(!showCalendar)}
+            className="text-purple-600 hover:text-purple-700 text-sm font-medium"
+          >
+            {showCalendar ? "Hide" : "Show"} Calendar
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -1591,6 +1789,12 @@ const CycleTab = ({ data, colors }) => (
         </div>
       </div>
     )}
+
+    {/* Education Modal */}
+    <CycleEducationModal
+      isOpen={showEducation}
+      onClose={() => setShowEducation(false)}
+    />
   </div>
 );
 
