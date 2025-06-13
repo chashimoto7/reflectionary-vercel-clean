@@ -1110,92 +1110,134 @@ function GoalJournalEntries({ goal }) {
           {entries.length} {entries.length === 1 ? "entry" : "entries"} found
         </div>
       </div>
-
+      // Replace your entries.map section with this:
       <div className="space-y-6">
-        {entries.map((entry) => (
-          <div
-            key={entry.id}
-            className="border border-gray-200 p-6 rounded-2xl shadow-sm bg-white hover:shadow-md transition-shadow"
-          >
-            {/* Entry Header */}
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-gray-500">
-                {new Date(entry.created_at).toLocaleString()}
-              </p>
-              <div className="flex items-center gap-3 text-xs">
-                {entry.mood && (
-                  <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
-                    Mood: {entry.mood}/10
-                  </span>
-                )}
-                {entry.energy && (
-                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">
-                    Energy: {entry.energy}/10
-                  </span>
-                )}
-                {entry.tone && (
-                  <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full capitalize">
-                    {entry.tone}
-                  </span>
-                )}
-              </div>
-            </div>
+        {entries.map((entry) => {
+          const isExpanded = expandedEntries.has(entry.id);
+          const shouldShowReadMore =
+            entry.content && entry.content.replace(/<[^>]+>/g, "").length > 300;
 
-            {/* Prompt */}
-            {entry.prompt && (
-              <div className="bg-green-50 p-4 rounded-lg border border-green-200 mb-4">
-                <p className="text-sm text-green-700">
-                  <strong>Prompt:</strong> {entry.prompt}
+          return (
+            <div
+              key={entry.id}
+              className="border border-gray-200 p-6 rounded-2xl shadow-sm bg-white hover:shadow-md transition-shadow"
+            >
+              {/* Entry Header */}
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-gray-500">
+                  {new Date(entry.created_at).toLocaleString()}
                 </p>
+                <div className="flex items-center gap-3 text-xs">
+                  {entry.mood && (
+                    <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                      Mood: {entry.mood}/10
+                    </span>
+                  )}
+                  {entry.energy && (
+                    <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">
+                      Energy: {entry.energy}/10
+                    </span>
+                  )}
+                  {entry.tone && (
+                    <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full capitalize">
+                      {entry.tone}
+                    </span>
+                  )}
+                </div>
               </div>
-            )}
 
-            {/* Entry Content */}
-            <div className="mb-4">
-              <p className="font-medium text-gray-900 mb-2">Journal Entry:</p>
-              <div
-                className="prose prose-sm max-w-none text-gray-700 leading-relaxed"
-                dangerouslySetInnerHTML={{
-                  __html: entry.html_content || `<p>${entry.content}</p>`,
-                }}
-              />
+              {/* Prompt */}
+              {entry.prompt && (
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200 mb-4">
+                  <p className="text-sm text-green-700">
+                    <strong>Prompt:</strong> {entry.prompt}
+                  </p>
+                </div>
+              )}
+
+              {/* Entry Content - WITH EXPAND/COLLAPSE */}
+              <div className="mb-4">
+                <p className="font-medium text-gray-900 mb-2">Journal Entry:</p>
+                <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
+                  {isExpanded ? (
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: entry.html_content || `<p>${entry.content}</p>`,
+                      }}
+                    />
+                  ) : (
+                    <div>
+                      <p>{truncateContent(entry.content)}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Read More/Less Button */}
+                {shouldShowReadMore && (
+                  <button
+                    onClick={() => toggleExpanded(entry.id)}
+                    className="mt-2 text-purple-600 hover:text-purple-800 text-sm font-medium flex items-center gap-1"
+                  >
+                    {isExpanded ? (
+                      <>
+                        <ChevronUp className="h-4 w-4" />
+                        Show Less
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-4 w-4" />
+                        Read More
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {/* Emotions & Topics */}
+              {(entry.emotions?.length > 0 || entry.topics?.length > 0) && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {entry.emotions?.map((emotion, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2 py-1 bg-pink-100 text-pink-700 text-xs rounded-full"
+                    >
+                      😊 {emotion}
+                    </span>
+                  ))}
+                  {entry.topics?.map((topic, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+                    >
+                      🏷️ {topic}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Follow-ups - Only show when expanded */}
+              {isExpanded && entry.follow_ups?.length > 0 && (
+                <div className="mt-4">
+                  <p className="font-medium text-gray-900 mb-2">
+                    Follow-up Responses:
+                  </p>
+                  {renderFollowUps(entry.follow_ups)}
+                </div>
+              )}
+
+              {/* Follow-up indicator when collapsed */}
+              {!isExpanded && entry.follow_ups?.length > 0 && (
+                <div className="mt-2">
+                  <span className="text-sm text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
+                    💬 {entry.follow_ups.length} follow-up response
+                    {entry.follow_ups.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              )}
             </div>
-
-            {/* Emotions & Topics */}
-            {(entry.emotions?.length > 0 || entry.topics?.length > 0) && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {entry.emotions?.map((emotion, idx) => (
-                  <span
-                    key={idx}
-                    className="px-2 py-1 bg-pink-100 text-pink-700 text-xs rounded-full"
-                  >
-                    😊 {emotion}
-                  </span>
-                ))}
-                {entry.topics?.map((topic, idx) => (
-                  <span
-                    key={idx}
-                    className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
-                  >
-                    🏷️ {topic}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Follow-ups */}
-            {entry.follow_ups?.length > 0 && (
-              <div className="mt-4">
-                <p className="font-medium text-gray-900 mb-2">
-                  Follow-up Responses:
-                </p>
-                {renderFollowUps(entry.follow_ups)}
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
-
       {/* Load More Button (for future pagination) */}
       {hasMore && (
         <div className="text-center">
