@@ -9,6 +9,8 @@ import Quill from "quill";
 import "quill/dist/quill.snow.css";
 import { useFeatureAccess } from "../hooks/useFeatureAccess";
 import UpgradePrompt from "../components/UpgradePrompt";
+import { useCrisisIntegration } from "../hooks/useCrisisIntegration";
+import CrisisResourceModal from "../components/CrisisResourceModal";
 
 export default function NewEntry() {
   const navigate = useNavigate();
@@ -29,7 +31,15 @@ export default function NewEntry() {
     getUpgradeMessage,
   } = useFeatureAccess(tier);
 
-  // State declarations
+  const {
+    showModal: showCrisisModal,
+    analysisResult: crisisAnalysisResult,
+    showCrisisModal: triggerCrisisModal,
+    closeCrisisModal,
+    showCrisisResources,
+  } = useCrisisIntegration();
+
+  // EXISTING State declarations (unchanged)
   const [lastSavedEntry, setLastSavedEntry] = useState(null);
   const [prompt, setPrompt] = useState("");
   const [promptType, setPromptType] = useState("initial");
@@ -46,9 +56,17 @@ export default function NewEntry() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentThreadId, setCurrentThreadId] = useState(null);
 
+  // NEW: Crisis detection state (minimal additions)
+  const [mood, setMood] = useState(5);
+  const [energy, setEnergy] = useState(5);
+  const [cycleDay, setCycleDay] = useState("");
+  const [cyclePhase, setCyclePhase] = useState("");
+  const [showWellnessSection, setShowWellnessSection] = useState(false);
+
   const editorRef = useRef(null);
   const quillRef = useRef(null);
 
+  // EXISTING getStaticMasterKey function (unchanged)
   const getStaticMasterKey = async () => {
     const STATIC_MASTER_KEY_HEX = import.meta.env.VITE_MASTER_DECRYPTION_KEY;
 
@@ -77,7 +95,7 @@ export default function NewEntry() {
     );
   };
 
-  // Redirect to login if not authenticated
+  // EXISTING useEffect hooks (unchanged)
   useEffect(() => {
     const checkSession = async () => {
       const {
@@ -90,7 +108,6 @@ export default function NewEntry() {
     checkSession();
   }, [navigate]);
 
-  // Initialize Quill editor when component mounts and encryption is ready
   useEffect(() => {
     const initEditor = () => {
       if (editorRef.current && !quillRef.current && !isLocked) {
@@ -139,7 +156,6 @@ export default function NewEntry() {
       }
     };
 
-    // Small delay to ensure DOM is ready
     const timer = setTimeout(initEditor, 100);
 
     return () => {
@@ -151,20 +167,15 @@ export default function NewEntry() {
     };
   }, [isLocked]);
 
-  // Function to encrypt journal entry using the new system
+  // EXISTING functions (unchanged)
   const encryptJournalEntry = async (entryData) => {
     const masterKey = await getStaticMasterKey();
-
-    // Generate a new data key for this entry
     const dataKey = await encryptionService.generateDataKey();
-
-    // Encrypt the content with the data key
     const encryptedContent = await encryptionService.encryptText(
       entryData.content,
       dataKey
     );
 
-    // Encrypt the prompt if it exists
     let encryptedPrompt = { encryptedData: "", iv: "" };
     if (entryData.prompt) {
       encryptedPrompt = await encryptionService.encryptText(
@@ -173,7 +184,6 @@ export default function NewEntry() {
       );
     }
 
-    // Encrypt the data key with master key
     const encryptedDataKey = await encryptionService.encryptKey(
       dataKey,
       masterKey
@@ -243,7 +253,6 @@ export default function NewEntry() {
       return;
     }
 
-    // For free users, basic journaling is allowed
     if (!subject.trim()) return;
 
     try {
@@ -279,6 +288,7 @@ export default function NewEntry() {
     }
   };
 
+  // ENHANCED saveEntry function (minimal changes to existing logic)
   const saveEntry = async () => {
     console.log("🔄 Save entry function called");
 
@@ -308,15 +318,23 @@ export default function NewEntry() {
 
       console.log("✅ Entry encrypted successfully");
 
+      // ENHANCED: Add wellness data to existing payload
       const entryData = {
         ...encryptedData,
         user_id: userId,
         is_follow_up: promptType === "followUp",
         parent_entry_id: currentThreadId,
         thread_id: currentThreadId,
+        // NEW: Crisis detection metadata
+        mood: mood,
+        energy: energy,
+        cycle_day: cycleDay ? parseInt(cycleDay) : null,
+        cycle_phase: cyclePhase || null,
       };
 
-      console.log("📦 Sending encrypted entry data to backend");
+      console.log(
+        "📦 Sending encrypted entry data to backend (with wellness data)"
+      );
 
       const response = await fetch(
         "https://reflectionary-api.vercel.app/api/save-entry",
@@ -336,6 +354,13 @@ export default function NewEntry() {
 
       console.log("✅ Entry saved with ID:", result.entry_id);
 
+      // NEW: Check for crisis analysis
+      if (result.crisis_analysis?.should_alert) {
+        console.log("🚨 Crisis analysis triggered:", result.crisis_analysis);
+        triggerCrisisModal(result.crisis_analysis);
+      }
+
+      // EXISTING logic continues unchanged
       const newEntry = {
         id: result.entry_id,
         prompt: prompt || null,
@@ -365,13 +390,14 @@ export default function NewEntry() {
       setPrompt("");
       setShowPromptButton(true);
 
-      // Show success bar and reset label
       setSaveConfirmation(true);
       setTimeout(() => setSaveConfirmation(false), 3000);
       setSaveLabel("Save Entry");
 
-      // Trigger follow-up modal
-      setShowFollowUpModal(true);
+      // Only show follow-up modal if no crisis detected
+      if (!result.crisis_analysis?.should_alert) {
+        setShowFollowUpModal(true);
+      }
     } catch (err) {
       console.error("❌ Error saving entry:", err);
       alert(`Failed to save entry: ${err.message}`);
@@ -379,17 +405,13 @@ export default function NewEntry() {
     }
   };
 
+  // EXISTING functions (unchanged)
   const handleFollowUpFromChain = async () => {
     console.log("🤔 Generating followUp for entry ID:", lastSavedEntry?.id);
 
-    // Check if user has access to follow-up prompts
     const hasFollowUpAccess = checkFeatureAccess("follow_up_prompts", () => {
-      // This callback runs if the user has access
       proceedWithFollowUp();
     });
-
-    // If no access, the upgrade prompt will show automatically
-    // No need to do anything else here
   };
 
   const proceedWithFollowUp = async () => {
@@ -445,7 +467,6 @@ export default function NewEntry() {
   const handleEndFollowUps = () => {
     console.log("✋ User ending follow-up session");
 
-    // Reset for NEW conversation thread
     setEntryChain([]);
     setLastSavedEntry(null);
     setPrompt("");
@@ -457,7 +478,6 @@ export default function NewEntry() {
     setShowFollowUpModal(false);
     setCurrentThreadId(null);
 
-    // Clear stored data
     window.currentConversationChain = [];
     window.currentThreadId = null;
 
@@ -499,9 +519,20 @@ export default function NewEntry() {
           <h2 className="text-2xl font-bold text-gray-800">
             New Journal Entry
           </h2>
-          <div className="flex items-center text-sm text-green-600">
-            <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-            Encryption Active
+          <div className="flex items-center gap-4">
+            {/* NEW: Support resources button */}
+            <button
+              onClick={showCrisisResources}
+              className="flex items-center gap-2 px-3 py-1 text-purple-600 border border-purple-300 rounded-full hover:bg-purple-50 transition-colors text-sm"
+              title="Access mental health resources"
+            >
+              <span>💜</span>
+              Support
+            </button>
+            <div className="flex items-center text-sm text-green-600">
+              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+              Encryption Active
+            </div>
           </div>
         </div>
 
@@ -511,7 +542,7 @@ export default function NewEntry() {
           </div>
         )}
 
-        {/* Prompt Generation Section */}
+        {/* EXISTING Prompt Generation Section (unchanged) */}
         <div className="mb-6 space-y-4">
           <div className="flex gap-4">
             <input
@@ -556,7 +587,7 @@ export default function NewEntry() {
           )}
         </div>
 
-        {/* Prompt Display */}
+        {/* EXISTING Prompt Display (unchanged) */}
         {prompt && (
           <div className={`bg-green-100 px-4 py-3 rounded mb-6 shadow`}>
             <p
@@ -572,7 +603,100 @@ export default function NewEntry() {
           </div>
         )}
 
-        {/* Quill Editor */}
+        {/* NEW: Optional Wellness Tracking Section */}
+        <div className="mb-6">
+          <button
+            onClick={() => setShowWellnessSection(!showWellnessSection)}
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 mb-3"
+          >
+            <span
+              className={`transform transition-transform ${
+                showWellnessSection ? "rotate-90" : ""
+              }`}
+            >
+              ▶
+            </span>
+            Track mood, energy & cycle (optional)
+          </button>
+
+          {showWellnessSection && (
+            <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Mood: {mood}/10
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={mood}
+                    onChange={(e) => setMood(parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>Low</span>
+                    <span>High</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Energy: {energy}/10
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={energy}
+                    onChange={(e) => setEnergy(parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>Low</span>
+                    <span>High</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cycle Day (optional)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="35"
+                    value={cycleDay}
+                    onChange={(e) => setCycleDay(e.target.value)}
+                    placeholder="Day of cycle"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cycle Phase (optional)
+                  </label>
+                  <select
+                    value={cyclePhase}
+                    onChange={(e) => setCyclePhase(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  >
+                    <option value="">Select phase...</option>
+                    <option value="Menstrual">Menstrual</option>
+                    <option value="Follicular">Follicular</option>
+                    <option value="Ovulatory">Ovulatory</option>
+                    <option value="Luteal">Luteal</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* EXISTING Quill Editor (unchanged) */}
         <div className="mb-6">
           <div
             ref={editorRef}
@@ -581,7 +705,7 @@ export default function NewEntry() {
           />
         </div>
 
-        {/* Save Button */}
+        {/* EXISTING Save Button (unchanged) */}
         <div className="flex justify-between items-center">
           <div className="text-sm text-gray-500">
             {isEditorReady ? (
@@ -607,7 +731,7 @@ export default function NewEntry() {
           </button>
         </div>
 
-        {/* Follow-up Modals */}
+        {/* EXISTING Follow-up Modals (unchanged) */}
         {showModal && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
             <div className="bg-white p-6 rounded shadow-lg max-w-sm text-center">
@@ -667,7 +791,7 @@ export default function NewEntry() {
         )}
       </div>
 
-      {/* Upgrade Prompt Modal */}
+      {/* EXISTING Upgrade Prompt Modal (unchanged) */}
       {showUpgradePrompt && (
         <UpgradePrompt
           feature={requestedFeature}
@@ -676,6 +800,18 @@ export default function NewEntry() {
           message={getUpgradeMessage()}
         />
       )}
+
+      <CrisisResourceModal
+        isOpen={showCrisisModal}
+        onClose={() => {
+          closeCrisisModal();
+          // Show follow-up modal after crisis modal if we have a saved entry
+          if (lastSavedEntry) {
+            setShowFollowUpModal(true);
+          }
+        }}
+        analysisResult={crisisAnalysisResult}
+      />
     </>
   );
 }
