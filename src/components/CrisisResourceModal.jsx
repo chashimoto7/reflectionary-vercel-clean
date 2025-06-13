@@ -133,6 +133,22 @@ const CrisisResourceModal = ({
     onClose();
   };
 
+  // Get appropriate icon color for crisis level
+  const getIconColor = () => {
+    if (!analysisResult) return "text-blue-500";
+
+    switch (analysisResult.level) {
+      case "immediate":
+        return "text-red-500";
+      case "escalating":
+        return "text-orange-500";
+      case "concerning":
+        return "text-blue-500";
+      default:
+        return "text-gray-500";
+    }
+  };
+
   const getModalTitle = () => {
     if (!analysisResult) return "Support Resources";
 
@@ -164,18 +180,19 @@ const CrisisResourceModal = ({
     }
   };
 
-  const getUrgencyColor = () => {
-    if (!analysisResult) return "blue";
+  // Get appropriate header background color for crisis level
+  const getHeaderBgColor = () => {
+    if (!analysisResult) return "from-blue-500 to-blue-600";
 
     switch (analysisResult.level) {
       case "immediate":
-        return "red";
+        return "from-red-500 to-red-600";
       case "escalating":
-        return "orange";
+        return "from-orange-500 to-orange-600";
       case "concerning":
-        return "blue";
+        return "from-blue-500 to-blue-600";
       default:
-        return "gray";
+        return "from-purple-500 to-purple-600";
     }
   };
 
@@ -186,15 +203,17 @@ const CrisisResourceModal = ({
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
         {/* Header */}
         <div
-          className={`bg-gradient-to-r from-${getUrgencyColor()}-500 to-${getUrgencyColor()}-600 text-white p-6`}
+          className={`bg-gradient-to-r ${getHeaderBgColor()} text-white p-6`}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                <Heart className="w-6 h-6" />
+                <Heart className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold">{getModalTitle()}</h2>
+                <h2 className="text-2xl font-bold text-white">
+                  {getModalTitle()}
+                </h2>
                 <p className="text-white text-opacity-90 text-sm">
                   You're not alone - help is available 24/7
                 </p>
@@ -202,7 +221,7 @@ const CrisisResourceModal = ({
             </div>
             <button
               onClick={handleCloseModal}
-              className="text-white hover:text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition-colors"
+              className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition-colors flex-shrink-0"
               title="Close"
             >
               <X className="w-6 h-6" />
@@ -216,7 +235,7 @@ const CrisisResourceModal = ({
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-start gap-3">
               <AlertCircle
-                className={`w-6 h-6 text-${getUrgencyColor()}-500 mt-0.5 flex-shrink-0`}
+                className={`w-6 h-6 ${getIconColor()} mt-0.5 flex-shrink-0`}
               />
               <div>
                 <p className="text-gray-800 leading-relaxed">
