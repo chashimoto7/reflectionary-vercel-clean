@@ -235,7 +235,8 @@ export default async function handler(req, res) {
 
     // Get master key
     const masterKeyHex =
-      process.env.MASTER_DECRYPTION_KEY || process.env.MASTER_ENCRYPTION_KEY;
+      process.env.VITE.MASTER_DECRYPTION_KEY ||
+      process.env.VITE.MASTER_ENCRYPTION_KEY;
     if (!masterKeyHex) {
       throw new Error(
         "Master decryption key not found in environment variables"
