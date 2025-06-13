@@ -1312,13 +1312,12 @@ const CycleEducationModal = ({ isOpen, onClose }) => {
 };
 
 // Cycle Input Section Component
-const CycleInputSection = () => {
+const CycleInputSection = ({ showEducation, setShowEducation }) => {
   const [currentCycleDay, setCurrentCycleDay] = useState(null);
   const [currentPhase, setCurrentPhase] = useState("");
   const [lastPeriodStart, setLastPeriodStart] = useState("");
   const [cycleLength, setCycleLength] = useState(28);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [showEducation, setShowEducation] = useState(false);
 
   const phases = ["Menstrual", "Follicular", "Ovulatory", "Luteal"];
 
@@ -1373,22 +1372,6 @@ const CycleInputSection = () => {
         <h3 className="text-lg font-semibold text-gray-900">
           Track Your Cycle
         </h3>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowEducation(true)}
-            className="flex items-center gap-1 text-purple-600 hover:text-purple-700 text-sm font-medium"
-            title="Learn about cycle phases"
-          >
-            <Info className="w-4 h-4" />
-            How cycles work
-          </button>
-          <button
-            onClick={() => setShowCalendar(!showCalendar)}
-            className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-          >
-            {showCalendar ? "Hide" : "Show"} Calendar
-          </button>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -1407,9 +1390,17 @@ const CycleInputSection = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Last Period Started
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Last Period Started
+              </label>
+              <button
+                onClick={() => setShowCalendar(!showCalendar)}
+                className="text-purple-600 hover:text-purple-700 text-xs font-medium"
+              >
+                {showCalendar ? "Hide" : "Show"} Calendar
+              </button>
+            </div>
             <input
               type="date"
               value={lastPeriodStart}
@@ -1444,9 +1435,19 @@ const CycleInputSection = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Current Phase
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Current Phase
+              </label>
+              <button
+                onClick={() => setShowEducation(true)}
+                className="flex items-center gap-1 text-purple-600 hover:text-purple-700 text-xs font-medium"
+                title="Learn about cycle phases"
+              >
+                <Info className="w-4 h-4" />
+                How cycles work
+              </button>
+            </div>
             <select
               value={currentPhase}
               onChange={(e) => setCurrentPhase(e.target.value)}
@@ -1574,7 +1575,10 @@ const CycleTab = ({ data, colors }) => {
       </div>
 
       {/* Cycle Input Section - Always show */}
-      <CycleInputSection />
+      <CycleInputSection
+        showEducation={showEducation}
+        setShowEducation={setShowEducation}
+      />
 
       {data.phaseDistribution.length > 0 ? (
         <>
