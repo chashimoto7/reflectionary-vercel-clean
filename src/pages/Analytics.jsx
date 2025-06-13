@@ -1123,6 +1123,243 @@ const ConsistencyTab = ({ data, colors }) => (
   </div>
 );
 
+// Cycle Input Section Component
+const CycleInputSection = () => {
+  const [currentCycleDay, setCurrentCycleDay] = useState(null);
+  const [currentPhase, setCurrentPhase] = useState("");
+  const [lastPeriodStart, setLastPeriodStart] = useState("");
+  const [cycleLength, setCycleLength] = useState(28);
+  const [showCalendar, setShowCalendar] = useState(false);
+
+  const phases = ["Menstrual", "Follicular", "Ovulatory", "Luteal"];
+
+  // Calculate current cycle day based on last period start
+  useEffect(() => {
+    if (lastPeriodStart) {
+      const startDate = new Date(lastPeriodStart);
+      const today = new Date();
+      const diffTime = today - startDate;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays >= 0 && diffDays <= cycleLength) {
+        setCurrentCycleDay(diffDays === 0 ? 1 : diffDays + 1);
+
+        // Auto-suggest phase based on cycle day
+        if (diffDays >= 0 && diffDays <= 5) setCurrentPhase("Menstrual");
+        else if (diffDays >= 6 && diffDays <= 13) setCurrentPhase("Follicular");
+        else if (diffDays >= 14 && diffDays <= 16) setCurrentPhase("Ovulatory");
+        else setCurrentPhase("Luteal");
+      }
+    }
+  }, [lastPeriodStart, cycleLength]);
+
+  const handleMarkPeriodStart = () => {
+    const today = new Date().toISOString().split("T")[0];
+    setLastPeriodStart(today);
+    setCurrentCycleDay(1);
+    setCurrentPhase("Menstrual");
+  };
+
+  const handleSaveCycleData = async () => {
+    if (!currentCycleDay || !currentPhase) return;
+
+    // Here you would save to your database
+    // For now, we'll just show a success message
+    alert(`Cycle data saved: Day ${currentCycleDay}, ${currentPhase} phase`);
+  };
+
+  const getNextPeriodEstimate = () => {
+    if (!lastPeriodStart) return null;
+
+    const startDate = new Date(lastPeriodStart);
+    const nextPeriod = new Date(
+      startDate.getTime() + cycleLength * 24 * 60 * 60 * 1000
+    );
+    return nextPeriod.toLocaleDateString();
+  };
+
+  return (
+    <div className="mb-8 bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-lg border border-purple-200">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-semibold text-gray-900">
+          Track Your Cycle
+        </h3>
+        <button
+          onClick={() => setShowCalendar(!showCalendar)}
+          className="text-purple-600 hover:text-purple-700 text-sm font-medium"
+        >
+          {showCalendar ? "Hide" : "Show"} Calendar
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        {/* Quick Actions */}
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Quick Actions
+            </label>
+            <button
+              onClick={handleMarkPeriodStart}
+              className="w-full bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              🩸 Mark Period Start (Today)
+            </button>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Last Period Started
+            </label>
+            <input
+              type="date"
+              value={lastPeriodStart}
+              onChange={(e) => setLastPeriodStart(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+        </div>
+
+        {/* Current Status */}
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Current Cycle Day
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="1"
+                max="40"
+                value={currentCycleDay || ""}
+                onChange={(e) =>
+                  setCurrentCycleDay(parseInt(e.target.value) || null)
+                }
+                className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="Day"
+              />
+              {currentCycleDay && (
+                <span className="text-sm text-gray-600">of {cycleLength}</span>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Current Phase
+            </label>
+            <select
+              value={currentPhase}
+              onChange={(e) => setCurrentPhase(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="">Select phase...</option>
+              {phases.map((phase) => (
+                <option key={phase} value={phase}>
+                  {phase}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Cycle Settings & Predictions */}
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Typical Cycle Length
+            </label>
+            <select
+              value={cycleLength}
+              onChange={(e) => setCycleLength(parseInt(e.target.value))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              {Array.from({ length: 16 }, (_, i) => i + 21).map((days) => (
+                <option key={days} value={days}>
+                  {days} days
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {getNextPeriodEstimate() && (
+            <div className="bg-white p-3 rounded-lg border border-purple-200">
+              <div className="text-sm font-medium text-gray-700 mb-1">
+                Next Period Estimate
+              </div>
+              <div className="text-purple-600 font-semibold">
+                {getNextPeriodEstimate()}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Mini Calendar */}
+      {showCalendar && (
+        <div className="mb-6 p-4 bg-white rounded-lg border border-purple-200">
+          <h4 className="text-sm font-medium text-gray-700 mb-3">
+            Cycle Calendar
+          </h4>
+          <div className="text-sm text-gray-500 mb-2">
+            🩸 Period • 🌱 Follicular • 🌟 Ovulatory • 🌙 Luteal
+          </div>
+          <div className="grid grid-cols-7 gap-1 text-xs">
+            {/* Calendar header */}
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              <div
+                key={day}
+                className="p-2 text-center font-medium text-gray-500"
+              >
+                {day}
+              </div>
+            ))}
+
+            {/* Calendar days - simplified for demo */}
+            {Array.from({ length: 42 }, (_, i) => {
+              const dayNum = i - 6; // Offset for current month
+              const isToday = dayNum === new Date().getDate();
+              const isPeriod = lastPeriodStart && dayNum >= 1 && dayNum <= 5;
+
+              return (
+                <div
+                  key={i}
+                  className={`p-2 text-center cursor-pointer rounded ${
+                    dayNum < 1 || dayNum > 31
+                      ? "text-gray-300"
+                      : isToday
+                      ? "bg-purple-600 text-white"
+                      : isPeriod
+                      ? "bg-red-100 text-red-700"
+                      : "hover:bg-purple-50"
+                  }`}
+                >
+                  {dayNum > 0 && dayNum <= 31 ? dayNum : ""}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Save Button */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-600">
+          💡 This data will be correlated with your journal entries to show
+          patterns
+        </div>
+        <button
+          onClick={handleSaveCycleData}
+          disabled={!currentCycleDay || !currentPhase}
+          className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+        >
+          Save Cycle Data
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // NEW: Cycle Tab Component
 const CycleTab = ({ data, colors }) => (
   <div className="p-6">
@@ -1136,6 +1373,9 @@ const CycleTab = ({ data, colors }) => (
 
     {data.phaseDistribution.length > 0 ? (
       <>
+        {/* Cycle Input Section */}
+        <CycleInputSection />
+
         {/* Insights Section */}
         {data.insights && data.insights.length > 0 && (
           <div className="mb-8">
