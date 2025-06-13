@@ -1372,11 +1372,11 @@ const CycleTab = ({ data, colors }) => (
       </div>
     </div>
 
+    {/* Cycle Input Section - Always show */}
+    <CycleInputSection />
+
     {data.phaseDistribution.length > 0 ? (
       <>
-        {/* Cycle Input Section */}
-        <CycleInputSection />
-
         {/* Insights Section */}
         {data.insights && data.insights.length > 0 && (
           <div className="mb-8">
