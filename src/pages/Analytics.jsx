@@ -1784,14 +1784,16 @@ const CycleTab = ({ data, colors }) => {
             Start Tracking Your Cycle
           </h3>
           <p className="text-gray-500 max-w-md mx-auto mb-6">
-            Add cycle information to your journal entries to see how your
-            menstrual cycle affects your mood, energy, and emotional patterns.
+            Add cycle information in the section above and our AI analytics will
+            analyze your journal entries to see how your menstrual cycle affects
+            your mood, energy, and emotional patterns.
           </p>
           <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 max-w-md mx-auto">
             <p className="text-purple-700 text-sm">
-              <strong>How to get started:</strong> When creating a journal
-              entry, you can optionally add your current cycle day and phase.
-              Over time, you'll see powerful insights about your patterns.
+              <strong>How to get started:</strong> Start writing consistent
+              journal etries. Include physical symptoms you might be experience,
+              energy level, mood, emotions, food cravings, etc. Over time,
+              you'll see powerful insights about your patterns.
             </p>
           </div>
         </div>
