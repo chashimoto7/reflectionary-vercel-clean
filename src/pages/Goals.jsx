@@ -1095,12 +1095,11 @@ function GoalJournalEntries({ goal }) {
     );
   }
 
-  // At the very end of your Goals.jsx file, you'll see this comment:
-  // (GoalJournalEntries and GoalTips remain unchanged from previous version!)
-
-  // REPLACE that comment with the GoalJournalEntries function like this:
-
   function GoalJournalEntries({ goal }) {
+    console.log(
+      "🚀 NEW GoalJournalEntries component started!",
+      goal?.decryptedTitle
+    );
     const { user } = useAuth();
     const [entries, setEntries] = useState([]);
     const [loading, setLoading] = useState(true);
