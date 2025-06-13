@@ -1560,243 +1560,247 @@ const CycleInputSection = () => {
 };
 
 // NEW: Cycle Tab Component
-const CycleTab = ({ data, colors }) => (
-  <div className="p-6">
-    <div className="flex items-center gap-2 mb-6">
-      <Moon className="w-6 h-6 text-purple-600" />
-      <h2 className="text-2xl font-bold text-gray-900">Cycle Tracking</h2>
-      <div className="ml-auto bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">
-        Free for all paid members! 💜
+const CycleTab = ({ data, colors }) => {
+  const [showEducation, setShowEducation] = useState(false);
+
+  return (
+    <div className="p-6">
+      <div className="flex items-center gap-2 mb-6">
+        <Moon className="w-6 h-6 text-purple-600" />
+        <h2 className="text-2xl font-bold text-gray-900">Cycle Tracking</h2>
+        <div className="ml-auto bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">
+          Free for all paid members! 💜
+        </div>
       </div>
-    </div>
 
-    {/* Cycle Input Section - Always show */}
-    <CycleInputSection />
+      {/* Cycle Input Section - Always show */}
+      <CycleInputSection />
 
-    {data.phaseDistribution.length > 0 ? (
-      <>
-        {/* Insights Section */}
-        {data.insights && data.insights.length > 0 && (
-          <div className="mb-8">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Your Cycle Insights
-            </h3>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {data.insights.map((insight, index) => (
-                <div
-                  key={index}
-                  className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-lg border border-purple-200"
-                >
-                  <h4 className="font-semibold text-purple-900 mb-2">
-                    {insight.title}
-                  </h4>
-                  <p className="text-purple-700 text-sm">{insight.content}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Phase Distribution */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Journaling by Cycle Phase
-            </h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={data.phaseDistribution}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    dataKey="count"
-                    nameKey="phase"
+      {data.phaseDistribution.length > 0 ? (
+        <>
+          {/* Insights Section */}
+          {data.insights && data.insights.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Your Cycle Insights
+              </h3>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {data.insights.map((insight, index) => (
+                  <div
+                    key={index}
+                    className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-lg border border-purple-200"
                   >
-                    {data.phaseDistribution.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={colors[entry.phase] || colors.Menstrual}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value, name) => [
-                      `${value} entries`,
-                      `${name} Phase`,
-                    ]}
-                  />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Mood by Phase */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Average Mood by Cycle Phase
-            </h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.moodByPhase}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="phase" tick={{ fontSize: 12 }} />
-                  <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
-                  <Tooltip
-                    formatter={(value) => [`${value}/10`, "Average Mood"]}
-                  />
-                  <Bar dataKey="avgMood" fill="#8B5CF6" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Energy by Phase */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Average Energy by Cycle Phase
-            </h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.energyByPhase}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="phase" tick={{ fontSize: 12 }} />
-                  <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
-                  <Tooltip
-                    formatter={(value) => [`${value}/10`, "Average Energy"]}
-                  />
-                  <Bar dataKey="avgEnergy" fill="#10B981" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Daily Tracking with Cycle Overlay */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Daily Mood & Energy with Cycle Phases
-            </h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={data.dailyTracking}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="displayDate" tick={{ fontSize: 10 }} />
-                  <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
-                  <Tooltip
-                    formatter={(value, name) => {
-                      if (name === "mood") return [`${value}/10`, "Mood"];
-                      if (name === "energy") return [`${value}/10`, "Energy"];
-                      return [value, name];
-                    }}
-                    labelFormatter={(value, payload) => {
-                      if (payload && payload[0] && payload[0].payload) {
-                        return `${value} (${payload[0].payload.cycle_phase})`;
-                      }
-                      return value;
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="mood"
-                    stroke="#8B5CF6"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="energy"
-                    stroke="#10B981"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-
-        {/* Explanation */}
-        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-          <div className="flex items-start gap-2">
-            <Info className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
-            <div className="text-sm">
-              <p className="text-purple-800 font-medium mb-1">
-                How cycle tracking works:
-              </p>
-              <p className="text-purple-700 mb-2">
-                Track your menstrual cycle phases alongside your mood and energy
-                to identify patterns. This helps you understand your natural
-                rhythms and plan accordingly.
-              </p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: colors.Menstrual }}
-                  ></div>
-                  <span className="text-xs text-purple-700">Menstrual</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: colors.Follicular }}
-                  ></div>
-                  <span className="text-xs text-purple-700">Follicular</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: colors.Ovulatory }}
-                  ></div>
-                  <span className="text-xs text-purple-700">Ovulatory</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: colors.Luteal }}
-                  ></div>
-                  <span className="text-xs text-purple-700">Luteal</span>
-                </div>
+                    <h4 className="font-semibold text-purple-900 mb-2">
+                      {insight.title}
+                    </h4>
+                    <p className="text-purple-700 text-sm">{insight.content}</p>
+                  </div>
+                ))}
               </div>
-              <p className="text-purple-600 mt-3 text-xs">
-                💡 <strong>Tip:</strong> Tracking your cycle helps optimize your
-                energy, plan challenging tasks, and practice self-compassion
-                during harder phases.
-              </p>
+            </div>
+          )}
+
+          {/* Charts Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            {/* Phase Distribution */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Journaling by Cycle Phase
+              </h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data.phaseDistribution}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      dataKey="count"
+                      nameKey="phase"
+                    >
+                      {data.phaseDistribution.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={colors[entry.phase] || colors.Menstrual}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value, name) => [
+                        `${value} entries`,
+                        `${name} Phase`,
+                      ]}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Mood by Phase */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Average Mood by Cycle Phase
+              </h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.moodByPhase}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="phase" tick={{ fontSize: 12 }} />
+                    <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
+                    <Tooltip
+                      formatter={(value) => [`${value}/10`, "Average Mood"]}
+                    />
+                    <Bar dataKey="avgMood" fill="#8B5CF6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Energy by Phase */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Average Energy by Cycle Phase
+              </h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.energyByPhase}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="phase" tick={{ fontSize: 12 }} />
+                    <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
+                    <Tooltip
+                      formatter={(value) => [`${value}/10`, "Average Energy"]}
+                    />
+                    <Bar dataKey="avgEnergy" fill="#10B981" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Daily Tracking with Cycle Overlay */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Daily Mood & Energy with Cycle Phases
+              </h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={data.dailyTracking}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="displayDate" tick={{ fontSize: 10 }} />
+                    <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} />
+                    <Tooltip
+                      formatter={(value, name) => {
+                        if (name === "mood") return [`${value}/10`, "Mood"];
+                        if (name === "energy") return [`${value}/10`, "Energy"];
+                        return [value, name];
+                      }}
+                      labelFormatter={(value, payload) => {
+                        if (payload && payload[0] && payload[0].payload) {
+                          return `${value} (${payload[0].payload.cycle_phase})`;
+                        }
+                        return value;
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="mood"
+                      stroke="#8B5CF6"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="energy"
+                      stroke="#10B981"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
-        </div>
-      </>
-    ) : (
-      <div className="text-center py-12">
-        <Moon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-600 mb-2">
-          Start Tracking Your Cycle
-        </h3>
-        <p className="text-gray-500 max-w-md mx-auto mb-6">
-          Add cycle information to your journal entries to see how your
-          menstrual cycle affects your mood, energy, and emotional patterns.
-        </p>
-        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 max-w-md mx-auto">
-          <p className="text-purple-700 text-sm">
-            <strong>How to get started:</strong> When creating a journal entry,
-            you can optionally add your current cycle day and phase. Over time,
-            you'll see powerful insights about your patterns.
-          </p>
-        </div>
-      </div>
-    )}
 
-    {/* Education Modal */}
-    <CycleEducationModal
-      isOpen={showEducation}
-      onClose={() => setShowEducation(false)}
-    />
-  </div>
-);
+          {/* Explanation */}
+          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+            <div className="flex items-start gap-2">
+              <Info className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm">
+                <p className="text-purple-800 font-medium mb-1">
+                  How cycle tracking works:
+                </p>
+                <p className="text-purple-700 mb-2">
+                  Track your menstrual cycle phases alongside your mood and
+                  energy to identify patterns. This helps you understand your
+                  natural rhythms and plan accordingly.
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: colors.Menstrual }}
+                    ></div>
+                    <span className="text-xs text-purple-700">Menstrual</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: colors.Follicular }}
+                    ></div>
+                    <span className="text-xs text-purple-700">Follicular</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: colors.Ovulatory }}
+                    ></div>
+                    <span className="text-xs text-purple-700">Ovulatory</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: colors.Luteal }}
+                    ></div>
+                    <span className="text-xs text-purple-700">Luteal</span>
+                  </div>
+                </div>
+                <p className="text-purple-600 mt-3 text-xs">
+                  💡 <strong>Tip:</strong> Tracking your cycle helps optimize
+                  your energy, plan challenging tasks, and practice
+                  self-compassion during harder phases.
+                </p>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="text-center py-12">
+          <Moon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-600 mb-2">
+            Start Tracking Your Cycle
+          </h3>
+          <p className="text-gray-500 max-w-md mx-auto mb-6">
+            Add cycle information to your journal entries to see how your
+            menstrual cycle affects your mood, energy, and emotional patterns.
+          </p>
+          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 max-w-md mx-auto">
+            <p className="text-purple-700 text-sm">
+              <strong>How to get started:</strong> When creating a journal
+              entry, you can optionally add your current cycle day and phase.
+              Over time, you'll see powerful insights about your patterns.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Education Modal */}
+      <CycleEducationModal
+        isOpen={showEducation}
+        onClose={() => setShowEducation(false)}
+      />
+    </div>
+  );
+};
 
 // Info Modal Component
 const InfoModal = ({ type, onClose }) => {
