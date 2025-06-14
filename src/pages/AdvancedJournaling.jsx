@@ -44,6 +44,8 @@ import {
   Lightbulb,
   Clock,
   Star,
+  Check,
+  Users,
 } from "lucide-react";
 
 // Journal templates for different use cases
@@ -360,7 +362,7 @@ export default function AdvancedJournaling() {
 
       if (entries && entries.length > 0) {
         const lastEntry = entries[0];
-        const decryptedContent = await encryptionService.decryptData(
+        const decryptedContent = await encryptionService.decrypt(
           lastEntry.content,
           lastEntry.encryption_key
         );
@@ -390,8 +392,9 @@ export default function AdvancedJournaling() {
       }
 
       // Encrypt content
-      const { encryptedData, encryptionKey } =
-        await encryptionService.encryptData(editorContent);
+      const { encryptedData, encryptionKey } = await encryptionService.encrypt(
+        editorContent
+      );
 
       // Save entry with enhanced metadata
       const { data: savedEntry, error } = await supabase
