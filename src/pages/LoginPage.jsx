@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
 import { useMembership } from "../hooks/useMembership";
 import { Eye, EyeOff } from "lucide-react";
-import logo from "../assets/reflectionary-square.png";
+import logo from "../assets/FinalReflectionarySquare.png";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
