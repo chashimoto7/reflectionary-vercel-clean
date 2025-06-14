@@ -1,179 +1,205 @@
-// src/hooks/useMembership.js - Debug Version
+// src/hooks/useMembership.js - Corrected to match your existing schema
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 
-export const useMembership = () => {
+export function useMembership() {
   const { user } = useAuth();
-  const [tier, setTier] = useState("free");
-  const [loading, setLoading] = useState(true);
-  const [subscription, setSubscription] = useState(null);
+  const [membershipData, setMembershipData] = useState({
+    tier: null,
+    features: [],
+    loading: true,
+  });
 
   useEffect(() => {
     if (user) {
-      fetchMembershipData();
+      loadMembership();
     } else {
-      setLoading(false);
+      setMembershipData({
+        tier: "free",
+        features: [],
+        loading: false,
+      });
     }
   }, [user]);
 
-  const fetchMembershipData = async () => {
+  async function loadMembership() {
+    if (!user) return;
+
     try {
-      console.log("🔍 Fetching membership for user:", user.id);
+      console.log("🔍 Loading membership for user:", user.id);
+      console.log("🔎 Looking for user profile with user_id:", user.id);
 
-      // Debug: Check what's in the user_subscriptions table
-      const { data: allSubs, error: allError } = await supabase
-        .from("user_subscriptions")
-        .select("*")
-        .eq("user_id", user.id);
-
-      console.log("📊 All subscriptions for user:", allSubs);
-      console.log("❌ Query error (if any):", allError);
-
-      // Try to get active subscription
-      const { data, error } = await supabase
-        .from("user_subscriptions")
-        .select("*")
+      // Query by user_id column (not id column) since that's where the Supabase user ID is stored
+      const { data: userData, error: userError } = await supabase
+        .from("user_profiles")
+        .select("subscription_tier")
         .eq("user_id", user.id)
-        .eq("status", "active")
         .single();
 
-      console.log("✅ Active subscription data:", data);
-      console.log("❌ Active subscription error:", error);
+      console.log("📋 Raw user profile data:", userData);
+      console.log("📋 User profile error:", userError);
 
-      if (error && error.code !== "PGRST116") {
-        console.error("💥 Error fetching subscription:", error);
-        setTier("free");
-      } else if (data) {
-        console.log("🎯 Found active subscription:", {
-          plan_tier: data.plan_tier,
-          status: data.status,
-          add_ons: data.add_ons,
+      if (userError) {
+        if (userError.code === "PGRST116") {
+          console.log("🆕 No user profile found - new user defaults to free");
+          setMembershipData({
+            tier: "free",
+            features: [],
+            loading: false,
+          });
+        } else {
+          console.error("❌ Database error loading membership:", userError);
+          setMembershipData({
+            tier: "free",
+            features: [],
+            loading: false,
+          });
+        }
+        return;
+      }
+
+      // Successfully got user data - extract the tier
+      const tier = userData?.subscription_tier;
+      console.log("🎯 Raw subscription_tier from database:", tier);
+
+      if (!tier) {
+        console.warn(
+          "⚠️ subscription_tier is null/undefined in database, defaulting to free"
+        );
+        setMembershipData({
+          tier: "free",
+          features: [],
+          loading: false,
         });
-        setSubscription(data);
-        setTier(data.plan_tier || "free");
-      } else {
-        console.log("🚫 No active subscription found, defaulting to free");
-        setTier("free");
+        return;
       }
+
+      // Get additional features for standard+ users
+      const { data: featureData } = await supabase
+        .from("user_feature_subscriptions")
+        .select("feature_name")
+        .eq("user_id", user.id)
+        .eq("active", true);
+
+      const features = featureData?.map((f) => f.feature_name) || [];
+
+      console.log("✅ Membership loaded successfully:", { tier, features });
+
+      setMembershipData({
+        tier,
+        features,
+        loading: false,
+      });
     } catch (error) {
-      console.error("💥 Membership fetch error:", error);
-      setTier("free");
-    } finally {
-      setLoading(false);
+      console.error("❌ Unexpected error loading membership:", error);
+      setMembershipData({
+        tier: "free",
+        features: [],
+        loading: false,
+      });
     }
-  };
+  }
 
-  // Feature access matrix based on tier and add-ons
-  const getFeatureAccess = () => {
-    const baseFeatures = {
-      free: {
-        journaling: false,
-        history: false,
-        analytics: false,
-        advanced_analytics: false,
-        goals: false,
-        follow_up_prompts: false,
-        voice_features: false,
-        crisis_detection: true,
-        cycle_tracking: false,
-      },
-      basic: {
-        journaling: true,
-        history: true,
-        analytics: true,
-        advanced_analytics: false,
-        goals: true,
-        follow_up_prompts: true,
-        voice_features: false,
-        crisis_detection: true,
-        cycle_tracking: true,
-      },
-      standard: {
-        journaling: true,
-        history: true,
-        analytics: true,
-        advanced_analytics: false, // Requires add-on or premium
-        goals: true,
-        follow_up_prompts: true,
-        voice_features: false,
-        crisis_detection: true,
-        cycle_tracking: true,
-      },
-      premium: {
-        journaling: true,
-        history: true,
-        analytics: true,
-        advanced_analytics: true, // Included in premium
-        goals: true,
-        follow_up_prompts: true,
-        voice_features: true,
-        crisis_detection: true,
-        cycle_tracking: true,
-      },
-    };
+  function hasAccess(feature) {
+    const { tier, features } = membershipData;
 
-    let features = baseFeatures[tier] || baseFeatures.free;
-    console.log("🎯 Base features for tier", tier, ":", features);
-
-    // Check for add-ons
-    if (subscription?.add_ons && Array.isArray(subscription.add_ons)) {
-      console.log("🔧 Checking add-ons:", subscription.add_ons);
-      if (subscription.add_ons.includes("advanced_analytics")) {
-        features.advanced_analytics = true;
-        console.log("✅ Advanced analytics unlocked via add-on");
-      }
-      if (subscription.add_ons.includes("voice_features")) {
-        features.voice_features = true;
-        console.log("✅ Voice features unlocked via add-on");
-      }
+    if (membershipData.loading) {
+      console.log("🔐 Access denied: still loading membership data");
+      return false;
     }
 
-    console.log("🏁 Final features:", features);
-    return features;
-  };
+    console.log("🔐 Checking access:", { feature, tier, features });
 
-  const hasAccess = (feature) => {
-    const features = getFeatureAccess();
-    const access = features[feature] || false;
-    console.log(`🔑 Access check for "${feature}": ${access} (tier: ${tier})`);
-    return access;
-  };
+    switch (feature) {
+      case "journaling":
+        return ["basic", "standard", "premium"].includes(tier);
 
-  const getUpgradeMessage = (feature) => {
-    const messages = {
-      journaling:
-        "Upgrade to Basic or higher for unlimited journaling entries.",
-      history: "Upgrade to Basic or higher for full journal history access.",
-      analytics: "Upgrade to Basic or higher to unlock analytics insights.",
-      advanced_analytics:
-        tier === "standard"
-          ? "Add Advanced Analytics to your Standard plan for $8/month, or upgrade to Premium for full access."
-          : "Upgrade to Premium for advanced analytics, or add to Standard plan.",
-      goals: "Upgrade to Basic or higher to set and track personal goals.",
-      follow_up_prompts:
-        "Upgrade to Basic or higher for AI follow-up questions.",
-      voice_features:
-        "Upgrade to Premium for voice journaling and audio playback.",
-      cycle_tracking:
-        "Upgrade to any paid plan for free cycle tracking support.",
-    };
-    return messages[feature] || "Upgrade your plan to access this feature.";
-  };
+      case "history":
+        return ["basic", "standard", "premium"].includes(tier);
 
-  // Add some debug info to the return
-  console.log("📋 useMembership returning:", {
-    tier,
-    loading,
-    hasAccess: hasAccess("advanced_analytics"),
-  });
+      case "analytics":
+        return (
+          tier === "premium" ||
+          (tier === "standard" && features.includes("analytics"))
+        );
+
+      // NEW: Advanced analytics access
+      case "advanced_analytics":
+        return (
+          tier === "premium" || // Premium gets it included
+          (tier === "standard" && features.includes("advanced_analytics")) // Standard can buy add-on
+        );
+
+      case "goals":
+        return (
+          tier === "premium" ||
+          (tier === "standard" && features.includes("goals"))
+        );
+
+      case "follow_up_prompts":
+        return ["basic", "standard", "premium"].includes(tier);
+
+      case "cycle_tracking":
+        return ["basic", "standard", "premium"].includes(tier); // Free for all paid members
+
+      case "voice_features":
+        return (
+          tier === "premium" ||
+          (tier === "standard" && features.includes("voice_features"))
+        );
+
+      case "crisis_detection":
+        return true; // Always available for safety
+
+      case "reflectionarian":
+        return (
+          tier === "premium" ||
+          (tier === "standard" && features.includes("reflectionarian"))
+        );
+
+      default:
+        console.warn(`🚨 Unknown feature requested: ${feature}`);
+        return false;
+    }
+  }
+
+  function getUpgradeMessage(feature) {
+    const { tier } = membershipData;
+
+    // Specific messages for advanced analytics
+    if (feature === "advanced_analytics") {
+      if (tier === "free" || tier === "basic") {
+        return "Upgrade to Premium for advanced analytics, or Standard + Advanced Analytics add-on.";
+      }
+      if (tier === "standard") {
+        return "Add Advanced Analytics to your Standard plan for $8/month, or upgrade to Premium for full access.";
+      }
+    }
+
+    // Default messages by tier
+    if (tier === "free") {
+      return "Upgrade to Basic for full journaling features, or Premium for everything!";
+    }
+
+    if (tier === "basic") {
+      return "Upgrade to Standard to add features individually, or Premium for everything!";
+    }
+
+    if (tier === "standard") {
+      return `Add ${feature} to your Standard membership or upgrade to Premium!`;
+    }
+
+    return "Upgrade your membership to access this feature!";
+  }
 
   return {
-    tier,
-    subscription,
-    loading,
+    ...membershipData,
     hasAccess,
     getUpgradeMessage,
-    refetch: fetchMembershipData,
+    refresh: loadMembership,
+    // Aliases for compatibility with the new components
+    tier: membershipData.tier,
+    loading: membershipData.loading,
   };
-};
+}
