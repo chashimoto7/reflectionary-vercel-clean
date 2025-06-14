@@ -46,6 +46,15 @@ import {
   Star,
   Check,
   Users,
+  Folder,
+  FolderPlus,
+  Pin,
+  PinOff,
+  StarOff,
+  X,
+  Plus,
+  Shuffle,
+  Search,
 } from "lucide-react";
 
 // Journal templates for different use cases
@@ -110,6 +119,7 @@ export default function AdvancedJournaling() {
   const editorRef = useRef(null);
   const quillRef = useRef(null);
   const audioRef = useRef(null);
+  const quillInitialized = useRef(false);
 
   // Crisis integration
   const {
@@ -136,6 +146,7 @@ export default function AdvancedJournaling() {
   const [subject, setSubject] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [currentThreadId, setCurrentThreadId] = useState(null);
+  const [followUpPrompt, setFollowUpPrompt] = useState("");
 
   // Advanced features state
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -149,6 +160,15 @@ export default function AdvancedJournaling() {
   const [mediaAttachments, setMediaAttachments] = useState([]);
   const [smartPromptsEnabled, setSmartPromptsEnabled] = useState(true);
   const [reflectionarianInsight, setReflectionarianInsight] = useState("");
+  const [isStarred, setIsStarred] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+
+  // Folders state
+  const [folders, setFolders] = useState([]);
+  const [selectedFolder, setSelectedFolder] = useState(null);
+  const [showFolderModal, setShowFolderModal] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [loadingFolders, setLoadingFolders] = useState(false);
 
   // Voice recording state
   const [mediaRecorder, setMediaRecorder] = useState(null);
@@ -181,9 +201,16 @@ export default function AdvancedJournaling() {
     return `Good ${timeOfDay}, ${name}`;
   };
 
-  // Initialize Quill editor with enhanced toolbar
+  // Load folders on mount
   useEffect(() => {
-    if (isLocked || !editorRef.current) return;
+    if (user) {
+      loadFolders();
+    }
+  }, [user]);
+
+  // Initialize Quill editor
+  useEffect(() => {
+    if (isLocked || !editorRef.current || quillInitialized.current) return;
 
     const toolbarOptions = [
       ["bold", "italic", "underline", "strike"],
@@ -217,17 +244,177 @@ export default function AdvancedJournaling() {
     });
 
     quillRef.current = quill;
+    quillInitialized.current = true;
     setIsEditorReady(true);
 
     // Load the last saved entry
     loadLastEntry();
 
     return () => {
-      if (quillRef.current) {
+      if (quillRef.current && quillInitialized.current) {
         quillRef.current = null;
+        quillInitialized.current = false;
       }
     };
-  }, [isLocked, user, selectedTemplate]);
+  }, [isLocked, user]);
+
+  // Update placeholder when template changes
+  useEffect(() => {
+    if (quillRef.current && isEditorReady) {
+      quillRef.current.root.dataset.placeholder = selectedTemplate
+        ? "Start writing based on the template prompts..."
+        : "Start writing your thoughts...";
+    }
+  }, [selectedTemplate, isEditorReady]);
+
+  // Load folders
+  const loadFolders = async () => {
+    setLoadingFolders(true);
+    try {
+      const { data, error } = await supabase
+        .from("journal_folders")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("name");
+
+      if (error) throw error;
+      setFolders(data || []);
+    } catch (error) {
+      console.error("Error loading folders:", error);
+    } finally {
+      setLoadingFolders(false);
+    }
+  };
+
+  // Create new folder
+  const createFolder = async () => {
+    if (!newFolderName.trim()) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("journal_folders")
+        .insert({
+          user_id: user.id,
+          name: newFolderName.trim(),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setFolders([...folders, data]);
+      setSelectedFolder(data.id);
+      setNewFolderName("");
+      setShowFolderModal(false);
+    } catch (error) {
+      console.error("Error creating folder:", error);
+      alert("Failed to create folder. Please try again.");
+    }
+  };
+
+  // Generate AI prompt (random)
+  const generateAIPrompt = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        "https://reflectionary-api.vercel.app/api/generatePrompt",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: user.id }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.prompt) {
+        setPrompt(data.prompt);
+        setPromptType("initial");
+        setShowPromptButton(false);
+      }
+    } catch (error) {
+      console.error("Error generating prompt:", error);
+      setPrompt("What's on your mind today?");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Generate subject-specific prompt
+  const handleSubjectPrompt = async () => {
+    if (!subject.trim()) return;
+
+    try {
+      setIsLoading(true);
+
+      const response = await fetch(
+        "https://reflectionary-api.vercel.app/api/generate-subject-prompt",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subject,
+            user_id: user.id,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.prompt) {
+        setPrompt(data.prompt);
+        setPromptType("subject");
+        setShowPromptButton(false);
+        setSubject("");
+      } else {
+        alert("No prompt returned. Try again.");
+      }
+    } catch (err) {
+      console.error("Failed to fetch subject prompt:", err);
+      alert("Something went wrong while generating the prompt.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Generate folder-specific prompt
+  const generateFolderPrompt = async () => {
+    if (!selectedFolder) {
+      alert("Please select a folder first");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Get entries from selected folder
+      const { data: folderEntries, error } = await supabase
+        .from("journal_entries")
+        .select("content, encryption_key")
+        .eq("user_id", user.id)
+        .eq("folder_id", selectedFolder)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+
+      // For now, use the folder name as context
+      const folder = folders.find((f) => f.id === selectedFolder);
+      const folderContext = `Generate a journaling prompt for the folder "${
+        folder?.name || "Untitled"
+      }". This folder contains ${folderEntries?.length || 0} entries.`;
+
+      setPrompt(
+        `Reflect on your journey in "${folder?.name}" - what patterns or insights have emerged?`
+      );
+      setPromptType("folder");
+      setShowPromptButton(false);
+    } catch (error) {
+      console.error("Error generating folder prompt:", error);
+      setPrompt("What would you like to add to this folder today?");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Voice recording functions
   const startVoiceRecording = async () => {
@@ -305,49 +492,6 @@ export default function AdvancedJournaling() {
     }
   };
 
-  // Enhanced AI prompt generation
-  const generateAIPrompt = async () => {
-    setIsLoading(true);
-    try {
-      let promptContext = "general";
-
-      if (selectedTemplate) {
-        promptContext = selectedTemplate;
-      } else if (lastSavedEntry) {
-        // Use last entry for context
-        promptContext = "followup";
-      }
-
-      const { data, error } = await supabase.functions.invoke(
-        "generate-journal-prompt",
-        {
-          body: {
-            context: promptContext,
-            template: selectedTemplate,
-            previousEntry: lastSavedEntry?.content?.substring(0, 500),
-            tags: tags,
-            wellnessData: wellnessData,
-          },
-        }
-      );
-
-      if (error) throw error;
-
-      setPrompt(data.prompt);
-      setPromptType(selectedTemplate ? "template" : "general");
-
-      // Get Reflectionarian insight if enabled
-      if (showReflectionarian && data.reflectionarianInsight) {
-        setReflectionarianInsight(data.reflectionarianInsight);
-      }
-    } catch (error) {
-      console.error("Error generating prompt:", error);
-      setPrompt("What's on your mind today?");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Load last entry
   const loadLastEntry = async () => {
     try {
@@ -367,13 +511,24 @@ export default function AdvancedJournaling() {
           lastEntry.encryption_key
         );
         setLastSavedEntry({ ...lastEntry, content: decryptedContent });
+
+        // Load metadata if available
+        if (lastEntry.metadata) {
+          if (lastEntry.metadata.tags) setTags(lastEntry.metadata.tags);
+          if (lastEntry.metadata.folder_id)
+            setSelectedFolder(lastEntry.metadata.folder_id);
+          if (lastEntry.metadata.is_starred)
+            setIsStarred(lastEntry.metadata.is_starred);
+          if (lastEntry.metadata.is_pinned)
+            setIsPinned(lastEntry.metadata.is_pinned);
+        }
       }
     } catch (error) {
       console.error("Error loading last entry:", error);
     }
   };
 
-  // Enhanced save entry with tags and metadata
+  // Enhanced save entry with all features
   const saveEntry = async () => {
     if (!editorContent.trim() || saveLabel === "Saving...") return;
 
@@ -396,6 +551,25 @@ export default function AdvancedJournaling() {
         editorContent
       );
 
+      // Get batch analysis data if available
+      let analysisData = {};
+      try {
+        // This would be populated by the batch job
+        const { data: recentAnalysis } = await supabase
+          .from("user_analytics")
+          .select("topics, emotions, tone")
+          .eq("user_id", user.id)
+          .order("date", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (recentAnalysis) {
+          analysisData = recentAnalysis;
+        }
+      } catch (e) {
+        // No analysis data available yet
+      }
+
       // Save entry with enhanced metadata
       const { data: savedEntry, error } = await supabase
         .from("journal_entries")
@@ -412,12 +586,16 @@ export default function AdvancedJournaling() {
           mood: wellnessData.mood,
           energy: wellnessData.energy,
           thread_id: currentThreadId,
+          folder_id: selectedFolder,
           metadata: {
             template: selectedTemplate,
             tags: tags,
             wellness: wellnessData,
             hasAudio: audioChunks.length > 0,
             attachments: mediaAttachments.length,
+            is_starred: isStarred,
+            is_pinned: isPinned,
+            ...analysisData,
           },
         })
         .select()
@@ -435,13 +613,64 @@ export default function AdvancedJournaling() {
         setSaveConfirmation(false);
         setShowModal(true);
       }, 1500);
-
-      // Trigger analytics batch if needed
-      await triggerAnalytics(savedEntry.id);
     } catch (error) {
       console.error("Error saving entry:", error);
       setSaveLabel("Error Saving");
       setTimeout(() => setSaveLabel("Save Entry"), 3000);
+    }
+  };
+
+  // Generate follow-up prompt
+  const generateFollowUp = async () => {
+    if (!lastSavedEntry) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        "https://reflectionary-api.vercel.app/api/follow-up",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            entry_id: lastSavedEntry.id,
+            user_id: user.id,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.prompt) {
+        setFollowUpPrompt(data.prompt);
+        setShowFollowUpModal(true);
+      }
+    } catch (error) {
+      console.error("Error generating follow-up:", error);
+      setFollowUpPrompt(
+        "What else would you like to explore about this topic?"
+      );
+      setShowFollowUpModal(true);
+    } finally {
+      setIsLoading(false);
+      setShowModal(false);
+    }
+  };
+
+  // Continue with follow-up
+  const continueWithFollowUp = () => {
+    setPrompt(followUpPrompt);
+    setPromptType("followUp");
+    setShowFollowUpModal(false);
+
+    // Clear editor
+    if (quillRef.current) {
+      quillRef.current.setText("");
+      setEditorContent("");
+    }
+
+    // Maintain thread
+    if (!currentThreadId && lastSavedEntry) {
+      setCurrentThreadId(lastSavedEntry.id);
     }
   };
 
@@ -480,12 +709,6 @@ export default function AdvancedJournaling() {
   const checkForCrisisContent = async (text) => {
     // This would integrate with your crisis detection service
     return { showResources: false };
-  };
-
-  // Trigger analytics
-  const triggerAnalytics = async (entryId) => {
-    // This would trigger your batch analytics processing
-    console.log("Triggering analytics for entry:", entryId);
   };
 
   if (isLocked) {
@@ -546,9 +769,9 @@ export default function AdvancedJournaling() {
             {isLoading ? (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
             ) : (
-              <Lightbulb size={16} />
+              <Shuffle size={16} />
             )}
-            Smart Prompt
+            Random Prompt
           </button>
 
           <button
@@ -577,6 +800,26 @@ export default function AdvancedJournaling() {
           >
             {audioPlayback ? <Volume2 size={16} /> : <VolumeX size={16} />}
             Read Aloud
+          </button>
+        </div>
+
+        {/* Subject Prompt Input */}
+        <div className="mt-4 flex gap-2">
+          <input
+            type="text"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            onKeyPress={(e) => e.key === "Enter" && handleSubjectPrompt()}
+            placeholder="Enter a subject for a specific prompt..."
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+          <button
+            onClick={handleSubjectPrompt}
+            disabled={isLoading || !subject.trim()}
+            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            <Search size={16} />
+            Get Prompt
           </button>
         </div>
       </div>
@@ -608,69 +851,120 @@ export default function AdvancedJournaling() {
       {prompt && (
         <div className="bg-gradient-to-r from-purple-100 to-pink-100 px-4 py-3 rounded-lg mb-6 border border-purple-200">
           <p className="text-lg font-bold text-purple-800">
-            {promptType === "template"
+            {promptType === "followUp"
+              ? "Follow-up prompt:"
+              : promptType === "subject"
+              ? "Subject-specific prompt:"
+              : promptType === "folder"
+              ? "Folder-based prompt:"
+              : promptType === "template"
               ? "Template-based prompt:"
-              : "Your personalized prompt:"}
+              : "Your journaling prompt:"}
           </p>
           <p className="text-purple-700 mt-1">{prompt}</p>
         </div>
       )}
 
-      {/* Reflectionarian Insight */}
-      {showReflectionarian && reflectionarianInsight && (
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 rounded-lg mb-6 border border-amber-200">
-          <div className="flex items-start gap-3">
-            <MessageCircle className="w-5 h-5 text-amber-600 mt-0.5" />
-            <div>
-              <p className="font-semibold text-amber-800">
-                The Reflectionarian says:
-              </p>
-              <p className="text-amber-700 mt-1">{reflectionarianInsight}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Subject/Title Input */}
-      <div className="mb-6">
-        <input
-          type="text"
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          placeholder="Entry title or subject (optional)"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        />
-      </div>
-
-      {/* Tags Input */}
-      <div className="mb-6">
-        <div className="flex items-center gap-2 mb-2">
-          <Hash className="w-4 h-4 text-gray-500" />
-          <span className="text-sm text-gray-600">Tags</span>
-        </div>
-        <div className="flex flex-wrap gap-2 items-center">
-          {tags.map((tag) => (
-            <span
-              key={tag}
-              className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm flex items-center gap-1"
+      {/* Folder & Organization Section */}
+      <div className="mb-6 space-y-4">
+        {/* Folder Selection */}
+        <div className="flex items-center gap-2">
+          <Folder className="w-4 h-4 text-gray-500" />
+          <span className="text-sm text-gray-600">Folder:</span>
+          <select
+            value={selectedFolder || ""}
+            onChange={(e) => setSelectedFolder(e.target.value || null)}
+            className="flex-1 px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          >
+            <option value="">No folder</option>
+            {folders.map((folder) => (
+              <option key={folder.id} value={folder.id}>
+                {folder.name}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => setShowFolderModal(true)}
+            className="px-3 py-1 bg-purple-600 text-white rounded-md text-sm hover:bg-purple-700"
+          >
+            <FolderPlus size={16} />
+          </button>
+          {selectedFolder && (
+            <button
+              onClick={generateFolderPrompt}
+              disabled={isLoading}
+              className="px-3 py-1 bg-purple-100 text-purple-700 rounded-md text-sm hover:bg-purple-200"
             >
-              {tag}
-              <button
-                onClick={() => removeTag(tag)}
-                className="text-purple-500 hover:text-purple-700"
+              Folder Prompt
+            </button>
+          )}
+        </div>
+
+        {/* Entry Options */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setIsStarred(!isStarred)}
+            className={`flex items-center gap-1 px-3 py-1 rounded-md text-sm ${
+              isStarred
+                ? "bg-yellow-100 text-yellow-700"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            {isStarred ? (
+              <Star size={16} fill="currentColor" />
+            ) : (
+              <StarOff size={16} />
+            )}
+            {isStarred ? "Starred" : "Star"}
+          </button>
+
+          <button
+            onClick={() => setIsPinned(!isPinned)}
+            className={`flex items-center gap-1 px-3 py-1 rounded-md text-sm ${
+              isPinned
+                ? "bg-blue-100 text-blue-700"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            {isPinned ? (
+              <Pin size={16} fill="currentColor" />
+            ) : (
+              <PinOff size={16} />
+            )}
+            {isPinned ? "Pinned" : "Pin"}
+          </button>
+        </div>
+
+        {/* Tags Input */}
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Hash className="w-4 h-4 text-gray-500" />
+            <span className="text-sm text-gray-600">Tags</span>
+          </div>
+          <div className="flex flex-wrap gap-2 items-center">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm flex items-center gap-1"
               >
-                ×
-              </button>
-            </span>
-          ))}
-          <input
-            type="text"
-            value={currentTag}
-            onChange={(e) => setCurrentTag(e.target.value)}
-            onKeyDown={addTag}
-            placeholder="Add tag..."
-            className="px-3 py-1 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
+                {tag}
+                <button
+                  onClick={() => removeTag(tag)}
+                  className="text-purple-500 hover:text-purple-700"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            <input
+              type="text"
+              value={currentTag}
+              onChange={(e) => setCurrentTag(e.target.value)}
+              onKeyDown={addTag}
+              placeholder="Add tag..."
+              className="px-3 py-1 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
         </div>
       </div>
 
@@ -842,49 +1136,6 @@ export default function AdvancedJournaling() {
               </div>
             </div>
 
-            {/* Social Connection & Productivity */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                  <Users className="w-4 h-4 text-pink-500" />
-                  Social Connection: {wellnessData.socialConnection}
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  value={wellnessData.socialConnection}
-                  onChange={(e) =>
-                    setWellnessData({
-                      ...wellnessData,
-                      socialConnection: parseInt(e.target.value),
-                    })
-                  }
-                  className="w-full accent-pink-500"
-                />
-              </div>
-
-              <div>
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                  <Target className="w-4 h-4 text-green-500" />
-                  Productivity: {wellnessData.productivity}
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  value={wellnessData.productivity}
-                  onChange={(e) =>
-                    setWellnessData({
-                      ...wellnessData,
-                      productivity: parseInt(e.target.value),
-                    })
-                  }
-                  className="w-full accent-green-500"
-                />
-              </div>
-            </div>
-
             <div className="text-xs text-gray-600 mt-2 flex items-center gap-1">
               <Info size={12} />
               All wellness data is encrypted and used to enhance your insights.
@@ -967,24 +1218,80 @@ export default function AdvancedJournaling() {
               </p>
             </div>
             <p className="mb-6 text-gray-600">
-              Would you like The Reflectionarian to generate a personalized
-              follow-up question?
+              Would you like a personalized follow-up question?
             </p>
             <div className="flex gap-3 justify-center">
               <button
-                onClick={() => {
-                  setShowModal(false);
-                  setShowFollowUpModal(true);
-                }}
-                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700"
+                onClick={generateFollowUp}
+                disabled={isLoading}
+                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50"
               >
-                Yes, inspire me
+                {isLoading ? "Generating..." : "Yes, inspire me"}
               </button>
               <button
                 onClick={() => setShowModal(false)}
                 className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
               >
                 No thanks
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Follow-up Prompt Modal */}
+      {showFollowUpModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Follow-up Prompt</h3>
+            <p className="text-gray-700 mb-6">{followUpPrompt}</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={continueWithFollowUp}
+                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700"
+              >
+                Continue Writing
+              </button>
+              <button
+                onClick={() => setShowFollowUpModal(false)}
+                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+              >
+                Done for Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Folder Creation Modal */}
+      {showFolderModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
+            <h3 className="text-lg font-semibold mb-4">Create New Folder</h3>
+            <input
+              type="text"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder="Folder name..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4"
+              autoFocus
+            />
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={createFolder}
+                disabled={!newFolderName.trim()}
+                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400"
+              >
+                Create
+              </button>
+              <button
+                onClick={() => {
+                  setShowFolderModal(false);
+                  setNewFolderName("");
+                }}
+                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
               </button>
             </div>
           </div>
