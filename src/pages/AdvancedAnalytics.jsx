@@ -101,8 +101,11 @@ const AdvancedAnalytics = () => {
     if (user && hasAccess("advanced_analytics")) {
       loadAdvancedAnalytics();
       loadInsights();
+    } else if (user && !loading) {
+      // User is loaded but doesn't have access - stop loading
+      setLoading(false);
     }
-  }, [user, dateRange]);
+  }, [user, dateRange, hasAccess]);
 
   const loadAdvancedAnalytics = async () => {
     setLoading(true);
@@ -177,7 +180,7 @@ const AdvancedAnalytics = () => {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Analyzing your deep patterns...</p>
+          <p className="text-gray-600">Loading your advanced analytics...</p>
         </div>
       </div>
     );
@@ -291,25 +294,51 @@ const AdvancedAnalytics = () => {
         <EmptyAdvancedState />
       ) : (
         <>
-          {/* Advanced Tab Navigation */}
-          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-8 overflow-x-auto">
-            {advancedTabs.map((tab) => {
-              const IconComponent = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? "bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-sm"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
-                  }`}
-                >
-                  <IconComponent className="w-4 h-4" />
-                  {tab.label}
-                </button>
-              );
-            })}
+          {/* Advanced Tab Navigation - Two Row Layout */}
+          <div className="mb-8">
+            <div className="bg-gray-50 p-3 rounded-lg">
+              {/* First Row */}
+              <div className="flex flex-wrap gap-2 mb-2">
+                {advancedTabs.slice(0, 5).map((tab) => {
+                  const IconComponent = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors flex-1 min-w-0 ${
+                        activeTab === tab.id
+                          ? "bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-md"
+                          : "bg-white text-gray-700 hover:text-purple-600 hover:bg-purple-50 border border-gray-200 hover:border-purple-200"
+                      }`}
+                    >
+                      <IconComponent className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Second Row */}
+              <div className="flex flex-wrap gap-2">
+                {advancedTabs.slice(5).map((tab) => {
+                  const IconComponent = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors flex-1 min-w-0 ${
+                        activeTab === tab.id
+                          ? "bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-md"
+                          : "bg-white text-gray-700 hover:text-purple-600 hover:bg-purple-50 border border-gray-200 hover:border-purple-200"
+                      }`}
+                    >
+                      <IconComponent className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           {/* Tab Content */}
