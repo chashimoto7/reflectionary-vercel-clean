@@ -71,7 +71,6 @@ function AppContent() {
       <Routes>
         <Route path="/" element={<Navigate to="/welcome" replace />} />
         <Route path="/welcome" element={<Welcome />} />
-        <Route path="/new-entry" element={<JournalingRouter />} />
         <Route path="/journaling" element={<JournalingRouter />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/goals" element={<GoalsPage />} />
