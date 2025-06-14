@@ -24,7 +24,7 @@ import NewEntryPage from "./pages/NewEntry";
 import HistoryPage from "./pages/history";
 import GoalsPage from "./pages/Goals";
 import SecuritySettingsPage from "./pages/SecuritySettingsPage";
-<Route path="/analytics" element={<AnalyticsRouter />} />;
+import AnalyticsRouter from "./pages/AnalyticsRouter";
 
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
@@ -76,6 +76,7 @@ function AppContent() {
         <Route path="/security" element={<SecuritySettingsPage />} />
         <Route path="*" element={<Navigate to="/welcome" replace />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/analytics" element={<AnalyticsRouter />} />
       </Routes>
     </Layout>
   );
