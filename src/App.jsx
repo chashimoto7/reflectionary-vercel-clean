@@ -75,7 +75,6 @@ function AppContent() {
         <Route path="/goals" element={<GoalsPage />} />
         <Route path="/security" element={<SecuritySettingsPage />} />
         <Route path="*" element={<Navigate to="/welcome" replace />} />
-        <Route path="/analytics" element={<Analytics />} />
         <Route path="/analytics" element={<AnalyticsRouter />} />
       </Routes>
     </Layout>
