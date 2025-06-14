@@ -59,7 +59,7 @@ import {
 
 const AdvancedAnalytics = () => {
   const { user } = useAuth();
-  const { hasAccess, tier } = useMembership();
+  const { hasAccess, tier, loading: membershipLoading } = useMembership();
   const [analyticsData, setAnalyticsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -98,14 +98,22 @@ const AdvancedAnalytics = () => {
   };
 
   useEffect(() => {
-    if (user && hasAccess("advanced_analytics")) {
+    // Don't do anything until user and membership data are loaded
+    if (!user || membershipLoading) {
+      return;
+    }
+
+    // Check access directly without using the function in dependencies
+    const userHasAccess = hasAccess("advanced_analytics");
+
+    if (userHasAccess) {
       loadAdvancedAnalytics();
       loadInsights();
-    } else if (user && !loading) {
-      // User is loaded but doesn't have access - stop loading
+    } else {
+      // User doesn't have access - stop loading
       setLoading(false);
     }
-  }, [user, dateRange, hasAccess]);
+  }, [user, dateRange, tier, membershipLoading]); // Use tier and membershipLoading instead of hasAccess function
 
   const loadAdvancedAnalytics = async () => {
     setLoading(true);
