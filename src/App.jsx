@@ -24,7 +24,7 @@ import NewEntryPage from "./pages/NewEntry";
 import HistoryPage from "./pages/history";
 import GoalsPage from "./pages/Goals";
 import SecuritySettingsPage from "./pages/SecuritySettingsPage";
-import Analytics from "./pages/Analytics";
+<Route path="/analytics" element={<AnalyticsRouter />} />;
 
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
