@@ -11,8 +11,20 @@ import { useFeatureAccess } from "../hooks/useFeatureAccess";
 import UpgradePrompt from "../components/UpgradePrompt";
 import { useCrisisIntegration } from "../hooks/useCrisisIntegration";
 import CrisisResourceModal from "../components/CrisisResourceModal";
+import {
+  Activity,
+  Moon,
+  Droplets,
+  Heart,
+  Brain,
+  Coffee,
+  Apple,
+  Dumbbell,
+  Wind,
+  Info,
+} from "lucide-react";
 
-export default function NewEntry() {
+export default function StandardJournaling() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isLocked } = useSecurity();
@@ -39,7 +51,7 @@ export default function NewEntry() {
     showCrisisResources,
   } = useCrisisIntegration();
 
-  // EXISTING State declarations (unchanged)
+  // EXISTING State declarations
   const [lastSavedEntry, setLastSavedEntry] = useState(null);
   const [prompt, setPrompt] = useState("");
   const [promptType, setPromptType] = useState("initial");
@@ -56,12 +68,30 @@ export default function NewEntry() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentThreadId, setCurrentThreadId] = useState(null);
 
-  // NEW: Crisis detection state (minimal additions)
+  // ENHANCED: Wellness tracking state with exercise and sleep
   const [mood, setMood] = useState(5);
   const [energy, setEnergy] = useState(5);
   const [cycleDay, setCycleDay] = useState("");
   const [cyclePhase, setCyclePhase] = useState("");
   const [showWellnessSection, setShowWellnessSection] = useState(false);
+
+  // NEW: Exercise and wellness tracking
+  const [exerciseType, setExerciseType] = useState("");
+  const [exerciseDuration, setExerciseDuration] = useState("");
+  const [sleepHours, setSleepHours] = useState("");
+  const [sleepQuality, setSleepQuality] = useState(5);
+  const [hydration, setHydration] = useState("");
+  const [wellnessActivities, setWellnessActivities] = useState({
+    meditation: false,
+    yoga: false,
+    natureTime: false,
+    socialConnection: false,
+    creativeActivity: false,
+    selfCare: false,
+  });
+
+  // Check if user has advanced analytics add-on
+  const hasAdvancedAnalytics = hasAccess("advanced_analytics");
 
   const editorRef = useRef(null);
   const quillRef = useRef(null);
@@ -288,7 +318,7 @@ export default function NewEntry() {
     }
   };
 
-  // ENHANCED saveEntry function (minimal changes to existing logic)
+  // ENHANCED saveEntry function with wellness data
   const saveEntry = async () => {
     console.log("🔄 Save entry function called");
 
@@ -318,6 +348,25 @@ export default function NewEntry() {
 
       console.log("✅ Entry encrypted successfully");
 
+      // Prepare wellness tracking data (user-entered)
+      const wellnessTrackingData = {
+        // Exercise data
+        exercise_type: exerciseType || null,
+        exercise_duration: exerciseDuration ? parseInt(exerciseDuration) : null,
+
+        // Sleep data
+        sleep_hours: sleepHours ? parseFloat(sleepHours) : null,
+        sleep_quality: sleepQuality,
+
+        // Hydration
+        hydration_glasses: hydration ? parseInt(hydration) : null,
+
+        // Wellness activities
+        wellness_activities: Object.entries(wellnessActivities)
+          .filter(([_, value]) => value)
+          .map(([key, _]) => key),
+      };
+
       // ENHANCED: Add wellness data to existing payload
       const entryData = {
         ...encryptedData,
@@ -325,15 +374,17 @@ export default function NewEntry() {
         is_follow_up: promptType === "followUp",
         parent_entry_id: currentThreadId,
         thread_id: currentThreadId,
-        // NEW: Crisis detection metadata
+        // Existing wellness data
         mood: mood,
         energy: energy,
         cycle_day: cycleDay ? parseInt(cycleDay) : null,
         cycle_phase: cyclePhase || null,
+        // NEW: Store user-entered wellness tracking separately
+        wellness_tracking: wellnessTrackingData,
       };
 
       console.log(
-        "📦 Sending encrypted entry data to backend (with wellness data)"
+        "📦 Sending encrypted entry data to backend (with enhanced wellness data)"
       );
 
       const response = await fetch(
@@ -354,7 +405,7 @@ export default function NewEntry() {
 
       console.log("✅ Entry saved with ID:", result.entry_id);
 
-      // NEW: Check for crisis analysis
+      // Check for crisis analysis
       if (result.crisis_analysis?.should_alert) {
         console.log("🚨 Crisis analysis triggered:", result.crisis_analysis);
         triggerCrisisModal(result.crisis_analysis);
@@ -386,9 +437,11 @@ export default function NewEntry() {
       window.currentConversationChain = updatedChain;
       window.currentThreadId = currentThreadId || result.entry_id;
 
+      // Clear form including wellness fields
       clearEditor();
       setPrompt("");
       setShowPromptButton(true);
+      resetWellnessFields();
 
       setSaveConfirmation(true);
       setTimeout(() => setSaveConfirmation(false), 3000);
@@ -403,6 +456,27 @@ export default function NewEntry() {
       alert(`Failed to save entry: ${err.message}`);
       setSaveLabel("Save Entry");
     }
+  };
+
+  // NEW: Reset wellness fields after save
+  const resetWellnessFields = () => {
+    setMood(5);
+    setEnergy(5);
+    setCycleDay("");
+    setCyclePhase("");
+    setExerciseType("");
+    setExerciseDuration("");
+    setSleepHours("");
+    setSleepQuality(5);
+    setHydration("");
+    setWellnessActivities({
+      meditation: false,
+      yoga: false,
+      natureTime: false,
+      socialConnection: false,
+      creativeActivity: false,
+      selfCare: false,
+    });
   };
 
   // EXISTING functions (unchanged)
@@ -520,7 +594,7 @@ export default function NewEntry() {
             New Journal Entry
           </h2>
           <div className="flex items-center gap-4">
-            {/* NEW: Support resources button */}
+            {/* Support resources button */}
             <button
               onClick={showCrisisResources}
               className="flex items-center gap-2 px-3 py-1 text-purple-600 border border-purple-300 rounded-full hover:bg-purple-50 transition-colors text-sm"
@@ -603,7 +677,7 @@ export default function NewEntry() {
           </div>
         )}
 
-        {/* NEW: Optional Wellness Tracking Section */}
+        {/* ENHANCED: Wellness Tracking Section */}
         <div className="mb-6">
           <button
             onClick={() => setShowWellnessSection(!showWellnessSection)}
@@ -616,14 +690,21 @@ export default function NewEntry() {
             >
               ▶
             </span>
-            Track mood, energy & cycle (optional)
+            Track wellness data (optional)
+            {hasAdvancedAnalytics && (
+              <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full ml-2">
+                Enhanced for Advanced Analytics
+              </span>
+            )}
           </button>
 
           {showWellnessSection && (
             <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+              {/* Mood and Energy (existing) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <Heart className="w-4 h-4 text-pink-500" />
                     Mood: {mood}/10
                   </label>
                   <input
@@ -641,7 +722,8 @@ export default function NewEntry() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-amber-500" />
                     Energy: {energy}/10
                   </label>
                   <input
@@ -659,7 +741,137 @@ export default function NewEntry() {
                 </div>
               </div>
 
+              {/* NEW: Exercise and Sleep */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                      <Dumbbell className="w-4 h-4 text-green-500" />
+                      Exercise
+                    </label>
+                    <select
+                      value={exerciseType}
+                      onChange={(e) => setExerciseType(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm mb-2"
+                    >
+                      <option value="">Select type...</option>
+                      <option value="walking">Walking</option>
+                      <option value="running">Running</option>
+                      <option value="cycling">Cycling</option>
+                      <option value="swimming">Swimming</option>
+                      <option value="yoga">Yoga</option>
+                      <option value="strength">Strength Training</option>
+                      <option value="cardio">Cardio</option>
+                      <option value="sports">Sports</option>
+                      <option value="other">Other</option>
+                    </select>
+                    {exerciseType && (
+                      <input
+                        type="number"
+                        min="0"
+                        max="300"
+                        value={exerciseDuration}
+                        onChange={(e) => setExerciseDuration(e.target.value)}
+                        placeholder="Duration (minutes)"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                      <Moon className="w-4 h-4 text-purple-500" />
+                      Sleep
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="24"
+                      value={sleepHours}
+                      onChange={(e) => setSleepHours(e.target.value)}
+                      placeholder="Hours slept"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm mb-2"
+                    />
+                    {sleepHours && (
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">
+                          Sleep Quality: {sleepQuality}/10
+                        </label>
+                        <input
+                          type="range"
+                          min="1"
+                          max="10"
+                          value={sleepQuality}
+                          onChange={(e) =>
+                            setSleepQuality(parseInt(e.target.value))
+                          }
+                          className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* NEW: Hydration and Wellness Activities */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <Droplets className="w-4 h-4 text-blue-500" />
+                    Hydration (glasses of water)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="20"
+                    value={hydration}
+                    onChange={(e) => setHydration(e.target.value)}
+                    placeholder="Glasses of water"
+                    className="w-full md:w-48 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <Brain className="w-4 h-4 text-indigo-500" />
+                    Wellness Activities
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {Object.entries({
+                      meditation: "Meditation",
+                      yoga: "Yoga/Stretching",
+                      natureTime: "Nature Time",
+                      socialConnection: "Social Connection",
+                      creativeActivity: "Creative Activity",
+                      selfCare: "Self-Care",
+                    }).map(([key, label]) => (
+                      <label
+                        key={key}
+                        className="flex items-center space-x-2 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={wellnessActivities[key]}
+                          onChange={(e) =>
+                            setWellnessActivities({
+                              ...wellnessActivities,
+                              [key]: e.target.checked,
+                            })
+                          }
+                          className="rounded text-purple-600 focus:ring-purple-500"
+                        />
+                        <span>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Cycle tracking (existing) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-gray-200">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Cycle Day (optional)
@@ -691,6 +903,22 @@ export default function NewEntry() {
                     <option value="Luteal">Luteal</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Info message */}
+              <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
+                <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-blue-700">
+                  This wellness data helps our AI provide personalized insights
+                  about how your physical health impacts your emotional
+                  well-being. All data is encrypted and private to you.
+                  {hasAdvancedAnalytics && (
+                    <span className="block mt-1 font-medium">
+                      As an Advanced Analytics subscriber, you'll see detailed
+                      correlations and predictive insights based on this data.
+                    </span>
+                  )}
+                </p>
               </div>
             </div>
           )}

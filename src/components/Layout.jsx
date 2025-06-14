@@ -26,9 +26,9 @@ export default function Layout({ children }) {
 
   const navigationItems = [
     {
-      to: "/new-entry",
+      to: "/standard-journaling",
       icon: Plus,
-      label: "New Entry",
+      label: "Journaling",
       feature: "journaling",
     },
     {

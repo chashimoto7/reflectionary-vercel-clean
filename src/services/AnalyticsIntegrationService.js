@@ -338,7 +338,7 @@ export class AnalyticsIntegrationService {
   }
 
   /**
-   * Get analytics data for dashboard display
+   * Get analytics data for dashboard display with wellness tracking integration
    */
   async getAnalyticsForDashboard(userId, dateRange = "3months") {
     try {
@@ -375,12 +375,26 @@ export class AnalyticsIntegrationService {
         throw error;
       }
 
+      // NEW: Get wellness tracking data from journal entries
+      const { data: wellnessData, error: wellnessError } = await supabase
+        .from("journal_entries")
+        .select("created_at, mood, energy, wellness_tracking")
+        .eq("user_id", userId)
+        .gte("created_at", startDate.toISOString())
+        .lte("created_at", endDate.toISOString())
+        .not("wellness_tracking", "is", null)
+        .order("created_at", { ascending: true });
+
+      if (wellnessError) {
+        console.error("Error fetching wellness data:", wellnessError);
+      }
+
       if (!analyticsData || analyticsData.length === 0) {
         return this.getEmptyDashboardData();
       }
 
       // Process the data for dashboard consumption
-      return this.processDashboardData(analyticsData);
+      return this.processDashboardData(analyticsData, wellnessData);
     } catch (error) {
       console.error("Error in getAnalyticsForDashboard:", error);
       throw error;
@@ -390,41 +404,54 @@ export class AnalyticsIntegrationService {
   /**
    * Process raw analytics data into dashboard-friendly format
    */
-  processDashboardData(analyticsData) {
+  processDashboardData(analyticsData, wellnessData = []) {
     return {
       overview: this.processOverviewData(analyticsData),
       sentiment: this.processSentimentData(analyticsData),
       mood: this.processMoodData(analyticsData),
       energy: this.processEnergyData(analyticsData),
       themes: this.processThemesData(analyticsData),
-      behavioral: this.processBehavioralData(analyticsData),
+      behavioral: this.processBehavioralData(analyticsData, wellnessData),
       cognitive: this.processCognitiveData(analyticsData),
-      wellness: this.processWellnessData(analyticsData),
+      wellness: this.processWellnessData(analyticsData, wellnessData),
     };
   }
 
+  // ... (keeping all existing process functions unchanged until behavioral and wellness) ...
+
   processOverviewData(data) {
+    if (data.length === 0) return this.getEmptyOverview();
+
     const totalEntries = data.length;
-    const averageMood =
+    const totalWords = data.reduce(
+      (sum, entry) => sum + (entry.word_count || 0),
+      0
+    );
+    const avgWordsPerEntry = Math.round(totalWords / totalEntries);
+
+    const avgMood =
       data.reduce((sum, entry) => sum + (entry.mood_score || 0), 0) /
       totalEntries;
-    const averageEnergy =
+    const avgEnergy =
       data.reduce((sum, entry) => sum + (entry.energy_level || 0), 0) /
       totalEntries;
 
-    // Calculate journaling streak
-    const sortedDates = data
-      .map((entry) => new Date(entry.analysis_date).toDateString())
-      .filter((date, index, array) => array.indexOf(date) === index)
-      .sort((a, b) => new Date(b) - new Date(a));
+    // Calculate journaling streak (consecutive days)
+    const dates = data.map((entry) =>
+      new Date(entry.analysis_date).toDateString()
+    );
+    const uniqueDates = [...new Set(dates)].sort(
+      (a, b) => new Date(b) - new Date(a)
+    );
 
     let streak = 0;
-    for (let i = 0; i < sortedDates.length; i++) {
-      const currentDate = new Date(sortedDates[i]);
+    const today = new Date().toDateString();
+
+    for (let i = 0; i < uniqueDates.length; i++) {
       const expectedDate = new Date();
       expectedDate.setDate(expectedDate.getDate() - i);
 
-      if (currentDate.toDateString() === expectedDate.toDateString()) {
+      if (uniqueDates[i] === expectedDate.toDateString()) {
         streak++;
       } else {
         break;
@@ -450,8 +477,10 @@ export class AnalyticsIntegrationService {
 
     return {
       totalEntries,
-      averageMood: averageMood.toFixed(1),
-      averageEnergy: averageEnergy.toFixed(1),
+      totalWords,
+      avgWordsPerEntry,
+      avgMood: avgMood.toFixed(1),
+      avgEnergy: avgEnergy.toFixed(1),
       journalingStreak: streak,
       mostCommonThemes,
     };
@@ -681,10 +710,13 @@ export class AnalyticsIntegrationService {
     };
   }
 
-  processBehavioralData(data) {
+  processBehavioralData(data, wellnessData) {
     // Analyze journaling habits
     const journalingFrequency = this.calculateJournalingFrequency(data);
     const activityPatterns = this.extractActivityPatterns(data);
+
+    // NEW: Extract exercise patterns from wellness tracking
+    const exercisePatterns = this.extractExercisePatterns(wellnessData);
 
     return {
       journalingHabits: {
@@ -693,7 +725,55 @@ export class AnalyticsIntegrationService {
         consistency: 0, // To be implemented
       },
       activityPatterns,
+      exercisePatterns, // NEW
       socialDynamics: this.extractSocialDynamics(data),
+    };
+  }
+
+  // NEW: Extract exercise patterns from wellness tracking
+  extractExercisePatterns(wellnessData) {
+    const exerciseStats = {};
+    let totalExerciseDays = 0;
+    let totalDuration = 0;
+
+    wellnessData.forEach((entry) => {
+      if (entry.wellness_tracking?.exercise_type) {
+        const type = entry.wellness_tracking.exercise_type;
+        const duration = entry.wellness_tracking.exercise_duration || 0;
+
+        if (!exerciseStats[type]) {
+          exerciseStats[type] = {
+            count: 0,
+            totalDuration: 0,
+            avgMood: 0,
+            moodSum: 0,
+          };
+        }
+
+        exerciseStats[type].count++;
+        exerciseStats[type].totalDuration += duration;
+        exerciseStats[type].moodSum += entry.mood || 0;
+
+        totalExerciseDays++;
+        totalDuration += duration;
+      }
+    });
+
+    // Calculate averages
+    Object.keys(exerciseStats).forEach((type) => {
+      exerciseStats[type].avgDuration =
+        exerciseStats[type].totalDuration / exerciseStats[type].count;
+      exerciseStats[type].avgMood =
+        exerciseStats[type].moodSum / exerciseStats[type].count;
+    });
+
+    return {
+      exerciseTypes: exerciseStats,
+      totalExerciseDays,
+      totalDuration,
+      avgSessionDuration:
+        totalExerciseDays > 0 ? totalDuration / totalExerciseDays : 0,
+      exerciseFrequency: totalExerciseDays / Math.max(1, wellnessData.length),
     };
   }
 
@@ -718,11 +798,12 @@ export class AnalyticsIntegrationService {
     };
   }
 
-  processWellnessData(data) {
+  processWellnessData(data, wellnessData) {
     const selfCareFrequency = {};
     let totalStress = 0;
     let stressCount = 0;
 
+    // Process AI-detected wellness patterns
     data.forEach((entry) => {
       if (entry.self_care_activities) {
         Object.entries(entry.self_care_activities).forEach(
@@ -739,12 +820,94 @@ export class AnalyticsIntegrationService {
       }
     });
 
+    // NEW: Process user-tracked wellness data
+    const userWellnessStats = this.processUserWellnessData(wellnessData);
+
     return {
       selfCarePatterns: selfCareFrequency,
       averageStressLevel:
         stressCount > 0 ? (totalStress / stressCount).toFixed(1) : 0,
       stressIndicators: [], // To be implemented
       sleepPatterns: this.extractSleepPatterns(data),
+      // NEW: User-tracked wellness data
+      userTrackedWellness: userWellnessStats,
+    };
+  }
+
+  // NEW: Process user-tracked wellness data
+  processUserWellnessData(wellnessData) {
+    let sleepStats = {
+      totalNights: 0,
+      totalHours: 0,
+      avgQuality: 0,
+      qualitySum: 0,
+    };
+
+    let hydrationStats = {
+      totalDays: 0,
+      totalGlasses: 0,
+      avgGlasses: 0,
+    };
+
+    let wellnessActivityStats = {};
+
+    wellnessData.forEach((entry) => {
+      const tracking = entry.wellness_tracking;
+      if (!tracking) return;
+
+      // Sleep data
+      if (tracking.sleep_hours) {
+        sleepStats.totalNights++;
+        sleepStats.totalHours += tracking.sleep_hours;
+        sleepStats.qualitySum += tracking.sleep_quality || 5;
+      }
+
+      // Hydration data
+      if (tracking.hydration_glasses) {
+        hydrationStats.totalDays++;
+        hydrationStats.totalGlasses += tracking.hydration_glasses;
+      }
+
+      // Wellness activities
+      if (
+        tracking.wellness_activities &&
+        Array.isArray(tracking.wellness_activities)
+      ) {
+        tracking.wellness_activities.forEach((activity) => {
+          if (!wellnessActivityStats[activity]) {
+            wellnessActivityStats[activity] = {
+              count: 0,
+              avgMood: 0,
+              moodSum: 0,
+            };
+          }
+          wellnessActivityStats[activity].count++;
+          wellnessActivityStats[activity].moodSum += entry.mood || 0;
+        });
+      }
+    });
+
+    // Calculate averages
+    if (sleepStats.totalNights > 0) {
+      sleepStats.avgHours = sleepStats.totalHours / sleepStats.totalNights;
+      sleepStats.avgQuality = sleepStats.qualitySum / sleepStats.totalNights;
+    }
+
+    if (hydrationStats.totalDays > 0) {
+      hydrationStats.avgGlasses =
+        hydrationStats.totalGlasses / hydrationStats.totalDays;
+    }
+
+    Object.keys(wellnessActivityStats).forEach((activity) => {
+      wellnessActivityStats[activity].avgMood =
+        wellnessActivityStats[activity].moodSum /
+        wellnessActivityStats[activity].count;
+    });
+
+    return {
+      sleep: sleepStats,
+      hydration: hydrationStats,
+      wellnessActivities: wellnessActivityStats,
     };
   }
 
@@ -846,13 +1009,7 @@ export class AnalyticsIntegrationService {
 
   getEmptyDashboardData() {
     return {
-      overview: {
-        totalEntries: 0,
-        averageMood: "0.0",
-        averageEnergy: "0.0",
-        journalingStreak: 0,
-        mostCommonThemes: [],
-      },
+      overview: this.getEmptyOverview(),
       sentiment: { daily: [], weekly: [], emotions: [] },
       mood: { daily: [], weeklyPattern: [], patterns: {} },
       energy: { daily: [], weeklyPattern: [], patterns: {} },
@@ -860,6 +1017,7 @@ export class AnalyticsIntegrationService {
       behavioral: {
         journalingHabits: {},
         activityPatterns: [],
+        exercisePatterns: {},
         socialDynamics: {},
       },
       cognitive: {
@@ -872,7 +1030,20 @@ export class AnalyticsIntegrationService {
         averageStressLevel: 0,
         stressIndicators: [],
         sleepPatterns: {},
+        userTrackedWellness: {},
       },
+    };
+  }
+
+  getEmptyOverview() {
+    return {
+      totalEntries: 0,
+      totalWords: 0,
+      avgWordsPerEntry: 0,
+      avgMood: "0.0",
+      avgEnergy: "0.0",
+      journalingStreak: 0,
+      mostCommonThemes: [],
     };
   }
 

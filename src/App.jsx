@@ -20,7 +20,7 @@ if (typeof window !== "undefined") {
 import LoginPage from "./pages/LoginPage";
 import Layout from "./components/Layout";
 import Welcome from "./pages/Welcome";
-import NewEntryPage from "./pages/NewEntry";
+import StandardJournalingPage from "./pages/StandardJournaling";
 import HistoryPage from "./pages/history";
 import GoalsPage from "./pages/Goals";
 import SecuritySettingsPage from "./pages/SecuritySettingsPage";
@@ -70,7 +70,7 @@ function AppContent() {
       <Routes>
         <Route path="/" element={<Navigate to="/welcome" replace />} />
         <Route path="/welcome" element={<Welcome />} />
-        <Route path="/new-entry" element={<NewEntryPage />} />
+        <Route path="/new-entry" element={<StandardJournalingPage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/goals" element={<GoalsPage />} />
         <Route path="/security" element={<SecuritySettingsPage />} />

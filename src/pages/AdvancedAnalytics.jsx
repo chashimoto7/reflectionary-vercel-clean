@@ -359,6 +359,7 @@ const AdvancedAnalytics = () => {
                 insights={insights}
                 onAcknowledgeInsight={handleAcknowledgeInsight}
                 colors={colors}
+                userId={user.id} // Add this line
               />
             )}
             {activeTab === "data-export" && (
