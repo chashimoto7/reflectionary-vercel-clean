@@ -106,28 +106,28 @@ export default function Welcome() {
       icon: Brain,
       title: "New Entry",
       description: "Start your reflection",
-      href: "/new-entry",
+      href: "/journaling-router",
       color: "from-purple-500 to-purple-600",
     },
     {
       icon: BarChart3,
       title: "Analytics",
       description: "View your insights",
-      href: "/analytics",
+      href: "/analytics-router",
       color: "from-cyan-500 to-cyan-600",
     },
     {
       icon: Target,
       title: "Goals",
       description: "Track progress",
-      href: "/goals",
+      href: "/goals-router",
       color: "from-emerald-500 to-emerald-600",
     },
     {
       icon: Calendar,
       title: "History",
       description: "Browse entries",
-      href: "/history",
+      href: "/history-router",
       color: "from-amber-500 to-amber-600",
     },
   ];
@@ -234,7 +234,7 @@ export default function Welcome() {
                 {quickActions.map((action, index) => {
                   const Icon = action.icon;
                   return (
-                    <a
+                    <Link
                       key={index}
                       href={action.href}
                       className="group bg-white rounded-lg p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all hover:border-purple-200"
@@ -255,7 +255,7 @@ export default function Welcome() {
                         </div>
                         <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-purple-600 transition-colors mt-1" />
                       </div>
-                    </a>
+                    </Link>
                   );
                 })}
               </div>
@@ -328,13 +328,12 @@ export default function Welcome() {
               </div>
 
               <div className="mt-6 pt-6 border-t border-gray-200">
-                <a
+                <Link
                   href="/settings"
                   className="text-sm text-purple-600 hover:text-purple-700 font-medium flex items-center gap-2 group"
-                >
-                  View all updates
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </a>
+                ></Link>
+                View all updates
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
 

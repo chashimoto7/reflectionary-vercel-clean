@@ -17,15 +17,17 @@ if (typeof window !== "undefined") {
   window.supabase = supabase;
 }
 
+// Pages
 import LoginPage from "./pages/LoginPage";
 import Layout from "./components/Layout";
 import Welcome from "./pages/Welcome";
-import StandardJournalingPage from "./pages/StandardJournaling";
-import HistoryPage from "./pages/history";
-import GoalsPage from "./pages/Goals";
 import SecuritySettingsPage from "./pages/SecuritySettingsPage";
+
+// Routers that handle standard/advanced versions
 import AnalyticsRouter from "./pages/AnalyticsRouter";
 import JournalingRouter from "./pages/JournalingRouter";
+import HistoryRouter from "./pages/HistoryRouter";
+import GoalsRouter from "./pages/GoalsRouter";
 
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
@@ -72,8 +74,8 @@ function AppContent() {
         <Route path="/" element={<Navigate to="/welcome" replace />} />
         <Route path="/welcome" element={<Welcome />} />
         <Route path="/journaling" element={<JournalingRouter />} />
-        <Route path="/history" element={<HistoryPage />} />
-        <Route path="/goals" element={<GoalsPage />} />
+        <Route path="/history" element={<HistoryRouter />} />
+        <Route path="/goals" element={<GoalsRouter />} />
         <Route path="/security" element={<SecuritySettingsPage />} />
         <Route path="/analytics" element={<AnalyticsRouter />} />
         <Route path="*" element={<Navigate to="/welcome" replace />} />
