@@ -1,4 +1,3 @@
-import logo from "../assets/ReflectionaryLogoWelcome.png";
 import React, { useState, useEffect } from "react";
 import {
   Sparkles,
@@ -80,7 +79,7 @@ export default function Welcome() {
     return () => clearInterval(timer);
   }, []);
 
-  // Auto-rotate quote every 30 seconds
+  // Auto-rotate quote every 20 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       setQuote((q) => getRandomQuote(q.idx));
@@ -168,19 +167,26 @@ export default function Welcome() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header Section */}
       <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex flex-col items-center text-center">
-            <img
-              src={logo}
-              alt="Reflectionary logo"
-              className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg h-auto"
-            />
-            <h1 className="mt-6 text-3xl font-bold text-gray-900">
-              {getGreeting()}
-            </h1>
-            <p className="mt-2 text-lg text-gray-600">
-              Your personal space for reflection and growth
-            </p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center gap-6">
+            {/* Logo placeholder - replace with your actual round logo */}
+            <div className="w-24 h-24 md:w-28 md:h-28 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg flex-shrink-0">
+              <Sparkles className="w-12 h-12 md:w-14 md:h-14 text-white" />
+            </div>
+
+            {/* Text content - left aligned */}
+            <div className="flex-1">
+              {/* Reflectionary text placeholder - replace with your actual image */}
+              <h1 className="text-4xl md:text-5xl font-bold text-purple-600 mb-2">
+                Reflectionary
+              </h1>
+              <h2 className="text-2xl md:text-3xl font-semibold text-gray-900">
+                {getGreeting()}
+              </h2>
+              <p className="text-lg md:text-xl text-gray-600 mt-1">
+                Your personal space for reflection and growth
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -213,24 +219,8 @@ export default function Welcome() {
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Quote and Quick Actions */}
+          {/* Left Column - Quick Actions and Quote */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Daily Inspiration */}
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-8 text-white shadow-lg">
-              <div className="flex items-start gap-4">
-                <Quote className="w-8 h-8 opacity-50 flex-shrink-0 mt-1" />
-                <div className="flex-1">
-                  <blockquote className="text-xl font-medium mb-4 leading-relaxed">
-                    "{quote.text}"
-                  </blockquote>
-                  <cite className="text-purple-100 text-sm flex items-center gap-2">
-                    <span className="w-8 h-px bg-purple-300"></span>
-                    {quote.author}
-                  </cite>
-                </div>
-              </div>
-            </div>
-
             {/* Quick Actions */}
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
@@ -264,6 +254,22 @@ export default function Welcome() {
                     </a>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* Daily Inspiration */}
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-8 text-white shadow-lg">
+              <div className="flex items-start gap-4">
+                <Quote className="w-8 h-8 opacity-50 flex-shrink-0 mt-1" />
+                <div className="flex-1">
+                  <blockquote className="text-xl font-medium mb-4 leading-relaxed">
+                    "{quote.text}"
+                  </blockquote>
+                  <cite className="text-purple-100 text-sm flex items-center gap-2">
+                    <span className="w-8 h-px bg-purple-300"></span>
+                    {quote.author}
+                  </cite>
+                </div>
               </div>
             </div>
           </div>
