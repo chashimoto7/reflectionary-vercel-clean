@@ -1,5 +1,5 @@
 import logo from "../assets/ReflectionaryWordWelcome.png";
-import roundlogo from "../assets/FinalReflectionarySquare.png";
+import squarelogo from "../assets/FinalReflectionarySquare.png";
 import React, { useState, useEffect } from "react";
 import {
   Sparkles,
@@ -171,16 +171,21 @@ export default function Welcome() {
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center gap-6">
-            src={roundlogo}
-            alt="Reflectionary logo"
-            <div className="w-32 h-32 md:w-38 md:h-38"></div>
+            {/* Logo placeholder - replace with your actual round logo */}
+            <img
+              src={squarelogo}
+              alt="Reflectionary logo"
+              className="w-24 h-24 md:w-28 md:h-28 shadow-lg flex-shrink-0"
+            />
+
             {/* Text content - left aligned */}
             <div className="flex-1">
-              src={logo}
-              alt="Reflectionary logo"
-              <h1 className="text-4xl md:text-5xl font-bold text-purple-600 mb-2">
-                Reflectionary
-              </h1>
+              {/* Reflectionary text placeholder - replace with your actual image */}
+              <img
+                src={logo}
+                alt="Reflectionary"
+                className="h-10 md:h-12 w-auto mb-2"
+              />
               <h2 className="text-2xl md:text-3xl font-semibold text-gray-900">
                 {getGreeting()}
               </h2>
