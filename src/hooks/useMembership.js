@@ -132,16 +132,16 @@ export function useMembership() {
         );
 
       // NEW: Advanced goals access
-      case "advanced_goals":
-        return (
-          tier === "premium" || // Premium gets it included
-          (tier === "standard" && features.includes("advanced_goals")) // Standard can buy add-on
-        );
-
       case "goals":
         return (
-          tier === "standard" ||
-          (tier === "standard" && features.includes("goals"))
+          tier === "premium" || // Premium gets everything
+          (tier === "standard" && features.includes("goals")) // Standard can buy goals add-on
+        );
+
+      case "advanced_goals":
+        return (
+          tier === "premium" || // Premium gets advanced version
+          (tier === "standard" && features.includes("advanced_goals")) // Standard+ can upgrade to advanced
         );
 
       case "follow_up_prompts":

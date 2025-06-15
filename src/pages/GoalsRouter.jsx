@@ -5,7 +5,7 @@ import GoalsPage from "./Goals";
 import AdvancedGoals from "./AdvancedGoals";
 
 const GoalsRouter = () => {
-  const { hasAccess, loading } = useMembership();
+  const { hasAccess, loading, tier } = useMembership();
 
   // Show loading while membership is being determined
   if (loading) {
@@ -19,11 +19,30 @@ const GoalsRouter = () => {
     );
   }
 
+  // Debug logging
+  console.log("🎯 GoalsRouter Debug:", {
+    tier,
+    hasGoalsAccess: hasAccess("goals"),
+    hasAdvancedGoalsAccess: hasAccess("advanced_goals"),
+  });
+
+  // Routing Logic:
+  // 1. Check if user has access to Advanced Goals (Premium or Standard+ with advanced_goals add-on)
+  // 2. If not, check if they have basic Goals access (Standard with goals add-on)
+  // 3. If neither, they see the upgrade message in the basic Goals page
+
   if (hasAccess("advanced_goals")) {
-    console.log("🚀 Routing to Advanced Goals (Premium user)");
+    console.log("🚀 Routing to Advanced Goals (Premium/Standard+ user)");
     return <AdvancedGoals />;
+  } else if (hasAccess("goals")) {
+    console.log(
+      "📊 Routing to Standard Goals (Standard user with goals add-on)"
+    );
+    return <GoalsPage />;
   } else {
-    console.log("🎯 Routing to Basic Goals (Free/Basic/Standard user)");
+    console.log(
+      "🎯 Routing to Basic Goals (Free/Basic user - will see upgrade message)"
+    );
     return <GoalsPage />;
   }
 };
