@@ -175,7 +175,7 @@ export default function Welcome() {
             <img
               src={squarelogo}
               alt="Reflectionary logo"
-              className="w-30 h-30 md:w-35 md:h-35 flex-shrink-0"
+              className="w-26 h-26 md:w-30 md:h-30 flex-shrink-0"
             />
 
             {/* Text content - left aligned */}
