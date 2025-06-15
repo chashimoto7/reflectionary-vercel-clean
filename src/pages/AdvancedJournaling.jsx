@@ -111,6 +111,12 @@ const JOURNAL_TEMPLATES = {
   },
 };
 
+// Helper functions for encryption (same as StandardJournaling)
+const getStaticMasterKey = async () => {
+  const keyHex = import.meta.env.VITE_MASTER_ENCRYPTION_KEY;
+  return keyHex;
+};
+
 export default function AdvancedJournaling() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -194,6 +200,51 @@ export default function AdvancedJournaling() {
     selfCare: false,
     nutrition: "balanced",
   });
+
+  // Encryption function (same as StandardJournaling)
+  const encryptJournalEntry = async (entryData) => {
+    const masterKey = await getStaticMasterKey();
+    const dataKey = await encryptionService.generateDataKey();
+    const encryptedContent = await encryptionService.encryptText(
+      entryData.content,
+      dataKey
+    );
+
+    let encryptedPrompt = { encryptedData: "", iv: "" };
+    if (entryData.prompt) {
+      encryptedPrompt = await encryptionService.encryptText(
+        entryData.prompt,
+        dataKey
+      );
+    }
+
+    const encryptedDataKey = await encryptionService.encryptKey(
+      dataKey,
+      masterKey
+    );
+
+    return {
+      encrypted_content: encryptedContent.encryptedData,
+      content_iv: encryptedContent.iv,
+      encrypted_prompt: encryptedPrompt.encryptedData,
+      prompt_iv: encryptedPrompt.iv,
+      encrypted_data_key: encryptedDataKey.encryptedData,
+      data_key_iv: encryptedDataKey.iv,
+    };
+  };
+
+  // Clear editor function
+  const clearEditor = () => {
+    if (quillRef.current && isEditorReady) {
+      try {
+        quillRef.current.setText("");
+        setEditorContent("");
+        console.log("Advanced editor cleared");
+      } catch (error) {
+        console.error("Error clearing advanced editor:", error);
+      }
+    }
+  };
 
   // Format greeting based on time of day
   const formatGreeting = () => {
@@ -536,77 +587,131 @@ export default function AdvancedJournaling() {
     }
   };
 
-  // Enhanced save entry with all features
+  // FIXED: Enhanced save entry using same workflow as StandardJournaling
   const saveEntry = async () => {
+    console.log("🔄 Advanced journaling save entry function called");
+
     if (!editorContent.trim() || saveLabel === "Saving...") return;
 
     setSaveLabel("Saving...");
 
     try {
-      const plainText = quillRef.current.getText();
+      const journalContent = quillRef.current?.getText().trim();
 
-      // Crisis detection
-      if (showCrisisResources && plainText) {
-        const crisisCheck = await checkForCrisisContent(plainText);
+      if (!journalContent) {
+        alert("Please write something before saving.");
+        setSaveLabel("Save Entry");
+        return;
+      }
+
+      const htmlContent = quillRef.current?.root.innerHTML;
+      const userId = user?.id;
+
+      if (!userId) {
+        alert("Something went wrong. Please log in again.");
+        setSaveLabel("Save Entry");
+        return;
+      }
+
+      console.log("🔐 Encrypting entry data on frontend...");
+
+      // Use the same encryption workflow as StandardJournaling
+      const encryptedData = await encryptJournalEntry({
+        content: htmlContent,
+        prompt: prompt || null,
+      });
+
+      console.log("✅ Entry encrypted successfully");
+
+      // Crisis detection using plain text
+      if (showCrisisResources && journalContent) {
+        const crisisCheck = await checkForCrisisContent(journalContent);
         if (crisisCheck.showResources) {
           triggerCrisisModal(crisisCheck);
         }
       }
 
-      // Use the same pattern as StandardJournaling
-      const encryptedData = await encryptionService.encrypt(
-        JSON.stringify({
-          content: editorContent,
-          prompt: prompt || null,
-        })
-      );
-
-      // Save to Supabase with all the enhanced metadata
-      const entryData = {
-        user_id: user.id,
-        content: encryptedData.encryptedData,
-        encryption_key: encryptedData.encryptionKey,
-        subject:
-          subject ||
-          (selectedTemplate ? JOURNAL_TEMPLATES[selectedTemplate].name : null),
-        word_count: plainText.trim().split(/\s+/).length,
-        mood: wellnessData.mood,
-        energy: wellnessData.energy,
-        thread_id: currentThreadId,
+      // Prepare Advanced journaling specific metadata
+      const advancedMetadata = {
+        template: selectedTemplate,
+        tags: tags,
+        hasAudio: audioChunks?.length > 0 || false,
+        attachments: mediaAttachments?.length || 0,
+        promptType: promptType,
+        isFollowUp: promptType === "followUp",
+        isStarred: isStarred,
+        isPinned: isPinned,
         folder_id: selectedFolder,
-        is_starred: isStarred,
-        is_pinned: isPinned,
-        topics: tags, // Store tags as topics for compatibility
-        metadata: {
-          template: selectedTemplate,
-          tags: tags,
-          wellness: wellnessData,
-          hasAudio: audioChunks.length > 0,
-          attachments: mediaAttachments.length,
-          promptType: promptType,
-          isFollowUp: promptType === "followUp",
-        },
+        wellness: wellnessData,
       };
 
-      // Save entry
-      const { data: savedEntry, error } = await supabase
-        .from("journal_entries")
-        .insert(entryData)
-        .select()
-        .single();
+      // Prepare the entry data using the same structure as StandardJournaling
+      const entryData = {
+        ...encryptedData,
+        user_id: userId,
+        is_follow_up: promptType === "followUp",
+        parent_entry_id: currentThreadId,
+        thread_id: currentThreadId,
+        // Basic wellness data (compatible with backend)
+        mood: wellnessData.mood,
+        energy: wellnessData.energy,
+        cycle_day: null, // Advanced doesn't track cycle by default
+        cycle_phase: null,
+        // Store Advanced metadata in a way that won't break the backend
+        metadata: advancedMetadata,
+      };
 
-      if (error) throw error;
+      console.log(
+        "📦 Sending encrypted entry data to backend (Advanced journaling)"
+      );
 
-      console.log("Entry saved successfully:", savedEntry.id);
+      // Use the same backend API as StandardJournaling
+      const response = await fetch(
+        "https://reflectionary-api.vercel.app/api/save-entry",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(entryData),
+        }
+      );
 
-      setLastSavedEntry({
-        ...savedEntry,
-        content: editorContent,
-      });
+      const result = await response.json();
 
-      if (!currentThreadId && savedEntry.id) {
-        setCurrentThreadId(savedEntry.id);
+      if (!response.ok) {
+        setSaveLabel("Save Entry");
+        throw new Error(result.error || "Failed to save entry");
       }
+
+      console.log("✅ Advanced entry saved with ID:", result.entry_id);
+
+      // Check for crisis analysis
+      if (result.crisis_analysis?.should_alert) {
+        console.log("🚨 Crisis analysis triggered:", result.crisis_analysis);
+        triggerCrisisModal(result.crisis_analysis);
+      }
+
+      // Create the new entry object for follow-ups
+      const newEntry = {
+        id: result.entry_id,
+        prompt: prompt || null,
+        content: htmlContent,
+        metadata: advancedMetadata,
+      };
+
+      setLastSavedEntry(newEntry);
+
+      // Set thread ID if this is a new conversation
+      if (!currentThreadId && result.entry_id) {
+        setCurrentThreadId(result.entry_id);
+      }
+
+      // Update entry chain for follow-ups
+      const updatedChain = [...entryChain, newEntry];
+      setEntryChain(updatedChain);
+
+      // Set global variables for follow-up workflow
+      window.currentConversationChain = updatedChain;
+      window.currentThreadId = currentThreadId || result.entry_id;
 
       setSaveLabel("Saved!");
       setSaveConfirmation(true);
@@ -614,49 +719,103 @@ export default function AdvancedJournaling() {
       setTimeout(() => {
         setSaveLabel("Save Entry");
         setSaveConfirmation(false);
-        setShowModal(true);
+        setShowModal(true); // Show follow-up modal
       }, 1500);
     } catch (error) {
-      console.error("Error saving entry:", error);
+      console.error("❌ Error saving advanced entry:", error);
       setSaveLabel("Error Saving");
       setTimeout(() => setSaveLabel("Save Entry"), 3000);
     }
   };
 
-  // Generate follow-up prompt
+  // FIXED: Generate follow-up prompt using same workflow as StandardJournaling
   const generateFollowUp = async () => {
-    if (!lastSavedEntry) return;
+    if (!lastSavedEntry) {
+      alert("Please write a journal entry first.");
+      return;
+    }
 
-    setIsLoading(true);
     try {
+      setIsLoading(true);
+      setShowModal(false);
+
+      console.log("Sending follow-up request for entry ID:", lastSavedEntry.id);
+
       const response = await fetch(
         "https://reflectionary-api.vercel.app/api/follow-up",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            entry_id: lastSavedEntry.id,
             user_id: user.id,
+            entry_id: lastSavedEntry.id,
           }),
         }
       );
 
       const data = await response.json();
+      console.log("🎯 FollowUp response:", data);
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch follow-up");
+      }
 
       if (data.prompt) {
+        setPrompt(data.prompt);
+        setPromptType("followUp");
+        setSaveLabel("Save Follow-Up Answer");
+        setShowPromptButton(false);
+        setShowFollowUpButtons(true);
         setFollowUpPrompt(data.prompt);
         setShowFollowUpModal(true);
+      } else {
+        throw new Error("No follow-up prompt returned");
       }
     } catch (error) {
-      console.error("Error generating follow-up:", error);
-      setFollowUpPrompt(
-        "What else would you like to explore about this topic?"
-      );
-      setShowFollowUpModal(true);
+      console.error("❌ FollowUp error:", error);
+      setPrompt("Sorry, I couldn't generate a follow-up question this time.");
+      alert(`Failed to generate follow-up question: ${error.message}`);
     } finally {
       setIsLoading(false);
-      setShowModal(false);
     }
+  };
+
+  // ADDED: Handle ending follow-ups (same as StandardJournaling)
+  const handleEndFollowUps = () => {
+    console.log("✋ User ending follow-up session");
+
+    setEntryChain([]);
+    setLastSavedEntry(null);
+    setPrompt("");
+    setPromptType("initial");
+    setSaveLabel("Save Entry");
+    setEditorContent("");
+    setShowPromptButton(true);
+    setShowFollowUpButtons(false);
+    setShowFollowUpModal(false);
+    setCurrentThreadId(null);
+
+    // Clear global variables
+    window.currentConversationChain = [];
+    window.currentThreadId = null;
+
+    // Clear the advanced editor
+    clearEditor();
+    console.log("🎉 Ready for new conversation thread");
+  };
+
+  // ADDED: Handle "No Thanks" (same as StandardJournaling)
+  const handleNoThanks = () => {
+    setPrompt("");
+    setPromptType("initial");
+    setSaveLabel("Save Entry");
+    setEntryChain([]);
+    setLastSavedEntry(null);
+    setShowModal(false);
+    setShowFollowUpModal(false);
+    setShowPromptButton(true);
+    setCurrentThreadId(null);
+    clearEditor();
   };
 
   // Continue with follow-up
@@ -1289,7 +1448,7 @@ export default function AdvancedJournaling() {
         </div>
       )}
 
-      {/* Follow-up Modal */}
+      {/* FIXED: Follow-up Modal using same workflow as StandardJournaling */}
       {showModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm text-center">
@@ -1310,37 +1469,50 @@ export default function AdvancedJournaling() {
                 disabled={isLoading}
                 className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50"
               >
-                {isLoading ? "Generating..." : "Yes, inspire me"}
+                {isLoading ? "Generating..." : "Yes, Please!"}
               </button>
               <button
-                onClick={() => setShowModal(false)}
-                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                onClick={handleNoThanks}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
-                No thanks
+                No Thanks
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Follow-up Prompt Modal */}
+      {/* FIXED: Follow-up Question Modal */}
       {showFollowUpModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Follow-up Prompt</h3>
-            <p className="text-gray-700 mb-6">{followUpPrompt}</p>
-            <div className="flex gap-3 justify-end">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md text-center">
+            <div className="mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                <MessageCircle className="text-white" size={32} />
+              </div>
+              <p className="text-lg font-medium">Follow-up Question</p>
+            </div>
+            <p className="mb-6 text-gray-600 text-left bg-gray-50 p-4 rounded-lg">
+              {followUpPrompt || prompt}
+            </p>
+            <div className="flex gap-3 justify-center">
               <button
-                onClick={continueWithFollowUp}
+                onClick={() => {
+                  setShowFollowUpModal(false);
+                  // Focus on editor to continue writing
+                  if (quillRef.current) {
+                    quillRef.current.focus();
+                  }
+                }}
                 className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700"
               >
                 Continue Writing
               </button>
               <button
-                onClick={() => setShowFollowUpModal(false)}
-                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                onClick={handleEndFollowUps}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
-                Done for Now
+                End Session
               </button>
             </div>
           </div>
