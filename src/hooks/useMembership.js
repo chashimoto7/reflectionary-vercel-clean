@@ -140,7 +140,7 @@ export function useMembership() {
 
       case "goals":
         return (
-          tier === "premium" ||
+          tier === "standard" ||
           (tier === "standard" && features.includes("goals"))
         );
 
@@ -148,7 +148,7 @@ export function useMembership() {
         return ["basic", "standard", "premium"].includes(tier);
 
       case "cycle_tracking":
-        return ["basic", "standard", "premium"].includes(tier); // Free for all paid members
+        return ["basic", "standard"].includes(tier); // Free for all paid members
 
       case "voice_features":
         return (
