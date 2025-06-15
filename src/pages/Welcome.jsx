@@ -1,6 +1,7 @@
 import logo from "../assets/ReflectionaryWordWelcome.png";
 import squarelogo from "../assets/FinalReflectionarySquare.png";
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import {
   Sparkles,
   TrendingUp,
@@ -72,7 +73,7 @@ function getRandomQuote(excludeIndex) {
 
 export default function Welcome() {
   const [quote, setQuote] = useState(() => getRandomQuote(-1));
-  const [userName, setUserName] = useState("Sarah"); // Replace with actual user name from auth context
+  const [userName, setUserName] = useState("Sarah");
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Update time every minute
@@ -101,33 +102,34 @@ export default function Welcome() {
     return `Good ${timeOfDay}, ${userName}`;
   };
 
+  // Quick Actions - pointing to ROUTERS, not direct pages
   const quickActions = [
     {
       icon: Brain,
       title: "New Entry",
       description: "Start your reflection",
-      href: "/journaling-router",
+      href: "/journaling", // → Points to JournalingRouter
       color: "from-purple-500 to-purple-600",
     },
     {
       icon: BarChart3,
       title: "Analytics",
       description: "View your insights",
-      href: "/analytics-router",
+      href: "/analytics", // → Points to AnalyticsRouter
       color: "from-cyan-500 to-cyan-600",
     },
     {
       icon: Target,
       title: "Goals",
       description: "Track progress",
-      href: "/goals-router",
+      href: "/goals", // → Points to GoalsRouter
       color: "from-emerald-500 to-emerald-600",
     },
     {
       icon: Calendar,
       title: "History",
       description: "Browse entries",
-      href: "/history-router",
+      href: "/history", // → Points to HistoryRouter
       color: "from-amber-500 to-amber-600",
     },
   ];
@@ -176,7 +178,6 @@ export default function Welcome() {
               alt="Reflectionary logo"
               className="w-29 h-29 md:w-40 md:h-40 flex-shrink-0"
             />
-
             {/* Text content - left aligned */}
             <div className="flex-1">
               <img
@@ -236,7 +237,7 @@ export default function Welcome() {
                   return (
                     <Link
                       key={index}
-                      href={action.href}
+                      to={action.href}
                       className="group bg-white rounded-lg p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all hover:border-purple-200"
                     >
                       <div className="flex items-start gap-4">
@@ -329,11 +330,12 @@ export default function Welcome() {
 
               <div className="mt-6 pt-6 border-t border-gray-200">
                 <Link
-                  href="/settings"
+                  to="/security"
                   className="text-sm text-purple-600 hover:text-purple-700 font-medium flex items-center gap-2 group"
-                ></Link>
-                View all updates
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                >
+                  View all updates
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
               </div>
             </div>
 
@@ -364,12 +366,12 @@ export default function Welcome() {
                 Last entry: 2 hours ago
               </span>
             </div>
-            <a
-              href="/new-entry"
+            <Link
+              to="/journaling"
               className="text-sm font-medium text-purple-600 hover:text-purple-700"
             >
               Continue your journey →
-            </a>
+            </Link>
           </div>
         </div>
       </div>
