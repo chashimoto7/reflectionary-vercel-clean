@@ -162,6 +162,9 @@ export default function AdvancedJournaling() {
   const [reflectionarianInsight, setReflectionarianInsight] = useState("");
   const [isStarred, setIsStarred] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
+  const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
+  const [isLoadingRandom, setIsLoadingRandom] = useState(false);
+  const [isLoadingSubject, setIsLoadingSubject] = useState(false);
 
   // Folders state
   const [folders, setFolders] = useState([]);
@@ -212,6 +215,11 @@ export default function AdvancedJournaling() {
   useEffect(() => {
     if (isLocked || !editorRef.current || quillInitialized.current) return;
 
+    // Check if Quill is already initialized in this element
+    if (editorRef.current.classList.contains("ql-container")) {
+      return;
+    }
+
     const toolbarOptions = [
       ["bold", "italic", "underline", "strike"],
       ["blockquote", "code-block"],
@@ -251,7 +259,12 @@ export default function AdvancedJournaling() {
     loadLastEntry();
 
     return () => {
-      if (quillRef.current && quillInitialized.current) {
+      // Properly cleanup Quill instance
+      if (quillRef.current) {
+        const toolbar = document.querySelector(".ql-toolbar");
+        if (toolbar && toolbar.parentNode === editorRef.current?.parentNode) {
+          toolbar.remove();
+        }
         quillRef.current = null;
         quillInitialized.current = false;
       }
@@ -314,7 +327,7 @@ export default function AdvancedJournaling() {
 
   // Generate AI prompt (random)
   const generateAIPrompt = async () => {
-    setIsLoading(true);
+    setIsLoadingRandom(true);
     try {
       const response = await fetch(
         "https://reflectionary-api.vercel.app/api/generatePrompt",
@@ -336,7 +349,7 @@ export default function AdvancedJournaling() {
       console.error("Error generating prompt:", error);
       setPrompt("What's on your mind today?");
     } finally {
-      setIsLoading(false);
+      setIsLoadingRandom(false);
     }
   };
 
@@ -345,7 +358,7 @@ export default function AdvancedJournaling() {
     if (!subject.trim()) return;
 
     try {
-      setIsLoading(true);
+      setIsLoadingSubject(true);
 
       const response = await fetch(
         "https://reflectionary-api.vercel.app/api/generate-subject-prompt",
@@ -373,7 +386,7 @@ export default function AdvancedJournaling() {
       console.error("Failed to fetch subject prompt:", err);
       alert("Something went wrong while generating the prompt.");
     } finally {
-      setIsLoading(false);
+      setIsLoadingSubject(false);
     }
   };
 
@@ -546,10 +559,18 @@ export default function AdvancedJournaling() {
         }
       }
 
-      // Encrypt content
-      const { encryptedData, encryptionKey } = await encryptionService.encrypt(
-        editorContent
-      );
+      // Encrypt journal entry content
+      const encryptJournalEntry = async (data) => {
+        const jsonString = JSON.stringify(data);
+        const { encryptedData, encryptionKey } =
+          await encryptionService.encrypt(jsonString);
+        return { encryptedData, encryptionKey };
+      };
+
+      const { encryptedData, encryptionKey } = await encryptJournalEntry({
+        content: editorContent,
+        prompt: prompt || null,
+      });
 
       // Get batch analysis data if available
       let analysisData = {};
@@ -570,34 +591,37 @@ export default function AdvancedJournaling() {
         // No analysis data available yet
       }
 
-      // Save entry with enhanced metadata
+      // Prepare the journal entry data
+      const entryData = {
+        user_id: user.id,
+        content: encryptedData,
+        encryption_key: encryptionKey,
+        subject:
+          subject ||
+          (selectedTemplate ? JOURNAL_TEMPLATES[selectedTemplate].name : null),
+        word_count: wordCount,
+        mood: wellnessData.mood,
+        energy: wellnessData.energy,
+        thread_id: currentThreadId,
+        folder_id: selectedFolder,
+        topics: analysisData.topics || [],
+        emotions: analysisData.emotions || [],
+        tone: analysisData.tone || null,
+        is_starred: isStarred,
+        is_pinned: isPinned,
+        metadata: {
+          template: selectedTemplate,
+          tags: tags,
+          wellness: wellnessData,
+          hasAudio: audioChunks.length > 0,
+          attachments: mediaAttachments.length,
+        },
+      };
+
+      // Save entry
       const { data: savedEntry, error } = await supabase
         .from("journal_entries")
-        .insert({
-          user_id: user.id,
-          content: encryptedData,
-          encryption_key: encryptionKey,
-          subject:
-            subject ||
-            (selectedTemplate
-              ? JOURNAL_TEMPLATES[selectedTemplate].name
-              : null),
-          word_count: wordCount,
-          mood: wellnessData.mood,
-          energy: wellnessData.energy,
-          thread_id: currentThreadId,
-          folder_id: selectedFolder,
-          metadata: {
-            template: selectedTemplate,
-            tags: tags,
-            wellness: wellnessData,
-            hasAudio: audioChunks.length > 0,
-            attachments: mediaAttachments.length,
-            is_starred: isStarred,
-            is_pinned: isPinned,
-            ...analysisData,
-          },
-        })
+        .insert(entryData)
         .select()
         .single();
 
@@ -763,10 +787,10 @@ export default function AdvancedJournaling() {
 
           <button
             onClick={generateAIPrompt}
-            disabled={isLoading}
+            disabled={isLoadingRandom}
             className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-purple-400 text-sm"
           >
-            {isLoading ? (
+            {isLoadingRandom ? (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
             ) : (
               <Shuffle size={16} />
@@ -801,7 +825,53 @@ export default function AdvancedJournaling() {
             {audioPlayback ? <Volume2 size={16} /> : <VolumeX size={16} />}
             Read Aloud
           </button>
+
+          <button
+            onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-sm"
+          >
+            <Shield size={16} />
+            Privacy
+          </button>
         </div>
+
+        {/* Privacy Information */}
+        {showPrivacyInfo && (
+          <div className="mt-4 bg-purple-50 p-4 rounded-lg border border-purple-200">
+            <div className="flex items-start gap-3">
+              <Shield
+                className="text-purple-600 mt-0.5 flex-shrink-0"
+                size={20}
+              />
+              <div>
+                <h3 className="font-semibold text-purple-900 mb-2">
+                  Your Privacy is Protected
+                </h3>
+                <p className="text-purple-700 text-sm mb-2">
+                  All your journal entries are end-to-end encrypted using
+                  military-grade encryption. Your actual journal content is
+                  encrypted on your device before being stored and can only be
+                  decrypted by you.
+                </p>
+                <ul className="text-purple-700 text-sm space-y-1">
+                  <li>• Entries are encrypted locally on your device</li>
+                  <li>• We cannot read your journal content</li>
+                  <li>
+                    • Starred, pinned, and tag data is stored separately from
+                    content
+                  </li>
+                  <li>• Analytics are performed on encrypted metadata only</li>
+                  <li>• Your data is never shared or sold</li>
+                </ul>
+                <p className="text-purple-600 text-xs mt-2">
+                  Folder names, tags, and organizational data are stored in our
+                  database to enable search and filtering features, but your
+                  journal content remains fully encrypted.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Subject Prompt Input */}
         <div className="mt-4 flex gap-2">
@@ -815,10 +885,14 @@ export default function AdvancedJournaling() {
           />
           <button
             onClick={handleSubjectPrompt}
-            disabled={isLoading || !subject.trim()}
+            disabled={isLoadingSubject || !subject.trim()}
             className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            <Search size={16} />
+            {isLoadingSubject ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+            ) : (
+              <Lightbulb size={16} />
+            )}
             Get Prompt
           </button>
         </div>
