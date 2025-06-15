@@ -131,7 +131,6 @@ export function useMembership() {
           (tier === "standard" && features.includes("advanced_analytics")) // Standard can buy add-on
         );
 
-      // NEW: Advanced goals access
       case "goals":
         return (
           tier === "premium" || // Premium gets everything

@@ -142,20 +142,30 @@ const AdvancedGoals = () => {
     { id: "data-export", label: "Export & Reports", icon: Download },
   ];
 
-  // Check access control
+  // Check access control - moved to useEffect like AdvancedAnalytics
   useEffect(() => {
-    if (!membershipLoading && !hasAccess("goal_tracking")) {
-      // Redirect or show upgrade message
+    // Don't do anything until user and membership data are loaded
+    if (!user || membershipLoading) {
       return;
     }
-  }, [hasAccess, membershipLoading]);
 
-  // Load goals and analytics data
-  useEffect(() => {
-    if (user) {
+    // Check access directly without using the function in dependencies
+    const userHasAccess = hasAccess("advanced_goals");
+
+    if (userHasAccess) {
       loadGoalsAndAnalytics();
+    } else {
+      // User doesn't have access - stop loading
+      setLoading(false);
     }
-  }, [user, dateRange]);
+  }, [user, dateRange, tier, membershipLoading]);
+
+  // Load goals and analytics data - removed from useEffect since it's called conditionally now
+  // useEffect(() => {
+  //   if (user) {
+  //     loadGoalsAndAnalytics();
+  //   }
+  // }, [user, dateRange]);
 
   const loadGoalsAndAnalytics = async () => {
     setLoading(true);
@@ -510,7 +520,7 @@ const AdvancedGoals = () => {
     );
   }
 
-  if (!hasAccess("goal_tracking")) {
+  if (!hasAccess("advanced_goals")) {
     return (
       <div className="max-w-7xl mx-auto p-6">
         <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-8 text-center">
