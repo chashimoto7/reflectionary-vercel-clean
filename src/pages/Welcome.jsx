@@ -175,7 +175,7 @@ export default function Welcome() {
             <img
               src={squarelogo}
               alt="Reflectionary logo"
-              className="w-24 h-24 md:w-28 md:h-28 shadow-lg flex-shrink-0"
+              className="w-30 h-30 md:w-35 md:h-35 flex-shrink-0"
             />
 
             {/* Text content - left aligned */}
@@ -184,7 +184,7 @@ export default function Welcome() {
               <img
                 src={logo}
                 alt="Reflectionary"
-                className="h-10 md:h-12 w-auto mb-2"
+                className="h-15 md:h-18 w-auto mb-2"
               />
               <h2 className="text-2xl md:text-3xl font-semibold text-gray-900">
                 {getGreeting()}
