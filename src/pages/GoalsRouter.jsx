@@ -19,7 +19,7 @@ const GoalsRouter = () => {
     );
   }
 
-  if (hasAccess("goal_tracking")) {
+  if (hasAccess("advancedGoals")) {
     console.log("🚀 Routing to Advanced Goals (Premium user)");
     return <AdvancedGoals />;
   } else {
