@@ -111,12 +111,6 @@ const JOURNAL_TEMPLATES = {
   },
 };
 
-// Helper functions for encryption (same as StandardJournaling)
-const getStaticMasterKey = async () => {
-  const keyHex = import.meta.env.VITE_MASTER_ENCRYPTION_KEY;
-  return keyHex;
-};
-
 export default function AdvancedJournaling() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -203,8 +197,9 @@ export default function AdvancedJournaling() {
 
   // Encryption function (same as StandardJournaling)
   const encryptJournalEntry = async (entryData) => {
-    const masterKey = await getStaticMasterKey();
+    const masterKey = await encryptionService.getStaticMasterKey();
     const dataKey = await encryptionService.generateDataKey();
+
     const encryptedContent = await encryptionService.encryptText(
       entryData.content,
       dataKey
