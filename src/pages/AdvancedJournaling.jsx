@@ -544,7 +544,6 @@ export default function AdvancedJournaling() {
 
     try {
       const plainText = quillRef.current.getText();
-      const wordCount = plainText.trim().split(/\s+/).length;
 
       // Crisis detection
       if (showCrisisResources && plainText) {
@@ -554,62 +553,38 @@ export default function AdvancedJournaling() {
         }
       }
 
-      // Encrypt journal entry content
-      const encryptJournalEntry = async (data) => {
-        const jsonString = JSON.stringify(data);
-        const { encryptedData, encryptionKey } =
-          await encryptionService.encrypt(jsonString);
-        return { encryptedData, encryptionKey };
-      };
+      // Use the same pattern as StandardJournaling
+      const encryptedData = await encryptionService.encrypt(
+        JSON.stringify({
+          content: editorContent,
+          prompt: prompt || null,
+        })
+      );
 
-      const { encryptedData, encryptionKey } = await encryptJournalEntry({
-        content: editorContent,
-        prompt: prompt || null,
-      });
-
-      // Get batch analysis data if available
-      let analysisData = {};
-      try {
-        // This would be populated by the batch job
-        const { data: recentAnalysis } = await supabase
-          .from("user_analytics")
-          .select("topics, emotions, tone")
-          .eq("user_id", user.id)
-          .order("date", { ascending: false })
-          .limit(1)
-          .single();
-
-        if (recentAnalysis) {
-          analysisData = recentAnalysis;
-        }
-      } catch (e) {
-        // No analysis data available yet
-      }
-
-      // Prepare the journal entry data
+      // Save to Supabase with all the enhanced metadata
       const entryData = {
         user_id: user.id,
-        content: encryptedData,
-        encryption_key: encryptionKey,
+        content: encryptedData.encryptedData,
+        encryption_key: encryptedData.encryptionKey,
         subject:
           subject ||
           (selectedTemplate ? JOURNAL_TEMPLATES[selectedTemplate].name : null),
-        word_count: wordCount,
+        word_count: plainText.trim().split(/\s+/).length,
         mood: wellnessData.mood,
         energy: wellnessData.energy,
         thread_id: currentThreadId,
         folder_id: selectedFolder,
-        topics: analysisData.topics || [],
-        emotions: analysisData.emotions || [],
-        tone: analysisData.tone || null,
         is_starred: isStarred,
         is_pinned: isPinned,
+        topics: tags, // Store tags as topics for compatibility
         metadata: {
           template: selectedTemplate,
           tags: tags,
           wellness: wellnessData,
           hasAudio: audioChunks.length > 0,
           attachments: mediaAttachments.length,
+          promptType: promptType,
+          isFollowUp: promptType === "followUp",
         },
       };
 
@@ -622,8 +597,17 @@ export default function AdvancedJournaling() {
 
       if (error) throw error;
 
-      setLastSavedEntry({ ...savedEntry, content: editorContent });
-      setEntryChain([...entryChain, savedEntry.id]);
+      console.log("Entry saved successfully:", savedEntry.id);
+
+      setLastSavedEntry({
+        ...savedEntry,
+        content: editorContent,
+      });
+
+      if (!currentThreadId && savedEntry.id) {
+        setCurrentThreadId(savedEntry.id);
+      }
+
       setSaveLabel("Saved!");
       setSaveConfirmation(true);
 
