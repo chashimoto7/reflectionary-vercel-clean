@@ -761,6 +761,34 @@ const AdvancedGoals = () => {
                 colors={colors}
               />
             )}
+            {activeTab === "goal-comparison" && (
+              <GoalComparisonTab goals={goals} colors={colors} />
+            )}
+            {activeTab === "mood-correlations" && (
+              <MoodCorrelationsTab
+                goals={goals}
+                moodCorrelations={moodCorrelations}
+                colors={colors}
+              />
+            )}
+            {activeTab === "growth-tracking" && (
+              <GrowthTrackingTab
+                goals={goals}
+                colors={colors}
+                selectedGoalId={selectedGoalId}
+                onSelectGoal={setSelectedGoalId}
+              />
+            )}
+            {activeTab === "insights-feed" && (
+              <InsightsFeedTab insights={insights} colors={colors} />
+            )}
+            {activeTab === "data-export" && (
+              <DataExportTab
+                goals={goals}
+                analyticsData={analyticsData}
+                colors={colors}
+              />
+            )}
           </div>
         </>
       )}
