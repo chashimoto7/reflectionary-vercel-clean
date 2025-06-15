@@ -259,13 +259,8 @@ export default function AdvancedJournaling() {
     loadLastEntry();
 
     return () => {
-      // Properly cleanup Quill instance
+      // Don't destroy Quill on visibility change, only on actual unmount
       if (quillRef.current) {
-        const toolbar = document.querySelector(".ql-toolbar");
-        if (toolbar && toolbar.parentNode === editorRef.current?.parentNode) {
-          toolbar.remove();
-        }
-        quillRef.current = null;
         quillInitialized.current = false;
       }
     };
@@ -1046,7 +1041,7 @@ export default function AdvancedJournaling() {
       <div className="mb-6">
         <button
           onClick={() => setShowWellnessSection(!showWellnessSection)}
-          className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 mb-3"
+          className="flex items-center gap-2 text-sm font-medium bg-gradient-to-r from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 text-purple-800 px-4 py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md w-full sm:w-auto"
         >
           <span
             className={`transform transition-transform ${
@@ -1055,15 +1050,30 @@ export default function AdvancedJournaling() {
           >
             <ChevronRight size={16} />
           </span>
-          <Activity size={16} />
-          Advanced Wellness Tracking
+          <Activity size={16} className="text-purple-600" />
+          <span>Advanced Wellness Tracking</span>
+          {!showWellnessSection && (
+            <span className="ml-2 text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full">
+              Premium
+            </span>
+          )}
         </button>
 
         {showWellnessSection && (
-          <div className="bg-purple-50 rounded-lg p-4 space-y-4">
+          <div className="mt-4 bg-gradient-to-br from-purple-50 via-pink-50 to-cyan-50 rounded-lg p-6 border border-purple-200 shadow-sm space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold text-purple-900 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-600" />
+                Track Your Wellness Journey
+              </h3>
+              <span className="text-xs bg-purple-600 text-white px-2 py-1 rounded-full">
+                Premium Feature
+              </span>
+            </div>
+
             {/* Mood, Energy, Stress Sliders */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
+              <div className="bg-white/70 rounded-lg p-4">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                   <Heart className="w-4 h-4 text-pink-500" />
                   Mood: {wellnessData.mood}
@@ -1081,9 +1091,14 @@ export default function AdvancedJournaling() {
                   }
                   className="w-full accent-pink-500"
                 />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>😔</span>
+                  <span>😐</span>
+                  <span>😊</span>
+                </div>
               </div>
 
-              <div>
+              <div className="bg-white/70 rounded-lg p-4">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                   <Zap className="w-4 h-4 text-yellow-500" />
                   Energy: {wellnessData.energy}
@@ -1101,9 +1116,14 @@ export default function AdvancedJournaling() {
                   }
                   className="w-full accent-yellow-500"
                 />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>🔋</span>
+                  <span>⚡</span>
+                  <span>🚀</span>
+                </div>
               </div>
 
-              <div>
+              <div className="bg-white/70 rounded-lg p-4">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                   <Brain className="w-4 h-4 text-purple-500" />
                   Stress: {wellnessData.stress}
@@ -1121,12 +1141,17 @@ export default function AdvancedJournaling() {
                   }
                   className="w-full accent-purple-500"
                 />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>😌</span>
+                  <span>😐</span>
+                  <span>😰</span>
+                </div>
               </div>
             </div>
 
             {/* Additional Wellness Metrics */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
+              <div className="bg-white/70 rounded-lg p-3">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                   <Moon className="w-4 h-4 text-indigo-500" />
                   Sleep (hrs)
@@ -1147,7 +1172,7 @@ export default function AdvancedJournaling() {
                 />
               </div>
 
-              <div>
+              <div className="bg-white/70 rounded-lg p-3">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                   <Droplets className="w-4 h-4 text-blue-500" />
                   Water (cups)
@@ -1167,7 +1192,7 @@ export default function AdvancedJournaling() {
                 />
               </div>
 
-              <div>
+              <div className="bg-white/70 rounded-lg p-3">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                   <Dumbbell className="w-4 h-4 text-green-500" />
                   Exercise (min)
@@ -1188,7 +1213,7 @@ export default function AdvancedJournaling() {
                 />
               </div>
 
-              <div>
+              <div className="bg-white/70 rounded-lg p-3">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                   <Wind className="w-4 h-4 text-cyan-500" />
                   Mindfulness (min)
@@ -1210,9 +1235,10 @@ export default function AdvancedJournaling() {
               </div>
             </div>
 
-            <div className="text-xs text-gray-600 mt-2 flex items-center gap-1">
+            <div className="text-xs text-purple-700 mt-4 flex items-center gap-1 bg-purple-100 p-2 rounded">
               <Info size={12} />
-              All wellness data is encrypted and used to enhance your insights.
+              All wellness data is encrypted and used to enhance your insights
+              and track patterns over time.
             </div>
           </div>
         )}
