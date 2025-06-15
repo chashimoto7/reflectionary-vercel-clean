@@ -988,10 +988,11 @@ export default function AdvancedJournaling() {
                   Your Privacy is Protected
                 </h3>
                 <p className="text-purple-700 text-sm mb-2">
-                  All your journal entries are end-to-end encrypted using
-                  military-grade encryption. Your actual journal content is
-                  encrypted on your device before being stored and can only be
-                  decrypted by you.
+                  Your journal is personal — and we treat it that way. Every
+                  entry is end-to-end encrypted before it's stored, so no one
+                  else can read your words. Not our team. Not our servers. Just
+                  you. Reflectionary is your private space to be real, raw, and
+                  fully yourself.
                 </p>
                 <ul className="text-purple-700 text-sm space-y-1">
                   <li>• Entries are encrypted locally on your device</li>

@@ -2,7 +2,7 @@
 import React from "react";
 import { useMembership } from "../hooks/useMembership";
 import GoalsPage from "./Goals";
-// import AdvancedGoals from "./AdvancedGoals";  // TODO: Create this file later
+import AdvancedGoals from "./AdvancedGoals";
 
 const GoalsRouter = () => {
   const { hasAccess, loading } = useMembership();
@@ -19,19 +19,13 @@ const GoalsRouter = () => {
     );
   }
 
-  // TODO: When you create AdvancedGoals, uncomment this logic
-  // // Automatically route to advanced or basic goals based on subscription
-  // if (hasAccess("goal_tracking")) {
-  //   console.log("🚀 Routing to Advanced Goals (Premium user)");
-  //   return <AdvancedGoals />;
-  // } else {
-  //   console.log("🎯 Routing to Basic Goals (Free/Basic/Standard user)");
-  //   return <GoalsPage />;
-  // }
-
-  // For now, always use the basic goals page
-  console.log("🎯 Routing to Goals page");
-  return <GoalsPage />;
+  if (hasAccess("goal_tracking")) {
+    console.log("🚀 Routing to Advanced Goals (Premium user)");
+    return <AdvancedGoals />;
+  } else {
+    console.log("🎯 Routing to Basic Goals (Free/Basic/Standard user)");
+    return <GoalsPage />;
+  }
 };
 
 export default GoalsRouter;
