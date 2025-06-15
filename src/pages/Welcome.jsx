@@ -1,5 +1,5 @@
 import logo from "../assets/ReflectionaryWordWelcome.png";
-import roundlogo from "../assets/ReflectionarySquare.png";
+import roundlogo from "../assets/FinalReflectionarySquare.png";
 import React, { useState, useEffect } from "react";
 import {
   Sparkles,
