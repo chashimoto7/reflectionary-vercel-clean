@@ -173,7 +173,7 @@ export default function Welcome() {
             <img
               src={logo}
               alt="Reflectionary logo"
-              className="w-20 h-20 md:w-24 md:h-24 shadow-lg rounded-full bg-white p-1"
+              className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg h-auto"
             />
             <h1 className="mt-6 text-3xl font-bold text-gray-900">
               {getGreeting()}
