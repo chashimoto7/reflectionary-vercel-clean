@@ -762,6 +762,13 @@ export default function AdvancedJournaling() {
         setShowPromptButton(false);
         setShowFollowUpButtons(true);
         setFollowUpPrompt(data.prompt);
+
+        // Clear the editor for the follow-up response
+        if (quillRef.current) {
+          quillRef.current.setText("");
+          setEditorContent("");
+        }
+
         setShowFollowUpModal(true);
       } else {
         throw new Error("No follow-up prompt returned");
