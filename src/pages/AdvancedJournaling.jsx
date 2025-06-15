@@ -830,7 +830,7 @@ export default function AdvancedJournaling() {
             onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-sm"
           >
-            <Shield size={16} />
+            <Info size={16} />
             Privacy
           </button>
         </div>
@@ -839,7 +839,7 @@ export default function AdvancedJournaling() {
         {showPrivacyInfo && (
           <div className="mt-4 bg-purple-50 p-4 rounded-lg border border-purple-200">
             <div className="flex items-start gap-3">
-              <Shield
+              <Info
                 className="text-purple-600 mt-0.5 flex-shrink-0"
                 size={20}
               />
