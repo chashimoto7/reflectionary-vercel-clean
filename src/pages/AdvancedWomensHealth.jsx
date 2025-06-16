@@ -606,6 +606,15 @@ const AdvancedWomensHealth = () => {
           </div>
         </>
       )}
+
+      <WomensHealthEntryModal
+        isOpen={showEntryModal}
+        onClose={() => setShowEntryModal(false)}
+        onDataSaved={() => {
+          setShowEntryModal(false);
+          loadAdvancedWomensHealthData();
+        }}
+      />
     </div>
   );
 };
@@ -627,15 +636,6 @@ const EmptyAdvancedWomensHealthState = ({ onStartTracking }) => (
     >
       Start Advanced Tracking
     </button>
-
-    <WomensHealthEntryModal
-      isOpen={showEntryModal}
-      onClose={() => setShowEntryModal(false)}
-      onDataSaved={() => {
-        setShowEntryModal(false);
-        loadAdvancedWomensHealthData();
-      }}
-    />
   </div>
 );
 
