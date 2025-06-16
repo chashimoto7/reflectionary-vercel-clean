@@ -40,6 +40,7 @@ import PredictiveInsightsTab from "../components/womenshealth/tabs/PredictiveIns
 import EducationalResourcesTab from "../components/womenshealth/tabs/EducationalResourcesTab";
 import HealthReportsTab from "../components/womenshealth/tabs/HealthReportsTab";
 import DataExportTab from "../components/womenshealth/tabs/DataExportTab";
+import WomensHealthEntryModal from "../components/womenshealth/WomensHealthEntryModal";
 
 const AdvancedWomensHealth = () => {
   const { user } = useAuth();
@@ -51,6 +52,7 @@ const AdvancedWomensHealth = () => {
   const [dateRange, setDateRange] = useState("3months");
   const [lifeStage, setLifeStage] = useState("menstrual"); // menstrual, perimenopause, menopause
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
+  const [showEntryModal, setShowEntryModal] = useState(false);
 
   // Advanced color palette for women's health
   const colors = {
@@ -617,9 +619,23 @@ const EmptyAdvancedWomensHealthState = () => (
       Begin tracking your cycle, symptoms, and health patterns to unlock
       powerful AI-driven insights about your well-being and hormonal health.
     </p>
-    <button className="px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors">
+    <button
+      onClick={() => setShowEntryModal(true)}
+      className="px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
+    >
       Start Advanced Tracking
     </button>
+    {}
+
+    {/* Add Modal Here */}
+    <WomensHealthEntryModal
+      isOpen={showEntryModal}
+      onClose={() => setShowEntryModal(false)}
+      onDataSaved={() => {
+        setShowEntryModal(false);
+        loadAdvancedWomensHealthData();
+      }}
+    />
   </div>
 );
 

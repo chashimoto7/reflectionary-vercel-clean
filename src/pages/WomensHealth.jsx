@@ -20,6 +20,8 @@ import {
   Clock,
 } from "lucide-react";
 
+import WomensHealthEntryModal from "../components/womenshealth/WomensHealthEntryModal";
+
 const WomensHealth = () => {
   const { user } = useAuth();
   const { hasAccess, getUpgradeMessage, tier } = useMembership();
@@ -29,6 +31,7 @@ const WomensHealth = () => {
   const [error, setError] = useState(null);
   const [showInfoModal, setShowInfoModal] = useState(null);
   const [lifeStage, setLifeStage] = useState("menstrual"); // menstrual, perimenopause, menopause
+  const [showEntryModal, setShowEntryModal] = useState(false);
 
   // Color scheme for women's health
   const colors = {
@@ -301,6 +304,14 @@ const WomensHealth = () => {
           tier={tier}
         />
       )}
+      <WomensHealthEntryModal
+        isOpen={showEntryModal}
+        onClose={() => setShowEntryModal(false)}
+        onDataSaved={() => {
+          setShowEntryModal(false);
+          loadWomensHealthData();
+        }}
+      />
     </div>
   );
 };
@@ -318,7 +329,10 @@ const OverviewTab = ({ cycleData, lifeStage, colors }) => {
           Begin tracking your cycle and symptoms to get personalized insights
           about your health and well-being.
         </p>
-        <button className="px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors">
+        <button
+          onClick={() => setShowEntryModal(true)}
+          className="px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
+        >
           Start Tracking
         </button>
       </div>
