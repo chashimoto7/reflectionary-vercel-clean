@@ -483,7 +483,9 @@ const AdvancedWomensHealth = () => {
       </div>
 
       {healthData?.overview?.totalEntries === 0 ? (
-        <EmptyAdvancedWomensHealthState />
+        <EmptyAdvancedWomensHealthState
+          onStartTracking={() => setShowEntryModal(true)}
+        />
       ) : (
         <>
           {/* Advanced Tab Navigation - Two Row Layout */}
@@ -609,7 +611,7 @@ const AdvancedWomensHealth = () => {
 };
 
 // Empty State Component
-const EmptyAdvancedWomensHealthState = () => (
+const EmptyAdvancedWomensHealthState = ({ onStartTracking }) => (
   <div className="text-center py-12">
     <Heart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
     <h3 className="text-lg font-semibold text-gray-600 mb-2">
@@ -620,14 +622,11 @@ const EmptyAdvancedWomensHealthState = () => (
       powerful AI-driven insights about your well-being and hormonal health.
     </p>
     <button
-      onClick={() => setShowEntryModal(true)}
+      onClick={onStartTracking}
       className="px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
     >
       Start Advanced Tracking
     </button>
-    {}
-
-    {/* Add Modal Here */}
     <WomensHealthEntryModal
       isOpen={showEntryModal}
       onClose={() => setShowEntryModal(false)}
