@@ -131,7 +131,11 @@ const AdvancedGoals = () => {
 
   // Advanced tabs structure - 5 tabs per row
   const advancedTabs = [
-    { id: "overview", label: "Intelligence Overview", icon: TrendingUp },
+    {
+      id: "intelligence-overview",
+      label: "Intelligence Overview",
+      icon: TrendingUp,
+    },
     { id: "progress-patterns", label: "Progress Patterns", icon: BarChart3 },
     { id: "goal-insights", label: "Goal Insights", icon: Brain },
     { id: "mention-timeline", label: "Mention Analytics", icon: Calendar },
