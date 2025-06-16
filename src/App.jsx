@@ -29,6 +29,7 @@ import JournalingRouter from "./pages/JournalingRouter";
 import HistoryRouter from "./pages/HistoryRouter";
 import GoalsRouter from "./pages/GoalsRouter";
 import WellnessRouter from "./pages/WellnessRouter";
+import WomensHealthRouter from "./pages/WomensHealthRouter";
 
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
@@ -81,6 +82,7 @@ function AppContent() {
         <Route path="/analytics" element={<AnalyticsRouter />} />
         <Route path="/wellness" element={<WellnessRouter />} />
         <Route path="/security" element={<SecuritySettingsPage />} />
+        <Route path="/womens-health" element={<WomensHealthRouter />} />
         <Route path="*" element={<Navigate to="/welcome" replace />} />
       </Routes>
     </Layout>

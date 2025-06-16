@@ -134,11 +134,11 @@ export default function Welcome() {
       color: "from-rose-500 to-rose-600",
     },
     {
-      icon: Calendar,
-      title: "History",
-      description: "Browse entries",
-      href: "/history",
-      color: "from-amber-500 to-amber-600",
+      icon: Heart,
+      title: "Women's Health",
+      description: "Track your cycle & health",
+      href: "/womens-health",
+      color: "from-pink-500 to-pink-600",
     },
   ];
 

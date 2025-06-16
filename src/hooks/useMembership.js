@@ -162,8 +162,17 @@ export function useMembership() {
       case "follow_up_prompts":
         return ["basic", "standard", "premium"].includes(tier);
 
-      case "cycle_tracking":
-        return ["basic", "standard", "premium"].includes(tier); // Free for all paid members
+      case "womens_health":
+        // Free for all paid members (Basic, Standard, Premium)
+        return tier !== "free";
+
+      case "advanced_womens_health":
+        // Premium only OR Standard+ with add-on
+        return (
+          tier === "premium" ||
+          (tier === "standard_plus" &&
+            features.includes("advanced_womens_health"))
+        );
 
       case "voice_features":
         return (

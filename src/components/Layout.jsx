@@ -7,6 +7,7 @@ import {
   Target,
   User,
   LogOut,
+  Heart,
   Lock,
   Crown,
   Settings,
@@ -60,6 +61,12 @@ export default function Layout({ children }) {
       icon: Activity,
       label: "Wellness",
       feature: "wellness",
+    },
+    {
+      to: "/womens-health",
+      icon: Heart, // You'll need to import Heart from lucide-react if not already imported
+      label: "Women's Health",
+      feature: "womens_health",
     },
   ];
 
