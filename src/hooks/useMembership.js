@@ -1,4 +1,4 @@
-// src/hooks/useMembership.js - Corrected to match your existing schema
+// src/hooks/useMembership.js - Updated with Advanced History access
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
@@ -118,13 +118,20 @@ export function useMembership() {
       case "history":
         return ["basic", "standard", "premium"].includes(tier);
 
+      // NEW: Advanced History access (Premium only)
+      case "advanced_history":
+        return (
+          tier === "premium" || // Premium gets it included
+          (tier === "standard" && features.includes("advanced_history")) // Standard can buy add-on
+        );
+
       case "analytics":
         return (
           tier === "premium" ||
           (tier === "standard" && features.includes("analytics"))
         );
 
-      // NEW: Advanced analytics access
+      // Advanced analytics access
       case "advanced_analytics":
         return (
           tier === "premium" || // Premium gets it included
@@ -147,7 +154,7 @@ export function useMembership() {
         return ["basic", "standard", "premium"].includes(tier);
 
       case "cycle_tracking":
-        return ["basic", "standard"].includes(tier); // Free for all paid members
+        return ["basic", "standard", "premium"].includes(tier); // Free for all paid members
 
       case "voice_features":
         return (
@@ -164,6 +171,13 @@ export function useMembership() {
           (tier === "standard" && features.includes("reflectionarian"))
         );
 
+      // Additional aliases for compatibility
+      case "full_history": // Legacy name
+        return (
+          tier === "premium" ||
+          (tier === "standard" && features.includes("advanced_history"))
+        );
+
       default:
         console.warn(`🚨 Unknown feature requested: ${feature}`);
         return false;
@@ -172,6 +186,16 @@ export function useMembership() {
 
   function getUpgradeMessage(feature) {
     const { tier } = membershipData;
+
+    // Specific messages for advanced history
+    if (feature === "advanced_history") {
+      if (tier === "free" || tier === "basic") {
+        return "Upgrade to Premium for Advanced Journal History with search, analytics, and organization features.";
+      }
+      if (tier === "standard") {
+        return "Add Advanced History to your Standard plan, or upgrade to Premium for full access.";
+      }
+    }
 
     // Specific messages for advanced analytics
     if (feature === "advanced_analytics") {
