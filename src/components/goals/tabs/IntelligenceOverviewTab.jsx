@@ -1,4 +1,4 @@
-// src/components/goals/tabs/IntelligenceOverviewTab.jsx
+// src/components/goals/tabs/IntelligenceOverviewTab.jsx update
 import React from "react";
 import {
   Target,
