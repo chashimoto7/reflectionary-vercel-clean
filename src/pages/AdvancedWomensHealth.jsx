@@ -627,6 +627,7 @@ const EmptyAdvancedWomensHealthState = ({ onStartTracking }) => (
     >
       Start Advanced Tracking
     </button>
+
     <WomensHealthEntryModal
       isOpen={showEntryModal}
       onClose={() => setShowEntryModal(false)}
