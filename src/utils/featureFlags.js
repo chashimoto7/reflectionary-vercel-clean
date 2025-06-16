@@ -11,6 +11,7 @@ export const FEATURES = {
   REFLECTIONARIAN: "reflectionarian",
   AUDIO_PLAYBACK: "audio_playback",
   DATA_EXPORT: "data_export",
+  ADVANCED_HISTORY: "advanced_history",
 };
 
 // Define what each membership level can access
@@ -35,7 +36,7 @@ export const MEMBERSHIP_FEATURES = {
 
   premium: [
     // Premium gets everything
-    ...Object.values(FEATURES),
+    FEATURES.ADVANCED_HISTORY,
   ],
 };
 

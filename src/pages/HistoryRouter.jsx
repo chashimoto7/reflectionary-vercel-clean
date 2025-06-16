@@ -2,7 +2,7 @@
 import React from "react";
 import { useMembership } from "../hooks/useMembership";
 import HistoryPage from "./history";
-// import AdvancedHistory from "./AdvancedHistory";  // TODO: Create this file later
+import AdvancedHistory from "./AdvancedHistory";
 
 const HistoryRouter = () => {
   const { hasAccess, loading } = useMembership();
@@ -19,19 +19,14 @@ const HistoryRouter = () => {
     );
   }
 
-  // TODO: When you create AdvancedHistory, uncomment this logic
-  // // Automatically route to advanced or basic history based on subscription
-  // if (hasAccess("full_history")) {
-  //   console.log("🚀 Routing to Advanced History (Standard+ user)");
-  //   return <AdvancedHistory />;
-  // } else {
-  //   console.log("📚 Routing to Basic History (Free/Basic user)");
-  //   return <HistoryPage />;
-  // }
-
-  // For now, always use the basic history page
-  console.log("📚 Routing to History page");
-  return <HistoryPage />;
+  // Automatically route to advanced or basic history based on subscription
+  if (hasAccess("advanced_history")) {
+    console.log("🚀 Routing to Advanced History (Premium user)");
+    return <AdvancedHistory />;
+  } else {
+    console.log("📚 Routing to Basic History (Free/Basic/Standard user)");
+    return <HistoryPage />;
+  }
 };
 
 export default HistoryRouter;
