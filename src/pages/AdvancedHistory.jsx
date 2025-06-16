@@ -202,12 +202,37 @@ const AdvancedHistory = () => {
       const decryptedEntries = await Promise.all(
         (entriesData || []).map(async (entry) => {
           try {
-            const decryptedContent = await encryptionService.decrypt(
-              entry.content
+            // Get the master key from context/storage (following your existing pattern)
+            const masterKey = localStorage.getItem("userMasterKey");
+            if (!masterKey) {
+              throw new Error("No master key found");
+            }
+
+            // Decrypt the data key first
+            const dataKey = await encryptionService.decryptKey(
+              {
+                encryptedData: entry.encrypted_data_key,
+                iv: entry.data_key_iv,
+              },
+              masterKey
             );
-            const decryptedPrompt = entry.prompt
-              ? await encryptionService.decrypt(entry.prompt)
-              : null;
+
+            // Decrypt content using the data key
+            const decryptedContent = await encryptionService.decryptText(
+              entry.encrypted_content,
+              entry.content_iv,
+              dataKey
+            );
+
+            // Decrypt prompt if it exists
+            let decryptedPrompt = null;
+            if (entry.encrypted_prompt && entry.prompt_iv) {
+              decryptedPrompt = await encryptionService.decryptText(
+                entry.encrypted_prompt,
+                entry.prompt_iv,
+                dataKey
+              );
+            }
 
             // Load follow-ups for this entry
             const { data: followUpData } = await supabase
@@ -216,16 +241,36 @@ const AdvancedHistory = () => {
               .eq("parent_entry_id", entry.id)
               .order("created_at", { ascending: true });
 
-            // Decrypt follow-ups
+            // Decrypt follow-ups using the same pattern
             const decryptedFollowUps = await Promise.all(
               (followUpData || []).map(async (followUp) => {
                 try {
-                  const decryptedQuestion = followUp.prompt
-                    ? await encryptionService.decrypt(followUp.prompt)
-                    : "Follow-up reflection";
-                  const decryptedResponse = await encryptionService.decrypt(
-                    followUp.content
+                  // Decrypt follow-up data key
+                  const followUpDataKey = await encryptionService.decryptKey(
+                    {
+                      encryptedData: followUp.encrypted_data_key,
+                      iv: followUp.data_key_iv,
+                    },
+                    masterKey
                   );
+
+                  // Decrypt follow-up content
+                  const decryptedResponse = await encryptionService.decryptText(
+                    followUp.encrypted_content,
+                    followUp.content_iv,
+                    followUpDataKey
+                  );
+
+                  // Decrypt follow-up prompt if it exists
+                  let decryptedQuestion = "Follow-up reflection";
+                  if (followUp.encrypted_prompt && followUp.prompt_iv) {
+                    decryptedQuestion = await encryptionService.decryptText(
+                      followUp.encrypted_prompt,
+                      followUp.prompt_iv,
+                      followUpDataKey
+                    );
+                  }
+
                   return {
                     ...followUp,
                     decryptedQuestion,
@@ -268,6 +313,13 @@ const AdvancedHistory = () => {
               decryptedContent: "Error decrypting content",
               decryptedPrompt: null,
               decryptedFollowUps: [],
+              // Add mock data even for failed decryption
+              mood: "neutral",
+              theme: "general",
+              tone: "reflective",
+              starred: false,
+              pinned: false,
+              folder_id: null,
             };
           }
         })
@@ -284,19 +336,45 @@ const AdvancedHistory = () => {
 
       if (foldersError) throw foldersError;
 
-      const decryptedFolders = await Promise.all(
-        (foldersData || []).map(async (folder) => {
-          const decryptedName = await encryptionService.decrypt(folder.name);
-          const decryptedDescription = folder.description
-            ? await encryptionService.decrypt(folder.description)
-            : null;
-          return {
-            ...folder,
-            decryptedName,
-            decryptedDescription,
-          };
-        })
-      );
+      let decryptedFolders = [];
+      if (foldersData && foldersData.length > 0) {
+        decryptedFolders = await Promise.all(
+          foldersData.map(async (folder) => {
+            try {
+              const masterKey = localStorage.getItem("userMasterKey");
+              if (!masterKey) {
+                throw new Error("No master key found");
+              }
+
+              // Decrypt folder name
+              const decryptedName = await encryptionService.decrypt(
+                folder.name
+              );
+
+              // Decrypt folder description if it exists
+              let decryptedDescription = null;
+              if (folder.description) {
+                decryptedDescription = await encryptionService.decrypt(
+                  folder.description
+                );
+              }
+
+              return {
+                ...folder,
+                decryptedName,
+                decryptedDescription,
+              };
+            } catch (error) {
+              console.error("Error decrypting folder:", error);
+              return {
+                ...folder,
+                decryptedName: "Error decrypting folder name",
+                decryptedDescription: null,
+              };
+            }
+          })
+        );
+      }
 
       setFolders(decryptedFolders);
 
@@ -309,19 +387,58 @@ const AdvancedHistory = () => {
 
       if (goalsError) throw goalsError;
 
-      const decryptedGoals = await Promise.all(
-        (goalsData || []).map(async (goal) => {
-          const decryptedTitle = await encryptionService.decrypt(goal.title);
-          const decryptedDescription = goal.description
-            ? await encryptionService.decrypt(goal.description)
-            : null;
-          return {
-            ...goal,
-            decryptedTitle,
-            decryptedDescription,
-          };
-        })
-      );
+      let decryptedGoals = [];
+      if (goalsData && goalsData.length > 0) {
+        decryptedGoals = await Promise.all(
+          goalsData.map(async (goal) => {
+            try {
+              const masterKey = localStorage.getItem("userMasterKey");
+              if (!masterKey) {
+                throw new Error("No master key found");
+              }
+
+              // Decrypt goal data key
+              const dataKey = await encryptionService.decryptKey(
+                {
+                  encryptedData: goal.encrypted_data_key,
+                  iv: goal.data_key_iv,
+                },
+                masterKey
+              );
+
+              // Decrypt goal title
+              const decryptedTitle = await encryptionService.decryptText(
+                goal.encrypted_goal,
+                goal.goal_iv,
+                dataKey
+              );
+
+              // Decrypt goal description if it exists
+              let decryptedDescription = null;
+              if (goal.encrypted_description && goal.description_iv) {
+                decryptedDescription = await encryptionService.decryptText(
+                  goal.encrypted_description,
+                  goal.description_iv,
+                  dataKey
+                );
+              }
+
+              return {
+                ...goal,
+                decryptedTitle,
+                decryptedDescription,
+              };
+            } catch (error) {
+              console.error("Error decrypting goal:", error);
+              return {
+                ...goal,
+                decryptedTitle: "Error decrypting goal",
+                decryptedDescription: null,
+              };
+            }
+          })
+        );
+      }
 
       setGoals(decryptedGoals);
 
