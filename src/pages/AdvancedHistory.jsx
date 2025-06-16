@@ -198,16 +198,13 @@ const AdvancedHistory = () => {
 
       if (entriesError) throw entriesError;
 
+      // Get the master key using the same pattern as other components
+      const masterKey = await encryptionService.getStaticMasterKey();
+
       // Decrypt entries and load their follow-ups
       const decryptedEntries = await Promise.all(
         (entriesData || []).map(async (entry) => {
           try {
-            // Get the master key from context/storage (following your existing pattern)
-            const masterKey = localStorage.getItem("userMasterKey");
-            if (!masterKey) {
-              throw new Error("No master key found");
-            }
-
             // Decrypt the data key first
             const dataKey = await encryptionService.decryptKey(
               {
@@ -341,12 +338,7 @@ const AdvancedHistory = () => {
         decryptedFolders = await Promise.all(
           foldersData.map(async (folder) => {
             try {
-              const masterKey = localStorage.getItem("userMasterKey");
-              if (!masterKey) {
-                throw new Error("No master key found");
-              }
-
-              // Decrypt folder name
+              // Decrypt folder name using the same approach as other components
               const decryptedName = await encryptionService.decrypt(
                 folder.name
               );
@@ -378,9 +370,9 @@ const AdvancedHistory = () => {
 
       setFolders(decryptedFolders);
 
-      // Load goals for connections
+      // Load goals for connections - using the correct table name
       const { data: goalsData, error: goalsError } = await supabase
-        .from("goals")
+        .from("user_goals") // Fixed: using user_goals instead of goals
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
@@ -392,11 +384,6 @@ const AdvancedHistory = () => {
         decryptedGoals = await Promise.all(
           goalsData.map(async (goal) => {
             try {
-              const masterKey = localStorage.getItem("userMasterKey");
-              if (!masterKey) {
-                throw new Error("No master key found");
-              }
-
               // Decrypt goal data key
               const dataKey = await encryptionService.decryptKey(
                 {
