@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import {
   Activity,
   Heart,
+  TrendingUp,
   Moon,
   Dumbbell,
   Droplets,

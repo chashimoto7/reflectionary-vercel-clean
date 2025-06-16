@@ -7,6 +7,7 @@ import {
   Activity,
   Moon,
   Heart,
+  Dumbell,
   BarChart3,
   AlertCircle,
   CheckCircle,
