@@ -109,40 +109,39 @@ export default function Welcome() {
       icon: Brain,
       title: "New Entry",
       description: "Start your reflection",
-      href: "/journaling", // → Points to JournalingRouter
+      href: "/journaling",
       color: "from-purple-500 to-purple-600",
     },
     {
       icon: BarChart3,
       title: "Analytics",
       description: "View your insights",
-      href: "/analytics", // → Points to AnalyticsRouter
+      href: "/analytics",
       color: "from-cyan-500 to-cyan-600",
     },
     {
       icon: Target,
       title: "Goals",
       description: "Track progress",
-      href: "/goals", // → Points to GoalsRouter
+      href: "/goals",
       color: "from-emerald-500 to-emerald-600",
     },
     {
-      icon: Activity, // <-- NEW WELLNESS ACTION
+      icon: Activity,
       title: "Wellness",
       description: "Track your wellbeing",
-      href: "/wellness", // → Points to WellnessRouter
+      href: "/wellness",
       color: "from-rose-500 to-rose-600",
     },
     {
       icon: Calendar,
       title: "History",
       description: "Browse entries",
-      href: "/history", // → Points to HistoryRouter
+      href: "/history",
       color: "from-amber-500 to-amber-600",
     },
   ];
 
-  // MISSING STATS ARRAY - THIS WAS THE PROBLEM!
   const stats = [
     { label: "Current Streak", value: "7 days", icon: Award },
     { label: "Total Entries", value: "142", icon: Heart },
@@ -231,47 +230,43 @@ export default function Welcome() {
           })}
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Quick Actions and Quote */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Quick Actions */}
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                Quick Actions
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                {quickActions.map((action, index) => {
-                  const Icon = action.icon;
-                  return (
-                    <Link
-                      key={index}
-                      to={action.href}
-                      className="group bg-white rounded-lg p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all hover:border-purple-200"
+        {/* Quick Actions - Full Width */}
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            Quick Actions
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {quickActions.map((action, index) => {
+              const Icon = action.icon;
+              return (
+                <Link
+                  key={index}
+                  to={action.href}
+                  className="group bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-all hover:border-purple-200"
+                >
+                  <div className="text-center">
+                    <div
+                      className={`bg-gradient-to-br ${action.color} p-3 rounded-lg group-hover:scale-110 transition-transform mx-auto mb-3 w-fit`}
                     >
-                      <div className="flex items-start gap-4">
-                        <div
-                          className={`bg-gradient-to-br ${action.color} p-3 rounded-lg group-hover:scale-110 transition-transform`}
-                        >
-                          <Icon className="w-6 h-6 text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 group-hover:text-purple-600 transition-colors">
-                            {action.title}
-                          </h3>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {action.description}
-                          </p>
-                        </div>
-                        <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-purple-600 transition-colors mt-1" />
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
+                      <Icon className="w-6 h-6 text-white" />
+                    </div>
+                    <h3 className="font-semibold text-gray-900 group-hover:text-purple-600 transition-colors mb-1">
+                      {action.title}
+                    </h3>
+                    <p className="text-xs text-gray-600">
+                      {action.description}
+                    </p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
 
-            {/* Daily Inspiration */}
+        {/* Main Content Grid - Quote and Updates */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Daily Inspiration (Wider) */}
+          <div className="lg:col-span-2">
             <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-8 text-white shadow-lg">
               <div className="flex items-start gap-4">
                 <Quote className="w-8 h-8 opacity-50 flex-shrink-0 mt-1" />
