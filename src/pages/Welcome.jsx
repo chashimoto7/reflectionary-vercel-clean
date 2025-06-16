@@ -142,6 +142,13 @@ export default function Welcome() {
     },
   ];
 
+  // MISSING STATS ARRAY - THIS WAS THE PROBLEM!
+  const stats = [
+    { label: "Current Streak", value: "7 days", icon: Award },
+    { label: "Total Entries", value: "142", icon: Heart },
+    { label: "Insights Generated", value: "28", icon: Lightbulb },
+  ];
+
   const announcements = [
     {
       type: "feature",
