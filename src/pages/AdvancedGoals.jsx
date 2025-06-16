@@ -37,6 +37,18 @@ import EditMilestonesModal from "../components/EditMilestonesModal";
 import GoalTips from "../components/GoalTips";
 import ReactConfetti from "react-confetti";
 import { useWindowSize } from "@uidotdev/usehooks";
+
+// Import separate tab components
+import IntelligenceOverviewTab from "../components/goals/tabs/IntelligenceOverviewTab";
+import ProgressPatternsTab from "../components/goals/tabs/ProgressPatternsTab";
+import GoalInsightsTab from "../components/goals/tabs/GoalInsightsTab";
+import MentionTimelineTab from "../components/goals/tabs/MentionTimelineTab";
+import GoalsOverviewTab from "../components/goals/tabs/GoalsOverviewTab";
+import GoalComparisonTab from "../components/goals/tabs/GoalComparisonTab";
+import MoodCorrelationsTab from "../components/goals/tabs/MoodCorrelationsTab";
+import GrowthTrackingTab from "../components/goals/tabs/GrowthTrackingTab";
+import InsightsFeedTab from "../components/goals/tabs/InsightsFeedTab";
+import DataExportTab from "../components/goals/tabs/DataExportTab";
 import {
   LineChart,
   Line,
