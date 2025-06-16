@@ -150,6 +150,15 @@ export function useMembership() {
           (tier === "standard" && features.includes("advanced_goals")) // Standard+ can upgrade to advanced
         );
 
+      case "wellness":
+        return ["basic", "standard", "premium"].includes(tier); // All paid tiers get basic wellness
+
+      case "advanced_wellness":
+        return (
+          tier === "premium" || // Premium gets it included
+          (tier === "standard" && features.includes("advanced_wellness")) // Standard can buy add-on
+        );
+
       case "follow_up_prompts":
         return ["basic", "standard", "premium"].includes(tier);
 

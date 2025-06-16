@@ -10,6 +10,7 @@ import {
   Lock,
   Crown,
   Settings,
+  Activity,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
@@ -53,6 +54,12 @@ export default function Layout({ children }) {
       icon: Target,
       label: "Goals",
       feature: "goals",
+    },
+    {
+      to: "/wellness",
+      icon: Activity,
+      label: "Wellness",
+      feature: "wellness",
     },
   ];
 

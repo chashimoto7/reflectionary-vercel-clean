@@ -11,15 +11,6 @@ import "quill/dist/quill.snow.css";
 import { useCrisisIntegration } from "../hooks/useCrisisIntegration";
 import CrisisResourceModal from "../components/CrisisResourceModal";
 import {
-  Activity,
-  Moon,
-  Droplets,
-  Heart,
-  Brain,
-  Coffee,
-  Apple,
-  Dumbbell,
-  Wind,
   Info,
   Mic,
   MicOff,
@@ -87,16 +78,6 @@ const JOURNAL_TEMPLATES = {
       "Obstacles I encountered and how I'll overcome them...",
       "Next steps for tomorrow...",
       "How I'm feeling about my progress...",
-    ],
-  },
-  wellness: {
-    name: "Wellness Check-in",
-    icon: Activity,
-    prompts: [
-      "How is my body feeling today?",
-      "What did I do for my physical health?",
-      "How is my mental/emotional state?",
-      "What self-care practices helped me today?",
     ],
   },
   creative: {
@@ -178,22 +159,6 @@ export default function AdvancedJournaling() {
   const [audioChunks, setAudioChunks] = useState([]);
   const [transcribedText, setTranscribedText] = useState("");
   const [isTranscribing, setIsTranscribing] = useState(false);
-
-  // Wellness tracking (enhanced for premium)
-  const [showWellnessSection, setShowWellnessSection] = useState(false);
-  const [wellnessData, setWellnessData] = useState({
-    mood: 5,
-    energy: 5,
-    stress: 5,
-    sleep: 7,
-    water: 0,
-    exercise: 0,
-    mindfulness: 0,
-    socialConnection: 5,
-    productivity: 5,
-    selfCare: false,
-    nutrition: "balanced",
-  });
 
   // Encryption function (same as StandardJournaling)
   const encryptJournalEntry = async (entryData) => {
@@ -637,7 +602,6 @@ export default function AdvancedJournaling() {
         isStarred: isStarred,
         isPinned: isPinned,
         folder_id: selectedFolder,
-        wellness: wellnessData,
       };
 
       // Prepare the entry data using the same structure as StandardJournaling
@@ -647,9 +611,6 @@ export default function AdvancedJournaling() {
         is_follow_up: promptType === "followUp",
         parent_entry_id: currentThreadId,
         thread_id: currentThreadId,
-        // Basic wellness data (compatible with backend)
-        mood: wellnessData.mood,
-        energy: wellnessData.energy,
         cycle_day: null, // Advanced doesn't track cycle by default
         cycle_phase: null,
         // Store Advanced metadata in a way that won't break the backend
@@ -1181,213 +1142,6 @@ export default function AdvancedJournaling() {
             />
           </div>
         </div>
-      </div>
-
-      {/* Enhanced Wellness Tracking */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowWellnessSection(!showWellnessSection)}
-          className="flex items-center gap-2 text-sm font-medium bg-gradient-to-r from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 text-purple-800 px-4 py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md w-full sm:w-auto"
-        >
-          <span
-            className={`transform transition-transform ${
-              showWellnessSection ? "rotate-90" : ""
-            }`}
-          >
-            <ChevronRight size={16} />
-          </span>
-          <Activity size={16} className="text-purple-600" />
-          <span>Advanced Wellness Tracking</span>
-          {!showWellnessSection && (
-            <span className="ml-2 text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full">
-              Premium
-            </span>
-          )}
-        </button>
-
-        {showWellnessSection && (
-          <div className="mt-4 bg-gradient-to-br from-purple-50 via-pink-50 to-cyan-50 rounded-lg p-6 border border-purple-200 shadow-sm space-y-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold text-purple-900 flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-600" />
-                Track Your Wellness Journey
-              </h3>
-              <span className="text-xs bg-purple-600 text-white px-2 py-1 rounded-full">
-                Premium Feature
-              </span>
-            </div>
-
-            {/* Mood, Energy, Stress Sliders */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white/70 rounded-lg p-4">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                  <Heart className="w-4 h-4 text-pink-500" />
-                  Mood: {wellnessData.mood}
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  value={wellnessData.mood}
-                  onChange={(e) =>
-                    setWellnessData({
-                      ...wellnessData,
-                      mood: parseInt(e.target.value),
-                    })
-                  }
-                  className="w-full accent-pink-500"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>😔</span>
-                  <span>😐</span>
-                  <span>😊</span>
-                </div>
-              </div>
-
-              <div className="bg-white/70 rounded-lg p-4">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                  <Zap className="w-4 h-4 text-yellow-500" />
-                  Energy: {wellnessData.energy}
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  value={wellnessData.energy}
-                  onChange={(e) =>
-                    setWellnessData({
-                      ...wellnessData,
-                      energy: parseInt(e.target.value),
-                    })
-                  }
-                  className="w-full accent-yellow-500"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>🔋</span>
-                  <span>⚡</span>
-                  <span>🚀</span>
-                </div>
-              </div>
-
-              <div className="bg-white/70 rounded-lg p-4">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                  <Brain className="w-4 h-4 text-purple-500" />
-                  Stress: {wellnessData.stress}
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  value={wellnessData.stress}
-                  onChange={(e) =>
-                    setWellnessData({
-                      ...wellnessData,
-                      stress: parseInt(e.target.value),
-                    })
-                  }
-                  className="w-full accent-purple-500"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>😌</span>
-                  <span>😐</span>
-                  <span>😰</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Additional Wellness Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white/70 rounded-lg p-3">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                  <Moon className="w-4 h-4 text-indigo-500" />
-                  Sleep (hrs)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="24"
-                  step="0.5"
-                  value={wellnessData.sleep}
-                  onChange={(e) =>
-                    setWellnessData({
-                      ...wellnessData,
-                      sleep: parseFloat(e.target.value),
-                    })
-                  }
-                  className="w-full px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-
-              <div className="bg-white/70 rounded-lg p-3">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                  <Droplets className="w-4 h-4 text-blue-500" />
-                  Water (cups)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="20"
-                  value={wellnessData.water}
-                  onChange={(e) =>
-                    setWellnessData({
-                      ...wellnessData,
-                      water: parseInt(e.target.value),
-                    })
-                  }
-                  className="w-full px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-
-              <div className="bg-white/70 rounded-lg p-3">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                  <Dumbbell className="w-4 h-4 text-green-500" />
-                  Exercise (min)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="300"
-                  step="5"
-                  value={wellnessData.exercise}
-                  onChange={(e) =>
-                    setWellnessData({
-                      ...wellnessData,
-                      exercise: parseInt(e.target.value),
-                    })
-                  }
-                  className="w-full px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-
-              <div className="bg-white/70 rounded-lg p-3">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                  <Wind className="w-4 h-4 text-cyan-500" />
-                  Mindfulness (min)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="180"
-                  step="5"
-                  value={wellnessData.mindfulness}
-                  onChange={(e) =>
-                    setWellnessData({
-                      ...wellnessData,
-                      mindfulness: parseInt(e.target.value),
-                    })
-                  }
-                  className="w-full px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-            </div>
-
-            <div className="text-xs text-purple-700 mt-4 flex items-center gap-1 bg-purple-100 p-2 rounded">
-              <Info size={12} />
-              All wellness data is encrypted and used to enhance your insights
-              and track patterns over time.
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Transcription Status */}
