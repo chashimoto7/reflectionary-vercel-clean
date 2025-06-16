@@ -171,13 +171,6 @@ export function useMembership() {
           (tier === "standard" && features.includes("reflectionarian"))
         );
 
-      // Additional aliases for compatibility
-      case "full_history": // Legacy name
-        return (
-          tier === "premium" ||
-          (tier === "standard" && features.includes("advanced_history"))
-        );
-
       default:
         console.warn(`🚨 Unknown feature requested: ${feature}`);
         return false;
