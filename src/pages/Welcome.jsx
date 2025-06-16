@@ -263,9 +263,65 @@ export default function Welcome() {
           </div>
         </div>
 
-        {/* Main Content Grid - Quote and Updates */}
+        {/* Updates & Announcements - Full Width */}
+        <div className="mb-8">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Updates & Announcements
+              </h2>
+              <Bell className="w-5 h-5 text-gray-400" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {announcements.map((announcement, index) => {
+                const Icon = announcement.icon;
+                const typeColors = {
+                  feature: "bg-purple-100 text-purple-700",
+                  update: "bg-cyan-100 text-cyan-700",
+                  tip: "bg-emerald-100 text-emerald-700",
+                };
+
+                return (
+                  <div key={index} className="flex gap-4">
+                    <div
+                      className={`p-2 rounded-lg ${
+                        typeColors[announcement.type]
+                      } flex-shrink-0`}
+                    >
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-medium text-gray-900">
+                        {announcement.title}
+                      </h3>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {announcement.description}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {announcement.date}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-gray-200 text-center">
+              <Link
+                to="/security"
+                className="text-sm text-purple-600 hover:text-purple-700 font-medium inline-flex items-center gap-2 group"
+              >
+                View all updates
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Quote and Privacy Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Daily Inspiration (Wider) */}
+          {/* Daily Inspiration - Left Side */}
           <div className="lg:col-span-2">
             <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-8 text-white shadow-lg">
               <div className="flex items-start gap-4">
@@ -283,80 +339,19 @@ export default function Welcome() {
             </div>
           </div>
 
-          {/* Right Column - Updates */}
+          {/* Privacy Section - Right Side */}
           <div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Updates & Announcements
-                </h2>
-                <Bell className="w-5 h-5 text-gray-400" />
-              </div>
-
-              <div className="space-y-6">
-                {announcements.map((announcement, index) => {
-                  const Icon = announcement.icon;
-                  const typeColors = {
-                    feature: "bg-purple-100 text-purple-700",
-                    update: "bg-cyan-100 text-cyan-700",
-                    tip: "bg-emerald-100 text-emerald-700",
-                  };
-
-                  return (
-                    <div key={index} className="relative">
-                      {index !== announcements.length - 1 && (
-                        <div className="absolute left-5 top-10 bottom-0 w-px bg-gray-200"></div>
-                      )}
-                      <div className="flex gap-4">
-                        <div
-                          className={`p-2 rounded-lg ${
-                            typeColors[announcement.type]
-                          } flex-shrink-0`}
-                        >
-                          <Icon className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1 pb-2">
-                          <h3 className="font-medium text-gray-900">
-                            {announcement.title}
-                          </h3>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {announcement.description}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-2">
-                            {announcement.date}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <Link
-                  to="/security"
-                  className="text-sm text-purple-600 hover:text-purple-700 font-medium flex items-center gap-2 group"
-                >
-                  View all updates
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </div>
-            </div>
-
-            {/* Privacy Reminder */}
-            <div className="mt-6 bg-purple-50 rounded-lg p-4 border border-purple-100">
-              <div className="flex gap-3">
-                <Shield className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-sm font-medium text-purple-900">
-                    Your Privacy Matters
-                  </h4>
-                  <p className="text-sm text-purple-700 mt-1">
-                    All your reflections are end-to-end encrypted and accessible
-                    only by you.
-                  </p>
-                </div>
-              </div>
+            <div className="bg-purple-50 rounded-lg p-6 border border-purple-100 h-fit">
+              <h4 className="text-lg font-semibold text-purple-900 mb-3">
+                🔒 Your Privacy Matters
+              </h4>
+              <p className="text-sm text-purple-700 leading-relaxed">
+                Your journal is personal — and we treat it that way. All your
+                reflections are end-to-end encrypted so no one else can read
+                your words. Not our team. Not our servers. Just you.
+                Reflectionary is your private space to be real, raw, and fully
+                yourself.
+              </p>
             </div>
           </div>
         </div>
