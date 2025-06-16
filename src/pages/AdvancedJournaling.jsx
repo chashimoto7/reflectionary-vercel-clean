@@ -24,6 +24,7 @@ import {
   Image,
   Link,
   Hash,
+  Heart,
   Zap,
   Target,
   Crown,
