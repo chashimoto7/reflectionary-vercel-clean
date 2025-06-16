@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
 import { useMembership } from "../hooks/useMembership";
 import { Eye, EyeOff } from "lucide-react";
-import logo from "../assets/FinalReflectionarySquare.png";
+import logo from "../assets/ReflectionaryLogowelcome.png";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -53,11 +53,7 @@ export default function LoginPage() {
       <div className="max-w-md w-full">
         {/* Logo and title */}
         <div className="text-center mb-8">
-          <img
-            src={logo}
-            alt="Reflectionary"
-            className="w-25 h-25 mx-auto mb-4"
-          />
+          <img src={logo} alt="Reflectionary" className="mx-auto mb-4" />
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             Welcome to Reflectionary
           </h1>
