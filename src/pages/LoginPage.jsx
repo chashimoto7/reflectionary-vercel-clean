@@ -56,12 +56,14 @@ export default function LoginPage() {
           <img
             src={logo}
             alt="Reflectionary"
-            className="w-20 h-20 mx-auto mb-4"
+            className="w-25 h-25 mx-auto mb-4"
           />
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
             Welcome to Reflectionary
           </h1>
-          <p className="text-gray-600">Where your voice finds meaning</p>
+          <p className="text-med text-gray-600">
+            Where your voice finds meaning
+          </p>
         </div>
 
         {/* Login form */}
