@@ -56,12 +56,9 @@ export default function LoginPage() {
           <img
             src={logo}
             alt="Reflectionary"
-            className="mx-auto mb-4 max-w-xs w-full h-auto"
+            className="mx-auto mb-4 max-w-md w-full h-auto"
           />
 
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Welcome to Reflectionary
-          </h1>
           <p className="text-med text-gray-600">
             Where your voice finds meaning
           </p>
