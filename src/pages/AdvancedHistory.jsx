@@ -186,28 +186,19 @@ const AdvancedHistory = () => {
           startDate.setMonth(startDate.getMonth() - 3);
       }
 
-      // Load journal entries
+      // Load journal entries (parent entries only, then load follow-ups separately)
       const { data: entriesData, error: entriesError } = await supabase
         .from("journal_entries")
-        .select(
-          `
-          *,
-          followup_responses (
-            id,
-            question,
-            response,
-            created_at
-          )
-        `
-        )
+        .select("*")
         .eq("user_id", user.id)
+        .is("parent_entry_id", null) // Only get parent entries (not follow-ups)
         .gte("created_at", startDate.toISOString())
         .lte("created_at", endDate.toISOString())
         .order("created_at", { ascending: false });
 
       if (entriesError) throw entriesError;
 
-      // Decrypt entries
+      // Decrypt entries and load their follow-ups
       const decryptedEntries = await Promise.all(
         (entriesData || []).map(async (entry) => {
           try {
@@ -218,20 +209,32 @@ const AdvancedHistory = () => {
               ? await encryptionService.decrypt(entry.prompt)
               : null;
 
+            // Load follow-ups for this entry
+            const { data: followUpData } = await supabase
+              .from("journal_entries")
+              .select("*")
+              .eq("parent_entry_id", entry.id)
+              .order("created_at", { ascending: true });
+
             // Decrypt follow-ups
             const decryptedFollowUps = await Promise.all(
-              (entry.followup_responses || []).map(async (followUp) => {
-                const decryptedQuestion = await encryptionService.decrypt(
-                  followUp.question
-                );
-                const decryptedResponse = await encryptionService.decrypt(
-                  followUp.response
-                );
-                return {
-                  ...followUp,
-                  decryptedQuestion,
-                  decryptedResponse,
-                };
+              (followUpData || []).map(async (followUp) => {
+                try {
+                  const decryptedQuestion = followUp.prompt
+                    ? await encryptionService.decrypt(followUp.prompt)
+                    : "Follow-up reflection";
+                  const decryptedResponse = await encryptionService.decrypt(
+                    followUp.content
+                  );
+                  return {
+                    ...followUp,
+                    decryptedQuestion,
+                    decryptedResponse,
+                  };
+                } catch (error) {
+                  console.error("Error decrypting follow-up:", error);
+                  return null;
+                }
               })
             );
 
@@ -239,7 +242,7 @@ const AdvancedHistory = () => {
               ...entry,
               decryptedContent,
               decryptedPrompt,
-              decryptedFollowUps,
+              decryptedFollowUps: decryptedFollowUps.filter(Boolean),
               // Mock AI analysis data - in production this would come from batch jobs
               mood:
                 entry.mood ||
