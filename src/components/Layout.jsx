@@ -12,6 +12,7 @@ import {
   Crown,
   Settings,
   Activity,
+  MessageCircle,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
@@ -67,6 +68,12 @@ export default function Layout({ children }) {
       icon: Heart, // You'll need to import Heart from lucide-react if not already imported
       label: "Women's Health",
       feature: "womens_health",
+    },
+    {
+      to: "/reflectionarian", // Add this new navigation item
+      icon: MessageCircle,
+      label: "Reflectionarian",
+      feature: "reflectionarian",
     },
   ];
 

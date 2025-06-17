@@ -74,7 +74,7 @@ function getRandomQuote(excludeIndex) {
 
 export default function Welcome() {
   const [quote, setQuote] = useState(() => getRandomQuote(-1));
-  const [userName, setUserName] = useState("Sarah");
+  const [userName, setUserName] = useState("Christine");
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Update time every minute

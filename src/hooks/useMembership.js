@@ -184,10 +184,23 @@ export function useMembership() {
         return true; // Always available for safety
 
       case "reflectionarian":
+        // Standard+ with Reflectionarian add-on OR Premium gets Basic Reflectionarian
         return (
-          tier === "premium" ||
-          (tier === "standard" && features.includes("reflectionarian"))
+          tier === "premium" || // Premium gets everything
+          (tier === "standard_plus" && features.includes("reflectionarian")) // Standard+ can add Basic Reflectionarian
         );
+
+      case "advanced_reflectionarian":
+        // Premium only OR Standard+ with Advanced Reflectionarian add-on
+        return (
+          tier === "premium" || // Premium gets Advanced automatically
+          (tier === "standard_plus" &&
+            features.includes("advanced_reflectionarian")) // Standard+ can buy Advanced add-on
+        );
+
+      case "pro_reflectionarian":
+        // Premium only - Pro Reflectionarian is Premium exclusive
+        return tier === "premium";
 
       default:
         console.warn(`🚨 Unknown feature requested: ${feature}`);
@@ -216,6 +229,28 @@ export function useMembership() {
       if (tier === "standard") {
         return "Add Advanced Analytics to your Standard plan for $8/month, or upgrade to Premium for full access.";
       }
+    }
+
+    if (feature === "reflectionarian") {
+      if (tier === "free" || tier === "basic") {
+        return "Upgrade to Standard+ to add Basic Reflectionarian, or Premium for the full AI companion experience.";
+      }
+      if (tier === "standard") {
+        return "Upgrade to Standard+ and add Basic Reflectionarian, or Premium for Advanced and Pro features.";
+      }
+    }
+
+    if (feature === "advanced_reflectionarian") {
+      if (tier === "free" || tier === "basic") {
+        return "Upgrade to Premium for Advanced Reflectionarian with full journal access and session summaries.";
+      }
+      if (tier === "standard" || tier === "standard_plus") {
+        return "Upgrade to Premium for Advanced Reflectionarian, or add as a Standard+ add-on for $5/month.";
+      }
+    }
+
+    if (feature === "pro_reflectionarian") {
+      return "Upgrade to Premium for Pro Reflectionarian with therapy-style sessions and growth timeline reviews.";
     }
 
     // Default messages by tier
