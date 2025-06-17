@@ -40,7 +40,11 @@ import PredictiveInsightsTab from "../components/womenshealth/tabs/PredictiveIns
 import EducationalResourcesTab from "../components/womenshealth/tabs/EducationalResourcesTab";
 import HealthReportsTab from "../components/womenshealth/tabs/HealthReportsTab";
 import DataExportTab from "../components/womenshealth/tabs/DataExportTab";
+
+// Import life stage-specific modals
 import WomensHealthEntryModal from "../components/womenshealth/WomensHealthEntryModal";
+import PerimenopauseEntryModal from "../components/womenshealth/PerimenopauseEntryModal";
+import MenopauseEntryModal from "../components/womenshealth/MenopauseEntryModal";
 
 const AdvancedWomensHealth = () => {
   const { user } = useAuth();
@@ -337,6 +341,42 @@ const AdvancedWomensHealth = () => {
     }
   }, [hasAccess, membershipLoading, user]);
 
+  // Get appropriate button text based on life stage
+  const getStartTrackingText = () => {
+    switch (lifeStage) {
+      case "perimenopause":
+        return "Begin Transition Tracking";
+      case "menopause":
+        return "Start Wellness Journey";
+      default:
+        return "Start Advanced Tracking";
+    }
+  };
+
+  // Get appropriate empty state messaging
+  const getEmptyStateContent = () => {
+    switch (lifeStage) {
+      case "perimenopause":
+        return {
+          title: "Navigate Your Transition with Wisdom",
+          description:
+            "Track your perimenopause journey with compassionate support and evidence-based insights. Every woman's transition is unique.",
+        };
+      case "menopause":
+        return {
+          title: "Embrace Your Wisdom Years",
+          description:
+            "Celebrate this powerful life phase with comprehensive wellness tracking. Your accumulated wisdom deserves to be honored.",
+        };
+      default:
+        return {
+          title: "Start Your Advanced Health Journey",
+          description:
+            "Begin tracking your cycle, symptoms, and health patterns to unlock powerful AI-driven insights about your well-being and hormonal health.",
+        };
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto p-6">
@@ -485,6 +525,9 @@ const AdvancedWomensHealth = () => {
       {healthData?.overview?.totalEntries === 0 ? (
         <EmptyAdvancedWomensHealthState
           onStartTracking={() => setShowEntryModal(true)}
+          lifeStage={lifeStage}
+          getEmptyStateContent={getEmptyStateContent}
+          getStartTrackingText={getStartTrackingText}
         />
       ) : (
         <>
@@ -607,36 +650,96 @@ const AdvancedWomensHealth = () => {
         </>
       )}
 
-      <WomensHealthEntryModal
-        isOpen={showEntryModal}
-        onClose={() => setShowEntryModal(false)}
-        onDataSaved={() => {
-          setShowEntryModal(false);
-          loadAdvancedWomensHealthData();
-        }}
-      />
+      {/* Life Stage-Aware Modals */}
+      {lifeStage === "menstrual" && (
+        <WomensHealthEntryModal
+          isOpen={showEntryModal}
+          onClose={() => setShowEntryModal(false)}
+          onDataSaved={() => {
+            setShowEntryModal(false);
+            loadAdvancedWomensHealthData();
+          }}
+        />
+      )}
+
+      {lifeStage === "perimenopause" && (
+        <PerimenopauseEntryModal
+          isOpen={showEntryModal}
+          onClose={() => setShowEntryModal(false)}
+          onDataSaved={() => {
+            setShowEntryModal(false);
+            loadAdvancedWomensHealthData();
+          }}
+        />
+      )}
+
+      {lifeStage === "menopause" && (
+        <MenopauseEntryModal
+          isOpen={showEntryModal}
+          onClose={() => setShowEntryModal(false)}
+          onDataSaved={() => {
+            setShowEntryModal(false);
+            loadAdvancedWomensHealthData();
+          }}
+        />
+      )}
     </div>
   );
 };
 
-// Empty State Component
-const EmptyAdvancedWomensHealthState = ({ onStartTracking }) => (
-  <div className="text-center py-12">
-    <Heart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-    <h3 className="text-lg font-semibold text-gray-600 mb-2">
-      Start Your Advanced Health Journey
-    </h3>
-    <p className="text-gray-500 max-w-md mx-auto mb-6">
-      Begin tracking your cycle, symptoms, and health patterns to unlock
-      powerful AI-driven insights about your well-being and hormonal health.
-    </p>
-    <button
-      onClick={onStartTracking}
-      className="px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
-    >
-      Start Advanced Tracking
-    </button>
-  </div>
-);
+// Updated Empty State Component with Life Stage Awareness
+const EmptyAdvancedWomensHealthState = ({
+  onStartTracking,
+  lifeStage,
+  getEmptyStateContent,
+  getStartTrackingText,
+}) => {
+  const content = getEmptyStateContent();
+  const buttonText = getStartTrackingText();
+
+  // Get appropriate icon based on life stage
+  const getIcon = () => {
+    switch (lifeStage) {
+      case "perimenopause":
+        return (
+          <Thermometer className="h-16 w-16 text-orange-400 mx-auto mb-4" />
+        );
+      case "menopause":
+        return <Sun className="h-16 w-16 text-amber-400 mx-auto mb-4" />;
+      default:
+        return <Heart className="h-16 w-16 text-gray-400 mx-auto mb-4" />;
+    }
+  };
+
+  // Get appropriate button color based on life stage
+  const getButtonColor = () => {
+    switch (lifeStage) {
+      case "perimenopause":
+        return "bg-orange-600 hover:bg-orange-700";
+      case "menopause":
+        return "bg-amber-600 hover:bg-amber-700";
+      default:
+        return "bg-pink-600 hover:bg-pink-700";
+    }
+  };
+
+  return (
+    <div className="text-center py-12">
+      {getIcon()}
+      <h3 className="text-lg font-semibold text-gray-600 mb-2">
+        {content.title}
+      </h3>
+      <p className="text-gray-500 max-w-md mx-auto mb-6">
+        {content.description}
+      </p>
+      <button
+        onClick={onStartTracking}
+        className={`px-6 py-3 text-white rounded-lg transition-colors ${getButtonColor()}`}
+      >
+        {buttonText}
+      </button>
+    </div>
+  );
+};
 
 export default AdvancedWomensHealth;
