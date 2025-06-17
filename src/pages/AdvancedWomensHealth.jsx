@@ -522,133 +522,162 @@ const AdvancedWomensHealth = () => {
         </div>
       </div>
 
-      {healthData?.overview?.totalEntries === 0 ? (
-        <EmptyAdvancedWomensHealthState
-          onStartTracking={() => setShowEntryModal(true)}
-          lifeStage={lifeStage}
-          getEmptyStateContent={getEmptyStateContent}
-          getStartTrackingText={getStartTrackingText}
-        />
-      ) : (
-        <>
-          {/* Advanced Tab Navigation - Two Row Layout */}
-          <div className="mb-8">
-            <div className="bg-gray-50 p-3 rounded-lg">
-              {/* First Row - 5 tabs */}
-              <div className="flex flex-wrap gap-2 mb-2">
-                {advancedTabs.slice(0, 5).map((tab) => {
-                  const IconComponent = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors flex-1 min-w-0 ${
-                        activeTab === tab.id
-                          ? "bg-white text-pink-600 shadow-sm border border-pink-200"
-                          : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
-                      }`}
-                    >
-                      <IconComponent className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+      {/* Advanced Tab Navigation - Always Show */}
+      <div className="mb-8">
+        <div className="bg-gray-50 p-3 rounded-lg">
+          {/* First Row - 5 tabs */}
+          <div className="flex flex-wrap gap-2 mb-2">
+            {advancedTabs.slice(0, 5).map((tab) => {
+              const IconComponent = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors flex-1 min-w-0 ${
+                    activeTab === tab.id
+                      ? "bg-white text-pink-600 shadow-sm border border-pink-200"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
+                  }`}
+                >
+                  <IconComponent className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
 
-              {/* Second Row - 5 tabs */}
-              <div className="flex flex-wrap gap-2">
-                {advancedTabs.slice(5, 10).map((tab) => {
-                  const IconComponent = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors flex-1 min-w-0 ${
-                        activeTab === tab.id
-                          ? "bg-white text-pink-600 shadow-sm border border-pink-200"
-                          : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
-                      }`}
-                    >
-                      <IconComponent className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">{tab.label}</span>
-                    </button>
-                  );
-                })}
+          {/* Second Row - 5 tabs */}
+          <div className="flex flex-wrap gap-2">
+            {advancedTabs.slice(5, 10).map((tab) => {
+              const IconComponent = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors flex-1 min-w-0 ${
+                    activeTab === tab.id
+                      ? "bg-white text-pink-600 shadow-sm border border-pink-200"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
+                  }`}
+                >
+                  <IconComponent className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Getting Started Banner - Show when no data */}
+        {(!healthData || healthData?.overview?.totalEntries === 0) && (
+          <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+            <div className="flex items-start gap-3">
+              <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <h3 className="font-medium text-blue-900 mb-1">
+                  Welcome to Advanced Women's Health
+                </h3>
+                <p className="text-sm text-blue-700 mb-3">
+                  Explore all the powerful features available to you. Some tabs
+                  will show sample data, while others will provide more detailed
+                  insights as you add health entries and journal data.
+                </p>
+                <button
+                  onClick={() => setShowEntryModal(true)}
+                  className={`px-4 py-2 text-white rounded-lg transition-colors text-sm ${
+                    lifeStage === "perimenopause"
+                      ? "bg-orange-600 hover:bg-orange-700"
+                      : lifeStage === "menopause"
+                      ? "bg-amber-600 hover:bg-amber-700"
+                      : "bg-pink-600 hover:bg-pink-700"
+                  }`}
+                >
+                  {getStartTrackingText()}
+                </button>
               </div>
             </div>
           </div>
+        )}
+      </div>
 
-          {/* Tab Content */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            {activeTab === "overview" && (
-              <WomensHealthOverviewTab
-                data={healthData.overview}
-                lifeStage={lifeStage}
-                colors={colors}
-              />
-            )}
-            {activeTab === "cycle-intelligence" && (
-              <CycleIntelligenceTab
-                data={healthData.cycleIntelligence}
-                lifeStage={lifeStage}
-                colors={colors}
-              />
-            )}
-            {activeTab === "hormonal-patterns" && (
-              <HormonalPatternsTab
-                data={healthData.hormonalPatterns}
-                lifeStage={lifeStage}
-                colors={colors}
-              />
-            )}
-            {activeTab === "symptom-analytics" && (
-              <SymptomAnalyticsTab
-                data={healthData.symptomAnalytics}
-                lifeStage={lifeStage}
-                colors={colors}
-              />
-            )}
-            {activeTab === "life-stage-insights" && (
-              <LifeStageInsightsTab
-                data={healthData.lifeStageInsights}
-                lifeStage={lifeStage}
-                colors={colors}
-              />
-            )}
-            {activeTab === "wellness-correlations" && (
-              <WellnessCorrelationsTab
-                data={healthData.wellnessCorrelations}
-                lifeStage={lifeStage}
-                colors={colors}
-              />
-            )}
-            {activeTab === "predictive-insights" && (
-              <PredictiveInsightsTab
-                data={healthData.predictiveInsights}
-                lifeStage={lifeStage}
-                colors={colors}
-              />
-            )}
-            {activeTab === "educational-resources" && (
-              <EducationalResourcesTab lifeStage={lifeStage} colors={colors} />
-            )}
-            {activeTab === "health-reports" && (
-              <HealthReportsTab
-                data={healthData}
-                lifeStage={lifeStage}
-                colors={colors}
-              />
-            )}
-            {activeTab === "data-export" && (
-              <DataExportTab
-                data={healthData}
-                lifeStage={lifeStage}
-                colors={colors}
-              />
-            )}
-          </div>
-        </>
-      )}
+      {/* Tab Content - Always Show */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        {activeTab === "overview" && (
+          <WomensHealthOverviewTab
+            data={healthData?.overview}
+            lifeStage={lifeStage}
+            colors={colors}
+            hasData={healthData?.overview?.totalEntries > 0}
+          />
+        )}
+        {activeTab === "cycle-intelligence" && (
+          <CycleIntelligenceTab
+            data={healthData?.cycleIntelligence}
+            lifeStage={lifeStage}
+            colors={colors}
+            hasData={healthData?.overview?.totalEntries > 0}
+          />
+        )}
+        {activeTab === "hormonal-patterns" && (
+          <HormonalPatternsTab
+            data={healthData?.hormonalPatterns}
+            lifeStage={lifeStage}
+            colors={colors}
+            hasData={healthData?.overview?.totalEntries > 0}
+          />
+        )}
+        {activeTab === "symptom-analytics" && (
+          <SymptomAnalyticsTab
+            data={healthData?.symptomAnalytics}
+            lifeStage={lifeStage}
+            colors={colors}
+            hasData={healthData?.overview?.totalEntries > 0}
+          />
+        )}
+        {activeTab === "life-stage-insights" && (
+          <LifeStageInsightsTab
+            data={healthData?.lifeStageInsights}
+            lifeStage={lifeStage}
+            colors={colors}
+            hasData={healthData?.overview?.totalEntries > 0}
+          />
+        )}
+        {activeTab === "wellness-correlations" && (
+          <WellnessCorrelationsTab
+            data={healthData?.wellnessCorrelations}
+            lifeStage={lifeStage}
+            colors={colors}
+            hasData={healthData?.overview?.totalEntries > 0}
+          />
+        )}
+        {activeTab === "predictive-insights" && (
+          <PredictiveInsightsTab
+            data={healthData?.predictiveInsights}
+            lifeStage={lifeStage}
+            colors={colors}
+            hasData={healthData?.overview?.totalEntries > 0}
+          />
+        )}
+        {activeTab === "educational-resources" && (
+          <EducationalResourcesTab lifeStage={lifeStage} colors={colors} />
+        )}
+        {activeTab === "health-reports" && (
+          <HealthReportsTab
+            data={healthData}
+            lifeStage={lifeStage}
+            colors={colors}
+            hasData={healthData?.overview?.totalEntries > 0}
+          />
+        )}
+        {activeTab === "data-export" && (
+          <DataExportTab
+            data={healthData}
+            lifeStage={lifeStage}
+            colors={colors}
+            hasData={healthData?.overview?.totalEntries > 0}
+          />
+        )}
+      </div>
 
       {/* Life Stage-Aware Modals */}
       {lifeStage === "menstrual" && (
