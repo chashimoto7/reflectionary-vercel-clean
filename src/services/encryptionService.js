@@ -134,4 +134,4 @@ class EncryptionService {
   }
 }
 
-export default new EncryptionService();
+export default new encryptionService();
