@@ -562,7 +562,7 @@ const ProReflectionarian = () => {
   // ====================================================================
 
   const sendMessage = async () => {
-    if (!currentMessage.trim() || isLoading) return;
+    if (!currentMessage.trim() || isLoading || !sessionId) return;
 
     const userMessage = {
       id: Date.now(),
@@ -641,6 +641,90 @@ const ProReflectionarian = () => {
         content:
           "I'm having trouble responding right now. Please try again in a moment! 🔧",
         timestamp: new Date(),
+        isError: true,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ====================================================================
+  // END CONVERSATION & PROMPT GENERATION
+  // ====================================================================
+
+  const handleEndConversation = async (generatePrompts = false) => {
+    if (!sessionId || messages.length === 0) return;
+
+    setIsLoading(true);
+
+    try {
+      if (generatePrompts) {
+        // Generate prompts based on the conversation
+        const conversationHistory = messages.map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        }));
+
+        const response = await fetch("/api/openai/chat-pro", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            message:
+              "Please generate journaling prompts based on our conversation.",
+            conversationHistory,
+            requestType: "end_session_prompts",
+            preferences,
+          }),
+        });
+
+        if (!response.ok) throw new Error("Failed to generate prompts");
+
+        const data = await response.json();
+
+        if (data.sessionPrompts && data.sessionPrompts.length > 0) {
+          // Add the prompts as a special message
+          const promptMessage = {
+            id: Date.now(),
+            role: "assistant",
+            content:
+              "Here are some journaling prompts to help you reflect further on our conversation:",
+            sessionPrompts: data.sessionPrompts,
+            timestamp: new Date().toISOString(),
+            isEndSessionMessage: true,
+          };
+          setMessages((prev) => [...prev, promptMessage]);
+        }
+      }
+
+      // Clear session to prevent further messages
+      setSessionId(null);
+
+      // Show a completion message
+      const endMessage = {
+        id: Date.now() + 1,
+        role: "assistant",
+        content: generatePrompts
+          ? "Our conversation has ended. Feel free to use any of the prompts above for deeper journaling, or start a new conversation anytime!"
+          : "Our conversation has ended. Thank you for sharing with me today. Feel free to start a new conversation anytime!",
+        timestamp: new Date().toISOString(),
+        isEndSessionMessage: true,
+      };
+      setMessages((prev) => [...prev, endMessage]);
+    } catch (error) {
+      console.error("Error ending conversation:", error);
+      // Still end the session even if prompt generation fails
+      setSessionId(null);
+
+      const errorMessage = {
+        id: Date.now(),
+        role: "assistant",
+        content:
+          "Our conversation has ended. I had trouble generating prompts, but you can start a new conversation anytime!",
+        timestamp: new Date().toISOString(),
         isError: true,
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -1025,6 +1109,28 @@ const ProReflectionarian = () => {
 
               {/* Message Input */}
               <div className="border-t border-gray-200 p-6">
+                {/* End Conversation Buttons - Only show if there are messages */}
+                {messages.length > 0 && (
+                  <div className="flex justify-center space-x-4 mb-4">
+                    <button
+                      onClick={() => handleEndConversation(true)}
+                      disabled={isLoading}
+                      className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      <span>End & Get Journaling Prompts</span>
+                    </button>
+                    <button
+                      onClick={() => handleEndConversation(false)}
+                      disabled={isLoading}
+                      className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      <span>End Conversation</span>
+                    </button>
+                  </div>
+                )}
+
                 <div className="flex space-x-4">
                   <textarea
                     ref={messageInputRef}
