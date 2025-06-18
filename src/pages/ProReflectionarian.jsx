@@ -590,6 +590,13 @@ const ProReflectionarian = () => {
           conversationHistory: messages,
         }),
       });
+      console.log("Response status:", response.status);
+      console.log("Response headers:", response.headers);
+
+      if (!response.ok) {
+        console.error("Response not OK:", response.status, response.statusText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
 
       const data = await response.json();
 

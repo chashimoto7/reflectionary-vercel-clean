@@ -289,115 +289,66 @@ const AdvancedReflectionarian = () => {
     setIsLoading(true);
 
     try {
-      // Mock API call - replace with real Advanced Reflectionarian endpoint
-      // Simulate API delay
-      await new Promise((resolve) =>
-        setTimeout(resolve, 1000 + Math.random() * 1000)
-      );
+      // Real API call to Advanced Reflectionarian endpoint
+      const response = await fetch("/api/openai/chat-advanced", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          message: currentMessage.trim(),
+          sessionId: sessionId,
+          conversationHistory: messages,
+        }),
+      });
 
-      // Mock adaptive responses based on detected mood/style
-      const adaptiveResponses = {
-        gentle: [
-          "I can hear how much you're carrying right now. That sounds really challenging, and it makes complete sense that you'd feel this way.",
-          "Thank you for sharing something so personal with me. What you're experiencing is completely valid, and I'm here to support you through this.",
-          "It takes courage to express what you're going through. How can we make this feel a little more manageable for you right now?",
-        ],
-        calming: [
-          "Let's take a moment together. Can you feel your feet on the ground right now? What do you notice about your breathing?",
-          "I can sense the intensity of what you're feeling. What would it be like to let yourself settle just a little bit right now?",
-          "Those racing thoughts can feel overwhelming. What helps you feel most grounded when your mind is moving fast like this?",
-        ],
-        supportive: [
-          "What you're feeling makes so much sense given what you're going through. You're not alone in this.",
-          "I can really hear the depth of what you're experiencing. Your feelings are completely valid and important.",
-          "It sounds like you're in a difficult space right now. What would feel most supportive for you in this moment?",
-        ],
-        enthusiastic: [
-          "I can feel your excitement about this! It sounds like something really meaningful is happening for you.",
-          "This energy you have is wonderful! What's making this feel so significant for you right now?",
-          "I love hearing this positive shift in your voice. What's been different that's contributing to this feeling?",
-        ],
-        curious: [
-          "I'm really curious about that insight. What do you think helped you see this pattern so clearly?",
-          "That's such an interesting way to think about it. How does this new perspective change things for you?",
-          "I can hear you processing something important. What feels most significant about this realization?",
-        ],
-        understanding: [
-          "That sounds genuinely frustrating. Anyone would feel annoyed by that situation - your reaction makes complete sense.",
-          "I can understand why that would be so irritating. What feels like the most unfair part about all of this?",
-          "Your frustration is completely justified. What would need to change for this to feel more manageable?",
-        ],
-        balanced: [
-          "Thank you for sharing that with me. I can hear how much thought you've put into this.",
-          "That sounds like a really complex situation. What feels most important to you as you think through this?",
-          "I appreciate you being so open about your experience. What would be most helpful to explore together?",
-        ],
-      };
+      const data = await response.json();
 
-      const currentStyle = adaptiveMode || "balanced";
-      const styleResponses =
-        adaptiveResponses[currentStyle] || adaptiveResponses.balanced;
-      const mockResponse =
-        styleResponses[Math.floor(Math.random() * styleResponses.length)];
-
-      // Mock session prompts (Advanced feature)
-      const sessionPrompts =
-        Math.random() > 0.6
-          ? [
-              "What emotions came up most strongly during our conversation today?",
-              "If you could write yourself a note about today's insights, what would it say?",
-              "What would you want to remember from this conversation tomorrow?",
-            ]
-          : [];
-
-      // Mock goal suggestion (Advanced feature)
-      const goalSuggestion =
-        Math.random() > 0.7
-          ? `Based on our conversation, consider setting a goal around ${
-              mood?.mood === "stressed"
-                ? "stress management techniques"
-                : "daily reflection practice"
-            }`
-          : null;
-
-      // Mock growth suggestions
-      const growthSuggestions =
-        Math.random() > 0.5
-          ? generateGrowthSuggestions([userMessage], [mood?.mood])
-          : [];
+      if (!data.success) {
+        throw new Error(data.response || "Failed to get response");
+      }
 
       const assistantMessage = {
         id: Date.now() + 1,
         role: "assistant",
-        content: mockResponse,
+        content: data.response,
         timestamp: new Date(),
-        adaptiveStyle: currentStyle,
-        sessionPrompts: sessionPrompts,
-        goalSuggestion: goalSuggestion,
-        detectedUserMood: mood,
+        adaptiveStyle: data.adaptiveMode || adaptiveMode,
+        sessionPrompts: data.sessionPrompts || [],
+        goalSuggestion: data.goalSuggestion || null,
+        detectedUserMood: data.detectedMood,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
 
+      // Update detected mood and adaptive mode
+      if (data.detectedMood) {
+        setDetectedMood(data.detectedMood);
+      }
+      if (data.adaptiveMode) {
+        setAdaptiveMode(data.adaptiveMode);
+      }
+
       // Handle session prompts
-      if (sessionPrompts.length > 0) {
-        setSessionPrompts(sessionPrompts);
+      if (data.sessionPrompts && data.sessionPrompts.length > 0) {
+        setSessionPrompts(data.sessionPrompts);
       }
 
       // Handle goal suggestions
-      if (goalSuggestion) {
-        setCurrentGoalSuggestion(goalSuggestion);
+      if (data.goalSuggestion) {
+        setCurrentGoalSuggestion(data.goalSuggestion);
         setShowGoalSuggestions(true);
       }
 
       // Handle growth suggestions
-      if (growthSuggestions.length > 0) {
-        setGrowthSuggestions(growthSuggestions);
+      if (data.growthSuggestions && data.growthSuggestions.length > 0) {
+        setGrowthSuggestions(data.growthSuggestions);
       }
 
-      // Mock session ID
-      if (!sessionId) {
-        setSessionId("adv-session-" + Date.now());
+      // Set session ID from response
+      if (data.sessionId && !sessionId) {
+        setSessionId(data.sessionId);
       }
     } catch (error) {
       console.error("Error sending message:", error);
