@@ -1,6 +1,6 @@
 // src/services/ReflectionarianService.js
 import { supabase } from "../lib/supabase";
-import { EncryptionService } from "./EncryptionService";
+import { EncryptionService } from "./encryptionService";
 
 class ReflectionarianService {
   constructor() {
