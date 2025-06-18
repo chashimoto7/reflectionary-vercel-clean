@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans": "^5.2.5",
+    "stripe": "^latest",
+    "@stripe/stripe-js": "^latest",
     "@supabase/supabase-js": "^2.50.0",
     "@uidotdev/usehooks": "^2.4.1",
     "cors": "^2.8.5",
