@@ -576,65 +576,52 @@ const ProReflectionarian = () => {
     setIsLoading(true);
 
     try {
-      // Mock API call - replace with real Pro Reflectionarian endpoint
-      // Simulate API delay
-      await new Promise((resolve) =>
-        setTimeout(resolve, 1000 + Math.random() * 1000)
-      );
+      // Real API call to Pro Reflectionarian endpoint
+      const response = await fetch("/api/openai/chat-pro", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          message: currentMessage.trim(),
+          sessionId: sessionId,
+          preferences: preferences,
+          conversationHistory: messages,
+        }),
+      });
 
-      // Mock response based on therapy approach
-      const responses = [
-        "That's a really insightful perspective. I can hear how much thought you've put into this. What do you think this experience is teaching you about yourself?",
-        "I'm curious about the emotions that come up when you think about this. Can you sit with those feelings for a moment and tell me what you notice?",
-        "It sounds like you're navigating something meaningful here. What would it look like to approach this situation with self-compassion?",
-        "I can sense the complexity of what you're sharing. What values are most important to you as you think through this?",
-        "Thank you for trusting me with this. What would you want to remember about this conversation when you journal later?",
-      ];
+      const data = await response.json();
 
-      const mockResponse =
-        responses[Math.floor(Math.random() * responses.length)];
-
-      // Mock session prompts (Pro feature)
-      const sessionPrompts =
-        Math.random() > 0.5
-          ? [
-              "What three emotions did you notice most strongly during our conversation today?",
-              "If you could write a letter to yourself about today's insights, what would it say?",
-              "What pattern from today's discussion would you like to explore more deeply?",
-            ]
-          : [];
-
-      // Mock goal suggestion (Pro feature)
-      const goalSuggestion =
-        Math.random() > 0.7
-          ? "Based on our conversation, consider setting a goal around daily mindfulness practice"
-          : null;
+      if (!data.success) {
+        throw new Error(data.response || "Failed to get response");
+      }
 
       const assistantMessage = {
         id: Date.now() + 1,
         role: "assistant",
-        content: mockResponse,
+        content: data.response,
         timestamp: new Date(),
-        sessionPrompts: sessionPrompts,
-        goalSuggestion: goalSuggestion,
+        sessionPrompts: data.sessionPrompts || [],
+        goalSuggestion: data.goalSuggestion || null,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
 
       // Handle session prompts
-      if (sessionPrompts.length > 0) {
-        setSessionPrompts(sessionPrompts);
+      if (data.sessionPrompts && data.sessionPrompts.length > 0) {
+        setSessionPrompts(data.sessionPrompts);
       }
 
       // Handle goal suggestions
-      if (goalSuggestion) {
-        setCurrentGoalSuggestion(goalSuggestion);
+      if (data.goalSuggestion) {
+        setCurrentGoalSuggestion(data.goalSuggestion);
         setShowGoalSuggestions(true);
       }
 
-      // Mock session ID
-      if (!sessionId) {
-        setSessionId("session-" + Date.now());
+      // Set session ID from response
+      if (data.sessionId && !sessionId) {
+        setSessionId(data.sessionId);
       }
     } catch (error) {
       console.error("Error sending message:", error);
