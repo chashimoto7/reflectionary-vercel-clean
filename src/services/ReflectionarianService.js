@@ -1,10 +1,10 @@
 // src/services/ReflectionarianService.js
 import { supabase } from "../lib/supabase";
-import { EncryptionService } from "./encryptionService";
+import encryptionService from "./encryptionService";
 
 class ReflectionarianService {
   constructor() {
-    this.encryptionService = new EncryptionService();
+    this.encryptionService = encryptionService;
     this.sessionTable = "therapy_sessions";
     this.messageTable = "therapy_messages";
   }
