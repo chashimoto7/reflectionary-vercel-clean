@@ -650,6 +650,40 @@ const ProReflectionarian = () => {
   };
 
   // ====================================================================
+  // SESSION MANAGEMENT
+  // ====================================================================
+
+  const startNewSession = async () => {
+    try {
+      setIsLoading(true);
+
+      // Generate a simple session ID for now
+      const newSessionId = `session_${Date.now()}_${user.id}`;
+      setSessionId(newSessionId);
+
+      // Add welcome message if no preferences set yet
+      if (!messages.length && preferences) {
+        const welcomeMessage = getWelcomeMessage(
+          preferences.therapy_approach,
+          preferences.preferred_tone
+        );
+        setMessages([
+          {
+            id: Date.now(),
+            role: "assistant",
+            content: welcomeMessage,
+            timestamp: new Date(),
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error("Error starting session:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ====================================================================
   // END CONVERSATION & PROMPT GENERATION
   // ====================================================================
 
@@ -666,20 +700,23 @@ const ProReflectionarian = () => {
           content: msg.content,
         }));
 
-        const response = await fetch("/api/openai/chat-pro", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userId: user.id,
-            message:
-              "Please generate journaling prompts based on our conversation.",
-            conversationHistory,
-            requestType: "end_session_prompts",
-            preferences,
-          }),
-        });
+        const response = await fetch(
+          "https://reflectionary-api.vercel.app/api/openai/chat-pro",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              userId: user.id,
+              message:
+                "Please generate journaling prompts based on our conversation.",
+              conversationHistory,
+              requestType: "end_session_prompts",
+              preferences,
+            }),
+          }
+        );
 
         if (!response.ok) throw new Error("Failed to generate prompts");
 
@@ -865,6 +902,13 @@ const ProReflectionarian = () => {
   useEffect(() => {
     loadUserPreferences();
   }, [user]);
+
+  useEffect(() => {
+    // Start a new session when preferences are loaded and we don't have one
+    if (preferences && !sessionId && !showOnboarding) {
+      startNewSession();
+    }
+  }, [preferences, sessionId, showOnboarding]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
