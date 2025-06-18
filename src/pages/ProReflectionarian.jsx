@@ -577,19 +577,22 @@ const ProReflectionarian = () => {
 
     try {
       // Real API call to Pro Reflectionarian endpoint
-      const response = await fetch("/api/openai/chat-pro", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: user.id,
-          message: currentMessage.trim(),
-          sessionId: sessionId,
-          preferences: preferences,
-          conversationHistory: messages,
-        }),
-      });
+      const response = await fetch(
+        "https://reflectionary-api.vercel.app/api/openai/chat-pro",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            message: currentMessage.trim(),
+            sessionId: sessionId,
+            preferences: preferences,
+            conversationHistory: messages,
+          }),
+        }
+      );
       console.log("Response status:", response.status);
       console.log("Response headers:", response.headers);
 
