@@ -723,13 +723,23 @@ const ProReflectionarian = () => {
         const data = await response.json();
 
         if (data.sessionPrompts && data.sessionPrompts.length > 0) {
-          // Add the prompts as a special message
+          // Create dynamic message based on what we're returning
+          let content =
+            "Here are some journaling prompts to help you reflect further on our conversation:";
+
+          if (data.goalSuggestion) {
+            const goalText = data.goalSuggestion.length > 1 ? "goals" : "goal";
+            content += ` I've also included ${
+              data.goalSuggestion.length === 1 ? "a" : "some"
+            } ${goalText} you might want to add to your Goals page.`;
+          }
+
           const promptMessage = {
             id: Date.now(),
             role: "assistant",
-            content:
-              "Here are some journaling prompts to help you reflect further on our conversation:",
+            content: content,
             sessionPrompts: data.sessionPrompts,
+            goalSuggestion: data.goalSuggestion || null,
             timestamp: new Date().toISOString(),
             isEndSessionMessage: true,
           };
