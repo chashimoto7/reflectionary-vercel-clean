@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { PromptRecommendations } from "../components/ReflectionarianRecommendations";
 import { useSecurity } from "../contexts/SecurityContext";
 import { useMembership } from "../hooks/useMembership";
 import { supabase } from "../lib/supabase";
@@ -396,6 +397,17 @@ export default function AdvancedJournaling() {
       setIsLoadingSubject(false);
     }
   };
+
+  <div className="mb-6">
+    <PromptRecommendations
+      onSelectPrompt={(promptText) => {
+        // This integrates with your existing prompt system
+        setPrompt(promptText);
+        setPromptType("reflectionarian");
+        setShowPromptButton(false);
+      }}
+    />
+  </div>;
 
   // Generate folder-specific prompt
   const generateFolderPrompt = async () => {
