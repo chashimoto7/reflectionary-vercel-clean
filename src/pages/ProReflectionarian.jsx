@@ -213,8 +213,6 @@ const ProReflectionarian = () => {
   // PREFERENCE MANAGEMENT
   // ====================================================================
 
-  // Delete this entire mockSupabaseCall function and replace loadUserPreferences with:
-
   const loadUserPreferences = async () => {
     if (!user?.id) return;
 
@@ -231,7 +229,7 @@ const ProReflectionarian = () => {
         return;
       }
 
-      if (data) {
+      if (data && data.onboarding_completed) {
         setPreferences(data);
         setShowOnboarding(false);
       } else {
@@ -257,6 +255,8 @@ const ProReflectionarian = () => {
       session_goals: [responses.session_goals],
       tips_vs_reflection: responses.tips_vs_reflection,
       struggle_support: responses.struggle_support,
+      onboarding_completed: true,
+      onboarding_completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
