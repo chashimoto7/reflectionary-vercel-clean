@@ -28,7 +28,7 @@ import { supabase } from "../lib/supabase";
 
 const ProReflectionarian = () => {
   const { user } = useAuth();
-  const { membershipData, hasAccess } = useMembership();
+  const { hasAccess, tier } = useMembership();
 
   // Onboarding & Preferences State
   const [showOnboarding, setShowOnboarding] = useState(false);
