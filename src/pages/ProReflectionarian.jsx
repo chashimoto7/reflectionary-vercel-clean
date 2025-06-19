@@ -788,32 +788,118 @@ const ProReflectionarian = () => {
   };
 
   // ====================================================================
-  // SESSION PROMPTS & GOAL SUGGESTIONS
+  // SESSION PROMPTS & GOAL SUGGESTIONS - REAL IMPLEMENTATION
   // ====================================================================
 
   const savePromptToJournal = async (prompt) => {
     try {
-      // This will integrate with Advanced Journaling
-      console.log("Saving prompt to Advanced Journaling:", prompt);
-      alert("Prompt saved to Advanced Journaling! (Integration coming soon)");
+      console.log("💾 Saving prompt to journal recommendations:", prompt);
+
+      // Prepare the data to send to our API
+      const promptData = {
+        user_id: user?.id,
+        session_id: sessionId,
+        prompt_text: prompt,
+        context: {
+          conversation_type: "pro",
+          generated_at: new Date().toISOString(),
+          therapy_approach:
+            preferences?.therapy_approach || "Narrative/Humanistic",
+        },
+        suggestion_type: "reflective",
+        confidence_score: 0.85, // High confidence for Pro tier prompts
+      };
+
+      const response = await fetch(
+        "https://reflectionary.ca/api/reflectionarian/save-prompt-suggestion",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(promptData),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to save prompt");
+      }
+
+      console.log("✅ Prompt saved successfully:", result.suggestion_id);
+
+      // Show success feedback
+      // You could add a toast notification system here if you have one
+      alert("✨ Prompt saved to your Advanced Journaling recommendations!");
     } catch (error) {
-      console.error("Error saving prompt:", error);
+      console.error("❌ Error saving prompt:", error);
+      alert("Sorry, there was an issue saving the prompt. Please try again.");
     }
   };
 
   const handleGoalSuggestion = async (action, goalText = null) => {
     try {
-      // This will integrate with Advanced Goals
-      console.log("Goal suggestion action:", action, goalText);
+      console.log("🎯 Handling goal suggestion:", action, goalText);
 
-      if (action === "accept") {
-        alert("Goal added to Advanced Goals! (Integration coming soon)");
+      if (action === "accept" && goalText) {
+        // Prepare the data to send to our API
+        const goalData = {
+          user_id: user?.id,
+          session_id: sessionId,
+          goal_text: goalText,
+          rationale:
+            "Generated during Pro Reflectionarian conversation based on therapeutic insights",
+          context: {
+            conversation_type: "pro",
+            generated_at: new Date().toISOString(),
+            therapy_approach:
+              preferences?.therapy_approach || "Narrative/Humanistic",
+            user_preferences: {
+              session_goals: preferences?.session_goals,
+              preferred_tone: preferences?.preferred_tone,
+              focus: preferences?.tips_vs_reflection,
+            },
+          },
+          suggestion_type: "behavioral",
+          confidence_score: 0.9, // Very high confidence for Pro tier goals
+          priority: "high", // Pro tier gets high priority suggestions
+        };
+
+        const response = await fetch(
+          "https://reflectionary.ca/api/reflectionarian/save-goal-suggestion",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(goalData),
+          }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || "Failed to save goal");
+        }
+
+        console.log("✅ Goal saved successfully:", result.suggestion_id);
+
+        // Show success feedback
+        alert("🎯 Goal added to your Advanced Goals recommendations!");
+      } else if (action === "dismiss") {
+        console.log("👋 Goal suggestion dismissed by user");
+        // Could track dismissals for improving future suggestions
       }
 
+      // Clear the current goal suggestion from the UI
       setCurrentGoalSuggestion(null);
       setShowGoalSuggestions(false);
     } catch (error) {
-      console.error("Error handling goal suggestion:", error);
+      console.error("❌ Error handling goal suggestion:", error);
+      if (action === "accept") {
+        alert("Sorry, there was an issue saving the goal. Please try again.");
+      }
     }
   };
 

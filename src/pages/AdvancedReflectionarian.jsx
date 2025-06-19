@@ -374,42 +374,167 @@ const AdvancedReflectionarian = () => {
     }
   };
 
+  // Updated functions for AdvancedReflectionarian.jsx
+  // Replace the existing placeholder functions with these implementations
+
   // ====================================================================
-  // ADVANCED FEATURES: SESSION PROMPTS & GOAL SUGGESTIONS
+  // ADVANCED FEATURES: SESSION PROMPTS & GOAL SUGGESTIONS - REAL IMPLEMENTATION
   // ====================================================================
 
   const savePromptToJournal = async (prompt) => {
     try {
-      // This will integrate with Advanced Journaling
-      console.log("Saving prompt to Advanced Journaling:", prompt);
-      alert("Prompt saved to Advanced Journaling! (Integration coming soon)");
+      console.log("💾 Saving prompt to journal recommendations:", prompt);
+
+      // Prepare the data to send to our API
+      const promptData = {
+        user_id: user?.id,
+        session_id: sessionId,
+        prompt_text: prompt,
+        context: {
+          conversation_type: "advanced",
+          generated_at: new Date().toISOString(),
+          adaptive_mode: adaptiveMode,
+          detected_mood: detectedMood?.mood || "balanced",
+        },
+        suggestion_type: "adaptive", // Advanced tier uses adaptive suggestions
+        confidence_score: 0.75, // Good confidence for Advanced tier prompts
+      };
+
+      const response = await fetch(
+        "https://reflectionary.ca/api/reflectionarian/save-prompt-suggestion",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(promptData),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to save prompt");
+      }
+
+      console.log("✅ Prompt saved successfully:", result.suggestion_id);
+
+      // Show success feedback
+      alert("✨ Prompt saved to your Advanced Journaling recommendations!");
     } catch (error) {
-      console.error("Error saving prompt:", error);
+      console.error("❌ Error saving prompt:", error);
+      alert("Sorry, there was an issue saving the prompt. Please try again.");
     }
   };
 
   const handleGoalSuggestion = async (action, goalText = null) => {
     try {
-      // This will integrate with Advanced Goals
-      console.log("Goal suggestion action:", action, goalText);
+      console.log("🎯 Handling goal suggestion:", action, goalText);
 
-      if (action === "accept") {
-        alert("Goal added to Advanced Goals! (Integration coming soon)");
+      if (action === "accept" && goalText) {
+        // Prepare the data to send to our API
+        const goalData = {
+          user_id: user?.id,
+          session_id: sessionId,
+          goal_text: goalText,
+          rationale:
+            "Generated during Advanced Reflectionarian conversation with adaptive mood detection",
+          context: {
+            conversation_type: "advanced",
+            generated_at: new Date().toISOString(),
+            adaptive_mode: adaptiveMode,
+            detected_mood: detectedMood?.mood || "balanced",
+            mood_confidence: detectedMood?.confidence || 0,
+          },
+          suggestion_type: "adaptive",
+          confidence_score: 0.8, // High confidence for Advanced tier goals
+          priority: "medium", // Advanced tier gets medium priority
+        };
+
+        const response = await fetch(
+          "https://reflectionary.ca/api/reflectionarian/save-goal-suggestion",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(goalData),
+          }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || "Failed to save goal");
+        }
+
+        console.log("✅ Goal saved successfully:", result.suggestion_id);
+
+        // Show success feedback
+        alert("🎯 Goal added to your Advanced Goals recommendations!");
+      } else if (action === "dismiss") {
+        console.log("👋 Goal suggestion dismissed by user");
+        // Could track dismissals for improving future suggestions
       }
 
+      // Clear the current goal suggestion from the UI
       setCurrentGoalSuggestion(null);
       setShowGoalSuggestions(false);
     } catch (error) {
-      console.error("Error handling goal suggestion:", error);
+      console.error("❌ Error handling goal suggestion:", error);
+      if (action === "accept") {
+        alert("Sorry, there was an issue saving the goal. Please try again.");
+      }
     }
   };
 
   const handleGrowthSuggestion = async (action, suggestion) => {
     try {
-      console.log("Growth suggestion action:", action, suggestion);
+      console.log("🌱 Growth suggestion action:", action, suggestion);
 
       if (action === "save") {
-        alert("Growth suggestion saved! (Integration coming soon)");
+        // For now, we'll save growth suggestions as goals with a special type
+        // In the future, you might want a separate table for growth suggestions
+        const goalData = {
+          user_id: user?.id,
+          session_id: sessionId,
+          goal_text: suggestion.description || suggestion.title,
+          rationale: `Growth suggestion: ${suggestion.title}`,
+          context: {
+            conversation_type: "advanced",
+            suggestion_category: "growth",
+            growth_title: suggestion.title,
+            growth_icon: suggestion.icon,
+            generated_at: new Date().toISOString(),
+            adaptive_mode: adaptiveMode,
+          },
+          suggestion_type: "growth",
+          confidence_score: 0.7,
+          priority: "low", // Growth suggestions are lower priority than direct goals
+        };
+
+        const response = await fetch(
+          "https://reflectionary.ca/api/reflectionarian/save-goal-suggestion",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(goalData),
+          }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || "Failed to save growth suggestion");
+        }
+
+        console.log(
+          "✅ Growth suggestion saved successfully:",
+          result.suggestion_id
+        );
+        alert("🌱 Growth suggestion saved to your Goals recommendations!");
       }
 
       // Remove suggestion from list
@@ -417,7 +542,12 @@ const AdvancedReflectionarian = () => {
         prev.filter((s) => s.id !== suggestion.id)
       );
     } catch (error) {
-      console.error("Error handling growth suggestion:", error);
+      console.error("❌ Error handling growth suggestion:", error);
+      if (action === "save") {
+        alert(
+          "Sorry, there was an issue saving the growth suggestion. Please try again."
+        );
+      }
     }
   };
 
