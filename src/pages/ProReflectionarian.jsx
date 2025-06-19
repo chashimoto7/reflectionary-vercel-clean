@@ -996,7 +996,7 @@ const ProReflectionarian = () => {
     );
   }
 
-  if (!membershipData?.hasProReflectionarian) {
+  if (!hasAccess("reflectionarian") || tier !== "premium") {
     return (
       <div className="text-center py-12">
         <Brain className="w-16 h-16 text-gray-400 mx-auto mb-6" />
