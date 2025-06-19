@@ -17,21 +17,13 @@ import {
   Star,
 } from "lucide-react";
 
-// Mock user and membership data for demo
-const mockUser = {
-  id: "demo-user-123",
-  email: "demo@example.com",
-};
-
-const mockMembershipData = {
-  hasAdvancedReflectionarian: true,
-  tier: "premium", // or "standard_plus" with advanced_reflectionarian add-on
-};
+import { useAuth } from "../contexts/AuthContext";
+import { useMembership } from "../hooks/useMembership";
+import { supabase } from "../lib/supabase";
 
 const AdvancedReflectionarian = () => {
-  // Use mock data for demo - replace with real auth/membership hooks when integrating
-  const user = mockUser;
-  const membershipData = mockMembershipData;
+  const { user } = useAuth();
+  const { membershipData, hasAccess } = useMembership();
 
   // Chat State
   const [messages, setMessages] = useState([]);

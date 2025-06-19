@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import encryptionService from "../services/encryptionService";
 import { useAuth } from "../contexts/AuthContext";
 import { useMembership } from "../hooks/useMembership";
+import { GoalRecommendations } from "../components/ReflectionarianRecommendations";
 import {
   Plus,
   Award,
@@ -468,6 +469,26 @@ const AdvancedGoals = () => {
       alert("Failed to edit goal: " + error.message);
     }
   };
+
+  <div className="mb-6">
+    <GoalRecommendations
+      onCreateGoal={async (goalData) => {
+        // This integrates with your existing goal creation
+        // You'll need to adapt this to your actual goal creation function
+        console.log("Creating goal from Reflectionarian:", goalData);
+
+        // Example integration - replace with your actual goal creation logic:
+        // await createNewGoal({
+        //   title: goalData.title,
+        //   description: goalData.description,
+        //   priority: goalData.priority
+        // });
+
+        // For now, just alert - you can wire this up to your actual goal creation
+        alert(`Goal "${goalData.title}" would be created here!`);
+      }}
+    />
+  </div>;
 
   const handleStatusChange = async (goal, newStatus) => {
     try {

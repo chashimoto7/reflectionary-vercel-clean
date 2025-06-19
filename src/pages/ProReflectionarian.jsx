@@ -22,21 +22,13 @@ import {
   Clock,
 } from "lucide-react";
 
-// Mock user and membership data for demo
-const mockUser = {
-  id: "demo-user-123",
-  email: "demo@example.com",
-};
-
-const mockMembershipData = {
-  hasProReflectionarian: true,
-  tier: "premium",
-};
+import { useAuth } from "../contexts/AuthContext";
+import { useMembership } from "../hooks/useMembership";
+import { supabase } from "../lib/supabase";
 
 const ProReflectionarian = () => {
-  // Use mock data for demo - replace with real auth/membership hooks when integrating
-  const user = mockUser;
-  const membershipData = mockMembershipData;
+  const { user } = useAuth();
+  const { membershipData, hasAccess } = useMembership();
 
   // Onboarding & Preferences State
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -221,41 +213,18 @@ const ProReflectionarian = () => {
   // PREFERENCE MANAGEMENT
   // ====================================================================
 
-  // Mock Supabase functions - replace with real API calls when integrating
-  const mockSupabaseCall = (table, operation, data = null) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        if (table === "reflectionarian_preferences") {
-          if (operation === "select") {
-            // Return null first time to trigger onboarding
-            resolve({ data: null, error: null });
-          } else if (operation === "upsert") {
-            resolve({
-              data: {
-                id: "pref-123",
-                user_id: user.id,
-                ...data,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              },
-              error: null,
-            });
-          }
-        }
-        resolve({ data: [], error: null });
-      }, 500);
-    });
-  };
+  // Delete this entire mockSupabaseCall function and replace loadUserPreferences with:
 
   const loadUserPreferences = async () => {
     if (!user?.id) return;
 
     setIsLoadingPreferences(true);
     try {
-      const { data, error } = await mockSupabaseCall(
-        "reflectionarian_preferences",
-        "select"
-      );
+      const { data, error } = await supabase
+        .from("reflectionarian_preferences")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
 
       if (error && error.code !== "PGRST116") {
         console.error("Error loading preferences:", error);
@@ -292,11 +261,11 @@ const ProReflectionarian = () => {
     };
 
     try {
-      const { data, error } = await mockSupabaseCall(
-        "reflectionarian_preferences",
-        "upsert",
-        preferenceData
-      );
+      const { data, error } = await supabase
+        .from("reflectionarian_preferences")
+        .upsert(preferenceData)
+        .select()
+        .single();
 
       if (error) throw error;
 
