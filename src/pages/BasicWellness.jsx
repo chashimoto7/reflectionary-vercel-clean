@@ -20,8 +20,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const { user } = useAuth();
 const BasicWellness = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState(null);
   const [saveLabel, setSaveLabel] = useState("Save Entry");
