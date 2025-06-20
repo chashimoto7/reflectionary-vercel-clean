@@ -1190,7 +1190,7 @@ const AdvancedWomensHealth = () => {
   }
 
   // Check membership access
-  if (!hasAccess("advanced_features")) {
+  if (!hasAccess("advanced_womens_health")) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50 p-4 flex items-center justify-center">
         <div className="text-center max-w-md">
