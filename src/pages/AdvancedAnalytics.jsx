@@ -38,7 +38,6 @@ import IntelligenceOverviewTab from "../components/analytics/tabs/IntelligenceOv
 import SentimentEmotionsTab from "../components/analytics/tabs/SentimentEmotionsTab";
 import CognitivePatternsTab from "../components/analytics/tabs/CognitivePatternsTab";
 import GrowthResilienceTab from "../components/analytics/tabs/GrowthResilienceTab";
-import CycleIntelligenceTab from "../components/analytics/tabs/CycleIntelligenceTab";
 import BehavioralInsightsTab from "../components/analytics/tabs/BehavioralInsightsTab";
 import WellnessCorrelationsTab from "../components/analytics/tabs/WellnessCorrelationsTab";
 import AIInsightsFeedTab from "../components/analytics/tabs/AIInsightsFeedTab";
@@ -136,7 +135,6 @@ const AdvancedAnalytics = () => {
     { id: "sentiment", label: "Sentiment & Emotions", icon: Heart },
     { id: "cognitive", label: "Cognitive Patterns", icon: Brain },
     { id: "growth", label: "Growth & Resilience", icon: TrendingUp },
-    { id: "cycle-deep", label: "Cycle Intelligence", icon: Moon },
     { id: "behavioral", label: "Behavioral Insights", icon: Users },
     { id: "wellness", label: "Wellness Correlations", icon: Shield },
     { id: "insights-feed", label: "AI Insights", icon: Lightbulb },
@@ -338,9 +336,6 @@ const AdvancedAnalytics = () => {
             )}
             {activeTab === "growth" && (
               <GrowthResilienceTab data={analyticsData} colors={colors} />
-            )}
-            {activeTab === "cycle-deep" && (
-              <CycleIntelligenceTab data={analyticsData} colors={cycleColors} />
             )}
             {activeTab === "behavioral" && (
               <BehavioralInsightsTab

@@ -98,23 +98,50 @@ const WomensHealth = () => {
         lastPeriod: null,
         symptoms: [],
         mood: [],
+        recentEntries: [],
+        totalEntries: 0,
       };
     }
 
-    // Basic cycle calculation
-    const lastEntry = data[0];
+    // Calculate actual cycle statistics from real data
+    const totalEntries = data.length;
     const cycleDay = calculateCycleDay(data);
     const currentPhase = calculateCurrentPhase(cycleDay);
+    const actualCycleLength = calculateAverageCycleLength(data);
+
+    // Get the most recent period start
+    const lastPeriodEntry = data.find((entry) => entry.is_period_start);
+    const lastPeriod = lastPeriodEntry ? lastPeriodEntry.date : null;
+
+    // Predict next period based on cycle length and last period
+    const nextPeriod = lastPeriod
+      ? new Date(
+          new Date(lastPeriod).getTime() +
+            actualCycleLength * 24 * 60 * 60 * 1000
+        )
+      : null;
+
+    // Extract real symptoms and mood data
+    const symptoms = data
+      .map((entry) => entry.symptoms)
+      .filter((symptoms) => symptoms && symptoms.length > 0)
+      .flat(); // Flatten array if symptoms are arrays
+
+    const moodRatings = data
+      .map((entry) => entry.mood_rating)
+      .filter((rating) => rating !== null && rating !== undefined);
 
     return {
       hasData: true,
       currentPhase,
       cycleDay,
-      cycleLength: 28, // Default, could be calculated from historical data
-      lastPeriod: lastEntry.date,
-      symptoms: data.map((d) => d.symptoms).filter(Boolean),
-      mood: data.map((d) => d.mood_rating).filter(Boolean),
+      cycleLength: actualCycleLength,
+      lastPeriod,
+      nextPeriod,
+      symptoms,
+      mood: moodRatings,
       recentEntries: data.slice(0, 7),
+      totalEntries,
     };
   };
 
@@ -135,6 +162,55 @@ const WomensHealth = () => {
     if (cycleDay <= 13) return "Follicular";
     if (cycleDay <= 16) return "Ovulatory";
     return "Luteal";
+  };
+
+  const calculateAverageCycleLength = (data) => {
+    if (!data || data.length < 2) return 28; // Default cycle length
+
+    // Find all period start dates
+    const periodStarts = data
+      .filter((entry) => entry.is_period_start)
+      .map((entry) => new Date(entry.date))
+      .sort((a, b) => a - b); // Sort chronologically
+
+    if (periodStarts.length < 2) return 28; // Need at least 2 periods to calculate
+
+    // Calculate differences between consecutive periods
+    const cycleLengths = [];
+    for (let i = 1; i < periodStarts.length; i++) {
+      const diffTime = periodStarts[i] - periodStarts[i - 1];
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      // Only include reasonable cycle lengths (21-45 days)
+      if (diffDays >= 21 && diffDays <= 45) {
+        cycleLengths.push(diffDays);
+      }
+    }
+
+    if (cycleLengths.length === 0) return 28; // Default if no valid cycles
+
+    // Return average cycle length
+    const avgLength =
+      cycleLengths.reduce((sum, length) => sum + length, 0) /
+      cycleLengths.length;
+    return Math.round(avgLength);
+  };
+
+  const formatDate = (date) => {
+    if (!date) return "Unknown";
+    return new Date(date).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const getDaysUntil = (futureDate) => {
+    if (!futureDate) return null;
+    const today = new Date();
+    const future = new Date(futureDate);
+    const diffTime = future - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
   };
 
   if (loading) {
@@ -273,6 +349,7 @@ const WomensHealth = () => {
             cycleData={cycleData}
             lifeStage={lifeStage}
             colors={colors}
+            onStartTracking={() => setShowEntryModal(true)}
           />
         )}
         {activeTab === "cycle" && (
@@ -317,23 +394,36 @@ const WomensHealth = () => {
 };
 
 // Basic Tab Components
-const OverviewTab = ({ cycleData, lifeStage, colors }) => {
+const OverviewTab = ({ cycleData, lifeStage, colors, onStartTracking }) => {
   if (!cycleData?.hasData) {
     return (
       <div className="p-8 text-center">
         <Heart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
         <h3 className="text-lg font-semibold text-gray-600 mb-2">
-          Start Tracking Your Health
+          Welcome to Women's Health Tracking
         </h3>
         <p className="text-gray-500 max-w-md mx-auto mb-6">
-          Begin tracking your cycle and symptoms to get personalized insights
-          about your health and well-being.
+          Start tracking your menstrual cycle, symptoms, and wellness patterns
+          to gain valuable insights into your health journey.
         </p>
+
+        <div className="bg-pink-50 border border-pink-200 rounded-lg p-4 max-w-md mx-auto mb-6">
+          <h4 className="font-medium text-pink-900 mb-2">
+            What you can track:
+          </h4>
+          <ul className="text-sm text-pink-700 space-y-1">
+            <li>• Menstrual cycle and period dates</li>
+            <li>• Physical and emotional symptoms</li>
+            <li>• Mood and energy patterns</li>
+            <li>• Cycle predictions and insights</li>
+          </ul>
+        </div>
+
         <button
-          onClick={() => setShowEntryModal(true)}
+          onClick={onStartTracking}
           className="px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
         >
-          Start Tracking
+          Add Your First Entry
         </button>
       </div>
     );

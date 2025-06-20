@@ -272,98 +272,787 @@ const AdvancedGoals = () => {
   };
 
   const loadAnalyticsData = async () => {
-    // Simulate analytics data loading
-    // In real implementation, this would fetch from your analytics service
-    const mockAnalytics = {
-      overview: {
-        totalGoals: goals.length,
-        activeGoals: goals.filter((g) => g.status === "active").length,
-        completedGoals: goals.filter((g) => g.status === "completed").length,
-        averageProgress: 65,
-        streak: 12,
-        lastUpdate: new Date().toISOString(),
-      },
-      completionRate: [
-        { name: "Week 1", rate: 45 },
-        { name: "Week 2", rate: 52 },
-        { name: "Week 3", rate: 48 },
-        { name: "Week 4", rate: 61 },
-        { name: "Week 5", rate: 58 },
-        { name: "Week 6", rate: 65 },
-        { name: "Week 7", rate: 72 },
-        { name: "Week 8", rate: 68 },
-      ],
-    };
-    setAnalyticsData(mockAnalytics);
+    try {
+      if (!user?.id) return;
+
+      // Calculate real goal statistics
+      const totalGoals = goals.length;
+      const activeGoals = goals.filter((g) => g.status === "active").length;
+      const completedGoals = goals.filter(
+        (g) => g.status === "completed"
+      ).length;
+
+      // Calculate average progress from milestone completion
+      let totalProgress = 0;
+      let progressCount = 0;
+
+      for (const goal of goals) {
+        try {
+          const masterKey = await encryptionService.getStaticMasterKey();
+          const dataKey = await encryptionService.decryptKey(
+            {
+              encryptedData: goal.encrypted_data_key,
+              iv: goal.data_key_iv,
+            },
+            masterKey
+          );
+
+          if (goal.encrypted_progress && goal.progress_iv) {
+            const progressData = await encryptionService.decryptText(
+              goal.encrypted_progress,
+              goal.progress_iv,
+              dataKey
+            );
+
+            const parsed = JSON.parse(progressData);
+
+            if (parsed.tiers) {
+              // Calculate completion for tiered goals
+              Object.values(parsed.tiers).forEach((tierArray) => {
+                if (tierArray.length > 0) {
+                  const completed = tierArray.filter((m) => m.completed).length;
+                  totalProgress += (completed / tierArray.length) * 100;
+                  progressCount++;
+                }
+              });
+            } else if (parsed.milestones) {
+              // Calculate completion for milestone goals
+              if (parsed.milestones.length > 0) {
+                const completed = parsed.milestones.filter(
+                  (m) => m.completed
+                ).length;
+                totalProgress += (completed / parsed.milestones.length) * 100;
+                progressCount++;
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Error calculating progress for goal:", goal.id, err);
+        }
+      }
+
+      const averageProgress =
+        progressCount > 0 ? Math.round(totalProgress / progressCount) : 0;
+
+      // Get goal mentions from journal entries for completion rate trend
+      const { data: journalEntries, error: journalError } = await supabase
+        .from("journal_entries")
+        .select("created_at, goal_ids")
+        .eq("user_id", user.id)
+        .gte(
+          "created_at",
+          new Date(Date.now() - 8 * 7 * 24 * 60 * 60 * 1000).toISOString()
+        )
+        .order("created_at", { ascending: true });
+
+      if (journalError) {
+        console.error(
+          "Error loading journal entries for goal analytics:",
+          journalError
+        );
+      }
+
+      // Calculate weekly completion rates based on goal mentions
+      const weeklyData = {};
+      const now = new Date();
+
+      // Initialize 8 weeks of data
+      for (let i = 7; i >= 0; i--) {
+        const weekStart = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
+        const weekKey = `Week ${8 - i}`;
+        weeklyData[weekKey] = { mentions: 0, totalEntries: 0 };
+      }
+
+      // Count goal mentions per week
+      journalEntries?.forEach((entry) => {
+        const entryDate = new Date(entry.created_at);
+        const weeksAgo = Math.floor(
+          (now - entryDate) / (7 * 24 * 60 * 60 * 1000)
+        );
+
+        if (weeksAgo >= 0 && weeksAgo < 8) {
+          const weekKey = `Week ${8 - weeksAgo}`;
+          if (weeklyData[weekKey]) {
+            weeklyData[weekKey].totalEntries++;
+            if (entry.goal_ids && entry.goal_ids.length > 0) {
+              weeklyData[weekKey].mentions++;
+            }
+          }
+        }
+      });
+
+      // Calculate completion rate (goal mentions / total entries)
+      const completionRate = Object.entries(weeklyData).map(([name, data]) => ({
+        name,
+        rate:
+          data.totalEntries > 0
+            ? Math.round((data.mentions / data.totalEntries) * 100)
+            : 0,
+      }));
+
+      // Calculate current streak
+      let streak = 0;
+      const recentEntries = journalEntries?.slice(-30) || [];
+      for (let i = recentEntries.length - 1; i >= 0; i--) {
+        if (recentEntries[i].goal_ids && recentEntries[i].goal_ids.length > 0) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+
+      const realAnalytics = {
+        overview: {
+          totalGoals,
+          activeGoals,
+          completedGoals,
+          averageProgress,
+          streak,
+          lastUpdate: new Date().toISOString(),
+        },
+        completionRate,
+      };
+
+      setAnalyticsData(realAnalytics);
+    } catch (error) {
+      console.error("Error loading goal analytics:", error);
+      // Fallback to basic stats if analytics fails
+      setAnalyticsData({
+        overview: {
+          totalGoals: goals.length,
+          activeGoals: goals.filter((g) => g.status === "active").length,
+          completedGoals: goals.filter((g) => g.status === "completed").length,
+          averageProgress: 0,
+          streak: 0,
+          lastUpdate: new Date().toISOString(),
+        },
+        completionRate: [],
+      });
+    }
   };
 
   const loadInsights = async () => {
-    // Mock AI insights
-    const mockInsights = [
-      {
-        id: 1,
-        type: "plateau_warning",
-        title: "Goal Plateau Detected",
-        message:
-          "Your 'Exercise 3x/week' goal hasn't seen progress in 2 weeks. Consider breaking it into smaller milestones.",
-        priority: "medium",
-        goalId: selectedGoalId,
-        date: new Date().toISOString(),
-      },
-      {
-        id: 2,
-        type: "mood_correlation",
-        title: "Positive Mood Correlation",
-        message:
-          "Your mood increases by 15% on days when you work on 'Learn Spanish' goal.",
-        priority: "high",
-        goalId: selectedGoalId,
-        date: new Date().toISOString(),
-      },
-    ];
-    setInsights(mockInsights);
+    try {
+      if (!user?.id || goals.length === 0) {
+        setInsights([]);
+        return;
+      }
+
+      const insights = [];
+      const now = new Date();
+      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+      const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      // Get recent journal entries for analysis
+      const { data: recentEntries, error: entriesError } = await supabase
+        .from("journal_entries")
+        .select("created_at, goal_ids, mood, energy")
+        .eq("user_id", user.id)
+        .gte("created_at", oneMonthAgo.toISOString())
+        .order("created_at", { ascending: false });
+
+      if (entriesError) {
+        console.error("Error loading entries for insights:", entriesError);
+        setInsights([]);
+        return;
+      }
+
+      // Analyze each goal for insights
+      for (const goal of goals) {
+        try {
+          // 1. Check for goal plateau (no mentions in recent entries)
+          const goalMentions =
+            recentEntries?.filter(
+              (entry) => entry.goal_ids && entry.goal_ids.includes(goal.id)
+            ) || [];
+
+          const recentMentions = goalMentions.filter(
+            (entry) => new Date(entry.created_at) >= twoWeeksAgo
+          );
+
+          if (goalMentions.length > 0 && recentMentions.length === 0) {
+            insights.push({
+              id: `plateau_${goal.id}`,
+              type: "plateau_warning",
+              title: "Goal Activity Plateau Detected",
+              message: `Your "${goal.decryptedTitle}" goal hasn't been mentioned in journal entries for 2+ weeks. Consider reflecting on what might help you re-engage with this goal.`,
+              priority: "medium",
+              goalId: goal.id,
+              date: new Date().toISOString(),
+            });
+          }
+
+          // 2. Check for positive mood correlation
+          if (goalMentions.length >= 3) {
+            const moodWithGoal = goalMentions
+              .filter((entry) => entry.mood !== null)
+              .map((entry) => entry.mood);
+
+            const moodWithoutGoal =
+              recentEntries
+                ?.filter(
+                  (entry) =>
+                    entry.mood !== null &&
+                    (!entry.goal_ids || !entry.goal_ids.includes(goal.id))
+                )
+                .map((entry) => entry.mood) || [];
+
+            if (moodWithGoal.length >= 3 && moodWithoutGoal.length >= 3) {
+              const avgMoodWith =
+                moodWithGoal.reduce((a, b) => a + b, 0) / moodWithGoal.length;
+              const avgMoodWithout =
+                moodWithoutGoal.reduce((a, b) => a + b, 0) /
+                moodWithoutGoal.length;
+
+              const improvement =
+                ((avgMoodWith - avgMoodWithout) / avgMoodWithout) * 100;
+
+              if (improvement > 10) {
+                insights.push({
+                  id: `mood_positive_${goal.id}`,
+                  type: "mood_correlation",
+                  title: "Positive Mood Correlation",
+                  message: `Your mood tends to be ${improvement.toFixed(
+                    0
+                  )}% higher on days when you work on "${
+                    goal.decryptedTitle
+                  }". This goal appears to boost your well-being!`,
+                  priority: "high",
+                  goalId: goal.id,
+                  date: new Date().toISOString(),
+                });
+              }
+            }
+          }
+
+          // 3. Check for energy correlation
+          if (goalMentions.length >= 3) {
+            const energyWithGoal = goalMentions
+              .filter((entry) => entry.energy !== null)
+              .map((entry) => entry.energy);
+
+            const energyWithoutGoal =
+              recentEntries
+                ?.filter(
+                  (entry) =>
+                    entry.energy !== null &&
+                    (!entry.goal_ids || !entry.goal_ids.includes(goal.id))
+                )
+                .map((entry) => entry.energy) || [];
+
+            if (energyWithGoal.length >= 3 && energyWithoutGoal.length >= 3) {
+              const avgEnergyWith =
+                energyWithGoal.reduce((a, b) => a + b, 0) /
+                energyWithGoal.length;
+              const avgEnergyWithout =
+                energyWithoutGoal.reduce((a, b) => a + b, 0) /
+                energyWithoutGoal.length;
+
+              const energyChange = avgEnergyWith - avgEnergyWithout;
+
+              if (energyChange > 1) {
+                insights.push({
+                  id: `energy_boost_${goal.id}`,
+                  type: "energy_correlation",
+                  title: "Energy Boost Pattern",
+                  message: `Working on "${
+                    goal.decryptedTitle
+                  }" appears to increase your energy levels by ${energyChange.toFixed(
+                    1
+                  )} points on average. Consider scheduling this goal during lower-energy periods.`,
+                  priority: "medium",
+                  goalId: goal.id,
+                  date: new Date().toISOString(),
+                });
+              } else if (energyChange < -1) {
+                insights.push({
+                  id: `energy_drain_${goal.id}`,
+                  type: "energy_correlation",
+                  title: "Energy Impact Pattern",
+                  message: `"${goal.decryptedTitle}" tends to be more challenging on your energy levels. Consider breaking it into smaller steps or scheduling it when you have more energy.`,
+                  priority: "medium",
+                  goalId: goal.id,
+                  date: new Date().toISOString(),
+                });
+              }
+            }
+          }
+
+          // 4. Check for milestone completion insights
+          try {
+            const masterKey = await encryptionService.getStaticMasterKey();
+            const dataKey = await encryptionService.decryptKey(
+              {
+                encryptedData: goal.encrypted_data_key,
+                iv: goal.data_key_iv,
+              },
+              masterKey
+            );
+
+            if (goal.encrypted_progress && goal.progress_iv) {
+              const progressData = await encryptionService.decryptText(
+                goal.encrypted_progress,
+                goal.progress_iv,
+                dataKey
+              );
+
+              const parsed = JSON.parse(progressData);
+
+              if (parsed.milestones) {
+                const completed = parsed.milestones.filter(
+                  (m) => m.completed
+                ).length;
+                const total = parsed.milestones.length;
+                const completionRate = (completed / total) * 100;
+
+                if (completionRate >= 80 && completionRate < 100) {
+                  insights.push({
+                    id: `near_completion_${goal.id}`,
+                    type: "completion_celebration",
+                    title: "Almost There!",
+                    message: `You're ${completionRate.toFixed(
+                      0
+                    )}% complete with "${goal.decryptedTitle}"! Just ${
+                      total - completed
+                    } milestone${
+                      total - completed !== 1 ? "s" : ""
+                    } to go. You've got this!`,
+                    priority: "high",
+                    goalId: goal.id,
+                    date: new Date().toISOString(),
+                  });
+                }
+              }
+            }
+          } catch (progressError) {
+            // Skip milestone insights if we can't decrypt progress
+            console.warn("Could not analyze progress for goal:", goal.id);
+          }
+        } catch (goalError) {
+          console.warn(
+            "Error analyzing goal for insights:",
+            goal.id,
+            goalError
+          );
+        }
+      }
+
+      // Add general insights if we have enough data
+      if (recentEntries && recentEntries.length >= 10) {
+        const goalsWithEntries = goals.filter((goal) =>
+          recentEntries.some(
+            (entry) => entry.goal_ids && entry.goal_ids.includes(goal.id)
+          )
+        );
+
+        if (goalsWithEntries.length === 0 && goals.length > 0) {
+          insights.push({
+            id: "general_engagement",
+            type: "engagement_suggestion",
+            title: "Increase Goal Engagement",
+            message:
+              "You haven't mentioned any of your goals in recent journal entries. Try reflecting on your progress or challenges with your goals during your next journaling session.",
+            priority: "medium",
+            goalId: null,
+            date: new Date().toISOString(),
+          });
+        }
+      }
+
+      setInsights(insights);
+    } catch (error) {
+      console.error("Error generating goal insights:", error);
+      setInsights([]);
+    }
   };
 
   const loadProgressPatterns = async () => {
-    // Mock progress patterns data
-    const mockPatterns = [
-      { period: "Jan", completion: 35, milestones: 8 },
-      { period: "Feb", completion: 42, milestones: 12 },
-      { period: "Mar", completion: 38, milestones: 10 },
-      { period: "Apr", completion: 55, milestones: 15 },
-      { period: "May", completion: 61, milestones: 18 },
-      { period: "Jun", completion: 58, milestones: 16 },
-    ];
-    setProgressPatterns(mockPatterns);
+    try {
+      if (!user?.id || goals.length === 0) {
+        setProgressPatterns([]);
+        return;
+      }
+
+      // Get the last 6 months of data
+      const months = [];
+      const now = new Date();
+
+      for (let i = 5; i >= 0; i--) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        months.push({
+          period: date.toLocaleDateString("en-US", { month: "short" }),
+          year: date.getFullYear(),
+          month: date.getMonth(),
+          completion: 0,
+          milestones: 0,
+          goalMentions: 0,
+          totalEntries: 0,
+        });
+      }
+
+      // Get journal entries for the last 6 months
+      const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+      const { data: journalEntries, error: journalError } = await supabase
+        .from("journal_entries")
+        .select("created_at, goal_ids")
+        .eq("user_id", user.id)
+        .gte("created_at", sixMonthsAgo.toISOString())
+        .order("created_at", { ascending: true });
+
+      if (journalError) {
+        console.error(
+          "Error loading journal entries for progress patterns:",
+          journalError
+        );
+        setProgressPatterns([]);
+        return;
+      }
+
+      // Count goal mentions per month
+      journalEntries?.forEach((entry) => {
+        const entryDate = new Date(entry.created_at);
+        const monthIndex = months.findIndex(
+          (m) =>
+            m.year === entryDate.getFullYear() &&
+            m.month === entryDate.getMonth()
+        );
+
+        if (monthIndex !== -1) {
+          months[monthIndex].totalEntries++;
+          if (entry.goal_ids && entry.goal_ids.length > 0) {
+            months[monthIndex].goalMentions++;
+          }
+        }
+      });
+
+      // Calculate milestone completion patterns for each month
+      for (const goal of goals) {
+        try {
+          const masterKey = await encryptionService.getStaticMasterKey();
+          const dataKey = await encryptionService.decryptKey(
+            {
+              encryptedData: goal.encrypted_data_key,
+              iv: goal.data_key_iv,
+            },
+            masterKey
+          );
+
+          if (goal.encrypted_progress && goal.progress_iv) {
+            const progressData = await encryptionService.decryptText(
+              goal.encrypted_progress,
+              goal.progress_iv,
+              dataKey
+            );
+
+            const parsed = JSON.parse(progressData);
+            let totalMilestones = 0;
+            let completedMilestones = 0;
+
+            if (parsed.tiers) {
+              // Count milestones across all tiers
+              Object.values(parsed.tiers).forEach((tierArray) => {
+                totalMilestones += tierArray.length;
+                completedMilestones += tierArray.filter(
+                  (m) => m.completed
+                ).length;
+              });
+            } else if (parsed.milestones) {
+              totalMilestones = parsed.milestones.length;
+              completedMilestones = parsed.milestones.filter(
+                (m) => m.completed
+              ).length;
+            }
+
+            // For now, we'll distribute the milestones evenly across months
+            // In a real implementation, you might track completion dates
+            if (totalMilestones > 0) {
+              const milestonesPerMonth = totalMilestones / 6;
+              const completionRate =
+                (completedMilestones / totalMilestones) * 100;
+
+              months.forEach((month) => {
+                month.milestones += Math.round(milestonesPerMonth);
+              });
+
+              // Apply completion rate based on goal mentions
+              months.forEach((month) => {
+                if (month.totalEntries > 0) {
+                  const engagementRate =
+                    month.goalMentions / month.totalEntries;
+                  month.completion += Math.round(
+                    completionRate * engagementRate
+                  );
+                }
+              });
+            }
+          }
+        } catch (progressError) {
+          console.warn(
+            "Error processing progress for goal:",
+            goal.id,
+            progressError
+          );
+        }
+      }
+
+      // Calculate final completion percentages and normalize
+      const patterns = months.map((month) => {
+        let finalCompletion = 0;
+
+        if (month.totalEntries > 0) {
+          // Base completion on goal engagement rate
+          const engagementRate =
+            (month.goalMentions / month.totalEntries) * 100;
+          finalCompletion = Math.min(100, Math.max(0, engagementRate));
+        }
+
+        return {
+          period: month.period,
+          completion: Math.round(finalCompletion),
+          milestones: month.milestones,
+          goalMentions: month.goalMentions,
+          totalEntries: month.totalEntries,
+        };
+      });
+
+      setProgressPatterns(patterns);
+    } catch (error) {
+      console.error("Error loading progress patterns:", error);
+      // Fallback to empty data if analysis fails
+      setProgressPatterns([]);
+    }
   };
 
   const loadGoalMentions = async () => {
-    // Mock goal mentions data
-    const mockMentions = [
-      { week: "W1", mentions: 5, sentiment: 0.8 },
-      { week: "W2", mentions: 3, sentiment: 0.6 },
-      { week: "W3", mentions: 8, sentiment: 0.9 },
-      { week: "W4", mentions: 2, sentiment: 0.4 },
-      { week: "W5", mentions: 6, sentiment: 0.7 },
-      { week: "W6", mentions: 9, sentiment: 0.85 },
-    ];
-    setGoalMentions(mockMentions);
+    try {
+      if (!user?.id || goals.length === 0) {
+        setGoalMentions([]);
+        return;
+      }
+
+      // Get the last 8 weeks of data
+      const weeks = [];
+      const now = new Date();
+
+      for (let i = 7; i >= 0; i--) {
+        const weekStart = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
+        const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
+
+        weeks.push({
+          week: `W${8 - i}`,
+          weekStart: weekStart.toISOString(),
+          weekEnd: weekEnd.toISOString(),
+          mentions: 0,
+          totalEntries: 0,
+          moodSum: 0,
+          moodCount: 0,
+          sentiment: 0,
+        });
+      }
+
+      // Get journal entries for the last 8 weeks
+      const eightWeeksAgo = new Date(
+        now.getTime() - 8 * 7 * 24 * 60 * 60 * 1000
+      );
+      const { data: journalEntries, error: journalError } = await supabase
+        .from("journal_entries")
+        .select("created_at, goal_ids, mood, tone")
+        .eq("user_id", user.id)
+        .gte("created_at", eightWeeksAgo.toISOString())
+        .order("created_at", { ascending: true });
+
+      if (journalError) {
+        console.error(
+          "Error loading journal entries for goal mentions:",
+          journalError
+        );
+        setGoalMentions([]);
+        return;
+      }
+
+      // Process entries to count mentions per week
+      journalEntries?.forEach((entry) => {
+        const entryDate = new Date(entry.created_at);
+
+        // Find which week this entry belongs to
+        const weekIndex = weeks.findIndex(
+          (week) =>
+            entryDate >= new Date(week.weekStart) &&
+            entryDate <= new Date(week.weekEnd)
+        );
+
+        if (weekIndex !== -1) {
+          weeks[weekIndex].totalEntries++;
+
+          // Count goal mentions
+          if (entry.goal_ids && entry.goal_ids.length > 0) {
+            // Check if any of the mentioned goals are in our current goals list
+            const hasRelevantGoal = entry.goal_ids.some((goalId) =>
+              goals.some((goal) => goal.id === goalId)
+            );
+
+            if (hasRelevantGoal) {
+              weeks[weekIndex].mentions++;
+
+              // Add mood data for sentiment calculation
+              if (entry.mood !== null && entry.mood !== undefined) {
+                weeks[weekIndex].moodSum += entry.mood;
+                weeks[weekIndex].moodCount++;
+              }
+            }
+          }
+        }
+      });
+
+      // Calculate sentiment scores
+      const mentionsData = weeks.map((week) => {
+        let sentiment = 0.5; // Neutral default
+
+        if (week.moodCount > 0) {
+          // Convert mood (1-10) to sentiment (0-1)
+          const avgMood = week.moodSum / week.moodCount;
+          sentiment = Math.max(0, Math.min(1, (avgMood - 1) / 9));
+        } else if (week.mentions > 0) {
+          // If no mood data but we have mentions, assume slightly positive
+          sentiment = 0.6;
+        }
+
+        return {
+          week: week.week,
+          mentions: week.mentions,
+          sentiment: Math.round(sentiment * 100) / 100, // Round to 2 decimal places
+          totalEntries: week.totalEntries,
+          engagementRate:
+            week.totalEntries > 0
+              ? Math.round((week.mentions / week.totalEntries) * 100) / 100
+              : 0,
+        };
+      });
+
+      setGoalMentions(mentionsData);
+    } catch (error) {
+      console.error("Error loading goal mentions:", error);
+      setGoalMentions([]);
+    }
   };
 
   const loadMoodCorrelations = async () => {
-    // Mock mood correlation data
-    const mockCorrelations = [
-      { goal: "Exercise", moodBefore: 6.2, moodAfter: 7.8, correlation: 0.73 },
-      {
-        goal: "Meditation",
-        moodBefore: 5.8,
-        moodAfter: 7.5,
-        correlation: 0.68,
-      },
-      { goal: "Reading", moodBefore: 6.5, moodAfter: 7.2, correlation: 0.45 },
-      { goal: "Learning", moodBefore: 6.0, moodAfter: 7.0, correlation: 0.52 },
-    ];
-    setMoodCorrelations(mockCorrelations);
+    try {
+      if (!user?.id || goals.length === 0) {
+        setMoodCorrelations([]);
+        return;
+      }
+
+      const correlations = [];
+
+      // Get journal entries from the last 3 months for better correlation analysis
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+      const { data: journalEntries, error: journalError } = await supabase
+        .from("journal_entries")
+        .select("created_at, goal_ids, mood, energy")
+        .eq("user_id", user.id)
+        .gte("created_at", threeMonthsAgo.toISOString())
+        .order("created_at", { ascending: true });
+
+      if (journalError) {
+        console.error(
+          "Error loading journal entries for mood correlations:",
+          journalError
+        );
+        setMoodCorrelations([]);
+        return;
+      }
+
+      // Analyze each goal for mood correlations
+      for (const goal of goals) {
+        try {
+          // Get entries that mention this goal
+          const goalEntries =
+            journalEntries?.filter(
+              (entry) =>
+                entry.goal_ids &&
+                entry.goal_ids.includes(goal.id) &&
+                entry.mood !== null &&
+                entry.mood !== undefined
+            ) || [];
+
+          // Get entries that don't mention this goal (for comparison)
+          const nonGoalEntries =
+            journalEntries?.filter(
+              (entry) =>
+                (!entry.goal_ids || !entry.goal_ids.includes(goal.id)) &&
+                entry.mood !== null &&
+                entry.mood !== undefined
+            ) || [];
+
+          // Need at least 3 data points for meaningful correlation
+          if (goalEntries.length >= 3 && nonGoalEntries.length >= 3) {
+            // Calculate mood statistics for goal-related entries
+            const goalMoods = goalEntries.map((entry) => entry.mood);
+            const avgMoodWithGoal =
+              goalMoods.reduce((sum, mood) => sum + mood, 0) / goalMoods.length;
+
+            // Calculate mood statistics for non-goal entries
+            const nonGoalMoods = nonGoalEntries.map((entry) => entry.mood);
+            const avgMoodWithoutGoal =
+              nonGoalMoods.reduce((sum, mood) => sum + mood, 0) /
+              nonGoalMoods.length;
+
+            // Calculate correlation strength
+            // This is a simplified correlation - in a real app you might use Pearson correlation
+            const moodDifference = avgMoodWithGoal - avgMoodWithoutGoal;
+            const normalizedCorrelation = Math.max(
+              -1,
+              Math.min(1, moodDifference / 5)
+            ); // Normalize to -1 to 1
+
+            // Only include goals with meaningful mood impact (absolute correlation > 0.1)
+            if (Math.abs(normalizedCorrelation) > 0.1) {
+              // For "before/after" we'll simulate by looking at temporal patterns
+              // In a real implementation, you might track mood before/after goal activities
+              let moodBefore = avgMoodWithoutGoal;
+              let moodAfter = avgMoodWithGoal;
+
+              // If correlation is negative, swap the values to show the pattern
+              if (normalizedCorrelation < 0) {
+                moodBefore = avgMoodWithGoal + Math.abs(moodDifference);
+                moodAfter = avgMoodWithGoal;
+              }
+
+              correlations.push({
+                goal: goal.decryptedTitle,
+                goalId: goal.id,
+                moodBefore: Math.round(moodBefore * 10) / 10,
+                moodAfter: Math.round(moodAfter * 10) / 10,
+                correlation:
+                  Math.round(Math.abs(normalizedCorrelation) * 100) / 100,
+                impact: normalizedCorrelation > 0 ? "positive" : "negative",
+                sampleSize: goalEntries.length,
+                avgMoodWithGoal: Math.round(avgMoodWithGoal * 10) / 10,
+                avgMoodWithoutGoal: Math.round(avgMoodWithoutGoal * 10) / 10,
+              });
+            }
+          }
+        } catch (goalError) {
+          console.warn(
+            "Error analyzing mood correlation for goal:",
+            goal.id,
+            goalError
+          );
+        }
+      }
+
+      // Sort by correlation strength (strongest correlations first)
+      correlations.sort((a, b) => b.correlation - a.correlation);
+
+      // Limit to top 10 correlations to avoid overwhelming the UI
+      setMoodCorrelations(correlations.slice(0, 10));
+    } catch (error) {
+      console.error("Error loading mood correlations:", error);
+      setMoodCorrelations([]);
+    }
   };
 
   // Standard goal handlers (from original Goals.jsx)

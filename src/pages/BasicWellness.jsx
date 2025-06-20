@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import { supabase } from "../lib/supabase";
 import {
   Activity,
   Heart,
@@ -18,6 +20,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+const { user } = useAuth();
 const BasicWellness = () => {
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState(null);
@@ -35,55 +38,85 @@ const BasicWellness = () => {
   const [exerciseDuration, setExerciseDuration] = useState("");
 
   useEffect(() => {
-    // In production, this would check user and load data
-    setUserId("demo-user");
-    loadWellnessData("demo-user");
-    loadTodayEntry("demo-user");
-  }, [date]);
+    // Only load data if we have an authenticated user
+    if (user?.id) {
+      setUserId(user.id);
+      loadWellnessData(user.id);
+      loadTodayEntry(user.id);
+    }
+  }, [user, date]);
 
   const loadTodayEntry = async (userId) => {
-    // Mock implementation - in production this would fetch from Supabase
-    // Simulate finding an existing entry 30% of the time
-    if (Math.random() > 0.7) {
-      const mockEntry = {
-        id: "mock-entry-1",
-        mood: 7,
-        energy: 6,
-        sleep_hours: 7.5,
-        sleep_quality: 8,
-        exercise_type: "cardio",
-        exercise_duration: 30,
-      };
-      setTodayEntry(mockEntry);
-      setMood(mockEntry.mood);
-      setEnergy(mockEntry.energy);
-      setSleepHours(mockEntry.sleep_hours.toString());
-      setSleepQuality(mockEntry.sleep_quality);
-      setExerciseType(mockEntry.exercise_type);
-      setExerciseDuration(mockEntry.exercise_duration.toString());
-    } else {
+    try {
+      // Query for an existing entry for the selected date
+      const { data: existingEntry, error } = await supabase
+        .from("wellness_tracking")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("entry_date", date)
+        .single();
+
+      if (error && error.code !== "PGRST116") {
+        // PGRST116 is "not found" error, which is fine
+        console.error("Error loading today's entry:", error);
+        setTodayEntry(null);
+        resetForm();
+        return;
+      }
+
+      if (existingEntry) {
+        // Found existing entry - populate the form
+        setTodayEntry(existingEntry);
+        setMood(existingEntry.mood || 5);
+        setEnergy(existingEntry.energy || 5);
+        setSleepHours(
+          existingEntry.sleep_hours ? existingEntry.sleep_hours.toString() : ""
+        );
+        setSleepQuality(existingEntry.sleep_quality || 5);
+        setExerciseType(existingEntry.exercise_type || "");
+        setExerciseDuration(
+          existingEntry.exercise_duration
+            ? existingEntry.exercise_duration.toString()
+            : ""
+        );
+      } else {
+        // No existing entry - reset form to defaults
+        setTodayEntry(null);
+        resetForm();
+      }
+    } catch (err) {
+      console.error("Unexpected error loading today's entry:", err);
       setTodayEntry(null);
       resetForm();
     }
   };
 
   const loadWellnessData = async (userId) => {
-    // Mock implementation - generate sample data
-    const mockData = [];
-    for (let i = 0; i < 30; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      mockData.push({
-        id: `mock-${i}`,
-        entry_date: date.toISOString().split("T")[0],
-        mood: Math.floor(Math.random() * 5) + 5,
-        energy: Math.floor(Math.random() * 5) + 4,
-        sleep_hours: Math.random() * 3 + 6,
-        exercise_duration:
-          Math.random() > 0.5 ? Math.floor(Math.random() * 60) + 15 : 0,
-      });
+    try {
+      setLoading(true);
+
+      // Query real wellness data from Supabase
+      const { data: wellnessEntries, error } = await supabase
+        .from("wellness_tracking")
+        .select("*")
+        .eq("user_id", userId)
+        .order("entry_date", { ascending: false })
+        .limit(30);
+
+      if (error) {
+        console.error("Error loading wellness data:", error);
+        setRecentEntries([]); // Set empty array on error
+        return;
+      }
+
+      // Set the real data (or empty array if no data)
+      setRecentEntries(wellnessEntries || []);
+    } catch (err) {
+      console.error("Unexpected error loading wellness data:", err);
+      setRecentEntries([]); // Set empty array on error
+    } finally {
+      setLoading(false);
     }
-    setRecentEntries(mockData);
   };
 
   const resetForm = () => {
@@ -100,13 +133,8 @@ const BasicWellness = () => {
 
     setSaveLabel("Saving...");
 
-    // Mock implementation - in production this would save to Supabase
-    setTimeout(() => {
-      setSaveLabel("Saved!");
-
-      // Add to recent entries
-      const newEntry = {
-        id: `mock-new-${Date.now()}`,
+    try {
+      const entryData = {
         user_id: userId,
         entry_date: date,
         mood: mood,
@@ -117,13 +145,60 @@ const BasicWellness = () => {
         exercise_duration: exerciseDuration ? parseInt(exerciseDuration) : null,
       };
 
-      setRecentEntries([newEntry, ...recentEntries]);
-      setTodayEntry(newEntry);
+      let savedEntry;
+
+      if (todayEntry) {
+        // Update existing entry
+        const { data, error } = await supabase
+          .from("wellness_tracking")
+          .update(entryData)
+          .eq("id", todayEntry.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        savedEntry = data;
+      } else {
+        // Insert new entry
+        const { data, error } = await supabase
+          .from("wellness_tracking")
+          .insert([entryData])
+          .select()
+          .single();
+
+        if (error) throw error;
+        savedEntry = data;
+      }
+
+      // Update local state
+      setTodayEntry(savedEntry);
+
+      // Update recent entries list
+      if (todayEntry) {
+        // Replace existing entry in the list
+        setRecentEntries((entries) =>
+          entries.map((entry) =>
+            entry.id === todayEntry.id ? savedEntry : entry
+          )
+        );
+      } else {
+        // Add new entry to the beginning of the list
+        setRecentEntries((entries) => [savedEntry, ...entries]);
+      }
+
+      setSaveLabel("Saved!");
 
       setTimeout(() => {
         setSaveLabel("Save Entry");
       }, 2000);
-    }, 500);
+    } catch (error) {
+      console.error("Error saving wellness entry:", error);
+      setSaveLabel("Error saving");
+
+      setTimeout(() => {
+        setSaveLabel("Save Entry");
+      }, 2000);
+    }
   };
 
   // Prepare chart data
@@ -145,7 +220,12 @@ const BasicWellness = () => {
     const lastWeek = recentEntries.slice(0, 7);
 
     if (lastWeek.length === 0) {
-      return { avgMood: 0, avgEnergy: 0, avgSleep: 0, exerciseDays: 0 };
+      return {
+        avgMood: "—",
+        avgEnergy: "—",
+        avgSleep: "—",
+        exerciseDays: "—",
+      };
     }
 
     const avgMood =
@@ -430,7 +510,16 @@ const BasicWellness = () => {
               <div className="h-[250px] flex items-center justify-center text-gray-500">
                 <div className="text-center">
                   <Calendar className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                  <p>No data yet. Start tracking!</p>
+                  <h4 className="font-medium text-gray-700 mb-2">
+                    Start Your Wellness Journey
+                  </h4>
+                  <p className="text-sm text-gray-500 mb-3">
+                    Track your daily wellness to see trends and patterns over
+                    time.
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    💡 Fill out the form on the left to begin tracking
+                  </p>
                 </div>
               </div>
             )}
