@@ -184,10 +184,10 @@ export function useMembership() {
         return true; // Always available for safety
 
       case "reflectionarian":
-        // Standard+ with Reflectionarian add-on OR Premium gets Basic Reflectionarian
+        // Standard+ with Basic Reflectionarian
         return (
           tier === "premium" || // Premium gets everything
-          (tier === "standard_plus" && features.includes("reflectionarian")) // Standard+ can add Basic Reflectionarian
+          (tier === "standard_plus" && features.includes("reflectionarian"))
         );
 
       case "advanced_reflectionarian":

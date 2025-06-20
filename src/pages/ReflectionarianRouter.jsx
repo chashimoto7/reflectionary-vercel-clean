@@ -27,9 +27,9 @@ const ReflectionarianRouter = () => {
   if (hasAccess("reflectionarian")) {
     // Determine which tier to show based on membership
     if (tier === "premium") {
-      // Premium users get Pro Reflectionarian
-      console.log("🎖️ Routing to Pro Reflectionarian (Premium user)");
-      return <ProReflectionarian />;
+      // Premium users get Advanced Reflectionarian
+      console.log("🎖️ Routing to Advanced Reflectionarian (Premium user)");
+      return <AdvanceReflectionarian />;
     } else if (tier === "standard" && hasAccess("advanced_reflectionarian")) {
       // Standard+ users with Advanced add-on get Advanced Reflectionarian
       console.log("⭐ Routing to Advanced Reflectionarian (Standard+ user)");

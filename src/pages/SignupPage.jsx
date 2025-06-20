@@ -66,8 +66,8 @@ const SUBSCRIPTION_PLANS = {
     name: "Standard+",
     price: 20,
     billing: "per month",
-    stripePrice: "price_1Rb968AeDe4AZUSaYbhDLIT9", // Replace with your Stripe price ID
-    stripePriceYearly: "price_1Rb96QAeDe4AZUSaIbFJSFPT", // Replace with your Stripe yearly price ID
+    stripePrice: "price_1Rb968AeDe4AZUSaYbhDLIT9",
+    stripePriceYearly: "price_1Rb96QAeDe4AZUSaIbFJSFPT",
     features: [
       "Everything in Standard",
       "Basic Reflectionarian AI companion",
@@ -106,8 +106,8 @@ const SUBSCRIPTION_PLANS = {
     name: "Pro",
     price: 35,
     billing: "per month",
-    stripePrice: "price_1Rb98JAeDe4AZUSaHprJgreX", // Replace with your Stripe price ID
-    stripePriceYearly: "price_1Rb98aAeDe4AZUSaT0ozoquy", // Replace with your Stripe yearly price ID
+    stripePrice: "price_1Rb98JAeDe4AZUSaHprJgreX",
+    stripePriceYearly: "price_1Rb98aAeDe4AZUSaT0ozoquy",
     features: [
       "Everything in Premium",
       "Pro Reflectionarian AI companion",
