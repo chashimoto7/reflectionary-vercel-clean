@@ -181,9 +181,9 @@ const AdvancedWomensHealth = () => {
           startDate.setMonth(startDate.getMonth() - 3);
       }
 
-      // Load health data
+      // Load health data from the correct table
       const { data: healthEntries, error: healthError } = await supabase
-        .from("health_entries")
+        .from("womens_health_data")
         .select("*")
         .eq("user_id", user.id)
         .gte("date", startDate.toISOString().split("T")[0])
