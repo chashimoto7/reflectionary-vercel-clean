@@ -1,49 +1,36 @@
-import logo from "../assets/ReflectionaryWordWelcome.png";
-import squarelogo from "../assets/FinalReflectionarySquare.png";
+//src/pages/welcome
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
-  Sparkles,
-  TrendingUp,
-  Shield,
-  Brain,
-  Heart,
-  Clock,
-  ChevronRight,
-  Quote,
-  Bell,
   Calendar,
+  TrendingUp,
+  Zap,
+  Activity,
   BarChart3,
   Target,
-  Lightbulb,
-  Award,
-  ArrowRight,
-  Activity,
+  Brain,
+  Heart,
+  Bell,
+  MessageCircle,
+  Sparkles,
+  Crown,
 } from "lucide-react";
+import { useMembership } from "../hooks/useMembership";
 
+// Inspirational quotes
 const QUOTES = [
   {
-    text: "The unexamined life is not worth living.",
-    author: "Socrates",
-    theme: "reflection",
+    text: "The privilege of a lifetime is being who you are.",
+    author: "Joseph Campbell",
+    theme: "authenticity",
   },
   {
-    text: "You don't have to control your thoughts. You just have to stop letting them control you.",
-    author: "Dan Millman",
-    theme: "mindfulness",
+    text: "Yesterday I was clever, so I wanted to change the world. Today I am wise, so I am changing myself.",
+    author: "Rumi",
+    theme: "growth",
   },
   {
-    text: "Journaling is like whispering to one's self and listening at the same time.",
-    author: "Mina Murray",
-    theme: "journaling",
-  },
-  {
-    text: "Sometimes the most productive thing you can do is relax.",
-    author: "Mark Black",
-    theme: "wellness",
-  },
-  {
-    text: "Feelings are much like waves. We can't stop them from coming but we can choose which ones to surf.",
+    text: "Feelings are like waves. We can't stop them from coming but we can choose which ones to surf.",
     author: "Jonatan Mårtensson",
     theme: "emotions",
   },
@@ -76,6 +63,15 @@ export default function Welcome() {
   const [quote, setQuote] = useState(() => getRandomQuote(-1));
   const [userName, setUserName] = useState("Christine");
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [hasShownFeaturePrompt, setHasShownFeaturePrompt] = useState(false);
+
+  const navigate = useNavigate();
+  const {
+    tier,
+    selectedFeatures,
+    canPickMoreFeatures,
+    loading: membershipLoading,
+  } = useMembership();
 
   // Update time every minute
   useEffect(() => {
@@ -91,6 +87,34 @@ export default function Welcome() {
     return () => clearInterval(interval);
   }, []);
 
+  // Standard+ Feature Selection Auto-Prompt
+  useEffect(() => {
+    if (
+      tier === "standard_plus" &&
+      selectedFeatures.length === 0 &&
+      !hasShownFeaturePrompt &&
+      !membershipLoading
+    ) {
+      const timer = setTimeout(() => {
+        const shouldPrompt = window.confirm(
+          "🎉 Welcome to Standard+! You can select 2 advanced features to enhance your Reflectionary experience. Would you like to choose them now?"
+        );
+        if (shouldPrompt) {
+          navigate("/standard-plus");
+        }
+        setHasShownFeaturePrompt(true);
+      }, 3000); // Show after 3 seconds on Welcome page
+
+      return () => clearTimeout(timer);
+    }
+  }, [
+    tier,
+    selectedFeatures.length,
+    hasShownFeaturePrompt,
+    membershipLoading,
+    navigate,
+  ]);
+
   const getTimeOfDay = () => {
     const hour = currentTime.getHours();
     if (hour < 12) return "morning";
@@ -103,7 +127,26 @@ export default function Welcome() {
     return `Good ${timeOfDay}, ${userName}`;
   };
 
-  // Quick Actions - pointing to ROUTERS, not direct pages
+  // Sample stats (you can replace with real data)
+  const stats = [
+    {
+      icon: Activity,
+      label: "Journal Entries",
+      value: "47",
+    },
+    {
+      icon: TrendingUp,
+      label: "Insights Gained",
+      value: "23",
+    },
+    {
+      icon: Calendar,
+      label: "Days Active",
+      value: "42",
+    },
+  ];
+
+  // Updated Quick Actions - Now 6 actions in 2 rows (3x2 grid)
   const quickActions = [
     {
       icon: Brain,
@@ -136,69 +179,93 @@ export default function Welcome() {
     {
       icon: Heart,
       title: "Women's Health",
-      description: "Track your cycle & health",
+      description: "Specialized tracking",
       href: "/womens-health",
       color: "from-pink-500 to-pink-600",
     },
+    {
+      icon: MessageCircle,
+      title: "Reflectionarian",
+      description: "AI companion chat",
+      href: "/reflectionarian",
+      color: "from-indigo-500 to-indigo-600",
+    },
   ];
 
-  const stats = [
-    { label: "Current Streak", value: "7 days", icon: Award },
-    { label: "Total Entries", value: "142", icon: Heart },
-    { label: "Insights Generated", value: "28", icon: Lightbulb },
-  ];
-
+  // Sample announcements
   const announcements = [
     {
-      type: "feature",
-      title: "Deep Dives Coming Soon",
-      description:
-        "Explore focused self-discovery modules tailored to your journey",
       icon: Sparkles,
-      date: "Coming Fall 2025",
+      type: "feature",
+      title: "New Analytics Dashboard",
+      description: "Discover deeper insights about your journaling patterns.",
+      date: "2 days ago",
     },
     {
+      icon: Zap,
       type: "update",
-      title: "Enhanced Analytics Now Live",
-      description:
-        "Discover new insights with our advanced intelligence dashboard",
-      icon: TrendingUp,
-      date: "Released this week",
+      title: "Improved Security",
+      description: "Enhanced encryption for even better privacy protection.",
+      date: "1 week ago",
     },
     {
+      icon: Target,
       type: "tip",
-      title: "Privacy First, Always",
-      description:
-        "Your reflections are end-to-end encrypted and visible only to you",
-      icon: Shield,
-      date: "Core promise",
+      title: "Goal Setting Tips",
+      description: "Learn how to create meaningful, achievable goals.",
+      date: "2 weeks ago",
     },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50">
       {/* Header Section */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-4">
-            <img
-              src={squarelogo}
-              alt="Reflectionary logo"
-              className="w-29 h-29 md:w-40 md:h-40 flex-shrink-0"
-            />
-            {/* Text content - left aligned */}
-            <div className="flex-1">
-              <img
-                src={logo}
-                alt="Reflectionary"
-                className="h-18 md:h-20 w-auto mb-2"
-              />
-              <h2 className="text-2xl md:text-3xl font-semibold text-gray-900">
-                {getGreeting()}
-              </h2>
-              <p className="text-lg md:text-xl text-gray-600 mt-1">
-                Your personal space for reflection and growth
-              </p>
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-purple-700 to-indigo-600 opacity-90"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iZ3JpZCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjEiIG9wYWNpdHk9IjAuMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-20"></div>
+
+        <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-12">
+          <div className="max-w-7xl mx-auto text-center">
+            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+              {getGreeting()}
+            </h1>
+            <p className="text-xl text-purple-100 mb-8 max-w-3xl mx-auto">
+              Welcome back to your personal growth journey
+            </p>
+
+            {/* Standard+ Feature Selection Banner */}
+            {tier === "standard_plus" && canPickMoreFeatures() && (
+              <div className="mb-8 max-w-2xl mx-auto">
+                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6">
+                  <div className="flex items-center justify-center gap-3 mb-4">
+                    <Crown className="w-6 h-6 text-yellow-300" />
+                    <h3 className="text-lg font-semibold text-white">
+                      Complete Your Standard+ Setup
+                    </h3>
+                  </div>
+                  <p className="text-purple-100 mb-4">
+                    You have {2 - selectedFeatures.length} advanced feature
+                    {2 - selectedFeatures.length !== 1 ? "s" : ""} left to
+                    select. Choose the features that matter most to your growth
+                    journey.
+                  </p>
+                  <button
+                    onClick={() => navigate("/standard-plus")}
+                    className="bg-white text-purple-700 font-semibold px-6 py-3 rounded-lg hover:bg-purple-50 transition-all duration-200 shadow-lg hover:shadow-xl"
+                  >
+                    <Sparkles className="w-4 h-4 inline mr-2" />
+                    Select Your Features
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Quote Section */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 max-w-3xl mx-auto">
+              <blockquote className="text-lg text-white font-medium italic mb-2">
+                "{quote.text}"
+              </blockquote>
+              <p className="text-purple-200">— {quote.author}</p>
             </div>
           </div>
         </div>
@@ -230,32 +297,34 @@ export default function Welcome() {
           })}
         </div>
 
-        {/* Quick Actions - Full Width */}
+        {/* Quick Actions - Now in 2 rows of 3 rectangular cards */}
         <div className="mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
             Quick Actions
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {quickActions.map((action, index) => {
               const Icon = action.icon;
               return (
                 <Link
                   key={index}
                   to={action.href}
-                  className="group bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-all hover:border-purple-200"
+                  className="group bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-lg transition-all hover:border-purple-200 hover:-translate-y-1"
                 >
-                  <div className="text-center">
+                  <div className="flex items-center gap-4">
                     <div
-                      className={`bg-gradient-to-br ${action.color} p-3 rounded-lg group-hover:scale-110 transition-transform mx-auto mb-3 w-fit`}
+                      className={`bg-gradient-to-br ${action.color} p-3 rounded-xl group-hover:scale-110 transition-transform flex-shrink-0`}
                     >
                       <Icon className="w-6 h-6 text-white" />
                     </div>
-                    <h3 className="font-semibold text-gray-900 group-hover:text-purple-600 transition-colors mb-1">
-                      {action.title}
-                    </h3>
-                    <p className="text-xs text-gray-600">
-                      {action.description}
-                    </p>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-gray-900 group-hover:text-purple-600 transition-colors mb-1">
+                        {action.title}
+                      </h3>
+                      <p className="text-sm text-gray-600 truncate">
+                        {action.description}
+                      </p>
+                    </div>
                   </div>
                 </Link>
               );
@@ -298,7 +367,7 @@ export default function Welcome() {
                       <p className="text-sm text-gray-600 mt-1">
                         {announcement.description}
                       </p>
-                      <p className="text-xs text-gray-500 mt-2">
+                      <p className="text-xs text-gray-400 mt-2">
                         {announcement.date}
                       </p>
                     </div>
@@ -306,72 +375,15 @@ export default function Welcome() {
                 );
               })}
             </div>
-
-            <div className="mt-6 pt-6 border-t border-gray-200 text-center">
-              <Link
-                to="/security"
-                className="text-sm text-purple-600 hover:text-purple-700 font-medium inline-flex items-center gap-2 group"
-              >
-                View all updates
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
-            </div>
           </div>
         </div>
 
-        {/* Quote and Privacy Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Daily Inspiration - Left Side */}
-          <div className="lg:col-span-2">
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-8 text-white shadow-lg">
-              <div className="flex items-start gap-4">
-                <Quote className="w-8 h-8 opacity-50 flex-shrink-0 mt-1" />
-                <div className="flex-1">
-                  <blockquote className="text-xl font-medium mb-4 leading-relaxed">
-                    "{quote.text}"
-                  </blockquote>
-                  <cite className="text-purple-100 text-sm flex items-center gap-2">
-                    <span className="w-8 h-px bg-purple-300"></span>
-                    {quote.author}
-                  </cite>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Privacy Section - Right Side */}
-          <div>
-            <div className="bg-purple-50 rounded-lg p-6 border border-purple-100 h-fit">
-              <h4 className="text-lg font-semibold text-purple-900 mb-3">
-                🔒 Your Privacy Matters
-              </h4>
-              <p className="text-sm text-purple-700 leading-relaxed">
-                Your journal is personal — and we treat it that way. All your
-                reflections are end-to-end encrypted so no one else can read
-                your words. Not our team. Not our servers. Just you.
-                Reflectionary is your private space to be real, raw, and fully
-                yourself.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Activity Footer */}
-        <div className="mt-12 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5 text-gray-400" />
-              <span className="text-sm text-gray-600">
-                Last entry: 2 hours ago
-              </span>
-            </div>
-            <Link
-              to="/journaling"
-              className="text-sm font-medium text-purple-600 hover:text-purple-700"
-            >
-              Continue your journey →
-            </Link>
-          </div>
+        {/* Footer Quote Attribution */}
+        <div className="text-center text-xs text-gray-400">
+          <p>
+            Inspirational quotes to guide your reflection • Theme:{" "}
+            <span className="capitalize">{quote.theme}</span>
+          </p>
         </div>
       </div>
     </div>

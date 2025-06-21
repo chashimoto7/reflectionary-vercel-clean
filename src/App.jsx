@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { SecurityProvider, useSecurity } from "./contexts/SecurityContext";
 import { supabase } from "./lib/supabase";
 import UnlockModal from "./components/UnlockModal";
+import StandardPlusDashboard from "./pages/StandardPlusDashboard";
 
 if (typeof window !== "undefined") {
   window.supabase = supabase;
@@ -85,6 +86,7 @@ function AppContent() {
         <Route path="/security" element={<SecuritySettingsPage />} />
         <Route path="/womens-health" element={<WomensHealthRouter />} />
         <Route path="/reflectionarian" element={<ReflectionarianRouter />} />
+        <Route path="/standard-plus" element={<StandardPlusDashboard />} />
         <Route path="*" element={<Navigate to="/welcome" replace />} />
       </Routes>
     </Layout>
