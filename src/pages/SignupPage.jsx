@@ -2,7 +2,17 @@
 import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
-import { Eye, EyeOff, Check, Crown, Star, Sparkles } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Check,
+  Crown,
+  Star,
+  Sparkles,
+  Zap,
+  Users,
+  Brain,
+} from "lucide-react";
 import logo from "../assets/ReflectionaryLogoWelcome.png";
 
 const SUBSCRIPTION_PLANS = {
@@ -12,28 +22,29 @@ const SUBSCRIPTION_PLANS = {
     billing: "Forever",
     stripePrice: null,
     features: [
-      "Basic journaling (6 entries/month)",
-      "1 AI prompt per week",
-      "12-month history",
+      "Basic journaling (8 entries/month)",
+      "2 random prompts/month",
+      "1-month history",
       "Crisis detection",
     ],
     description: "New Users",
     icon: "📝",
     popular: false,
     yearlyPrice: null,
+    stripePriceYearly: null,
   },
   basic: {
     name: "Basic",
     price: 7,
     billing: "per month",
-    stripePrice: "price_1Rb8mwAeDe4AZUSajo9X0crR",
+    stripePrice: "price_1Rb8mwAeDe4AZUSajo9X0crR", // Update these with new Stripe price IDs
     stripePriceYearly: "price_1Rb8wKAeDe4AZUSaZhEpqoie",
     features: [
       "Unlimited basic journaling",
       "Unlimited random prompts",
       "1 subject prompt per week",
       "1 follow-up per entry",
-      "Full basic history",
+      "6-month history",
       "Basic analytics",
       "Crisis detection",
     ],
@@ -46,56 +57,59 @@ const SUBSCRIPTION_PLANS = {
     name: "Standard",
     price: 14,
     billing: "per month",
-    stripePrice: "price_1Rb93hAeDe4AZUSafqwnB3C6",
+    stripePrice: "price_1Rb93hAeDe4AZUSafqwnB3C6", // Update these with new Stripe price IDs
     stripePriceYearly: "price_1Rb95KAeDe4AZUSawS4EOR7F",
     features: [
       "Everything in Basic",
       "Unlimited journal entries",
-      "Unlimited follow-up prompts",
-      "Advanced search & filters",
+      "Unlimited prompts",
+      "Full journal history with search & filters",
       "Standard goals tracking",
-      "Enhanced analytics",
-      "Download capability",
+      "Standard analytics",
     ],
     description: "Reflective Achievers",
-    icon: "🚀",
-    popular: true,
+    icon: "🎯",
+    popular: false,
     yearlyPrice: 140,
   },
   standard_plus: {
     name: "Standard+",
     price: 20,
     billing: "per month",
-    stripePrice: "price_1Rb968AeDe4AZUSaYbhDLIT9",
-    stripePriceYearly: "price_1Rb96QAeDe4AZUSaIbFJSFPT",
+    stripePrice: "price_1Rb968AeDe4AZUSaYbhDLIT9", // NEW - Need to create in Stripe
+    stripePriceYearly: "price_1Rb96QAeDe4AZUSaIbFJSFPT", // NEW - Need to create in Stripe
     features: [
       "Everything in Standard",
-      "Basic Reflectionarian AI companion",
-      "Choose 2 advanced features:",
-      "• Advanced History OR Analytics",
-      "• Advanced Goals OR Wellness",
+      "Basic Reflectionarian AI",
+      "Pick 2 Advanced features:",
+      "• Advanced Journaling",
+      "• Advanced History",
+      "• Advanced Goals",
+      "• Advanced Analytics",
+      "• Advanced Wellness",
       "• Advanced Women's Health",
     ],
     description: "Focused Deep Divers",
-    icon: "⭐",
-    popular: false,
+    icon: "🚀",
+    popular: true,
     yearlyPrice: 200,
   },
   premium: {
     name: "Premium",
     price: 27,
     billing: "per month",
-    stripePrice: "price_1Rb97KAeDe4AZUSaYu12M3V9", // Replace with your Stripe price ID
-    stripePriceYearly: "price_1Rb97kAeDe4AZUSaMpBUD4JN", // Replace with your Stripe yearly price ID
+    stripePrice: "price_1Rb97KAeDe4AZUSaYu12M3V9", // NEW - Need to create in Stripe
+    stripePriceYearly: "price_1Rb97kAeDe4AZUSaMpBUD4JN", // NEW - Need to create in Stripe
     features: [
-      "Everything in Standard",
-      "Advanced Reflectionarian AI companion",
-      "ALL advanced features included:",
-      "• Advanced journaling with folders",
-      "• Advanced analytics & insights",
-      "• Advanced goals with AI suggestions",
-      "• Advanced women's health tracking",
-      "• Priority support",
+      "Advanced Reflectionarian AI",
+      "ALL Advanced features included:",
+      "• Advanced Journaling with folders",
+      "• Advanced History with pinning",
+      "• Advanced Goals with AI coaching",
+      "• Advanced Analytics with predictions",
+      "• Advanced Wellness tracking",
+      "• Advanced Women's Health insights",
+      "Voice input/output features",
     ],
     description: "Power Users",
     icon: "👑",
@@ -106,68 +120,48 @@ const SUBSCRIPTION_PLANS = {
     name: "Pro",
     price: 35,
     billing: "per month",
-    stripePrice: "price_1Rb98JAeDe4AZUSaHprJgreX",
-    stripePriceYearly: "price_1Rb98aAeDe4AZUSaT0ozoquy",
+    stripePrice: "price_1Rb98JAeDe4AZUSaHprJgreX", // NEW - Need to create in Stripe
+    stripePriceYearly: "price_1Rb98aAeDe4AZUSaT0ozoquy", // NEW - Need to create in Stripe
     features: [
       "Everything in Premium",
-      "Pro Reflectionarian AI companion",
-      "Advanced therapy-style sessions",
+      "Pro Reflectionarian AI",
+      "Therapy-style structured sessions",
+      "Weekly reflection emails/reports",
       "Growth timeline reviews",
-      "Personalized content recommendations",
-      "Priority feature requests",
-      "1-on-1 setup consultation",
+      "Exportable session logs",
+      "Priority support",
+      "Early access to new features",
     ],
     description: "Superfans & Deep Growers",
-    icon: "🏆",
+    icon: "💎",
     popular: false,
     yearlyPrice: 350,
   },
 };
 
-export default function SignupPage() {
-  const [selectedPlan, setSelectedPlan] = useState("standard");
+const SignupPage = () => {
+  const { signUp } = useAuth();
+  const [step, setStep] = useState(1);
+  const [selectedPlan, setSelectedPlan] = useState("standard_plus");
   const [isAnnual, setIsAnnual] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // Form data
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [fullName, setFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(1); // 1: Plan selection, 2: Account details, 3: Payment
-
-  const { signUp } = useAuth();
 
   const handlePlanSelect = (planKey) => {
     setSelectedPlan(planKey);
-    if (planKey === "free") {
-      setStep(2); // Skip payment for free plan
-    } else {
-      setStep(2); // Go to account details
-    }
   };
 
-  const handleAccountSubmit = async (e) => {
+  const handleAccountSubmit = (e) => {
     e.preventDefault();
-    setError("");
-
-    // Validation
-    if (password !== confirmPassword) {
-      setError("Passwords don't match");
-      return;
-    }
-
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters");
-      return;
-    }
-
     if (selectedPlan === "free") {
-      // Handle free signup directly
-      await handleFreeSignup();
+      handleFreeSignup();
     } else {
-      // Go to payment step
       setStep(3);
     }
   };
@@ -264,11 +258,24 @@ export default function SignupPage() {
     }
   };
 
+  // Helper function to get plan icon
+  const getPlanIcon = (planKey) => {
+    const iconMap = {
+      free: "📝",
+      basic: <Sparkles className="w-6 h-6" />,
+      standard: <Star className="w-6 h-6" />,
+      standard_plus: <Zap className="w-6 h-6" />,
+      premium: <Crown className="w-6 h-6" />,
+      pro: <Brain className="w-6 h-6" />,
+    };
+    return iconMap[planKey] || "✨";
+  };
+
   // Step 1: Plan Selection
   if (step === 1) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 py-12 px-4">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="text-center mb-12">
             <img
@@ -314,73 +321,113 @@ export default function SignupPage() {
             </div>
           </div>
 
-          {/* Plans Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+          {/* Pricing Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
             {Object.entries(SUBSCRIPTION_PLANS).map(([key, plan]) => {
-              const currentPrice =
-                isAnnual && plan.yearlyPrice ? plan.yearlyPrice : plan.price;
-              const billingPeriod =
-                isAnnual && plan.yearlyPrice ? "year" : plan.billing;
+              const yearlyPrice = plan.yearlyPrice;
+              const monthlyEquivalent = yearlyPrice
+                ? Math.round(yearlyPrice / 12)
+                : null;
               const savings =
-                isAnnual && plan.yearlyPrice
-                  ? plan.price * 12 - plan.yearlyPrice
+                yearlyPrice && plan.price > 0
+                  ? plan.price * 12 - yearlyPrice
                   : 0;
 
               return (
                 <div
                   key={key}
-                  className={`relative bg-white rounded-xl shadow-lg border-2 transition-all duration-300 cursor-pointer transform hover:scale-105 ${
-                    selectedPlan === key
-                      ? "border-purple-500 ring-4 ring-purple-200"
-                      : "border-gray-200 hover:border-purple-300"
-                  } ${plan.popular ? "ring-2 ring-yellow-400" : ""}`}
                   onClick={() => handlePlanSelect(key)}
+                  className={`relative bg-white rounded-xl shadow-lg border-2 cursor-pointer transition-all hover:shadow-xl ${
+                    selectedPlan === key
+                      ? "border-purple-500 ring-2 ring-purple-200"
+                      : "border-gray-200 hover:border-purple-300"
+                  } ${
+                    plan.popular
+                      ? "ring-2 ring-yellow-400 border-yellow-400"
+                      : ""
+                  }`}
                 >
                   {/* Popular Badge */}
                   {plan.popular && (
                     <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                      <span className="bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-1">
-                        <Star className="w-4 h-4" />
-                        Most Popular
+                      <span className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                        MOST POPULAR
                       </span>
                     </div>
                   )}
 
-                  <div className="p-4">
+                  <div className="p-6">
                     {/* Plan Header */}
-                    <div className="text-center mb-4">
-                      <div className="text-2xl mb-2">{plan.icon}</div>
-                      <h3 className="text-lg font-bold text-gray-900">
-                        {plan.name}
-                      </h3>
-                      <div className="mt-2">
-                        <span className="text-2xl font-bold text-purple-600">
-                          ${currentPrice}
-                        </span>
-                        {currentPrice > 0 && (
-                          <span className="text-gray-500 text-sm ml-1">
-                            /{billingPeriod === "year" ? "year" : "month"}
-                          </span>
+                    <div className="text-center mb-6">
+                      <div className="text-4xl mb-3">
+                        {typeof getPlanIcon(key) === "string" ? (
+                          getPlanIcon(key)
+                        ) : (
+                          <div className="flex justify-center text-purple-600">
+                            {getPlanIcon(key)}
+                          </div>
                         )}
                       </div>
-                      {savings > 0 && (
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">
+                        {plan.name}
+                      </h3>
+
+                      {/* Pricing */}
+                      <div className="mb-3">
+                        {plan.price === 0 ? (
+                          <span className="text-3xl font-bold text-gray-900">
+                            Free
+                          </span>
+                        ) : (
+                          <>
+                            <span className="text-3xl font-bold text-gray-900">
+                              $
+                              {isAnnual && monthlyEquivalent
+                                ? monthlyEquivalent
+                                : plan.price}
+                            </span>
+                            <span className="text-gray-600 ml-1">
+                              /
+                              {isAnnual
+                                ? "month"
+                                : plan.billing === "per month"
+                                ? "month"
+                                : "year"}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {isAnnual && yearlyPrice && (
+                        <div className="text-sm">
+                          <span className="text-gray-500 line-through">
+                            ${plan.price * 12}/year
+                          </span>
+                          <span className="text-green-600 font-medium ml-2">
+                            ${yearlyPrice}/year
+                          </span>
+                        </div>
+                      )}
+
+                      {savings > 0 && isAnnual && (
                         <div className="text-xs text-green-600 font-medium mt-1">
                           Save ${savings}!
                         </div>
                       )}
+
                       <p className="text-xs text-gray-600 mt-2">
                         {plan.description}
                       </p>
                     </div>
 
                     {/* Features */}
-                    <ul className="space-y-2 mb-4">
+                    <ul className="space-y-2 mb-6">
                       {plan.features.map((feature, index) => (
                         <li
                           key={index}
-                          className="flex items-start gap-2 text-xs"
+                          className="flex items-start gap-2 text-sm"
                         >
-                          <Check className="w-3 h-3 text-green-500 mt-0.5 flex-shrink-0" />
+                          <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
                           <span className="text-gray-700">{feature}</span>
                         </li>
                       ))}
@@ -388,13 +435,13 @@ export default function SignupPage() {
 
                     {/* Select Button */}
                     <button
-                      className={`w-full py-2 px-3 rounded-lg font-semibold text-sm transition-colors ${
+                      className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
                         selectedPlan === key
-                          ? "bg-purple-600 text-white"
+                          ? "bg-purple-600 text-white shadow-lg"
                           : "bg-purple-100 text-purple-700 hover:bg-purple-200"
                       }`}
                     >
-                      {selectedPlan === key ? "Selected" : "Select Plan"}
+                      {selectedPlan === key ? "✓ Selected" : "Select Plan"}
                     </button>
                   </div>
                 </div>
@@ -403,14 +450,26 @@ export default function SignupPage() {
           </div>
 
           {/* Continue Button */}
-          <div className="text-center">
+          <div className="text-center mt-12">
             <button
               onClick={() => setStep(2)}
               disabled={!selectedPlan}
-              className="bg-purple-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-purple-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Continue with {SUBSCRIPTION_PLANS[selectedPlan]?.name}
             </button>
+          </div>
+
+          {/* Trust Indicators */}
+          <div className="text-center mt-8">
+            <p className="text-sm text-gray-500 mb-4">
+              🔒 Your privacy is our priority. All data is encrypted end-to-end.
+            </p>
+            <div className="flex justify-center items-center gap-6 text-xs text-gray-400">
+              <span>✓ 30-day money-back guarantee</span>
+              <span>✓ Cancel anytime</span>
+              <span>✓ Secure payments by Stripe</span>
+            </div>
           </div>
         </div>
       </div>
@@ -435,7 +494,9 @@ export default function SignupPage() {
             <p className="text-gray-600 mt-2">
               {SUBSCRIPTION_PLANS[selectedPlan].name} Plan - $
               {isAnnual && SUBSCRIPTION_PLANS[selectedPlan].yearlyPrice
-                ? SUBSCRIPTION_PLANS[selectedPlan].yearlyPrice + "/year"
+                ? Math.round(
+                    SUBSCRIPTION_PLANS[selectedPlan].yearlyPrice / 12
+                  ) + "/month (billed annually)"
                 : SUBSCRIPTION_PLANS[selectedPlan].price +
                   "/" +
                   SUBSCRIPTION_PLANS[selectedPlan].billing}
@@ -496,38 +557,15 @@ export default function SignupPage() {
                     className="absolute right-3 top-1/2 transform -translate-y-1/2"
                   >
                     {showPassword ? (
-                      <EyeOff className="w-4 h-4" />
+                      <EyeOff className="w-4 h-4 text-gray-500" />
                     ) : (
-                      <Eye className="w-4 h-4" />
+                      <Eye className="w-4 h-4 text-gray-500" />
                     )}
                   </button>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Must be at least 8 characters
+                </p>
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -589,8 +627,14 @@ export default function SignupPage() {
             )}
 
             <div className="mb-6">
-              <div className="text-3xl mb-4">
-                {SUBSCRIPTION_PLANS[selectedPlan].icon}
+              <div className="text-4xl mb-4">
+                {typeof getPlanIcon(selectedPlan) === "string" ? (
+                  getPlanIcon(selectedPlan)
+                ) : (
+                  <div className="flex justify-center text-purple-600">
+                    {getPlanIcon(selectedPlan)}
+                  </div>
+                )}
               </div>
               <h3 className="text-xl font-semibold mb-2">
                 {SUBSCRIPTION_PLANS[selectedPlan].name}
@@ -627,24 +671,34 @@ export default function SignupPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full text-center">
+          <img
+            src={logo}
+            alt="Reflectionary"
+            className="mx-auto mb-8 max-w-sm h-auto"
+          />
           <div className="bg-white rounded-lg shadow-lg p-8">
             <div className="text-6xl mb-4">🎉</div>
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
               Welcome to Reflectionary!
             </h2>
             <p className="text-gray-600 mb-6">
-              Your account has been created successfully. Check your email for
-              verification instructions.
+              Your account has been created successfully.
+              {selectedPlan !== "free" &&
+                " Your subscription is now active and you can start exploring all features."}
             </p>
-            <button
-              onClick={() => (window.location.href = "/login")}
-              className="w-full py-3 px-4 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700"
+            <a
+              href="/welcome"
+              className="inline-block bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors"
             >
-              Go to Login
-            </button>
+              Start Your Journey
+            </a>
           </div>
         </div>
       </div>
     );
   }
-}
+
+  return null;
+};
+
+export default SignupPage;
