@@ -1,14 +1,16 @@
-// src/hooks/useMembership.js
+// hooks/useMembership.js
 import { useState, useEffect } from "react";
-import { useAuth } from "../contexts/AuthContext";
-import { supabase } from "../lib/supabase";
+import { useUser } from "@supabase/auth-helpers-react";
+import { supabase } from "../lib/supabaseClient";
 
 export function useMembership() {
-  const { user } = useAuth();
+  const user = useUser();
   const [membershipData, setMembershipData] = useState({
     tier: "free",
     features: [],
     loading: true,
+    usageLimits: null,
+    selectedFeatures: [], // For Standard+ users
   });
 
   useEffect(() => {
@@ -19,80 +21,90 @@ export function useMembership() {
         tier: "free",
         features: [],
         loading: false,
+        usageLimits: null,
+        selectedFeatures: [],
       });
     }
   }, [user]);
 
   async function loadMembership() {
-    if (!user) return;
-
     try {
-      console.log("🔍 Loading membership for user:", user.id);
+      console.log("🔄 Loading membership for user:", user.id);
 
-      // Get user profile with subscription info
-      const { data: userData, error: userError } = await supabase
-        .from("user_profiles")
+      // Get user subscription data from the updated table structure
+      const { data: userData, error } = await supabase
+        .from("user_subscriptions")
         .select(
-          "subscription_tier, subscription_status, subscription_expires_at"
+          `
+          plan_id,
+          status,
+          selected_features,
+          current_period_start,
+          current_period_end,
+          cancel_at_period_end
+        `
         )
         .eq("user_id", user.id)
+        .eq("status", "active")
+        .order("current_period_start", { ascending: false })
+        .limit(1)
         .single();
 
-      if (userError) {
-        if (userError.code === "PGRST116") {
-          console.log("👤 No user profile found, creating one...");
-          const { error: insertError } = await supabase
-            .from("user_profiles")
-            .insert({
-              user_id: user.id,
-              email: user.email,
-              subscription_tier: "free",
-              created_at: new Date().toISOString(),
-            });
-
-          if (insertError) {
-            console.error("Error creating user profile:", insertError);
-          }
-
-          setMembershipData({
-            tier: "free",
-            features: [],
-            loading: false,
-          });
-        }
-        return;
-      }
-
-      // Successfully got user data - extract the tier
-      const tier = userData?.subscription_tier;
-      console.log("🎯 Raw subscription_tier from database:", tier);
-
-      if (!tier) {
-        console.warn(
-          "⚠️ subscription_tier is null/undefined in database, defaulting to free"
-        );
+      if (error && error.code !== "PGRST116") {
+        console.error("❌ Error loading subscription:", error);
+        // Default to free on error
         setMembershipData({
           tier: "free",
           features: [],
           loading: false,
+          usageLimits: null,
+          selectedFeatures: [],
         });
         return;
       }
 
-      // Get additional features for standard+ users
-      const { data: featureData } = await supabase
-        .from("user_feature_subscriptions")
-        .select("feature_name")
-        .eq("user_id", user.id)
-        .eq("active", true);
+      // Default to free if no active subscription
+      const planId = userData?.plan_id || "free";
+      const selectedFeatures = userData?.selected_features || [];
 
-      const features = featureData?.map((f) => f.feature_name) || [];
+      // Extract tier from plan_id (remove _monthly/_annual suffix)
+      const tier =
+        planId === "free" ? "free" : planId.replace(/_monthly|_annual$/, "");
 
-      console.log("✅ Membership loaded successfully:", { tier, features });
+      console.log("🎯 Raw subscription data:", {
+        planId,
+        tier,
+        selectedFeatures,
+      });
+
+      // Get usage limits for Free/Basic tiers
+      let usageLimits = null;
+      if (tier === "free" || tier === "basic") {
+        const { data: usageData, error: usageError } = await supabase.rpc(
+          "get_current_month_usage",
+          { user_uuid: user.id }
+        );
+
+        if (!usageError && usageData && usageData.length > 0) {
+          usageLimits = usageData[0];
+        }
+      }
+
+      // Build feature array based on tier and selected features
+      const features = buildFeatureArray(tier, selectedFeatures);
+
+      console.log("✅ Membership loaded successfully:", {
+        tier,
+        features,
+        selectedFeatures,
+        usageLimits,
+      });
 
       setMembershipData({
         tier,
         features,
+        selectedFeatures,
+        usageLimits,
         loading: false,
       });
     } catch (error) {
@@ -100,164 +112,255 @@ export function useMembership() {
       setMembershipData({
         tier: "free",
         features: [],
+        selectedFeatures: [],
+        usageLimits: null,
         loading: false,
       });
     }
   }
 
-  function hasAccess(feature) {
-    const { tier, features } = membershipData;
+  // Build feature array based on tier and selected advanced features
+  function buildFeatureArray(tier, selectedFeatures = []) {
+    const baseFeatures = {
+      free: [
+        "crisis_detection",
+        "basic_journaling_restricted", // 8 entries/month, 2 prompts/month, 2 follow-ups/month
+        "basic_history_restricted", // 1 month history
+      ],
+      basic: [
+        "crisis_detection",
+        "basic_journaling_limited", // Unlimited entries, 6 prompts/month, 6 follow-ups/month
+        "basic_history_limited", // 1 month history
+      ],
+      standard: [
+        "crisis_detection",
+        "standard_journaling", // Unlimited everything
+        "standard_history", // Full history with search/download
+        "standard_goals",
+        "standard_analytics",
+      ],
+      standard_plus: [
+        "crisis_detection",
+        "standard_journaling",
+        "standard_history",
+        "standard_goals",
+        "standard_analytics",
+        "basic_reflectionarian", // Basic AI companion
+      ],
+      premium: [
+        "crisis_detection",
+        "advanced_journaling", // Folders, pinning, flagging, voice
+        "advanced_history", // Advanced search, calendar, audio playback
+        "advanced_goals",
+        "advanced_analytics",
+        "advanced_wellness",
+        "advanced_womens_health",
+        "advanced_reflectionarian", // Advanced AI with full journal access
+        "voice_features",
+      ],
+      pro: [
+        "crisis_detection",
+        "advanced_journaling",
+        "advanced_history",
+        "advanced_goals",
+        "advanced_analytics",
+        "advanced_wellness",
+        "advanced_womens_health",
+        "pro_reflectionarian", // Therapy-style sessions, growth timeline
+        "voice_features",
+        "priority_support",
+      ],
+    };
 
-    if (membershipData.loading) {
+    let features = [...(baseFeatures[tier] || baseFeatures.free)];
+
+    // For Standard+ users, add their selected advanced features
+    if (tier === "standard_plus") {
+      features = [...features, ...selectedFeatures];
+    }
+
+    return features;
+  }
+
+  // Access control function - matches revised pricing structure
+  function hasAccess(feature) {
+    const { tier, features, loading } = membershipData;
+
+    if (loading) {
       console.log("🔐 Access denied: still loading membership data");
       return false;
     }
 
     console.log("🔐 Checking access:", { feature, tier, features });
 
+    // Map feature requests to actual feature flags
     switch (feature) {
+      // BASIC JOURNALING ACCESS
       case "journaling":
-        return [
-          "basic",
-          "standard",
-          "standard_plus",
-          "premium",
-          "pro",
-        ].includes(tier);
+      case "basic_journaling":
+        return (
+          features.includes("basic_journaling_restricted") ||
+          features.includes("basic_journaling_limited") ||
+          features.includes("standard_journaling") ||
+          features.includes("advanced_journaling")
+        );
 
+      // ADVANCED JOURNALING (folders, pinning, etc.)
+      case "advanced_journaling":
+        return features.includes("advanced_journaling");
+
+      // HISTORY ACCESS
       case "history":
-        return [
-          "basic",
-          "standard",
-          "standard_plus",
-          "premium",
-          "pro",
-        ].includes(tier);
+      case "basic_history":
+        return (
+          features.includes("basic_history_restricted") ||
+          features.includes("basic_history_limited") ||
+          features.includes("standard_history") ||
+          features.includes("advanced_history")
+        );
 
-      case "analytics":
-        return [
-          "basic",
-          "standard",
-          "standard_plus",
-          "premium",
-          "pro",
-        ].includes(tier);
-
-      case "goals":
-        return ["standard", "standard_plus", "premium", "pro"].includes(tier);
-
-      case "wellness":
-        return [
-          "basic",
-          "standard",
-          "standard_plus",
-          "premium",
-          "pro",
-        ].includes(tier);
-
-      case "womens_health":
-        // Free for all paid members (Basic, Standard, Standard+, Premium, Pro)
-        return [
-          "basic",
-          "standard",
-          "standard_plus",
-          "premium",
-          "pro",
-        ].includes(tier);
-
-      // ADVANCED FEATURES
       case "advanced_history":
-        return (
-          tier === "premium" ||
-          tier === "pro" || // Premium/Pro gets it included
-          (tier === "standard_plus" && features.includes("advanced_history")) // Standard+ can pick it
-        );
+        return features.includes("advanced_history");
 
-      case "advanced_analytics":
-        return (
-          tier === "premium" ||
-          tier === "pro" || // Premium/Pro gets it included
-          (tier === "standard_plus" && features.includes("advanced_analytics")) // Standard+ can pick it
-        );
+      // GOALS ACCESS
+      case "goals":
+      case "standard_goals":
+        return features.includes("standard_goals");
 
       case "advanced_goals":
-        return (
-          tier === "premium" ||
-          tier === "pro" || // Premium/Pro gets it included
-          (tier === "standard_plus" && features.includes("advanced_goals")) // Standard+ can pick it
-        );
+        return features.includes("advanced_goals");
+
+      // ANALYTICS ACCESS
+      case "analytics":
+      case "standard_analytics":
+        return features.includes("standard_analytics");
+
+      case "advanced_analytics":
+        return features.includes("advanced_analytics");
+
+      // WELLNESS ACCESS
+      case "wellness":
+      case "basic_wellness":
+        // Note: Basic wellness was not in your revised pricing doc
+        // Assuming it's available for Basic+ tiers
+        return [
+          "basic",
+          "standard",
+          "standard_plus",
+          "premium",
+          "pro",
+        ].includes(tier);
 
       case "advanced_wellness":
-        return (
-          tier === "premium" ||
-          tier === "pro" || // Premium/Pro gets it included
-          (tier === "standard_plus" && features.includes("advanced_wellness")) // Standard+ can pick it
-        );
+        return features.includes("advanced_wellness");
+
+      // WOMEN'S HEALTH ACCESS
+      case "womens_health":
+      case "basic_womens_health":
+        // Available for all paid members
+        return [
+          "basic",
+          "standard",
+          "standard_plus",
+          "premium",
+          "pro",
+        ].includes(tier);
 
       case "advanced_womens_health":
-        return (
-          tier === "premium" ||
-          tier === "pro" || // Premium/Pro gets it included
-          (tier === "standard_plus" &&
-            features.includes("advanced_womens_health")) // Standard+ can pick it
-        );
+        return features.includes("advanced_womens_health");
 
-      case "advanced_journaling":
-        return (
-          tier === "premium" ||
-          tier === "pro" || // Premium/Pro gets it included
-          (tier === "standard_plus" && features.includes("advanced_journaling")) // Standard+ can pick it
-        );
-
-      // REFLECTIONARIAN FEATURES
+      // REFLECTIONARIAN ACCESS
       case "reflectionarian":
-        // Basic Reflectionarian: Standard+ and above
-        return ["standard_plus", "premium", "pro"].includes(tier);
+      case "basic_reflectionarian":
+        return (
+          features.includes("basic_reflectionarian") ||
+          features.includes("advanced_reflectionarian") ||
+          features.includes("pro_reflectionarian")
+        );
 
       case "advanced_reflectionarian":
-        // Advanced Reflectionarian: Premium and Pro
-        return ["premium", "pro"].includes(tier);
+        return (
+          features.includes("advanced_reflectionarian") ||
+          features.includes("pro_reflectionarian")
+        );
 
       case "pro_reflectionarian":
-        // Pro Reflectionarian: Pro only
-        return tier === "pro";
+        return features.includes("pro_reflectionarian");
 
       // VOICE FEATURES
       case "voice_features":
-        return ["premium", "pro"].includes(tier);
+        return features.includes("voice_features");
 
-      // SPECIAL FEATURES
-      case "crisis_detection":
-        return true; // Always available for safety
-
-      case "follow_up_prompts":
-        return [
-          "basic",
-          "standard",
-          "standard_plus",
-          "premium",
-          "pro",
-        ].includes(tier);
+      // SUPPORT
+      case "priority_support":
+        return features.includes("priority_support");
 
       default:
-        console.warn(`🚨 Unknown feature requested: ${feature}`);
+        console.warn(`🔐 Unknown feature requested: ${feature}`);
         return false;
     }
   }
 
+  // Check if user has hit usage limits (for Free/Basic tiers)
+  function hasUsageRemaining(usageType) {
+    const { tier, usageLimits } = membershipData;
+
+    // Unlimited for Standard+ tiers
+    if (!["free", "basic"].includes(tier)) {
+      return { hasRemaining: true, unlimited: true };
+    }
+
+    if (!usageLimits) {
+      return { hasRemaining: false, error: "Usage data not available" };
+    }
+
+    switch (usageType) {
+      case "journal_entries":
+        if (tier === "free") {
+          return {
+            hasRemaining: usageLimits.entries_count < usageLimits.entries_limit,
+            current: usageLimits.entries_count,
+            limit: usageLimits.entries_limit,
+          };
+        }
+        // Basic tier has unlimited entries
+        return { hasRemaining: true, unlimited: true };
+
+      case "prompts":
+        const promptLimit = tier === "free" ? 2 : 6; // Basic gets 6 prompts/month
+        return {
+          hasRemaining: usageLimits.prompts_count < promptLimit,
+          current: usageLimits.prompts_count,
+          limit: promptLimit,
+        };
+
+      case "follow_ups":
+        const followUpLimit = tier === "free" ? 2 : 6; // Basic gets 6 follow-ups/month
+        return {
+          hasRemaining: usageLimits.follow_ups_count < followUpLimit,
+          current: usageLimits.follow_ups_count,
+          limit: followUpLimit,
+        };
+
+      default:
+        return { hasRemaining: false, error: "Unknown usage type" };
+    }
+  }
+
+  // Get upgrade message based on requested feature and current tier
   function getUpgradeMessage(feature) {
     const { tier } = membershipData;
 
-    // Specific messages for advanced features
+    // Feature-specific upgrade messages
     if (feature === "advanced_history") {
       if (tier === "free" || tier === "basic") {
-        return "Upgrade to Standard+ to pick Advanced History, or Premium for full access to all advanced features.";
+        return "Upgrade to Standard+ to pick Advanced History, or Premium for full access.";
       }
       if (tier === "standard") {
-        return "Upgrade to Standard+ to pick Advanced History as one of your 2 advanced features, or Premium for everything.";
+        return "Upgrade to Standard+ to pick Advanced History as one of your 2 advanced features.";
       }
       if (tier === "standard_plus") {
-        return "Add Advanced History as one of your 2 advanced feature picks, or upgrade to Premium for all features.";
+        return "Add Advanced History as one of your 2 advanced feature picks.";
       }
     }
 
@@ -322,7 +425,7 @@ export function useMembership() {
     }
 
     // Reflectionarian upgrade messages
-    if (feature === "reflectionarian") {
+    if (feature === "reflectionarian" || feature === "basic_reflectionarian") {
       if (tier === "free" || tier === "basic") {
         return "Upgrade to Standard+ for Basic Reflectionarian, or Premium for Advanced AI features.";
       }
@@ -346,12 +449,7 @@ export function useMembership() {
 
     // Voice features
     if (feature === "voice_features") {
-      if (
-        tier === "free" ||
-        tier === "basic" ||
-        tier === "standard" ||
-        tier === "standard_plus"
-      ) {
+      if (["free", "basic", "standard", "standard_plus"].includes(tier)) {
         return "Upgrade to Premium for voice input/output features.";
       }
     }
@@ -405,13 +503,13 @@ export function useMembership() {
   }
 
   function canPickMoreFeatures() {
-    const { tier, features } = membershipData;
+    const { tier, selectedFeatures } = membershipData;
     if (tier !== "standard_plus") return false;
-    return features.length < 2;
+    return selectedFeatures.length < 2;
   }
 
   function getAvailableFeaturePicks() {
-    const { features } = membershipData;
+    const { selectedFeatures } = membershipData;
     const allAdvancedFeatures = [
       "advanced_journaling",
       "advanced_history",
@@ -421,17 +519,61 @@ export function useMembership() {
       "advanced_womens_health",
     ];
 
-    return allAdvancedFeatures.filter((feature) => !features.includes(feature));
+    return allAdvancedFeatures.filter(
+      (feature) => !selectedFeatures.includes(feature)
+    );
+  }
+
+  // Function to add a selected feature for Standard+ users
+  async function addSelectedFeature(feature) {
+    const { tier, selectedFeatures } = membershipData;
+
+    if (tier !== "standard_plus") {
+      throw new Error("Only Standard+ users can select additional features");
+    }
+
+    if (selectedFeatures.length >= 2) {
+      throw new Error("Standard+ users can only select 2 advanced features");
+    }
+
+    if (selectedFeatures.includes(feature)) {
+      throw new Error("Feature already selected");
+    }
+
+    const newSelectedFeatures = [...selectedFeatures, feature];
+
+    try {
+      const { error } = await supabase
+        .from("user_subscriptions")
+        .update({
+          selected_features: newSelectedFeatures,
+          features_selected_at: new Date().toISOString(),
+        })
+        .eq("user_id", user.id)
+        .eq("status", "active");
+
+      if (error) throw error;
+
+      // Refresh membership data
+      await loadMembership();
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error adding selected feature:", error);
+      throw error;
+    }
   }
 
   return {
     ...membershipData,
     hasAccess,
+    hasUsageRemaining,
     getUpgradeMessage,
     getTierDisplayName,
     getTierFeatureCount,
     canPickMoreFeatures,
     getAvailableFeaturePicks,
+    addSelectedFeature,
     refresh: loadMembership,
     // Aliases for compatibility with existing components
     tier: membershipData.tier,
