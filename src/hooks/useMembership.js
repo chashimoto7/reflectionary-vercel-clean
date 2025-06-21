@@ -1,7 +1,7 @@
 // hooks/useMembership.js
 import { useState, useEffect } from "react";
 import { useUser } from "@supabase/auth-helpers-react";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../lib/supabase";
 
 export function useMembership() {
   const user = useUser();
