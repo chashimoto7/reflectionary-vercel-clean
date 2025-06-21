@@ -258,13 +258,10 @@ export function useMembership() {
       case "womens_health":
       case "basic_womens_health":
         // Available for all paid members
-        return [
-          "basic",
-          "standard",
-          "standard_plus",
-          "premium",
-          "pro",
-        ].includes(tier);
+        return (
+          features.includes("basic_womens_health") ||
+          features.includes("advanced_womens_health")
+        );
 
       case "advanced_womens_health":
         return features.includes("advanced_womens_health");
