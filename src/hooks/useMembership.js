@@ -1,10 +1,9 @@
 // hooks/useMembership.js
 import { useState, useEffect } from "react";
-import { useUser } from "@supabase/auth-helpers-react";
 import { supabase } from "../lib/supabase";
 
 export function useMembership() {
-  const user = useUser();
+  const [user, setUser] = useState(null);
   const [membershipData, setMembershipData] = useState({
     tier: "free",
     features: [],
@@ -12,6 +11,22 @@ export function useMembership() {
     usageLimits: null,
     selectedFeatures: [], // For Standard+ users
   });
+
+  useEffect(() => {
+    // Get initial user
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (user) {
