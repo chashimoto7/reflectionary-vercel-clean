@@ -11,29 +11,19 @@ import { useFeatureAccess } from "../hooks/useFeatureAccess";
 import UpgradePrompt from "../components/UpgradePrompt";
 import { useCrisisIntegration } from "../hooks/useCrisisIntegration";
 import CrisisResourceModal from "../components/CrisisResourceModal";
-import {
-  Activity,
-  Moon,
-  Droplets,
-  Heart,
-  Brain,
-  Coffee,
-  Apple,
-  Dumbbell,
-  Wind,
-  Info,
-} from "lucide-react";
+import { Lock, Info, AlertTriangle } from "lucide-react";
 
 export default function StandardJournaling() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isLocked } = useSecurity();
-  const { hasAccess, tier, loading } = useMembership();
+  const { hasAccess, hasUsageRemaining, tier, loading, getTierDisplayName } =
+    useMembership();
 
   console.log("🎯 Current membership tier:", tier, "Loading:", loading);
   console.log("🔍 Has access to journaling:", hasAccess("journaling"));
 
-  // Add feature access management
+  // Feature access management
   const {
     checkFeatureAccess,
     showUpgradePrompt,
@@ -43,6 +33,7 @@ export default function StandardJournaling() {
     getUpgradeMessage,
   } = useFeatureAccess(tier);
 
+  // Crisis integration
   const {
     showModal: showCrisisModal,
     analysisResult: crisisAnalysisResult,
@@ -51,7 +42,7 @@ export default function StandardJournaling() {
     showCrisisResources,
   } = useCrisisIntegration();
 
-  // EXISTING State declarations
+  // Core journaling state
   const [lastSavedEntry, setLastSavedEntry] = useState(null);
   const [prompt, setPrompt] = useState("");
   const [promptType, setPromptType] = useState("initial");
@@ -68,259 +59,85 @@ export default function StandardJournaling() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentThreadId, setCurrentThreadId] = useState(null);
 
-  // ENHANCED: Wellness tracking state with exercise and sleep
-  const [mood, setMood] = useState(5);
-  const [energy, setEnergy] = useState(5);
-  const [cycleDay, setCycleDay] = useState("");
-  const [cyclePhase, setCyclePhase] = useState("");
-  const [showWellnessSection, setShowWellnessSection] = useState(false);
+  // Usage limiting state
+  const [usageBlocked, setUsageBlocked] = useState(false);
+  const [usageMessage, setUsageMessage] = useState("");
 
-  // NEW: Exercise and wellness tracking
-  const [exerciseType, setExerciseType] = useState("");
-  const [exerciseDuration, setExerciseDuration] = useState("");
-  const [sleepHours, setSleepHours] = useState("");
-  const [sleepQuality, setSleepQuality] = useState(5);
-  const [hydration, setHydration] = useState("");
-  const [wellnessActivities, setWellnessActivities] = useState({
-    meditation: false,
-    yoga: false,
-    natureTime: false,
-    socialConnection: false,
-    creativeActivity: false,
-    selfCare: false,
-  });
-
-  // Check if user has advanced analytics add-on
-  const hasAdvancedAnalytics = hasAccess("advanced_analytics");
-
-  const editorRef = useRef(null);
   const quillRef = useRef(null);
+  const editorRef = useRef(null);
 
-  // EXISTING getStaticMasterKey function (unchanged)
-  const getStaticMasterKey = async () => {
-    const STATIC_MASTER_KEY_HEX = import.meta.env.VITE_MASTER_DECRYPTION_KEY;
-
-    console.log("🧪 Checking master key:", STATIC_MASTER_KEY_HEX);
-
-    if (!STATIC_MASTER_KEY_HEX) {
-      throw new Error("Master key is undefined. Check your .env or build.");
-    }
-
-    if (STATIC_MASTER_KEY_HEX.length !== 64) {
-      throw new Error(
-        `Master key is the wrong length: ${STATIC_MASTER_KEY_HEX.length}. It must be exactly 64 characters.`
-      );
-    }
-
-    const keyBuffer = new Uint8Array(
-      STATIC_MASTER_KEY_HEX.match(/.{1,2}/g).map((b) => parseInt(b, 16))
-    );
-
-    return await window.crypto.subtle.importKey(
-      "raw",
-      keyBuffer,
-      { name: "AES-CBC" },
-      false,
-      ["encrypt", "decrypt"]
-    );
-  };
-
-  // EXISTING useEffect hooks (unchanged)
+  // Initialize Quill editor
   useEffect(() => {
-    const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/login");
+    if (editorRef.current && !quillRef.current) {
+      quillRef.current = new Quill(editorRef.current, {
+        theme: "snow",
+        placeholder: "Start writing your thoughts...",
+        modules: {
+          toolbar: [
+            [{ header: [1, 2, false] }],
+            ["bold", "italic", "underline"],
+            [{ list: "ordered" }, { list: "bullet" }],
+            ["clean"],
+          ],
+        },
+      });
+
+      quillRef.current.on("text-change", () => {
+        setEditorContent(quillRef.current.root.innerHTML);
+      });
+
+      setIsEditorReady(true);
+    }
+  }, []);
+
+  // Check usage limits and display appropriate messaging
+  const checkUsageLimits = async (actionType) => {
+    const usageCheck = hasUsageRemaining(actionType);
+
+    if (!usageCheck.hasRemaining && !usageCheck.unlimited) {
+      let message = "";
+
+      switch (actionType) {
+        case "journal_entries":
+          message = `You've reached your limit of ${usageCheck.limit} journal entries this month. Upgrade to Basic for unlimited entries!`;
+          break;
+        case "prompts":
+          message = `You've used all ${usageCheck.limit} prompts this month. ${
+            tier === "free"
+              ? "Upgrade to Basic for 6 prompts/month!"
+              : "Wait until next month or upgrade for unlimited prompts!"
+          }`;
+          break;
+        case "follow_ups":
+          message = `You've used all ${
+            usageCheck.limit
+          } follow-ups this month. ${
+            tier === "free"
+              ? "Upgrade to Basic for 6 follow-ups/month!"
+              : "Wait until next month or upgrade for unlimited!"
+          }`;
+          break;
+        default:
+          message = "Usage limit reached. Please upgrade your membership.";
       }
-    };
-    checkSession();
-  }, [navigate]);
 
-  useEffect(() => {
-    const initEditor = () => {
-      if (editorRef.current && !quillRef.current && !isLocked) {
-        try {
-          console.log("Initializing Quill editor...");
-
-          const quill = new Quill(editorRef.current, {
-            theme: "snow",
-            placeholder: "Start writing your journal entry here...",
-            modules: {
-              toolbar: [
-                [{ header: [1, 2, 3, false] }],
-                ["bold", "italic", "underline", "strike"],
-                [{ list: "ordered" }, { list: "bullet" }],
-                [{ color: [] }, { background: [] }],
-                ["link"],
-                ["clean"],
-              ],
-            },
-          });
-
-          quillRef.current = quill;
-
-          // Listen for content changes
-          quill.on("text-change", () => {
-            const content = quill.getText().trim();
-            setEditorContent(content);
-            console.log("Editor content changed, length:", content.length);
-          });
-
-          // Set editor height with scroll
-          const qlEditor = editorRef.current.querySelector(".ql-editor");
-          if (qlEditor) {
-            qlEditor.style.height = "300px";
-            qlEditor.style.maxHeight = "300px";
-            qlEditor.style.overflowY = "auto";
-            qlEditor.style.fontSize = "16px";
-            qlEditor.style.lineHeight = "1.6";
-          }
-
-          setIsEditorReady(true);
-          console.log("Quill editor initialized successfully");
-        } catch (error) {
-          console.error("Error initializing Quill:", error);
-        }
-      }
-    };
-
-    const timer = setTimeout(initEditor, 100);
-
-    return () => {
-      clearTimeout(timer);
-      if (quillRef.current) {
-        console.log("Cleaning up Quill editor");
-        quillRef.current = null;
-      }
-    };
-  }, [isLocked]);
-
-  // EXISTING functions (unchanged)
-  const encryptJournalEntry = async (entryData) => {
-    const masterKey = await getStaticMasterKey();
-    const dataKey = await encryptionService.generateDataKey();
-    const encryptedContent = await encryptionService.encryptText(
-      entryData.content,
-      dataKey
-    );
-
-    let encryptedPrompt = { encryptedData: "", iv: "" };
-    if (entryData.prompt) {
-      encryptedPrompt = await encryptionService.encryptText(
-        entryData.prompt,
-        dataKey
-      );
+      setUsageMessage(message);
+      setUsageBlocked(true);
+      return false;
     }
 
-    const encryptedDataKey = await encryptionService.encryptKey(
-      dataKey,
-      masterKey
-    );
-
-    return {
-      encrypted_content: encryptedContent.encryptedData,
-      content_iv: encryptedContent.iv,
-      encrypted_prompt: encryptedPrompt.encryptedData,
-      prompt_iv: encryptedPrompt.iv,
-      encrypted_data_key: encryptedDataKey.encryptedData,
-      data_key_iv: encryptedDataKey.iv,
-    };
+    return true;
   };
 
-  const clearEditor = () => {
-    if (quillRef.current && isEditorReady) {
-      try {
-        quillRef.current.setText("");
-        setEditorContent("");
-        console.log("Editor cleared");
-      } catch (error) {
-        console.error("Error clearing editor:", error);
-      }
-    }
-  };
-
-  const getPrompt = async () => {
-    if (isLocked) {
-      console.log("App is locked, cannot get prompt");
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const res = await fetch(
-        "https://reflectionary-api.vercel.app/api/generatePrompt",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: user.id }),
-        }
-      );
-
-      const data = await res.json();
-      const generatedPrompt =
-        data?.prompt || "Write about a recent moment that impacted you.";
-
-      setPrompt(generatedPrompt);
-      setPromptType("initial");
-      setSaveLabel("Save Entry");
-      setShowPromptButton(false);
-    } catch (err) {
-      console.error("Prompt fetch failed:", err);
-      setPrompt("Write about a recent moment that impacted you.");
-      setPromptType("initial");
-      setSaveLabel("Save Entry");
-      setShowPromptButton(false);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSubjectPrompt = async () => {
-    if (isLocked) {
-      console.log("App is locked, cannot get custom prompt");
-      return;
-    }
-
-    if (!subject.trim()) return;
-
-    try {
-      setIsLoading(true);
-
-      const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/generate-subject-prompt",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            subject,
-            user_id: user.id,
-            pastEntries: [],
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.prompt) {
-        setPrompt(data.prompt);
-        setShowPromptButton(false);
-        setSubject("");
-      } else {
-        alert("No prompt returned. Try again.");
-      }
-    } catch (err) {
-      console.error("Failed to fetch subject prompt:", err);
-      alert("Something went wrong while generating the prompt.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ENHANCED saveEntry function with wellness data
+  // Save journal entry with usage checking
   const saveEntry = async () => {
     console.log("🔄 Save entry function called");
+
+    // Check journal entry usage limits for Free/Basic tiers
+    const canSaveEntry = await checkUsageLimits("journal_entries");
+    if (!canSaveEntry) {
+      return; // Stop execution if usage limit reached
+    }
 
     try {
       const journalContent = quillRef.current?.getText().trim();
@@ -348,58 +165,23 @@ export default function StandardJournaling() {
 
       console.log("✅ Entry encrypted successfully");
 
-      // Prepare wellness tracking data (user-entered)
-      const wellnessTrackingData = {
-        // Exercise data
-        exercise_type: exerciseType || null,
-        exercise_duration: exerciseDuration ? parseInt(exerciseDuration) : null,
-
-        // Sleep data
-        sleep_hours: sleepHours ? parseFloat(sleepHours) : null,
-        sleep_quality: sleepQuality,
-
-        // Hydration
-        hydration_glasses: hydration ? parseInt(hydration) : null,
-
-        // Wellness activities
-        wellness_activities: Object.entries(wellnessActivities)
-          .filter(([_, value]) => value)
-          .map(([key, _]) => key),
-      };
-
-      // ENHANCED: Add wellness data to existing payload
-      const entryData = {
-        ...encryptedData,
-        user_id: userId,
-        is_follow_up: promptType === "followUp",
-        parent_entry_id: currentThreadId,
-        thread_id: currentThreadId,
-        // Existing wellness data
-        mood: mood,
-        energy: energy,
-        cycle_day: cycleDay ? parseInt(cycleDay) : null,
-        cycle_phase: cyclePhase || null,
-        // NEW: Store user-entered wellness tracking separately
-        wellness_tracking: wellnessTrackingData,
-      };
-
-      console.log(
-        "📦 Sending encrypted entry data to backend (with enhanced wellness data)"
-      );
-
-      const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/save-entry",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(entryData),
-        }
-      );
+      // Save to database
+      const response = await fetch("/api/journal/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: userId,
+          encrypted_content: encryptedData.content,
+          encrypted_prompt: encryptedData.prompt,
+          data_key_iv: encryptedData.dataKeyIv,
+          prompt_data_key_iv: encryptedData.promptDataKeyIv,
+          thread_id: currentThreadId,
+        }),
+      });
 
       const result = await response.json();
 
       if (!response.ok) {
-        setSaveLabel("Save Entry");
         throw new Error(result.error || "Failed to save entry");
       }
 
@@ -411,635 +193,610 @@ export default function StandardJournaling() {
         triggerCrisisModal(result.crisis_analysis);
       }
 
-      // EXISTING logic continues unchanged
+      // Create the new entry object for follow-ups
       const newEntry = {
         id: result.entry_id,
         prompt: prompt || null,
-        response: journalContent,
-        htmlContent: htmlContent,
-        created_at: new Date().toISOString(),
-        is_follow_up: promptType === "followUp",
-        parent_id: currentThreadId,
+        content: htmlContent,
       };
 
-      let updatedChain;
-      if (promptType === "initial") {
-        console.log("📝 Starting new conversation thread");
-        updatedChain = [newEntry];
+      setLastSavedEntry(newEntry);
+
+      // Set thread ID if this is a new conversation
+      if (!currentThreadId && result.entry_id) {
         setCurrentThreadId(result.entry_id);
-      } else {
-        console.log("➕ Adding followUp to thread:", currentThreadId);
-        updatedChain = [...entryChain, newEntry];
       }
 
+      // Update entry chain for follow-ups
+      const updatedChain = [...entryChain, newEntry];
       setEntryChain(updatedChain);
-      setLastSavedEntry(newEntry);
+
+      // Set global variables for follow-up workflow
       window.currentConversationChain = updatedChain;
       window.currentThreadId = currentThreadId || result.entry_id;
 
-      // Clear form including wellness fields
-      clearEditor();
-      setPrompt("");
-      setShowPromptButton(true);
-      resetWellnessFields();
-
+      setSaveLabel("Saved!");
       setSaveConfirmation(true);
-      setTimeout(() => setSaveConfirmation(false), 3000);
-      setSaveLabel("Save Entry");
 
-      // Only show follow-up modal if no crisis detected
-      if (!result.crisis_analysis?.should_alert) {
-        setShowFollowUpModal(true);
+      // Update usage tracking
+      try {
+        const { error: usageError } = await supabase.rpc(
+          "increment_usage_count",
+          {
+            user_uuid: user.id,
+            usage_type: "journal_entries",
+          }
+        );
+
+        if (usageError) {
+          console.warn("Failed to update usage tracking:", usageError);
+        }
+      } catch (usageUpdateError) {
+        console.warn("Error updating usage:", usageUpdateError);
       }
-    } catch (err) {
-      console.error("❌ Error saving entry:", err);
-      alert(`Failed to save entry: ${err.message}`);
-      setSaveLabel("Save Entry");
+
+      setTimeout(() => {
+        setSaveLabel("Save Entry");
+        setSaveConfirmation(false);
+        setShowModal(true); // Show follow-up modal
+      }, 1500);
+    } catch (error) {
+      console.error("❌ Error saving entry:", error);
+      setSaveLabel("Error Saving");
+      setTimeout(() => setSaveLabel("Save Entry"), 3000);
     }
   };
 
-  // NEW: Reset wellness fields after save
-  const resetWellnessFields = () => {
-    setMood(5);
-    setEnergy(5);
-    setCycleDay("");
-    setCyclePhase("");
-    setExerciseType("");
-    setExerciseDuration("");
-    setSleepHours("");
-    setSleepQuality(5);
-    setHydration("");
-    setWellnessActivities({
-      meditation: false,
-      yoga: false,
-      natureTime: false,
-      socialConnection: false,
-      creativeActivity: false,
-      selfCare: false,
-    });
-  };
-
-  // EXISTING functions (unchanged)
-  const handleFollowUpFromChain = async () => {
-    console.log("🤔 Generating followUp for entry ID:", lastSavedEntry?.id);
-
-    const hasFollowUpAccess = checkFeatureAccess("follow_up_prompts", () => {
-      proceedWithFollowUp();
-    });
-  };
-
-  const proceedWithFollowUp = async () => {
-    if (!lastSavedEntry?.id) {
-      console.error("❌ No saved entry ID available for followUp");
-      alert("No previous entries found. Please write a journal entry first.");
+  // Generate random prompt with usage checking
+  const handleRandomPrompt = async () => {
+    if (isLocked) {
+      console.log("App is locked, cannot get random prompt");
       return;
+    }
+
+    // Check prompt usage limits for Free/Basic tiers
+    const canUsePrompt = await checkUsageLimits("prompts");
+    if (!canUsePrompt) {
+      return; // Stop execution if usage limit reached
     }
 
     try {
       setIsLoading(true);
-      setShowFollowUpModal(false);
-      setPrompt("Thinking...");
 
-      console.log("Sending follow-up request for entry ID:", lastSavedEntry.id);
       const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/follow-up",
+        "https://reflectionary-api.vercel.app/api/generate-prompt",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             user_id: user.id,
-            entry_id: lastSavedEntry.id,
+            pastEntries: entryChain,
           }),
         }
       );
 
       const data = await response.json();
-      console.log("🎯 FollowUp response:", data);
+      const generatedPrompt =
+        data.prompt || "Write about something meaningful from today.";
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch follow-up");
-      }
+      setPrompt(generatedPrompt);
+      setPromptType("initial");
+      setSaveLabel("Save Entry");
+      setShowPromptButton(false);
 
-      if (data.prompt) {
-        setPrompt(data.prompt);
-        setPromptType("followUp");
-        setSaveLabel("Save Follow-Up Answer");
-        setShowPromptButton(false);
-        setShowFollowUpButtons(true);
-      } else {
-        throw new Error("No follow-up prompt returned");
+      // Update prompt usage tracking
+      try {
+        const { error: usageError } = await supabase.rpc(
+          "increment_usage_count",
+          {
+            user_uuid: user.id,
+            usage_type: "prompts",
+          }
+        );
+
+        if (usageError) {
+          console.warn("Failed to update prompt usage tracking:", usageError);
+        }
+      } catch (usageUpdateError) {
+        console.warn("Error updating prompt usage:", usageUpdateError);
       }
-    } catch (error) {
-      console.error("❌ FollowUp error:", error);
-      setPrompt("Sorry, I couldn't generate a follow-up question this time.");
-      alert(`Failed to generate follow-up question: ${error.message}`);
+    } catch (err) {
+      console.error("Prompt fetch failed:", err);
+      setPrompt("Write about a recent moment that impacted you.");
+      setPromptType("initial");
+      setSaveLabel("Save Entry");
+      setShowPromptButton(false);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleEndFollowUps = () => {
-    console.log("✋ User ending follow-up session");
+  // Generate subject-specific prompt with usage checking
+  const handleSubjectPrompt = async () => {
+    if (isLocked) {
+      console.log("App is locked, cannot get custom prompt");
+      return;
+    }
 
-    setEntryChain([]);
-    setLastSavedEntry(null);
+    if (!subject.trim()) return;
+
+    // Check prompt usage limits for Free/Basic tiers
+    const canUsePrompt = await checkUsageLimits("prompts");
+    if (!canUsePrompt) {
+      return; // Stop execution if usage limit reached
+    }
+
+    try {
+      setIsLoading(true);
+
+      const response = await fetch(
+        "https://reflectionary-api.vercel.app/api/generate-subject-prompt",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subject,
+            user_id: user.id,
+            pastEntries: [],
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.prompt) {
+        setPrompt(data.prompt);
+        setShowPromptButton(false);
+        setSubject("");
+
+        // Update prompt usage tracking
+        try {
+          const { error: usageError } = await supabase.rpc(
+            "increment_usage_count",
+            {
+              user_uuid: user.id,
+              usage_type: "prompts",
+            }
+          );
+
+          if (usageError) {
+            console.warn("Failed to update prompt usage tracking:", usageError);
+          }
+        } catch (usageUpdateError) {
+          console.warn("Error updating prompt usage:", usageUpdateError);
+        }
+      } else {
+        alert("No prompt returned. Try again.");
+      }
+    } catch (err) {
+      console.error("Failed to fetch subject prompt:", err);
+      alert("Something went wrong while generating the prompt.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Generate follow-up prompt with usage checking
+  const generateFollowUp = async () => {
+    if (!lastSavedEntry) {
+      alert("Please write a journal entry first.");
+      return;
+    }
+
+    // Check follow-up usage limits for Free/Basic tiers
+    const canUseFollowUp = await checkUsageLimits("follow_ups");
+    if (!canUseFollowUp) {
+      return; // Stop execution if usage limit reached
+    }
+
+    try {
+      setIsLoading(true);
+      setShowModal(false);
+
+      const response = await fetch("/api/generate-follow-up", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lastEntry: lastSavedEntry,
+          conversationChain: entryChain,
+          user_id: user.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.prompt) {
+        setPrompt(data.prompt);
+        setPromptType("follow_up");
+        setShowFollowUpButtons(true);
+
+        // Update follow-up usage tracking
+        try {
+          const { error: usageError } = await supabase.rpc(
+            "increment_usage_count",
+            {
+              user_uuid: user.id,
+              usage_type: "follow_ups",
+            }
+          );
+
+          if (usageError) {
+            console.warn(
+              "Failed to update follow-up usage tracking:",
+              usageError
+            );
+          }
+        } catch (usageUpdateError) {
+          console.warn("Error updating follow-up usage:", usageUpdateError);
+        }
+      } else {
+        alert("Unable to generate follow-up question. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error generating follow-up:", error);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Clear editor and start fresh
+  const clearEditor = () => {
+    if (quillRef.current) {
+      quillRef.current.setContents([]);
+      setEditorContent("");
+    }
     setPrompt("");
-    setPromptType("initial");
-    setSaveLabel("Save Entry");
-    setEditorContent("");
     setShowPromptButton(true);
+    setPromptType("initial");
     setShowFollowUpButtons(false);
-    setShowFollowUpModal(false);
-    setCurrentThreadId(null);
-
-    window.currentConversationChain = [];
-    window.currentThreadId = null;
-
-    clearEditor();
-    console.log("🎉 Ready for new conversation thread");
-  };
-
-  const handleNoThanks = () => {
-    setPrompt("");
-    setPromptType("initial");
-    setSaveLabel("Save Entry");
-    setEntryChain([]);
     setLastSavedEntry(null);
-    setShowModal(false);
-    setShowFollowUpModal(false);
-    setShowPromptButton(true);
     setCurrentThreadId(null);
-    clearEditor();
+    setEntryChain([]);
+    setSaveLabel("Save Entry");
   };
 
-  // Show loading while encryption is being set up
-  if (isLocked) {
+  // Encrypt journal entry
+  const encryptJournalEntry = async (data) => {
+    try {
+      const contentKey = await encryptionService.generateDataKey();
+      const encryptedContent = await encryptionService.encryptData(
+        data.content,
+        contentKey.plaintextKey
+      );
+
+      let encryptedPrompt = null;
+      let promptDataKeyIv = null;
+
+      if (data.prompt) {
+        const promptKey = await encryptionService.generateDataKey();
+        encryptedPrompt = await encryptionService.encryptData(
+          data.prompt,
+          promptKey.plaintextKey
+        );
+        promptDataKeyIv = promptKey.encryptedKey;
+      }
+
+      return {
+        content: encryptedContent,
+        prompt: encryptedPrompt,
+        dataKeyIv: contentKey.encryptedKey,
+        promptDataKeyIv,
+      };
+    } catch (error) {
+      console.error("Encryption failed:", error);
+      throw new Error("Failed to encrypt journal entry");
+    }
+  };
+
+  // Usage limit display component
+  const UsageLimitDisplay = () => {
+    if (
+      tier === "standard" ||
+      tier === "standard_plus" ||
+      tier === "premium" ||
+      tier === "pro"
+    ) {
+      return null; // Don't show for unlimited tiers
+    }
+
+    const entryUsage = hasUsageRemaining("journal_entries");
+    const promptUsage = hasUsageRemaining("prompts");
+    const followUpUsage = hasUsageRemaining("follow_ups");
+
     return (
-      <div className="max-w-4xl mx-auto mt-4 p-6 bg-white rounded-2xl shadow-md">
+      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Info className="h-5 w-5 text-purple-600" />
+          <h3 className="font-semibold text-purple-900">
+            {tier === "free" ? "Free Plan Usage" : "Basic Plan Usage"}
+          </h3>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Journal Entries:</span>
+            <span
+              className={
+                entryUsage.hasRemaining ? "text-green-600" : "text-red-600"
+              }
+            >
+              {tier === "free"
+                ? `${entryUsage.current || 0}/${entryUsage.limit}`
+                : "Unlimited"}
+            </span>
+          </div>
+
+          <div className="flex justify-between">
+            <span className="text-gray-600">Prompts:</span>
+            <span
+              className={
+                promptUsage.hasRemaining ? "text-green-600" : "text-red-600"
+              }
+            >
+              {promptUsage.current || 0}/{promptUsage.limit}
+            </span>
+          </div>
+
+          <div className="flex justify-between">
+            <span className="text-gray-600">Follow-ups:</span>
+            <span
+              className={
+                followUpUsage.hasRemaining ? "text-green-600" : "text-red-600"
+              }
+            >
+              {followUpUsage.current || 0}/{followUpUsage.limit}
+            </span>
+          </div>
+        </div>
+
+        {(!entryUsage.hasRemaining ||
+          !promptUsage.hasRemaining ||
+          !followUpUsage.hasRemaining) && (
+          <div className="mt-3 pt-3 border-t border-purple-200">
+            <p className="text-sm text-purple-700">
+              Upgrade to get unlimited access to all features!
+            </p>
+            <button
+              onClick={() => navigate("/membership")}
+              className="mt-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 transition"
+            >
+              Upgrade Now
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Usage limit modal component
+  const UsageLimitModal = () => {
+    if (!usageBlocked) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 max-w-md mx-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-red-100 rounded-full">
+              <Lock className="h-6 w-6 text-red-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Usage Limit Reached
+              </h3>
+              <p className="text-sm text-gray-600">
+                {getTierDisplayName(tier)} Plan
+              </p>
+            </div>
+          </div>
+
+          <p className="text-gray-700 mb-6">{usageMessage}</p>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setUsageBlocked(false);
+                setUsageMessage("");
+              }}
+              className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition"
+            >
+              Okay
+            </button>
+            <button
+              onClick={() => {
+                setUsageBlocked(false);
+                setUsageMessage("");
+                navigate("/membership");
+              }}
+              className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+            >
+              Upgrade Now
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Show loading or access denied states
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">
-            Journal is locked. Please unlock to continue.
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your journal...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasAccess("journaling")) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="text-center py-12">
+          <Lock className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Journaling Access Required
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Upgrade to Basic or higher to access the full journaling experience.
           </p>
+          <button
+            onClick={() => navigate("/membership")}
+            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+          >
+            Upgrade Now
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <>
-      <div className="max-w-4xl mx-auto mt-4 p-6 bg-white rounded-2xl shadow-md">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">
-            New Journal Entry
-          </h2>
-          <div className="flex items-center gap-4">
-            {/* Support resources button */}
-            <button
-              onClick={showCrisisResources}
-              className="flex items-center gap-2 px-3 py-1 text-purple-600 border border-purple-300 rounded-full hover:bg-purple-50 transition-colors text-sm"
-              title="Access mental health resources"
-            >
-              <span>💜</span>
-              Support
-            </button>
-            <div className="flex items-center text-sm text-green-600">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-              Encryption Active
-            </div>
-          </div>
-        </div>
+    <div className="max-w-4xl mx-auto p-6">
+      {/* Usage Limit Display - shows current usage for Free/Basic users */}
+      <UsageLimitDisplay />
 
-        {saveConfirmation && (
-          <div className="bg-green-100 text-green-800 text-sm px-4 py-2 mb-4 rounded shadow">
-            Entry saved successfully and encrypted!
-          </div>
-        )}
-
-        {/* EXISTING Prompt Generation Section (unchanged) */}
-        <div className="mb-6 space-y-4">
-          <div className="flex gap-4">
-            <input
-              className="flex-1 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400"
-              type="text"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="What would you like to write about?"
-              disabled={isLoading}
-            />
-            <button
-              className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 disabled:opacity-50"
-              onClick={handleSubjectPrompt}
-              disabled={isLoading || !subject.trim()}
-            >
-              {isLoading ? (
-                <div className="flex items-center gap-2">
-                  <span className="inline-block animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                  Thinking...
-                </div>
-              ) : (
-                "Get Custom Prompt"
-              )}
-            </button>
-          </div>
-
-          {showPromptButton && (
-            <button
-              className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600"
-              onClick={getPrompt}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <div className="flex items-center gap-2">
-                  <span className="inline-block animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                  Thinking...
-                </div>
-              ) : (
-                "Generate Random Prompt"
-              )}
-            </button>
-          )}
-        </div>
-
-        {/* EXISTING Prompt Display (unchanged) */}
-        {prompt && (
-          <div className={`bg-green-100 px-4 py-3 rounded mb-6 shadow`}>
-            <p
-              className={`text-lg font-bold ${
-                promptType === "followUp" ? "text-purple-700" : "text-green-800"
-              }`}
-            >
-              {promptType === "followUp"
-                ? "Here's your follow-up prompt:"
-                : "Here's your journaling prompt:"}
-            </p>
-            <p className="text-green-900 mt-1 font-normal">{prompt}</p>
-          </div>
-        )}
-
-        {/* ENHANCED: Wellness Tracking Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setShowWellnessSection(!showWellnessSection)}
-            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 mb-3"
-          >
-            <span
-              className={`transform transition-transform ${
-                showWellnessSection ? "rotate-90" : ""
-              }`}
-            >
-              ▶
-            </span>
-            Track wellness data (optional)
-            {hasAdvancedAnalytics && (
-              <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full ml-2">
-                Enhanced for Advanced Analytics
-              </span>
-            )}
-          </button>
-
-          {showWellnessSection && (
-            <div className="bg-gray-50 p-4 rounded-lg space-y-4">
-              {/* Mood and Energy (existing) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <Heart className="w-4 h-4 text-pink-500" />
-                    Mood: {mood}/10
-                  </label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={mood}
-                    onChange={(e) => setMood(parseInt(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>Low</span>
-                    <span>High</span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-amber-500" />
-                    Energy: {energy}/10
-                  </label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={energy}
-                    onChange={(e) => setEnergy(parseInt(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>Low</span>
-                    <span>High</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* NEW: Exercise and Sleep */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                      <Dumbbell className="w-4 h-4 text-green-500" />
-                      Exercise
-                    </label>
-                    <select
-                      value={exerciseType}
-                      onChange={(e) => setExerciseType(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm mb-2"
-                    >
-                      <option value="">Select type...</option>
-                      <option value="walking">Walking</option>
-                      <option value="running">Running</option>
-                      <option value="cycling">Cycling</option>
-                      <option value="swimming">Swimming</option>
-                      <option value="yoga">Yoga</option>
-                      <option value="strength">Strength Training</option>
-                      <option value="cardio">Cardio</option>
-                      <option value="sports">Sports</option>
-                      <option value="other">Other</option>
-                    </select>
-                    {exerciseType && (
-                      <input
-                        type="number"
-                        min="0"
-                        max="300"
-                        value={exerciseDuration}
-                        onChange={(e) => setExerciseDuration(e.target.value)}
-                        placeholder="Duration (minutes)"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                      />
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                      <Moon className="w-4 h-4 text-purple-500" />
-                      Sleep
-                    </label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      max="24"
-                      value={sleepHours}
-                      onChange={(e) => setSleepHours(e.target.value)}
-                      placeholder="Hours slept"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm mb-2"
-                    />
-                    {sleepHours && (
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">
-                          Sleep Quality: {sleepQuality}/10
-                        </label>
-                        <input
-                          type="range"
-                          min="1"
-                          max="10"
-                          value={sleepQuality}
-                          onChange={(e) =>
-                            setSleepQuality(parseInt(e.target.value))
-                          }
-                          className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* NEW: Hydration and Wellness Activities */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <Droplets className="w-4 h-4 text-blue-500" />
-                    Hydration (glasses of water)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="20"
-                    value={hydration}
-                    onChange={(e) => setHydration(e.target.value)}
-                    placeholder="Glasses of water"
-                    className="w-full md:w-48 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <Brain className="w-4 h-4 text-indigo-500" />
-                    Wellness Activities
-                  </label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {Object.entries({
-                      meditation: "Meditation",
-                      yoga: "Yoga/Stretching",
-                      natureTime: "Nature Time",
-                      socialConnection: "Social Connection",
-                      creativeActivity: "Creative Activity",
-                      selfCare: "Self-Care",
-                    }).map(([key, label]) => (
-                      <label
-                        key={key}
-                        className="flex items-center space-x-2 text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={wellnessActivities[key]}
-                          onChange={(e) =>
-                            setWellnessActivities({
-                              ...wellnessActivities,
-                              [key]: e.target.checked,
-                            })
-                          }
-                          className="rounded text-purple-600 focus:ring-purple-500"
-                        />
-                        <span>{label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Cycle tracking (existing) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-gray-200">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cycle Day (optional)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="35"
-                    value={cycleDay}
-                    onChange={(e) => setCycleDay(e.target.value)}
-                    placeholder="Day of cycle"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cycle Phase (optional)
-                  </label>
-                  <select
-                    value={cyclePhase}
-                    onChange={(e) => setCyclePhase(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                  >
-                    <option value="">Select phase...</option>
-                    <option value="Menstrual">Menstrual</option>
-                    <option value="Follicular">Follicular</option>
-                    <option value="Ovulatory">Ovulatory</option>
-                    <option value="Luteal">Luteal</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Info message */}
-              <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
-                <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-blue-700">
-                  This wellness data helps our AI provide personalized insights
-                  about how your physical health impacts your emotional
-                  well-being. All data is encrypted and private to you.
-                  {hasAdvancedAnalytics && (
-                    <span className="block mt-1 font-medium">
-                      As an Advanced Analytics subscriber, you'll see detailed
-                      correlations and predictive insights based on this data.
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* EXISTING Quill Editor (unchanged) */}
-        <div className="mb-6">
-          <div
-            ref={editorRef}
-            className="border border-gray-300 rounded-lg"
-            style={{ height: "350px" }}
-          />
-        </div>
-
-        {/* EXISTING Save Button (unchanged) */}
-        <div className="flex justify-between items-center">
-          <div className="text-sm text-gray-500">
-            {isEditorReady ? (
-              <span>✓ Editor ready</span>
-            ) : (
-              <span>Setting up editor...</span>
-            )}
-          </div>
-
-          <button
-            className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
-            onClick={saveEntry}
-            disabled={
-              !isEditorReady ||
-              !editorContent.trim() ||
-              saveLabel === "Saving..."
-            }
-          >
-            {saveLabel === "Saving..." && (
-              <span className="inline-block animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-            )}
-            {saveLabel}
-          </button>
-        </div>
-
-        {/* EXISTING Follow-up Modals (unchanged) */}
-        {showModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white p-6 rounded shadow-lg max-w-sm text-center">
-              <p className="mb-4 text-lg font-medium">
-                Your journal entry has been saved securely.
-              </p>
-              <p className="mb-4">
-                Would you like me to generate a follow-up question to help you
-                reflect further?
-              </p>
-              <div className="space-x-2">
-                <button
-                  className="bg-purple-600 text-white px-4 py-2 rounded"
-                  onClick={handleFollowUpFromChain}
-                >
-                  Yes, ask me
-                </button>
-                <button
-                  className="bg-gray-500 text-white px-4 py-2 rounded"
-                  onClick={handleNoThanks}
-                >
-                  No, thank you
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showFollowUpModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white p-6 rounded shadow-lg max-w-sm text-center">
-              <p className="mb-2 text-lg font-semibold text-gray-800">
-                Would you like to explore this a little deeper?
-              </p>
-              <p className="mb-4 text-sm text-gray-700">
-                I can provide a follow-up question based on what you've shared
-                so far.
-              </p>
-              <div className="space-x-2">
-                <button
-                  className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
-                  onClick={handleFollowUpFromChain}
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Thinking..." : "Yes, please"}
-                </button>
-                <button
-                  className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-                  onClick={handleEndFollowUps}
-                  disabled={isLoading}
-                >
-                  No, thank you
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Journal</h1>
+        <p className="text-gray-600">
+          Express your thoughts, reflect on your experiences, and track your
+          personal growth.
+        </p>
       </div>
 
-      {/* EXISTING Upgrade Prompt Modal (unchanged) */}
-      {showUpgradePrompt && (
-        <UpgradePrompt
-          feature={requestedFeature}
-          onClose={closeUpgradePrompt}
-          onUpgrade={handleUpgrade}
-          message={getUpgradeMessage()}
+      {/* Prompt Generation Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+          Need inspiration? Generate a prompt
+        </h2>
+
+        <div className="space-y-4">
+          {showPromptButton && (
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button
+                onClick={handleRandomPrompt}
+                disabled={isLoading}
+                className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                {isLoading ? "Generating..." : "Random Prompt"}
+              </button>
+
+              <div className="flex-1 flex gap-2">
+                <input
+                  type="text"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="Enter a topic..."
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  onKeyPress={(e) => e.key === "Enter" && handleSubjectPrompt()}
+                />
+                <button
+                  onClick={handleSubjectPrompt}
+                  disabled={isLoading || !subject.trim()}
+                  className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
+                  Generate
+                </button>
+              </div>
+            </div>
+          )}
+
+          {prompt && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <h3 className="font-medium text-purple-900 mb-2">Your Prompt:</h3>
+              <p className="text-purple-800">{prompt}</p>
+              <button
+                onClick={() => setPrompt("")}
+                className="mt-3 text-sm text-purple-600 hover:text-purple-800 underline"
+              >
+                Clear prompt
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Editor Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div
+          ref={editorRef}
+          className="min-h-[300px] prose max-w-none"
+          style={{ fontSize: "16px", lineHeight: "1.6" }}
         />
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <button
+          onClick={saveEntry}
+          disabled={!isEditorReady}
+          className={`flex-1 px-6 py-3 rounded-lg font-medium transition ${
+            saveConfirmation
+              ? "bg-green-600 text-white"
+              : "bg-purple-600 text-white hover:bg-purple-700"
+          } disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          {saveLabel}
+        </button>
+
+        <button
+          onClick={clearEditor}
+          className="flex-1 px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition"
+        >
+          Clear & Start Fresh
+        </button>
+      </div>
+
+      {/* Follow-up Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">
+              Great job journaling!
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Would you like to explore your thoughts deeper with a follow-up
+              question?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowModal(false)}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition"
+              >
+                Not now
+              </button>
+              <button
+                onClick={generateFollowUp}
+                disabled={isLoading}
+                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition"
+              >
+                {isLoading ? "Generating..." : "Yes, let's go deeper"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
+      {/* Usage Limit Modal */}
+      <UsageLimitModal />
+
+      {/* Upgrade Prompt */}
+      <UpgradePrompt
+        isOpen={showUpgradePrompt}
+        onClose={closeUpgradePrompt}
+        feature={requestedFeature}
+        message={getUpgradeMessage()}
+        onUpgrade={handleUpgrade}
+      />
+
+      {/* Crisis Resources Modal */}
       <CrisisResourceModal
         isOpen={showCrisisModal}
-        onClose={() => {
-          closeCrisisModal();
-          // Show follow-up modal after crisis modal if we have a saved entry
-          if (lastSavedEntry) {
-            setShowFollowUpModal(true);
-          }
-        }}
+        onClose={closeCrisisModal}
         analysisResult={crisisAnalysisResult}
       />
-    </>
+    </div>
   );
 }
