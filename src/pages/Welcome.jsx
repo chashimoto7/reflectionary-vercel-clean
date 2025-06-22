@@ -1,50 +1,66 @@
-//src/pages/welcome
-import logo from "../assets/ReflectionaryWordWelcome.png";
-import squarelogo from "../assets/FinalReflectionarySquare.png";
+// src/pages/Welcome.jsx
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
-  Sparkles,
-  TrendingUp,
-  Shield,
   Brain,
   Heart,
-  Clock,
-  ChevronRight,
-  Quote,
-  Bell,
-  Calendar,
-  BarChart3,
   Target,
-  Lightbulb,
-  Award,
-  ArrowRight,
+  BarChart3,
+  Calendar,
+  Star,
+  TrendingUp,
   Activity,
+  Lock,
+  MessageCircle,
 } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { useMembership } from "../hooks/useMembership";
+import { supabase } from "../lib/supabase";
 
+// Import quotes
 const QUOTES = [
   {
-    text: "The unexamined life is not worth living.",
-    author: "Socrates",
-    theme: "reflection",
-  },
-  {
-    text: "You don't have to control your thoughts. You just have to stop letting them control you.",
-    author: "Dan Millman",
+    text: "The mind is everything. What you think you become.",
+    author: "Buddha",
     theme: "mindfulness",
   },
   {
-    text: "Journaling is like whispering to one's self and listening at the same time.",
-    author: "Mina Murray",
-    theme: "journaling",
+    text: "In the depths of winter, I finally learned that there was in me an invincible summer.",
+    author: "Albert Camus",
+    theme: "resilience",
   },
   {
-    text: "Sometimes the most productive thing you can do is relax.",
-    author: "Mark Black",
-    theme: "wellness",
+    text: "You cannot swim for new horizons until you have courage to lose sight of the shore.",
+    author: "William Faulkner",
+    theme: "change",
   },
   {
-    text: "Feelings are much like waves. We can't stop them from coming but we can choose which ones to surf.",
+    text: "Feelings are just visitors. Let them come and go.",
+    author: "Mooji",
+    theme: "emotions",
+  },
+  {
+    text: "Waves are the practice of water.",
+    author: "Suzuki Roshi",
+    theme: "practice",
+  },
+  {
+    text: "The good life is a process, not a state of being. It is a direction, not a destination.",
+    author: "Carl Rogers",
+    theme: "growth",
+  },
+  {
+    text: "Between stimulus and response there is a space. In that space is our power to choose our response.",
+    author: "Viktor E. Frankl",
+    theme: "choice",
+  },
+  {
+    text: "The curious paradox is that when I accept myself just as I am, then I can change.",
+    author: "Carl Rogers",
+    theme: "acceptance",
+  },
+  {
+    text: "Emotions are like waves. We can't stop them from coming but we can choose which ones to surf.",
     author: "Jonatan Mårtensson",
     theme: "emotions",
   },
@@ -73,10 +89,64 @@ function getRandomQuote(excludeIndex) {
   return { ...QUOTES[idx], idx };
 }
 
+// Upgrade modal component
+function UpgradeModal({ feature, message, onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-md mx-4 shadow-xl">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock className="text-white" size={24} />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">
+            Unlock {feature}
+          </h3>
+          <p className="text-gray-600 mb-6">{message}</p>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Maybe Later
+            </button>
+            <button
+              onClick={() => {
+                // TODO: Navigate to membership page
+                window.location.href = "/membership";
+              }}
+              className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-colors font-medium"
+            >
+              View Plans
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Welcome() {
+  const { user } = useAuth();
+  const {
+    hasAccess,
+    getUpgradeMessage,
+    tier,
+    loading: membershipLoading,
+  } = useMembership();
   const [quote, setQuote] = useState(() => getRandomQuote(-1));
-  const [userName, setUserName] = useState("Christine");
+  const [userName, setUserName] = useState("");
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [stats, setStats] = useState({
+    currentStreak: 0,
+    totalEntries: 0,
+    insightsGenerated: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeModalContent, setUpgradeModalContent] = useState({
+    feature: "",
+    message: "",
+  });
 
   // Update time every minute
   useEffect(() => {
@@ -92,6 +162,108 @@ export default function Welcome() {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch user data and stats
+  useEffect(() => {
+    if (user && !membershipLoading) {
+      fetchUserData();
+    }
+  }, [user, membershipLoading]);
+
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch user profile for name
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("preferred_name")
+        .eq("user_id", user.id)
+        .single();
+
+      if (profile?.preferred_name) {
+        setUserName(profile.preferred_name);
+      } else {
+        // Fallback to email username
+        const emailName = user.email.split("@")[0];
+        setUserName(emailName.charAt(0).toUpperCase() + emailName.slice(1));
+      }
+
+      // Fetch journal entries for stats
+      const { data: entries } = await supabase
+        .from("journal_entries")
+        .select("id, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (entries) {
+        // Calculate total entries
+        setStats((prev) => ({ ...prev, totalEntries: entries.length }));
+
+        // Calculate current streak
+        const streak = calculateStreak(entries);
+        setStats((prev) => ({ ...prev, currentStreak: streak }));
+      }
+
+      // Fetch insights count (if user has access to analytics)
+      if (hasAccess("analytics")) {
+        const { data: insights } = await supabase
+          .from("user_insights")
+          .select("id")
+          .eq("user_id", user.id);
+
+        if (insights) {
+          setStats((prev) => ({ ...prev, insightsGenerated: insights.length }));
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateStreak = (entries) => {
+    if (!entries || entries.length === 0) return 0;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let streak = 0;
+    let currentDate = new Date(today);
+
+    // Sort entries by date (newest first)
+    const sortedEntries = [...entries].sort(
+      (a, b) => new Date(b.created_at) - new Date(a.created_at)
+    );
+
+    // Check each day going backwards
+    for (let i = 0; i < 365; i++) {
+      const dayStart = new Date(currentDate);
+      dayStart.setHours(0, 0, 0, 0);
+
+      const dayEnd = new Date(currentDate);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      // Check if there's an entry on this day
+      const hasEntry = sortedEntries.some((entry) => {
+        const entryDate = new Date(entry.created_at);
+        return entryDate >= dayStart && entryDate <= dayEnd;
+      });
+
+      if (hasEntry) {
+        streak++;
+      } else if (i > 0) {
+        // If we've started counting and hit a day with no entry, stop
+        break;
+      }
+
+      // Move to previous day
+      currentDate.setDate(currentDate.getDate() - 1);
+    }
+
+    return streak;
+  };
+
   const getTimeOfDay = () => {
     const hour = currentTime.getHours();
     if (hour < 12) return "morning";
@@ -101,7 +273,7 @@ export default function Welcome() {
 
   const getGreeting = () => {
     const timeOfDay = getTimeOfDay();
-    return `Good ${timeOfDay}, ${userName}`;
+    return `Good ${timeOfDay}, ${userName || "there"}`;
   };
 
   // Quick Actions - pointing to ROUTERS, not direct pages
@@ -112,6 +284,7 @@ export default function Welcome() {
       description: "Start your reflection",
       href: "/journaling",
       color: "from-purple-500 to-purple-600",
+      feature: "journaling",
     },
     {
       icon: BarChart3,
@@ -119,6 +292,7 @@ export default function Welcome() {
       description: "View your insights",
       href: "/analytics",
       color: "from-cyan-500 to-cyan-600",
+      feature: "analytics",
     },
     {
       icon: Target,
@@ -126,6 +300,7 @@ export default function Welcome() {
       description: "Track progress",
       href: "/goals",
       color: "from-emerald-500 to-emerald-600",
+      feature: "goals",
     },
     {
       icon: Activity,
@@ -133,73 +308,76 @@ export default function Welcome() {
       description: "Track your wellbeing",
       href: "/wellness",
       color: "from-rose-500 to-rose-600",
+      feature: "wellness",
     },
     {
       icon: Heart,
       title: "Women's Health",
-      description: "Track your cycle & health",
+      description: "Track your cycle",
       href: "/womens-health",
       color: "from-pink-500 to-pink-600",
+      feature: "womens_health",
+    },
+    {
+      icon: MessageCircle,
+      title: "Reflectionarian",
+      description: "AI companion chat",
+      href: "/reflectionarian",
+      color: "from-indigo-500 to-indigo-600",
+      feature: "reflectionarian",
     },
   ];
 
-  const stats = [
-    { label: "Current Streak", value: "7 days", icon: Award },
-    { label: "Total Entries", value: "142", icon: Heart },
-    { label: "Insights Generated", value: "28", icon: Lightbulb },
-  ];
-
-  const announcements = [
+  // Stats configuration
+  const statsData = [
     {
-      type: "feature",
-      title: "Deep Dives Coming Soon",
-      description:
-        "Explore focused self-discovery modules tailored to your journey",
-      icon: Sparkles,
-      date: "Coming Fall 2025",
-    },
-    {
-      type: "update",
-      title: "Enhanced Analytics Now Live",
-      description:
-        "Discover new insights with our advanced intelligence dashboard",
       icon: TrendingUp,
-      date: "Released this week",
+      label: "Current Streak",
+      value: loading ? "..." : `${stats.currentStreak} days`,
     },
     {
-      type: "tip",
-      title: "Privacy First, Always",
-      description:
-        "Your reflections are end-to-end encrypted and visible only to you",
-      icon: Shield,
-      date: "Core promise",
+      icon: Calendar,
+      label: "Total Entries",
+      value: loading ? "..." : stats.totalEntries.toString(),
+    },
+    {
+      icon: Star,
+      label: "Insights Generated",
+      value: loading ? "..." : stats.insightsGenerated.toString(),
     },
   ];
+
+  const handleQuickActionClick = (action, e) => {
+    if (!hasAccess(action.feature)) {
+      e.preventDefault();
+      setUpgradeModalContent({
+        feature: action.title,
+        message: getUpgradeMessage(action.feature),
+      });
+      setShowUpgradeModal(true);
+    }
+  };
+
+  if (membershipLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header Section */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-4">
-            <img
-              src={squarelogo}
-              alt="Reflectionary logo"
-              className="w-29 h-29 md:w-40 md:h-40 flex-shrink-0"
-            />
-            {/* Text content - left aligned */}
-            <div className="flex-1">
-              <img
-                src={logo}
-                alt="Reflectionary"
-                className="h-18 md:h-20 w-auto mb-2"
-              />
-              <h2 className="text-2xl md:text-3xl font-semibold text-gray-900">
-                {getGreeting()}
-              </h2>
-              <p className="text-lg md:text-xl text-gray-600 mt-1">
-                Your personal space for reflection and growth
-              </p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Hero Section with Quote */}
+      <div className="bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold mb-4">{getGreeting()}</h1>
+            <div className="max-w-2xl mx-auto">
+              <blockquote className="text-lg italic mb-3 min-h-[3rem] transition-all duration-500">
+                "{quote.text}"
+              </blockquote>
+              <p className="text-purple-200">— {quote.author}</p>
             </div>
           </div>
         </div>
@@ -208,7 +386,7 @@ export default function Welcome() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          {stats.map((stat, index) => {
+          {statsData.map((stat, index) => {
             const Icon = stat.icon;
             return (
               <div
@@ -231,150 +409,66 @@ export default function Welcome() {
           })}
         </div>
 
-        {/* Quick Actions - Full Width */}
+        {/* Quick Actions - 2x3 Grid */}
         <div className="mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
             Quick Actions
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {quickActions.map((action, index) => {
               const Icon = action.icon;
+              const isLocked = !hasAccess(action.feature);
+
               return (
                 <Link
                   key={index}
                   to={action.href}
-                  className="group bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-all hover:border-purple-200"
+                  onClick={(e) => handleQuickActionClick(action, e)}
+                  className={`group bg-white rounded-lg p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all hover:border-purple-200 ${
+                    isLocked ? "opacity-75" : ""
+                  }`}
                 >
-                  <div className="text-center">
+                  <div className="flex items-start justify-between mb-4">
                     <div
-                      className={`bg-gradient-to-br ${action.color} p-3 rounded-lg group-hover:scale-110 transition-transform mx-auto mb-3 w-fit`}
+                      className={`bg-gradient-to-br ${action.color} p-3 rounded-lg group-hover:scale-110 transition-transform`}
                     >
                       <Icon className="w-6 h-6 text-white" />
                     </div>
-                    <h3 className="font-semibold text-gray-900 group-hover:text-purple-600 transition-colors mb-1">
-                      {action.title}
-                    </h3>
-                    <p className="text-xs text-gray-600">
-                      {action.description}
-                    </p>
+                    {isLocked && <Lock className="w-5 h-5 text-gray-400" />}
                   </div>
+                  <h3 className="font-semibold text-gray-900 mb-1">
+                    {action.title}
+                  </h3>
+                  <p className="text-sm text-gray-600">{action.description}</p>
                 </Link>
               );
             })}
           </div>
         </div>
 
-        {/* Updates & Announcements - Full Width */}
-        <div className="mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Updates & Announcements
-              </h2>
-              <Bell className="w-5 h-5 text-gray-400" />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {announcements.map((announcement, index) => {
-                const Icon = announcement.icon;
-                const typeColors = {
-                  feature: "bg-purple-100 text-purple-700",
-                  update: "bg-cyan-100 text-cyan-700",
-                  tip: "bg-emerald-100 text-emerald-700",
-                };
-
-                return (
-                  <div key={index} className="flex gap-4">
-                    <div
-                      className={`p-2 rounded-lg ${
-                        typeColors[announcement.type]
-                      } flex-shrink-0`}
-                    >
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-medium text-gray-900">
-                        {announcement.title}
-                      </h3>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {announcement.description}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-2">
-                        {announcement.date}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-6 pt-6 border-t border-gray-200 text-center">
-              <Link
-                to="/security"
-                className="text-sm text-purple-600 hover:text-purple-700 font-medium inline-flex items-center gap-2 group"
-              >
-                View all updates
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Quote and Privacy Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Daily Inspiration - Left Side */}
-          <div className="lg:col-span-2">
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-8 text-white shadow-lg">
-              <div className="flex items-start gap-4">
-                <Quote className="w-8 h-8 opacity-50 flex-shrink-0 mt-1" />
-                <div className="flex-1">
-                  <blockquote className="text-xl font-medium mb-4 leading-relaxed">
-                    "{quote.text}"
-                  </blockquote>
-                  <cite className="text-purple-100 text-sm flex items-center gap-2">
-                    <span className="w-8 h-px bg-purple-300"></span>
-                    {quote.author}
-                  </cite>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Privacy Section - Right Side */}
-          <div>
-            <div className="bg-purple-50 rounded-lg p-6 border border-purple-100 h-fit">
-              <h4 className="text-lg font-semibold text-purple-900 mb-3">
-                🔒 Your Privacy Matters
-              </h4>
-              <p className="text-sm text-purple-700 leading-relaxed">
-                Your journal is personal — and we treat it that way. All your
-                reflections are end-to-end encrypted so no one else can read
-                your words. Not our team. Not our servers. Just you.
-                Reflectionary is your private space to be real, raw, and fully
-                yourself.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Activity Footer */}
-        <div className="mt-12 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5 text-gray-400" />
-              <span className="text-sm text-gray-600">
-                Last entry: 2 hours ago
-              </span>
-            </div>
-            <Link
-              to="/journaling"
-              className="text-sm font-medium text-purple-600 hover:text-purple-700"
-            >
-              Continue your journey →
-            </Link>
+        {/* Recent Activity or Tips */}
+        <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            Tips for Today
+          </h2>
+          <div className="space-y-3 text-gray-600">
+            <p>• Take a moment to reflect on what you're grateful for today</p>
+            <p>
+              • Try journaling about a challenge you faced and what you learned
+            </p>
+            <p>• Set aside 10 minutes for mindful breathing before bed</p>
           </div>
         </div>
       </div>
+
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <UpgradeModal
+          feature={upgradeModalContent.feature}
+          message={upgradeModalContent.message}
+          onClose={() => setShowUpgradeModal(false)}
+        />
+      )}
     </div>
   );
 }
