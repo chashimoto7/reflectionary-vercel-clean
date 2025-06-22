@@ -1,3 +1,4 @@
+//src/pages/welcome
 import logo from "../assets/ReflectionaryWordWelcome.png";
 import squarelogo from "../assets/FinalReflectionarySquare.png";
 import React, { useState, useEffect } from "react";
