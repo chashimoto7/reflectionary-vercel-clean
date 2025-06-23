@@ -305,7 +305,7 @@ export default function Welcome() {
 
   return (
     <div className="min-h-screen relative">
-      <div className="absolute inset-0 bg-gradient-to-t from-[#8B5CF6]/40 to-[#8B5CF6]/10" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#8B5CF6]/40 via-[#E54892]/20 to-[#FF6C3E]/15" />
       <div className="relative z-10">
         {/* Header Section */}
         <div className="bg-white shadow-sm border-b border-gray-200">
