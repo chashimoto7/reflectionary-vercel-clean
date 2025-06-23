@@ -304,203 +304,206 @@ export default function Welcome() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header Section */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-4">
-            <img
-              src={squarelogo}
-              alt="Reflectionary logo"
-              className="w-29 h-29 md:w-40 md:h-40 flex-shrink-0"
-            />
-            {/* Text content - left aligned */}
-            <div className="flex-1">
+    <div className="min-h-screen relative">
+      <div className="absolute inset-0 bg-gradient-to-t from-[#8B5CF6]/20 via-[#E044A5]/10 via-[#F10990]/5 to-white" />
+      <div className="relative z-10">
+        {/* Header Section */}
+        <div className="bg-white shadow-sm border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="flex items-center gap-4">
               <img
-                src={logo}
-                alt="Reflectionary"
-                className="h-18 md:h-20 w-auto mb-2"
+                src={squarelogo}
+                alt="Reflectionary logo"
+                className="w-29 h-29 md:w-40 md:h-40 flex-shrink-0"
               />
-              <h2 className="text-2xl md:text-3xl font-semibold text-gray-900">
-                {getGreeting()}
-              </h2>
-              <p className="text-lg md:text-xl text-gray-600 mt-1">
-                Your personal space for reflection and growth
-              </p>
+              {/* Text content - left aligned */}
+              <div className="flex-1">
+                <img
+                  src={logo}
+                  alt="Reflectionary"
+                  className="h-18 md:h-20 w-auto mb-2"
+                />
+                <h2 className="text-2xl md:text-3xl font-semibold text-gray-900">
+                  {getGreeting()}
+                </h2>
+                <p className="text-lg md:text-xl text-gray-600 mt-1">
+                  Your personal space for reflection and growth
+                </p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          {statsDisplay.map((stat, index) => {
-            const Icon = stat.icon;
-            return (
-              <div
-                key={index}
-                className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">{stat.label}</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">
-                      {stat.value}
-                    </p>
-                  </div>
-                  <div className="bg-purple-100 p-3 rounded-lg">
-                    <Icon className="w-6 h-6 text-purple-600" />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Quick Actions - 2x3 Grid with inline text */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Quick Actions
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {quickActions.map((action, index) => {
-              const Icon = action.icon;
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            {statsDisplay.map((stat, index) => {
+              const Icon = stat.icon;
               return (
-                <Link
+                <div
                   key={index}
-                  to={action.href}
-                  className="group bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-all hover:border-purple-200"
+                  className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
                 >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`bg-gradient-to-br ${action.color} p-3 rounded-lg group-hover:scale-110 transition-transform flex-shrink-0`}
-                    >
-                      <Icon className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 group-hover:text-purple-600 transition-colors">
-                        {action.title}
-                      </h3>
-                      <p className="text-xs text-gray-600">
-                        {action.description}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">{stat.label}</p>
+                      <p className="text-2xl font-bold text-gray-900 mt-1">
+                        {stat.value}
                       </p>
                     </div>
+                    <div className="bg-purple-100 p-3 rounded-lg">
+                      <Icon className="w-6 h-6 text-purple-600" />
+                    </div>
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>
-        </div>
 
-        {/* Updates & Announcements - Full Width */}
-        <div className="mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Updates & Announcements
-              </h2>
-              <Bell className="w-5 h-5 text-gray-400" />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {announcements.map((announcement, index) => {
-                const Icon = announcement.icon;
-                const typeColors = {
-                  feature: "bg-purple-100 text-purple-700",
-                  update: "bg-cyan-100 text-cyan-700",
-                  tip: "bg-emerald-100 text-emerald-700",
-                };
-
+          {/* Quick Actions - 2x3 Grid with inline text */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Quick Actions
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {quickActions.map((action, index) => {
+                const Icon = action.icon;
                 return (
-                  <div key={index} className="flex gap-4">
-                    <div
-                      className={`p-2 rounded-lg ${
-                        typeColors[announcement.type]
-                      } flex-shrink-0`}
-                    >
-                      <Icon className="w-5 h-5" />
+                  <Link
+                    key={index}
+                    to={action.href}
+                    className="group bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-all hover:border-purple-200"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`bg-gradient-to-br ${action.color} p-3 rounded-lg group-hover:scale-110 transition-transform flex-shrink-0`}
+                      >
+                        <Icon className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 group-hover:text-purple-600 transition-colors">
+                          {action.title}
+                        </h3>
+                        <p className="text-xs text-gray-600">
+                          {action.description}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-medium text-gray-900">
-                        {announcement.title}
-                      </h3>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {announcement.description}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-2">
-                        {announcement.date}
-                      </p>
-                    </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
-
-            <div className="mt-6 pt-6 border-t border-gray-200 text-center">
-              <Link
-                to="/security"
-                className="text-sm text-purple-600 hover:text-purple-700 font-medium inline-flex items-center gap-2 group"
-              >
-                View all updates
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
-            </div>
           </div>
-        </div>
 
-        {/* Quote and Privacy Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Daily Inspiration - Left Side */}
-          <div className="lg:col-span-2">
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-8 text-white shadow-lg">
-              <div className="flex items-start gap-4">
-                <Quote className="w-8 h-8 opacity-50 flex-shrink-0 mt-1" />
-                <div className="flex-1">
-                  <blockquote className="text-xl font-medium mb-4 leading-relaxed">
-                    "{quote.text}"
-                  </blockquote>
-                  <cite className="text-purple-100 text-sm flex items-center gap-2">
-                    <span className="w-8 h-px bg-purple-300"></span>
-                    {quote.author}
-                  </cite>
-                </div>
+          {/* Updates & Announcements - Full Width */}
+          <div className="mb-8">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Updates & Announcements
+                </h2>
+                <Bell className="w-5 h-5 text-gray-400" />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {announcements.map((announcement, index) => {
+                  const Icon = announcement.icon;
+                  const typeColors = {
+                    feature: "bg-purple-100 text-purple-700",
+                    update: "bg-cyan-100 text-cyan-700",
+                    tip: "bg-emerald-100 text-emerald-700",
+                  };
+
+                  return (
+                    <div key={index} className="flex gap-4">
+                      <div
+                        className={`p-2 rounded-lg ${
+                          typeColors[announcement.type]
+                        } flex-shrink-0`}
+                      >
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900">
+                          {announcement.title}
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {announcement.description}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-2">
+                          {announcement.date}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-gray-200 text-center">
+                <Link
+                  to="/security"
+                  className="text-sm text-purple-600 hover:text-purple-700 font-medium inline-flex items-center gap-2 group"
+                >
+                  View all updates
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
               </div>
             </div>
           </div>
 
-          {/* Privacy Section - Right Side */}
-          <div>
-            <div className="bg-purple-50 rounded-lg p-6 border border-purple-100 h-fit">
-              <h4 className="text-lg font-semibold text-purple-900 mb-3">
-                🔒 Your Privacy Matters
-              </h4>
-              <p className="text-sm text-purple-700 leading-relaxed">
-                Your journal is personal — and we treat it that way. All your
-                reflections are end-to-end encrypted so no one else can read
-                your words. Not our team. Not our servers. Just you.
-                Reflectionary is your private space to be real, raw, and fully
-                yourself.
-              </p>
+          {/* Quote and Privacy Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Daily Inspiration - Left Side */}
+            <div className="lg:col-span-2">
+              <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-8 text-white shadow-lg">
+                <div className="flex items-start gap-4">
+                  <Quote className="w-8 h-8 opacity-50 flex-shrink-0 mt-1" />
+                  <div className="flex-1">
+                    <blockquote className="text-xl font-medium mb-4 leading-relaxed">
+                      "{quote.text}"
+                    </blockquote>
+                    <cite className="text-purple-100 text-sm flex items-center gap-2">
+                      <span className="w-8 h-px bg-purple-300"></span>
+                      {quote.author}
+                    </cite>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Privacy Section - Right Side */}
+            <div>
+              <div className="bg-purple-50 rounded-lg p-6 border border-purple-100 h-fit">
+                <h4 className="text-lg font-semibold text-purple-900 mb-3">
+                  🔒 Your Privacy Matters
+                </h4>
+                <p className="text-sm text-purple-700 leading-relaxed">
+                  Your journal is personal — and we treat it that way. All your
+                  reflections are end-to-end encrypted so no one else can read
+                  your words. Not our team. Not our servers. Just you.
+                  Reflectionary is your private space to be real, raw, and fully
+                  yourself.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Recent Activity Footer */}
-        <div className="mt-12 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5 text-gray-400" />
-              <span className="text-sm text-gray-600">
-                Last entry: 2 hours ago
-              </span>
+          {/* Recent Activity Footer */}
+          <div className="mt-12 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-gray-400" />
+                <span className="text-sm text-gray-600">
+                  Last entry: 2 hours ago
+                </span>
+              </div>
+              <Link
+                to="/journaling"
+                className="text-sm font-medium text-purple-600 hover:text-purple-700"
+              >
+                Continue your journey →
+              </Link>
             </div>
-            <Link
-              to="/journaling"
-              className="text-sm font-medium text-purple-600 hover:text-purple-700"
-            >
-              Continue your journey →
-            </Link>
           </div>
         </div>
       </div>
