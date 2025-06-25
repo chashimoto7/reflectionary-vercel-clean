@@ -1,4 +1,4 @@
-// src/pages/Goals.jsx
+// src/pages/StandardGoals.jsx
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import encryptionService from "../services/encryptionService";

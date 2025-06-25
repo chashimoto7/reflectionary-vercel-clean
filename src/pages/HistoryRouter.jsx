@@ -1,11 +1,16 @@
-// src/pages/HistoryRouter.jsx
+// src/pages/HistoryRouter.jsx - Routes to correct history tier
 import React from "react";
 import { useMembership } from "../hooks/useMembership";
-import HistoryPage from "./history";
-import AdvancedHistory from "./AdvancedHistory";
+
+// Import all the history components
+import BasicHistory from "../components/BasicHistory";
+// These will be your existing components, renamed
+import StandardHistory from "./StandardHistory"; // Current "HistoryPage" renamed
+import AdvancedHistory from "./AdvancedHistory"; // New component to create
+import PremiumHistory from "./PremiumHistory"; // Current "AdvancedHistory" renamed
 
 const HistoryRouter = () => {
-  const { hasAccess, loading } = useMembership();
+  const { tier, loading } = useMembership();
 
   // Show loading while membership is being determined
   if (loading) {
@@ -19,13 +24,30 @@ const HistoryRouter = () => {
     );
   }
 
-  // Automatically route to advanced or basic history based on subscription
-  if (hasAccess("advanced_history")) {
-    console.log("🚀 Routing to Advanced History (Premium user)");
-    return <AdvancedHistory />;
-  } else {
-    console.log("📚 Routing to Basic History (Free/Basic/Standard user)");
-    return <HistoryPage />;
+  console.log("📖 HistoryRouter Debug:", { tier });
+
+  // Route to appropriate history experience based on tier
+  switch (tier) {
+    case "premium":
+      console.log("🚀 Routing to Premium History");
+      return <PremiumHistory />;
+
+    case "advanced":
+      console.log("⭐ Routing to Advanced History");
+      return <AdvancedHistory />;
+
+    case "standard":
+      console.log("📚 Routing to Standard History");
+      return <StandardHistory />;
+
+    case "basic":
+      console.log("🌱 Routing to Basic History (same as Free for history)");
+      return <BasicHistory />;
+
+    case "free":
+    default:
+      console.log("🆓 Routing to Basic History (Free tier)");
+      return <BasicHistory />;
   }
 };
 

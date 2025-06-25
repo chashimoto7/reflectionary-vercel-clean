@@ -1,4 +1,4 @@
-// src/pages/AdvancedWomensHealth.jsx
+// src/pages/PremiumWomensHealth.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMembership } from "../hooks/useMembership";

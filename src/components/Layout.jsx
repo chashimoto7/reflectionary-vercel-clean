@@ -1,4 +1,4 @@
-// src/components/Layout.jsx
+// src/components/Layout.jsx - Updated for new tier structure
 import { Link, NavLink, useLocation } from "react-router-dom";
 import {
   Plus,
@@ -32,48 +32,56 @@ export default function Layout({ children }) {
   const isWelcomePage =
     location.pathname === "/welcome" || location.pathname === "/";
 
+  // Navigation items with new tier structure
   const navigationItems = [
     {
       to: "/journaling",
       icon: Notebook,
       label: "Journaling",
-      feature: "journaling",
+      feature: "journaling", // This will route to appropriate tier automatically
+      requiredTier: "free", // Minimum tier needed to show this nav item
     },
     {
       to: "/history",
       icon: Notebook,
       label: "Journal History",
       feature: "history",
+      requiredTier: "free",
     },
     {
       to: "/analytics",
       icon: BarChart3,
       label: "Analytics",
       feature: "analytics",
+      requiredTier: "basic", // Only show if user has basic+ tier
     },
     {
       to: "/goals",
       icon: Target,
       label: "Goals",
       feature: "goals",
+      requiredTier: "standard",
     },
     {
       to: "/wellness",
       icon: Activity,
       label: "Wellness",
       feature: "wellness",
+      requiredTier: "standard",
     },
     {
       to: "/womens-health",
-      icon: Heart, // You'll need to import Heart from lucide-react if not already imported
+      icon: Heart,
       label: "Women's Health",
       feature: "womens_health",
+      requiredTier: "basic",
     },
     {
-      to: "/reflectionarian", // Add this new navigation item
+      to: "/reflectionarian",
       icon: MessageCircle,
       label: "Reflectionarian",
       feature: "reflectionarian",
+      requiredTier: "standard",
     },
   ];
 
@@ -81,6 +89,8 @@ export default function Layout({ children }) {
     switch (tier) {
       case "premium":
         return { label: "Premium", icon: Crown, color: "text-yellow-600" };
+      case "advanced":
+        return { label: "Advanced", icon: Crown, color: "text-purple-600" };
       case "standard":
         return { label: "Standard", icon: Crown, color: "text-blue-600" };
       case "basic":
@@ -88,6 +98,13 @@ export default function Layout({ children }) {
       default:
         return { label: "Free", icon: User, color: "text-gray-600" };
     }
+  };
+
+  const canAccessTier = (requiredTier) => {
+    const tierOrder = ["free", "basic", "standard", "advanced", "premium"];
+    const userTierIndex = tierOrder.indexOf(tier);
+    const requiredTierIndex = tierOrder.indexOf(requiredTier);
+    return userTierIndex >= requiredTierIndex;
   };
 
   const membershipInfo = getMembershipDisplayInfo();
@@ -120,9 +137,9 @@ export default function Layout({ children }) {
             <nav className="space-y-3">
               {navigationItems.map((item) => {
                 const IconComponent = item.icon;
-                const userHasAccess = hasAccess(item.feature);
+                const userCanAccessFeature = canAccessTier(item.requiredTier);
 
-                if (userHasAccess) {
+                if (userCanAccessFeature) {
                   return (
                     <NavLink
                       key={item.feature}
@@ -166,96 +183,82 @@ export default function Layout({ children }) {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
                     isActive
-                      ? "bg-white/30 text-purple-900 shadow-md"
-                      : "bg-white/20 backdrop-blur-sm text-purple-900 hover:bg-white/30 hover:shadow-md"
+                      ? "bg-gradient-to-br from-purple-400 to-purple-600 text-white shadow-md transform scale-105"
+                      : "bg-white/20 backdrop-blur-sm text-purple-900 hover:from-purple-500 hover:to-purple-700 hover:bg-gradient-to-br hover:text-white hover:shadow-md hover:scale-102"
                   }`
                 }
               >
                 <Settings size={20} />
-                Security Settings
+                Security
               </NavLink>
             )}
 
-            {/* Manual Lock Button */}
-            <button
-              onClick={lock}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 bg-white/20 backdrop-blur-sm text-purple-900 hover:bg-white/30 hover:shadow-md w-full text-left"
-              title="Lock your journal for security"
-            >
-              <Lock size={20} />
-              Lock Journal
-            </button>
-
-            {/* Membership Info */}
-            <div className="px-4 py-3 rounded-lg bg-white/20 backdrop-blur-sm">
-              <div className="flex items-center gap-2 text-purple-900">
+            {/* Membership Status */}
+            <div className="border-t border-white/20 pt-4 mt-4">
+              <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-white/10 backdrop-blur-sm">
                 <membershipInfo.icon
-                  size={16}
+                  size={20}
                   className={membershipInfo.color}
                 />
-                <span className="text-sm font-medium">
-                  {membershipInfo.label} Member
-                </span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-purple-900">
+                    {membershipInfo.label} Member
+                  </p>
+                  {tier === "free" && (
+                    <button
+                      onClick={() => {
+                        setUpgradeMessage("Upgrade to unlock more features!");
+                        setShowUpgradeModal(true);
+                      }}
+                      className="text-xs text-purple-600 hover:text-purple-800 font-medium"
+                    >
+                      Upgrade
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* User Info & Sign Out */}
-            <div className="px-4 py-3 rounded-lg bg-white/20 backdrop-blur-sm text-purple-900 text-sm space-y-2">
-              <div className="flex items-center gap-2">
-                <User size={16} />
-                <span className="truncate">{user?.email}</span>
-              </div>
-              <button
-                onClick={signOut}
-                className="flex items-center gap-2 w-full px-3 py-2 rounded-md bg-purple-600 text-white hover:bg-purple-700 transition-colors"
-              >
-                <LogOut size={16} />
-                Sign Out
-              </button>
-            </div>
-
-            {/* Footer */}
-            <div className="text-xs text-purple-700 text-center pt-2">
-              <p>&copy; {new Date().getFullYear()} Reflectionary</p>
-            </div>
+            {/* Logout */}
+            <button
+              onClick={signOut}
+              className="flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 bg-white/10 backdrop-blur-sm text-purple-900 hover:bg-red-500 hover:text-white hover:shadow-md"
+            >
+              <LogOut size={20} />
+              Sign Out
+            </button>
           </div>
         </aside>
       )}
 
-      {/* Main content - Adjust padding based on sidebar presence */}
-      <main className={`flex-1 ${isWelcomePage ? "" : "p-8"} overflow-y-auto`}>
-        {children}
-      </main>
+      {/* Main Content */}
+      <main className="flex-1 overflow-hidden">{children}</main>
 
       {/* Upgrade Modal */}
       {showUpgradeModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md mx-4 shadow-2xl">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Lock className="text-white" size={24} />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                Feature Locked
-              </h3>
-              <p className="text-gray-600 mb-6">{upgradeMessage}</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowUpgradeModal(false)}
-                  className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Maybe Later
-                </button>
-                <button
-                  onClick={() => {
-                    setShowUpgradeModal(false);
-                    // Navigate to upgrade page when built
-                  }}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-colors font-medium"
-                >
-                  Upgrade Now
-                </button>
-              </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Upgrade Required
+            </h3>
+            <p className="text-gray-600 mb-6">{upgradeMessage}</p>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Maybe Later
+              </button>
+              <button
+                onClick={() => {
+                  setShowUpgradeModal(false);
+                  // TODO: Navigate to pricing/upgrade page
+                  window.location.href = "/pricing";
+                }}
+                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+              >
+                Upgrade Now
+              </button>
             </div>
           </div>
         </div>

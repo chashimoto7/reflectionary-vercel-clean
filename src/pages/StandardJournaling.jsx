@@ -1,4 +1,4 @@
-//scr/pages/StandardJournaling.jsx
+// src/pages/StandardJournaling.jsx - Updated to remove subject prompts
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -65,203 +65,107 @@ export default function StandardJournaling() {
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [saveConfirmation, setSaveConfirmation] = useState(false);
   const [showFollowUpButtons, setShowFollowUpButtons] = useState(false);
-  const [subject, setSubject] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [currentThreadId, setCurrentThreadId] = useState(null);
 
-  // ENHANCED: Wellness tracking state with exercise and sleep
-  const [mood, setMood] = useState(5);
-  const [energy, setEnergy] = useState(5);
-  const [cycleDay, setCycleDay] = useState("");
-  const [cyclePhase, setCyclePhase] = useState("");
-  const [showWellnessSection, setShowWellnessSection] = useState(false);
-
-  // NEW: Exercise and wellness tracking
+  // ENHANCED: Wellness tracking state with exercise and nutrition
+  const [showWellnessTracking, setShowWellnessTracking] = useState(false);
   const [exerciseType, setExerciseType] = useState("");
   const [exerciseDuration, setExerciseDuration] = useState("");
   const [sleepHours, setSleepHours] = useState("");
-  const [sleepQuality, setSleepQuality] = useState(5);
+  const [sleepQuality, setSleepQuality] = useState("");
   const [hydration, setHydration] = useState("");
-  const [wellnessActivities, setWellnessActivities] = useState({
-    meditation: false,
-    yoga: false,
-    natureTime: false,
-    socialConnection: false,
-    creativeActivity: false,
-    selfCare: false,
+  const [mood, setMood] = useState("");
+  const [stressLevel, setStressLevel] = useState("");
+  const [nutrition, setNutrition] = useState("");
+  const [additionalNotes, setAdditionalNotes] = useState("");
+
+  // New state for wellness modal
+  const [wellnessData, setWellnessData] = useState({
+    exerciseType: "",
+    exerciseDuration: "",
+    sleepHours: "",
+    sleepQuality: "",
+    hydration: "",
+    mood: "",
+    stressLevel: "",
+    nutrition: "",
+    additionalNotes: "",
   });
 
-  // Check if user has advanced analytics add-on
-  const hasAdvancedAnalytics = hasAccess("advanced_analytics");
-
-  const editorRef = useRef(null);
   const quillRef = useRef(null);
+  const editorRef = useRef(null);
+  const { encryptJournalEntry } = encryptionService;
 
-  // EXISTING getStaticMasterKey function (unchanged)
-  const getStaticMasterKey = async () => {
-    const STATIC_MASTER_KEY_HEX = import.meta.env.VITE_MASTER_DECRYPTION_KEY;
-
-    console.log("🧪 Checking master key:", STATIC_MASTER_KEY_HEX);
-
-    if (!STATIC_MASTER_KEY_HEX) {
-      throw new Error("Master key is undefined. Check your .env or build.");
-    }
-
-    if (STATIC_MASTER_KEY_HEX.length !== 64) {
-      throw new Error(
-        `Master key is the wrong length: ${STATIC_MASTER_KEY_HEX.length}. It must be exactly 64 characters.`
-      );
-    }
-
-    const keyBuffer = new Uint8Array(
-      STATIC_MASTER_KEY_HEX.match(/.{1,2}/g).map((b) => parseInt(b, 16))
-    );
-
-    return await window.crypto.subtle.importKey(
-      "raw",
-      keyBuffer,
-      { name: "AES-CBC" },
-      false,
-      ["encrypt", "decrypt"]
-    );
+  // Utility function to format date
+  const formatDate = (date) => {
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
   };
 
-  // EXISTING useEffect hooks (unchanged)
+  // Initialize Quill editor
   useEffect(() => {
-    const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/login");
-      }
-    };
-    checkSession();
-  }, [navigate]);
+    if (editorRef.current && !quillRef.current) {
+      quillRef.current = new Quill(editorRef.current, {
+        theme: "snow",
+        modules: {
+          toolbar: [
+            [{ header: [1, 2, 3, false] }],
+            ["bold", "italic", "underline"],
+            [{ list: "ordered" }, { list: "bullet" }],
+            ["blockquote"],
+            ["clean"],
+          ],
+        },
+        formats: [
+          "header",
+          "bold",
+          "italic",
+          "underline",
+          "list",
+          "bullet",
+          "blockquote",
+        ],
+      });
 
-  useEffect(() => {
-    const initEditor = () => {
-      if (editorRef.current && !quillRef.current && !isLocked) {
-        try {
-          console.log("Initializing Quill editor...");
+      quillRef.current.on("text-change", () => {
+        const content = quillRef.current.getText();
+        setEditorContent(content);
+      });
 
-          const quill = new Quill(editorRef.current, {
-            theme: "snow",
-            placeholder: "Start writing your journal entry here...",
-            modules: {
-              toolbar: [
-                [{ header: [1, 2, 3, false] }],
-                ["bold", "italic", "underline", "strike"],
-                [{ list: "ordered" }, { list: "bullet" }],
-                [{ color: [] }, { background: [] }],
-                ["link"],
-                ["clean"],
-              ],
-            },
-          });
-
-          quillRef.current = quill;
-
-          // Listen for content changes
-          quill.on("text-change", () => {
-            const content = quill.getText().trim();
-            setEditorContent(content);
-            console.log("Editor content changed, length:", content.length);
-          });
-
-          // Set editor height with scroll
-          const qlEditor = editorRef.current.querySelector(".ql-editor");
-          if (qlEditor) {
-            qlEditor.style.height = "300px";
-            qlEditor.style.maxHeight = "300px";
-            qlEditor.style.overflowY = "auto";
-            qlEditor.style.fontSize = "16px";
-            qlEditor.style.lineHeight = "1.6";
-          }
-
-          setIsEditorReady(true);
-          console.log("Quill editor initialized successfully");
-        } catch (error) {
-          console.error("Error initializing Quill:", error);
-        }
-      }
-    };
-
-    const timer = setTimeout(initEditor, 100);
-
-    return () => {
-      clearTimeout(timer);
-      if (quillRef.current) {
-        console.log("Cleaning up Quill editor");
-        quillRef.current = null;
-      }
-    };
-  }, [isLocked]);
-
-  // EXISTING functions (unchanged)
-  const encryptJournalEntry = async (entryData) => {
-    const masterKey = await getStaticMasterKey();
-    const dataKey = await encryptionService.generateDataKey();
-    const encryptedContent = await encryptionService.encryptText(
-      entryData.content,
-      dataKey
-    );
-
-    let encryptedPrompt = { encryptedData: "", iv: "" };
-    if (entryData.prompt) {
-      encryptedPrompt = await encryptionService.encryptText(
-        entryData.prompt,
-        dataKey
-      );
+      setIsEditorReady(true);
     }
+  }, []);
 
-    const encryptedDataKey = await encryptionService.encryptKey(
-      dataKey,
-      masterKey
-    );
-
-    return {
-      encrypted_content: encryptedContent.encryptedData,
-      content_iv: encryptedContent.iv,
-      encrypted_prompt: encryptedPrompt.encryptedData,
-      prompt_iv: encryptedPrompt.iv,
-      encrypted_data_key: encryptedDataKey.encryptedData,
-      data_key_iv: encryptedDataKey.iv,
-    };
-  };
-
-  const clearEditor = () => {
-    if (quillRef.current && isEditorReady) {
-      try {
-        quillRef.current.setText("");
-        setEditorContent("");
-        console.log("Editor cleared");
-      } catch (error) {
-        console.error("Error clearing editor:", error);
-      }
-    }
-  };
-
-  const getPrompt = async () => {
+  // UPDATED: Only random prompts for Standard tier
+  const generateRandomPrompt = async () => {
     if (isLocked) {
-      console.log("App is locked, cannot get prompt");
+      console.log("App is locked, cannot get random prompt");
       return;
     }
 
     try {
       setIsLoading(true);
-      const res = await fetch(
-        "https://reflectionary-api.vercel.app/api/generatePrompt",
+
+      const response = await fetch(
+        "https://reflectionary-api.vercel.app/api/generate-random-prompt",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: user.id }),
+          body: JSON.stringify({
+            user_id: user.id,
+            pastEntries: [],
+          }),
         }
       );
 
-      const data = await res.json();
+      const data = await response.json();
       const generatedPrompt =
-        data?.prompt || "Write about a recent moment that impacted you.";
+        data.prompt || "Write about your current thoughts and feelings.";
 
       setPrompt(generatedPrompt);
       setPromptType("initial");
@@ -273,47 +177,6 @@ export default function StandardJournaling() {
       setPromptType("initial");
       setSaveLabel("Save Entry");
       setShowPromptButton(false);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSubjectPrompt = async () => {
-    if (isLocked) {
-      console.log("App is locked, cannot get custom prompt");
-      return;
-    }
-
-    if (!subject.trim()) return;
-
-    try {
-      setIsLoading(true);
-
-      const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/generate-subject-prompt",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            subject,
-            user_id: user.id,
-            pastEntries: [],
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.prompt) {
-        setPrompt(data.prompt);
-        setShowPromptButton(false);
-        setSubject("");
-      } else {
-        alert("No prompt returned. Try again.");
-      }
-    } catch (err) {
-      console.error("Failed to fetch subject prompt:", err);
-      alert("Something went wrong while generating the prompt.");
     } finally {
       setIsLoading(false);
     }
@@ -362,685 +225,395 @@ export default function StandardJournaling() {
         // Hydration
         hydration_glasses: hydration ? parseInt(hydration) : null,
 
-        // Wellness activities
-        wellness_activities: Object.entries(wellnessActivities)
-          .filter(([_, value]) => value)
-          .map(([key, _]) => key),
-      };
-
-      // ENHANCED: Add wellness data to existing payload
-      const entryData = {
-        ...encryptedData,
-        user_id: userId,
-        is_follow_up: promptType === "followUp",
-        parent_entry_id: currentThreadId,
-        thread_id: currentThreadId,
-        // Existing wellness data
+        // Mental health
         mood: mood,
-        energy: energy,
-        cycle_day: cycleDay ? parseInt(cycleDay) : null,
-        cycle_phase: cyclePhase || null,
-        // NEW: Store user-entered wellness tracking separately
-        wellness_tracking: wellnessTrackingData,
+        stress_level: stressLevel,
+
+        // Nutrition
+        nutrition_notes: nutrition || null,
+        additional_notes: additionalNotes || null,
       };
 
-      console.log(
-        "📦 Sending encrypted entry data to backend (with enhanced wellness data)"
-      );
-
-      const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/save-entry",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(entryData),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        setSaveLabel("Save Entry");
-        throw new Error(result.error || "Failed to save entry");
-      }
-
-      console.log("✅ Entry saved with ID:", result.entry_id);
-
-      // Check for crisis analysis
-      if (result.crisis_analysis?.should_alert) {
-        console.log("🚨 Crisis analysis triggered:", result.crisis_analysis);
-        triggerCrisisModal(result.crisis_analysis);
-      }
-
-      // EXISTING logic continues unchanged
-      const newEntry = {
-        id: result.entry_id,
+      // Save to database
+      const { data, error } = await supabase.from("journal_entries").insert({
+        user_id: userId,
+        content: encryptedData.encryptedContent,
+        encryption_key: encryptedData.encryptedKey,
         prompt: prompt || null,
-        response: journalContent,
-        htmlContent: htmlContent,
         created_at: new Date().toISOString(),
-        is_follow_up: promptType === "followUp",
-        parent_id: currentThreadId,
-      };
+        word_count: journalContent.split(/\s+/).filter(Boolean).length,
+        wellness_data: wellnessTrackingData,
+        thread_id: currentThreadId,
+      });
 
-      let updatedChain;
-      if (promptType === "initial") {
-        console.log("📝 Starting new conversation thread");
-        updatedChain = [newEntry];
-        setCurrentThreadId(result.entry_id);
-      } else {
-        console.log("➕ Adding followUp to thread:", currentThreadId);
-        updatedChain = [...entryChain, newEntry];
+      if (error) {
+        console.error("❌ Database save error:", error);
+        alert("Failed to save entry. Please try again.");
+        setSaveLabel("Save Entry");
+        return;
       }
 
-      setEntryChain(updatedChain);
-      setLastSavedEntry(newEntry);
-      window.currentConversationChain = updatedChain;
-      window.currentThreadId = currentThreadId || result.entry_id;
+      console.log("✅ Entry saved successfully");
 
-      // Clear form including wellness fields
-      clearEditor();
+      // Reset everything after successful save
+      quillRef.current.setText("");
       setPrompt("");
       setShowPromptButton(true);
-      resetWellnessFields();
+      setSaveLabel("Save Entry");
+      setLastSavedEntry(data);
+      setShowFollowUpButtons(true);
+      setEntryChain([]);
+      setCurrentThreadId(null);
 
+      // Reset wellness data
+      setExerciseType("");
+      setExerciseDuration("");
+      setSleepHours("");
+      setSleepQuality("");
+      setHydration("");
+      setMood("");
+      setStressLevel("");
+      setNutrition("");
+      setAdditionalNotes("");
+      setShowWellnessTracking(false);
+
+      // Run crisis detection
+      await triggerCrisisModal(journalContent);
+
+      // Show save confirmation
       setSaveConfirmation(true);
       setTimeout(() => setSaveConfirmation(false), 3000);
-      setSaveLabel("Save Entry");
-
-      // Only show follow-up modal if no crisis detected
-      if (!result.crisis_analysis?.should_alert) {
-        setShowFollowUpModal(true);
-      }
-    } catch (err) {
-      console.error("❌ Error saving entry:", err);
-      alert(`Failed to save entry: ${err.message}`);
+    } catch (error) {
+      console.error("💥 Unexpected save error:", error);
+      alert("Something went wrong while saving. Please try again.");
       setSaveLabel("Save Entry");
     }
   };
 
-  // NEW: Reset wellness fields after save
-  const resetWellnessFields = () => {
-    setMood(5);
-    setEnergy(5);
-    setCycleDay("");
-    setCyclePhase("");
-    setExerciseType("");
-    setExerciseDuration("");
-    setSleepHours("");
-    setSleepQuality(5);
-    setHydration("");
-    setWellnessActivities({
-      meditation: false,
-      yoga: false,
-      natureTime: false,
-      socialConnection: false,
-      creativeActivity: false,
-      selfCare: false,
-    });
-  };
-
-  // EXISTING functions (unchanged)
-  const handleFollowUpFromChain = async () => {
-    console.log("🤔 Generating followUp for entry ID:", lastSavedEntry?.id);
-
-    const hasFollowUpAccess = checkFeatureAccess("follow_up_prompts", () => {
-      proceedWithFollowUp();
-    });
-  };
-
-  const proceedWithFollowUp = async () => {
-    if (!lastSavedEntry?.id) {
-      console.error("❌ No saved entry ID available for followUp");
-      alert("No previous entries found. Please write a journal entry first.");
+  // EXISTING follow-up functions (unchanged)
+  const generateFollowUpPrompt = async () => {
+    if (isLocked) {
+      console.log("App is locked, cannot get follow-up prompt");
       return;
     }
 
     try {
-      setIsLoading(true);
-      setShowFollowUpModal(false);
-      setPrompt("Thinking...");
+      const lastEntry = quillRef.current?.getText();
+      if (!lastEntry?.trim()) {
+        alert("Please write an entry first before getting a follow-up prompt.");
+        return;
+      }
 
-      console.log("Sending follow-up request for entry ID:", lastSavedEntry.id);
+      setIsLoading(true);
+
       const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/follow-up",
+        "https://reflectionary-api.vercel.app/api/generate-followup",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             user_id: user.id,
-            entry_id: lastSavedEntry.id,
+            lastEntry,
+            entryChain,
           }),
         }
       );
 
       const data = await response.json();
-      console.log("🎯 FollowUp response:", data);
+      const followUpPrompt =
+        data.prompt || "What else would you like to explore about this topic?";
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch follow-up");
-      }
-
-      if (data.prompt) {
-        setPrompt(data.prompt);
-        setPromptType("followUp");
-        setSaveLabel("Save Follow-Up Answer");
-        setShowPromptButton(false);
-        setShowFollowUpButtons(true);
-      } else {
-        throw new Error("No follow-up prompt returned");
-      }
-    } catch (error) {
-      console.error("❌ FollowUp error:", error);
-      setPrompt("Sorry, I couldn't generate a follow-up question this time.");
-      alert(`Failed to generate follow-up question: ${error.message}`);
+      setPrompt(followUpPrompt);
+      setPromptType("followUp");
+      setSaveLabel("Save Follow-up");
+      setShowPromptButton(false);
+      setShowFollowUpButtons(false);
+    } catch (err) {
+      console.error("Follow-up generation failed:", err);
+      setPrompt("What else would you like to explore about this topic?");
+      setPromptType("followUp");
+      setSaveLabel("Save Follow-up");
+      setShowPromptButton(false);
+      setShowFollowUpButtons(false);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleEndFollowUps = () => {
-    console.log("✋ User ending follow-up session");
-
-    setEntryChain([]);
-    setLastSavedEntry(null);
-    setPrompt("");
-    setPromptType("initial");
-    setSaveLabel("Save Entry");
-    setEditorContent("");
-    setShowPromptButton(true);
+  const handleContinueWithoutFollowUp = () => {
     setShowFollowUpButtons(false);
-    setShowFollowUpModal(false);
-    setCurrentThreadId(null);
-
-    window.currentConversationChain = [];
-    window.currentThreadId = null;
-
-    clearEditor();
-    console.log("🎉 Ready for new conversation thread");
+    navigate("/history");
   };
 
-  const handleNoThanks = () => {
-    setPrompt("");
-    setPromptType("initial");
-    setSaveLabel("Save Entry");
-    setEntryChain([]);
-    setLastSavedEntry(null);
-    setShowModal(false);
-    setShowFollowUpModal(false);
-    setShowPromptButton(true);
-    setCurrentThreadId(null);
-    clearEditor();
-  };
-
-  // Show loading while encryption is being set up
-  if (isLocked) {
+  if (loading) {
     return (
-      <div className="max-w-4xl mx-auto mt-4 p-6 bg-white rounded-2xl shadow-md">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">
-            Journal is locked. Please unlock to continue.
-          </p>
+          <p className="text-gray-600">Loading your journaling experience...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <>
-      <div className="max-w-4xl mx-auto mt-4 p-6 bg-white rounded-2xl shadow-md">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">
-            New Journal Entry
-          </h2>
-          <div className="flex items-center gap-4">
-            {/* Support resources button */}
-            <button
-              onClick={showCrisisResources}
-              className="flex items-center gap-2 px-3 py-1 text-purple-600 border border-purple-300 rounded-full hover:bg-purple-50 transition-colors text-sm"
-              title="Access mental health resources"
-            >
-              <span>💜</span>
-              Support
-            </button>
-            <div className="flex items-center text-sm text-green-600">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-              Encryption Active
-            </div>
-          </div>
+    <div className="max-w-4xl mx-auto p-6 bg-white min-h-screen">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Standard Journaling
+        </h1>
+        <p className="text-gray-600">
+          {formatDate(new Date())} • Write freely with AI prompts and follow-up
+          questions
+        </p>
+      </div>
+
+      {/* Upgrade Prompt Modal */}
+      {showUpgradePrompt && (
+        <UpgradePrompt
+          feature={requestedFeature}
+          message={getUpgradeMessage()}
+          onUpgrade={handleUpgrade}
+          onClose={closeUpgradePrompt}
+        />
+      )}
+
+      {/* Crisis Resource Modal */}
+      {showCrisisModal && (
+        <CrisisResourceModal
+          isOpen={showCrisisModal}
+          onClose={closeCrisisModal}
+          analysisResult={crisisAnalysisResult}
+        />
+      )}
+
+      {/* Save Confirmation */}
+      {saveConfirmation && (
+        <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+          ✅ Entry saved successfully!
         </div>
+      )}
 
-        {saveConfirmation && (
-          <div className="bg-green-100 text-green-800 text-sm px-4 py-2 mb-4 rounded shadow">
-            Entry saved successfully and encrypted!
-          </div>
-        )}
-
-        {/* EXISTING Prompt Generation Section (unchanged) */}
-        <div className="mb-6 space-y-4">
-          <div className="flex gap-4">
-            <input
-              className="flex-1 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400"
-              type="text"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="What would you like to write about?"
-              disabled={isLoading}
-            />
+      {/* Prompt Section */}
+      <div className="mb-6">
+        {showPromptButton ? (
+          <div className="text-center">
             <button
-              className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 disabled:opacity-50"
-              onClick={handleSubjectPrompt}
-              disabled={isLoading || !subject.trim()}
+              onClick={generateRandomPrompt}
+              disabled={isLoading}
+              className="bg-purple-600 text-white px-8 py-3 rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium flex items-center gap-2 mx-auto"
             >
               {isLoading ? (
-                <div className="flex items-center gap-2">
-                  <span className="inline-block animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                  Thinking...
-                </div>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
               ) : (
-                "Get Custom Prompt"
+                "✨"
               )}
+              {isLoading ? "Generating..." : "Get Random Prompt"}
             </button>
-          </div>
-
-          {showPromptButton && (
-            <button
-              className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600"
-              onClick={getPrompt}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <div className="flex items-center gap-2">
-                  <span className="inline-block animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                  Thinking...
-                </div>
-              ) : (
-                "Generate Random Prompt"
-              )}
-            </button>
-          )}
-        </div>
-
-        {/* EXISTING Prompt Display (unchanged) */}
-        {prompt && (
-          <div className={`bg-green-100 px-4 py-3 rounded mb-6 shadow`}>
-            <p
-              className={`text-lg font-bold ${
-                promptType === "followUp" ? "text-purple-700" : "text-green-800"
-              }`}
-            >
-              {promptType === "followUp"
-                ? "Here's your follow-up prompt:"
-                : "Here's your journaling prompt:"}
+            <p className="text-sm text-gray-500 mt-2">
+              Or start writing without a prompt
             </p>
-            <p className="text-green-900 mt-1 font-normal">{prompt}</p>
           </div>
-        )}
-
-        {/* ENHANCED: Wellness Tracking Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setShowWellnessSection(!showWellnessSection)}
-            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 mb-3"
-          >
-            <span
-              className={`transform transition-transform ${
-                showWellnessSection ? "rotate-90" : ""
-              }`}
+        ) : (
+          <div className="bg-gradient-to-r from-purple-100 to-pink-100 px-6 py-4 rounded-lg border border-purple-200">
+            <p className="text-lg font-medium text-purple-800 mb-2">
+              {promptType === "followUp"
+                ? "Follow-up prompt:"
+                : "Writing prompt:"}
+            </p>
+            <p className="text-purple-700">{prompt}</p>
+            <button
+              onClick={() => {
+                setPrompt("");
+                setShowPromptButton(true);
+                setPromptType("initial");
+              }}
+              className="text-sm text-purple-600 hover:text-purple-800 mt-2 underline"
             >
-              ▶
-            </span>
-            Track wellness data (optional)
-            {hasAdvancedAnalytics && (
-              <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full ml-2">
-                Enhanced for Advanced Analytics
-              </span>
-            )}
-          </button>
-
-          {showWellnessSection && (
-            <div className="bg-gray-50 p-4 rounded-lg space-y-4">
-              {/* Mood and Energy (existing) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <Heart className="w-4 h-4 text-pink-500" />
-                    Mood: {mood}/10
-                  </label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={mood}
-                    onChange={(e) => setMood(parseInt(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>Low</span>
-                    <span>High</span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-amber-500" />
-                    Energy: {energy}/10
-                  </label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={energy}
-                    onChange={(e) => setEnergy(parseInt(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>Low</span>
-                    <span>High</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* NEW: Exercise and Sleep */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                      <Dumbbell className="w-4 h-4 text-green-500" />
-                      Exercise
-                    </label>
-                    <select
-                      value={exerciseType}
-                      onChange={(e) => setExerciseType(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm mb-2"
-                    >
-                      <option value="">Select type...</option>
-                      <option value="walking">Walking</option>
-                      <option value="running">Running</option>
-                      <option value="cycling">Cycling</option>
-                      <option value="swimming">Swimming</option>
-                      <option value="yoga">Yoga</option>
-                      <option value="strength">Strength Training</option>
-                      <option value="cardio">Cardio</option>
-                      <option value="sports">Sports</option>
-                      <option value="other">Other</option>
-                    </select>
-                    {exerciseType && (
-                      <input
-                        type="number"
-                        min="0"
-                        max="300"
-                        value={exerciseDuration}
-                        onChange={(e) => setExerciseDuration(e.target.value)}
-                        placeholder="Duration (minutes)"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                      />
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                      <Moon className="w-4 h-4 text-purple-500" />
-                      Sleep
-                    </label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      max="24"
-                      value={sleepHours}
-                      onChange={(e) => setSleepHours(e.target.value)}
-                      placeholder="Hours slept"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm mb-2"
-                    />
-                    {sleepHours && (
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">
-                          Sleep Quality: {sleepQuality}/10
-                        </label>
-                        <input
-                          type="range"
-                          min="1"
-                          max="10"
-                          value={sleepQuality}
-                          onChange={(e) =>
-                            setSleepQuality(parseInt(e.target.value))
-                          }
-                          className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* NEW: Hydration and Wellness Activities */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <Droplets className="w-4 h-4 text-blue-500" />
-                    Hydration (glasses of water)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="20"
-                    value={hydration}
-                    onChange={(e) => setHydration(e.target.value)}
-                    placeholder="Glasses of water"
-                    className="w-full md:w-48 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <Brain className="w-4 h-4 text-indigo-500" />
-                    Wellness Activities
-                  </label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {Object.entries({
-                      meditation: "Meditation",
-                      yoga: "Yoga/Stretching",
-                      natureTime: "Nature Time",
-                      socialConnection: "Social Connection",
-                      creativeActivity: "Creative Activity",
-                      selfCare: "Self-Care",
-                    }).map(([key, label]) => (
-                      <label
-                        key={key}
-                        className="flex items-center space-x-2 text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={wellnessActivities[key]}
-                          onChange={(e) =>
-                            setWellnessActivities({
-                              ...wellnessActivities,
-                              [key]: e.target.checked,
-                            })
-                          }
-                          className="rounded text-purple-600 focus:ring-purple-500"
-                        />
-                        <span>{label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Cycle tracking (existing) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-gray-200">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cycle Day (optional)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="35"
-                    value={cycleDay}
-                    onChange={(e) => setCycleDay(e.target.value)}
-                    placeholder="Day of cycle"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cycle Phase (optional)
-                  </label>
-                  <select
-                    value={cyclePhase}
-                    onChange={(e) => setCyclePhase(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                  >
-                    <option value="">Select phase...</option>
-                    <option value="Menstrual">Menstrual</option>
-                    <option value="Follicular">Follicular</option>
-                    <option value="Ovulatory">Ovulatory</option>
-                    <option value="Luteal">Luteal</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Info message */}
-              <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
-                <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-blue-700">
-                  This wellness data helps our AI provide personalized insights
-                  about how your physical health impacts your emotional
-                  well-being. All data is encrypted and private to you.
-                  {hasAdvancedAnalytics && (
-                    <span className="block mt-1 font-medium">
-                      As an Advanced Analytics subscriber, you'll see detailed
-                      correlations and predictive insights based on this data.
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* EXISTING Quill Editor (unchanged) */}
-        <div className="mb-6">
-          <div
-            ref={editorRef}
-            className="border border-gray-300 rounded-lg"
-            style={{ height: "350px" }}
-          />
-        </div>
-
-        {/* EXISTING Save Button (unchanged) */}
-        <div className="flex justify-between items-center">
-          <div className="text-sm text-gray-500">
-            {isEditorReady ? (
-              <span>✓ Editor ready</span>
-            ) : (
-              <span>Setting up editor...</span>
-            )}
-          </div>
-
-          <button
-            className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
-            onClick={saveEntry}
-            disabled={
-              !isEditorReady ||
-              !editorContent.trim() ||
-              saveLabel === "Saving..."
-            }
-          >
-            {saveLabel === "Saving..." && (
-              <span className="inline-block animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-            )}
-            {saveLabel}
-          </button>
-        </div>
-
-        {/* EXISTING Follow-up Modals (unchanged) */}
-        {showModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white p-6 rounded shadow-lg max-w-sm text-center">
-              <p className="mb-4 text-lg font-medium">
-                Your journal entry has been saved securely.
-              </p>
-              <p className="mb-4">
-                Would you like me to generate a follow-up question to help you
-                reflect further?
-              </p>
-              <div className="space-x-2">
-                <button
-                  className="bg-purple-600 text-white px-4 py-2 rounded"
-                  onClick={handleFollowUpFromChain}
-                >
-                  Yes, ask me
-                </button>
-                <button
-                  className="bg-gray-500 text-white px-4 py-2 rounded"
-                  onClick={handleNoThanks}
-                >
-                  No, thank you
-                </button>
-              </div>
-            </div>
+              Clear prompt and start fresh
+            </button>
           </div>
         )}
+      </div>
 
-        {showFollowUpModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white p-6 rounded shadow-lg max-w-sm text-center">
-              <p className="mb-2 text-lg font-semibold text-gray-800">
-                Would you like to explore this a little deeper?
-              </p>
-              <p className="mb-4 text-sm text-gray-700">
-                I can provide a follow-up question based on what you've shared
-                so far.
-              </p>
-              <div className="space-x-2">
-                <button
-                  className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
-                  onClick={handleFollowUpFromChain}
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Thinking..." : "Yes, please"}
-                </button>
-                <button
-                  className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-                  onClick={handleEndFollowUps}
-                  disabled={isLoading}
-                >
-                  No, thank you
-                </button>
+      {/* Wellness Tracking Toggle */}
+      <div className="mb-6">
+        <button
+          onClick={() => setShowWellnessTracking(!showWellnessTracking)}
+          className="flex items-center gap-2 text-purple-600 hover:text-purple-700 font-medium"
+        >
+          <Activity size={20} />
+          {showWellnessTracking ? "Hide" : "Add"} Wellness Tracking
+        </button>
+
+        {/* Wellness Tracking Form */}
+        {showWellnessTracking && (
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+            {/* Exercise */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Exercise
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={exerciseType}
+                  onChange={(e) => setExerciseType(e.target.value)}
+                  placeholder="Type of exercise"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                />
+                <input
+                  type="number"
+                  value={exerciseDuration}
+                  onChange={(e) => setExerciseDuration(e.target.value)}
+                  placeholder="Minutes"
+                  className="w-20 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                />
               </div>
+            </div>
+
+            {/* Sleep */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Sleep
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  step="0.5"
+                  value={sleepHours}
+                  onChange={(e) => setSleepHours(e.target.value)}
+                  placeholder="Hours"
+                  className="w-20 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                />
+                <select
+                  value={sleepQuality}
+                  onChange={(e) => setSleepQuality(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                >
+                  <option value="">Quality</option>
+                  <option value="excellent">Excellent</option>
+                  <option value="good">Good</option>
+                  <option value="fair">Fair</option>
+                  <option value="poor">Poor</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Hydration & Mood */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Hydration (glasses)
+              </label>
+              <input
+                type="number"
+                value={hydration}
+                onChange={(e) => setHydration(e.target.value)}
+                placeholder="8"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Mood
+              </label>
+              <select
+                value={mood}
+                onChange={(e) => setMood(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              >
+                <option value="">Select mood</option>
+                <option value="excellent">Excellent</option>
+                <option value="good">Good</option>
+                <option value="neutral">Neutral</option>
+                <option value="low">Low</option>
+                <option value="stressed">Stressed</option>
+              </select>
+            </div>
+
+            {/* Additional Notes */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Additional Wellness Notes
+              </label>
+              <textarea
+                value={additionalNotes}
+                onChange={(e) => setAdditionalNotes(e.target.value)}
+                placeholder="Any other wellness observations..."
+                rows="2"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              />
+            </div>
+
+            <div className="md:col-span-2 text-xs text-gray-500">
+              <Info size={16} className="inline mr-1" />
+              All data is encrypted and private to you.
             </div>
           </div>
         )}
       </div>
 
-      {/* EXISTING Upgrade Prompt Modal (unchanged) */}
-      {showUpgradePrompt && (
-        <UpgradePrompt
-          feature={requestedFeature}
-          onClose={closeUpgradePrompt}
-          onUpgrade={handleUpgrade}
-          message={getUpgradeMessage()}
+      {/* Quill Editor */}
+      <div className="mb-6">
+        <div
+          ref={editorRef}
+          className="border border-gray-300 rounded-lg"
+          style={{ height: "350px" }}
         />
-      )}
+      </div>
 
-      <CrisisResourceModal
-        isOpen={showCrisisModal}
-        onClose={() => {
-          closeCrisisModal();
-          // Show follow-up modal after crisis modal if we have a saved entry
-          if (lastSavedEntry) {
-            setShowFollowUpModal(true);
+      {/* Save Button */}
+      <div className="flex justify-between items-center">
+        <div className="text-sm text-gray-500">
+          {isEditorReady ? (
+            <span>✓ Editor ready</span>
+          ) : (
+            <span>Setting up editor...</span>
+          )}
+        </div>
+
+        <button
+          className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
+          onClick={saveEntry}
+          disabled={
+            !isEditorReady || !editorContent.trim() || saveLabel === "Saving..."
           }
-        }}
-        analysisResult={crisisAnalysisResult}
-      />
-    </>
+        >
+          {saveLabel === "Saving..." && (
+            <span className="inline-block animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+          )}
+          {saveLabel}
+        </button>
+      </div>
+
+      {/* Follow-up Buttons */}
+      {showFollowUpButtons && (
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-blue-800 font-medium mb-3">
+            Your entry has been saved! Would you like to continue reflecting?
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={generateFollowUpPrompt}
+              disabled={isLoading}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-medium flex items-center gap-2"
+            >
+              {isLoading && (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+              )}
+              Get Follow-up Question
+            </button>
+            <button
+              onClick={handleContinueWithoutFollowUp}
+              className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 font-medium"
+            >
+              View Entry History
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

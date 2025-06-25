@@ -1,4 +1,4 @@
-// src/pages/Analytics.jsx
+// src/pages/StandardAnalytics.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
