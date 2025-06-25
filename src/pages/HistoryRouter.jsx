@@ -3,11 +3,10 @@ import React from "react";
 import { useMembership } from "../hooks/useMembership";
 
 // Import all the history components
-import BasicHistory from "../components/BasicHistory";
-// These will be your existing components, renamed
-import StandardHistory from "./StandardHistory"; // Current "HistoryPage" renamed
-import AdvancedHistory from "./AdvancedHistory"; // New component to create
-import PremiumHistory from "./PremiumHistory"; // Current "AdvancedHistory" renamed
+import BasicHistory from "./BasicHistory";
+import StandardHistory from "./StandardHistory";
+import AdvancedHistory from "./AdvancedHistory";
+import PremiumHistory from "./PremiumHistory";
 
 const HistoryRouter = () => {
   const { tier, loading } = useMembership();
