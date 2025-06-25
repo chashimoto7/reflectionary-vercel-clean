@@ -3,11 +3,10 @@ import React from "react";
 import { useMembership } from "../hooks/useMembership";
 
 // Import all the women's health components
-import BasicWomensHealth from "../components/BasicWomensHealth";
-// These will be your existing components, renamed
-import StandardWomensHealth from "./StandardWomensHealth"; // Current "WomensHealth" renamed
-import AdvancedWomensHealth from "./AdvancedWomensHealth"; // New component to create
-import PremiumWomensHealth from "./PremiumWomensHealth"; // Current "AdvancedWomensHealth" renamed
+import BasicWomensHealth from "./BasicWomensHealth";
+import StandardWomensHealth from "./StandardWomensHealth";
+import AdvancedWomensHealth from "./AdvancedWomensHealth";
+import PremiumWomensHealth from "./PremiumWomensHealth";
 
 // Upgrade prompt component for users without access
 const WomensHealthUpgrade = () => (
