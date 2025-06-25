@@ -3,11 +3,10 @@ import React from "react";
 import { useMembership } from "../hooks/useMembership";
 
 // Import all the analytics components
-import BasicAnalytics from "../components/BasicAnalytics";
-// These will be your existing components, renamed
-import StandardAnalytics from "./StandardAnalytics"; // Current "Analytics" renamed
-import AdvancedAnalytics from "./AdvancedAnalytics"; // New component to create
-import PremiumAnalytics from "./PremiumAnalytics"; // Current "AdvancedAnalytics" renamed
+import BasicAnalytics from "./BasicAnalytics";
+import StandardAnalytics from "./StandardAnalytics";
+import AdvancedAnalytics from "./AdvancedAnalytics";
+import PremiumAnalytics from "./PremiumAnalytics";
 
 // Upgrade prompt component for users without access
 const AnalyticsUpgrade = () => (

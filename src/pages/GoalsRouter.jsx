@@ -3,10 +3,9 @@ import React from "react";
 import { useMembership } from "../hooks/useMembership";
 
 // Import all the goals components
-// These will be your existing components, renamed
-import StandardGoals from "./StandardGoals"; // Current "GoalsPage" renamed
-import AdvancedGoals from "./AdvancedGoals"; // New component to create
-import PremiumGoals from "./PremiumGoals"; // Current "AdvancedGoals" renamed
+import StandardGoals from "./StandardGoals";
+import AdvancedGoals from "./AdvancedGoals";
+import PremiumGoals from "./PremiumGoals";
 
 // Upgrade prompt component for users without access
 const GoalsUpgrade = () => (
