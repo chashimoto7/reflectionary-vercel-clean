@@ -1,6 +1,6 @@
 // src/pages/Welcome.jsx - Dark Theme with Logo Reveal Animation
 import logoWhite from "../assets/ReflectionaryLight.png"; // Your white logo
-import squarelogo from "../assets/LightReflectionarySquare.png";
+import squarelogo from "../assets/LightReflectionarySquare.svg";
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
