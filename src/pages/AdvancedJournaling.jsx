@@ -1,5 +1,4 @@
 //src/pages/AdvancedJournaling.jsx
-//src/pages/AdvancedJournaling
 import React, { useState, useEffect } from "react";
 import { supabase } from "../config/supabaseClient";
 import { useAuth } from "../hooks/useAuth";

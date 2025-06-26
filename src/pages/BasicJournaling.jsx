@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
+import Quill from "quill";
+import "quill/dist/quill.snow.css";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../hooks/useAuth";
 import { useCrisisIntegration } from "../hooks/useCrisisIntegration";
