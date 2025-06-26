@@ -1,4 +1,4 @@
-// src/pages/AdvancedJournaling.jsx
+// src/pages/PremiumJournaling.jsx
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";

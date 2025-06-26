@@ -15,7 +15,8 @@ import {
   X,
   Loader2,
 } from "lucide-react";
-import CrisisDetection from "../components/CrisisDetection";
+import { useCrisisIntegration } from "../hooks/useCrisisIntegration";
+import CrisisResourceModal from "../components/CrisisResourceModal";
 
 const AdvancedJournaling = () => {
   const { user } = useAuth();
