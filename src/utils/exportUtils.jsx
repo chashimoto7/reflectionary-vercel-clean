@@ -1,4 +1,4 @@
-// src/utils/exportUtils.js
+// src/utils/exportUtils.jsx
 import {
   Document,
   Page,
