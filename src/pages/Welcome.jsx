@@ -106,7 +106,7 @@ const LogoReveal = ({ onComplete }) => {
           <img
             src={squarelogo}
             alt="Reflectionary"
-            className={`w-42 h-42 transition-all duration-2000 ${
+            className={`w-60 h-60 transition-all duration-2000 ${
               stage === "hidden"
                 ? "opacity-0 scale-75"
                 : "opacity-100 scale-100"
