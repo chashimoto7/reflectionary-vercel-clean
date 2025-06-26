@@ -1,6 +1,6 @@
 // src/pages/Welcome.jsx - Dark Theme with Logo Reveal Animation
 import logoWhite from "../assets/ReflectionaryLight.png"; // Your white logo
-import squarelogo from "../assets/ReflectionaryLight.png";
+import squarelogo from "../assets/LightReflectionarySquare.png";
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -104,9 +104,9 @@ const LogoReveal = ({ onComplete }) => {
         {/* Main logo with light sweep effect */}
         <div className="relative">
           <img
-            src={logoWhite}
+            src={squarelogo}
             alt="Reflectionary"
-            className={`w-72 h-32 transition-all duration-2000 ${
+            className={`w-42 h-42 transition-all duration-2000 ${
               stage === "hidden"
                 ? "opacity-0 scale-75"
                 : "opacity-100 scale-100"
