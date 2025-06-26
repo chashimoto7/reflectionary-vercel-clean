@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
-import { supabase } from "../lib/supabaseClient";
-import { useAuth } from "../hooks/useAuth";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 import { useCrisisIntegration } from "../hooks/useCrisisIntegration";
 import CrisisResourceModal from "../components/CrisisResourceModal";
 import { Save, AlertCircle, CheckCircle } from "lucide-react";

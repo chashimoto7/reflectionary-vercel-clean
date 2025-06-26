@@ -1,7 +1,7 @@
 //src/pages/AdvancedAnalytics
 import React, { useState, useEffect } from "react";
-import { supabase } from "../config/supabaseClient";
-import { useAuth } from "../hooks/useAuth";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 import {
   TrendingUp,
   Heart,

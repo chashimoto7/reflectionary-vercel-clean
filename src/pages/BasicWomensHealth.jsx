@@ -1,7 +1,7 @@
 //src/pages/BasicWomensHealth
 import React, { useState, useEffect } from "react";
-import { supabase } from "../lib/supabaseClient";
-import { useAuth } from "../hooks/useAuth";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 import { Calendar, Plus, TrendingUp, Heart, Activity } from "lucide-react";
 import {
   LineChart,
