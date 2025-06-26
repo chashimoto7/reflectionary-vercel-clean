@@ -104,9 +104,9 @@ const LogoReveal = ({ onComplete }) => {
         {/* Main logo with light sweep effect */}
         <div className="relative">
           <img
-            src={squarelogo}
+            src={logoWhite}
             alt="Reflectionary"
-            className={`w-32 h-32 transition-all duration-2000 ${
+            className={`w-72 h-32 transition-all duration-2000 ${
               stage === "hidden"
                 ? "opacity-0 scale-75"
                 : "opacity-100 scale-100"
