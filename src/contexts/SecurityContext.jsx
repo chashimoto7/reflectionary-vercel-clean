@@ -1,4 +1,4 @@
-// src/contexts/SecurityContext.jsx
+//src/contexts/SecurityContext.jsx
 import React, {
   createContext,
   useContext,
@@ -11,60 +11,91 @@ import { useAuth } from "./AuthContext";
 const SecurityContext = createContext({});
 
 export function SecurityProvider({ children }) {
-  const { user, loading: authLoading } = useAuth(); // Get loading state from AuthContext
+  const { user, loading: authLoading } = useAuth();
 
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [isLocked, setIsLocked] = useState(() => {
-    const stored = localStorage.getItem("isLocked");
-    console.log("🔒 Initial lock state from localStorage:", stored);
-    return stored !== "false";
+    // Check if there's a valid session
+    const hasSession = localStorage.getItem("hasActiveSession") === "true";
+    const storedLockState = localStorage.getItem("isLocked");
+
+    // If no session exists, app should be locked
+    if (!hasSession) {
+      return true;
+    }
+
+    // Otherwise, respect the stored lock state
+    return storedLockState === "true";
   });
 
-  const [securitySettings, setSecuritySettings] = useState({
-    autoLockEnabled: false,
-    autoLockTimeout: null,
-    showLockStatus: true,
+  const [securitySettings, setSecuritySettings] = useState(() => {
+    const stored = localStorage.getItem("securitySettings");
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {
+        // Fallback to defaults
+      }
+    }
+    return {
+      autoLockEnabled: false,
+      autoLockTimeout: null,
+      showLockStatus: true,
+    };
   });
 
   const autoLockTimer = useRef(null);
   const lastActivity = useRef(Date.now());
-  const hasInitialized = useRef(false); // Track if we've finished initial load
+  const hasInitialized = useRef(false);
 
-  // Lock when user logs out (but NOT during initial loading)
+  // Handle browser/tab close - mark session as ended
   useEffect(() => {
-    // Wait for AuthContext to finish loading before making decisions
-    if (authLoading) {
-      console.log("🔄 Auth still loading, waiting...");
-      return;
-    }
+    const handleBeforeUnload = () => {
+      localStorage.removeItem("hasActiveSession");
+    };
 
-    // Mark that we've finished initialization
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
+  // Initialize security state after auth loads
+  useEffect(() => {
+    if (authLoading) return;
+
     if (!hasInitialized.current) {
       hasInitialized.current = true;
-      console.log(
-        "✅ Auth initialization complete, user:",
-        user?.email || "none"
-      );
 
-      // If user exists but app is locked, this is likely a page refresh while logged in
-      if (user && isLocked) {
-        console.log(
-          "🔓 User found after initialization, keeping locked state from localStorage"
-        );
-        // Keep the locked state as-is (from localStorage)
-      } else if (!user && !isLocked) {
-        console.log("🔒 No user found after initialization, locking app");
+      if (user) {
+        // User is logged in
+        const hasSession = localStorage.getItem("hasActiveSession") === "true";
+
+        if (!hasSession) {
+          // This is a fresh login or return after browser close
+          console.log("🔒 No active session found, locking for security");
+          lock();
+        } else {
+          // Active session exists, respect stored lock state
+          const storedLockState = localStorage.getItem("isLocked") === "true";
+          setIsLocked(storedLockState);
+        }
+
+        // Mark session as active
+        localStorage.setItem("hasActiveSession", "true");
+      } else {
+        // No user, ensure app is locked
         lock();
       }
-      return;
     }
+  }, [user, authLoading]);
 
-    // Only lock on actual logout (after initialization is complete)
-    if (!user) {
+  // Lock when user logs out
+  useEffect(() => {
+    if (hasInitialized.current && !user) {
       console.log("🔒 User logged out, locking app");
       lock();
+      localStorage.removeItem("hasActiveSession");
     }
-  }, [user, authLoading, isLocked]);
+  }, [user]);
 
   // Auto-lock timer setup
   useEffect(() => {
@@ -75,7 +106,7 @@ export function SecurityProvider({ children }) {
       !isLocked &&
       hasInitialized.current
     ) {
-      console.log("🔒 Starting auto-lock timer");
+      console.log("⏱️ Starting auto-lock timer");
       startAutoLockTimer();
     } else {
       clearAutoLockTimer();
@@ -91,13 +122,7 @@ export function SecurityProvider({ children }) {
 
   // Activity tracking for auto-lock
   useEffect(() => {
-    if (
-      !securitySettings.autoLockEnabled ||
-      !user ||
-      isLocked ||
-      !hasInitialized.current
-    )
-      return;
+    if (!securitySettings.autoLockEnabled || !user || isLocked) return;
 
     const handleActivity = () => {
       lastActivity.current = Date.now();
@@ -127,7 +152,7 @@ export function SecurityProvider({ children }) {
         console.log("🔒 Auto-lock triggered due to inactivity");
         lock();
       }
-    }, 30000);
+    }, 30000); // Check every 30 seconds
   }
 
   function clearAutoLockTimer() {
@@ -141,6 +166,7 @@ export function SecurityProvider({ children }) {
     console.log("🔓 Unlocking app");
     setIsLocked(false);
     localStorage.setItem("isLocked", "false");
+    localStorage.setItem("hasActiveSession", "true");
     lastActivity.current = Date.now();
   }
 
@@ -153,15 +179,19 @@ export function SecurityProvider({ children }) {
 
   function setLocked(value) {
     console.log("🔄 setLocked called with:", value);
-    console.trace("🔄 setLocked call stack");
     setIsLocked(value);
     localStorage.setItem("isLocked", value ? "true" : "false");
-    if (!value) lastActivity.current = Date.now();
+    if (!value) {
+      lastActivity.current = Date.now();
+      localStorage.setItem("hasActiveSession", "true");
+    }
   }
 
   function updateSecuritySettings(newSettings) {
     console.log("⚙️ Updating security settings:", newSettings);
-    setSecuritySettings((prev) => ({ ...prev, ...newSettings }));
+    const updated = { ...securitySettings, ...newSettings };
+    setSecuritySettings(updated);
+    localStorage.setItem("securitySettings", JSON.stringify(updated));
   }
 
   const value = {
