@@ -3,11 +3,10 @@ import React from "react";
 import { useMembership } from "../hooks/useMembership";
 
 // Import all the journaling components
-import BasicJournaling from "../components/BasicJournaling";
-// These will be your existing components, renamed
-import StandardJournaling from "./StandardJournaling"; // Current "JournalingPage" renamed
-import AdvancedJournaling from "./AdvancedJournaling"; // New component to create
-import PremiumJournaling from "./PremiumJournaling"; // Current "AdvancedJournalingPage" renamed
+import BasicJournaling from "./BasicJournaling";
+import StandardJournaling from "./StandardJournaling";
+import AdvancedJournaling from "./AdvancedJournaling";
+import PremiumJournaling from "./PremiumJournaling";
 
 const JournalingRouter = () => {
   const { tier, loading } = useMembership();
