@@ -43,7 +43,7 @@ import WellnessCorrelationsTab from "../components/analytics/tabs/WellnessCorrel
 import AIInsightsFeedTab from "../components/analytics/tabs/AIInsightsFeedTab";
 import DataExportTab from "../components/analytics/tabs/DataExportTab";
 
-const AdvancedAnalytics = () => {
+const PremiumAnalytics = () => {
   const { user } = useAuth();
   const { hasAccess, tier, loading: membershipLoading } = useMembership();
   const [analyticsData, setAnalyticsData] = useState(null);
@@ -90,10 +90,10 @@ const AdvancedAnalytics = () => {
     }
 
     // Check access directly without using the function in dependencies
-    const userHasAccess = hasAccess("advanced_analytics");
+    const userHasAccess = hasAccess("premium_analytics");
 
     if (userHasAccess) {
-      loadAdvancedAnalytics();
+      loadPremiumAnalytics();
       loadInsights();
     } else {
       // User doesn't have access - stop loading
@@ -101,20 +101,20 @@ const AdvancedAnalytics = () => {
     }
   }, [user, dateRange, tier, membershipLoading]);
 
-  const loadAdvancedAnalytics = async () => {
+  const loadPremiumAnalytics = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      console.log("🔍 Loading advanced analytics data...");
+      console.log("🔍 Loading premium analytics data...");
       const data = await analyticsService.getAnalyticsForDashboard(
         user.id,
         dateRange
       );
       setAnalyticsData(data);
-      console.log("✅ Advanced analytics loaded:", data);
+      console.log("✅ Premium analytics loaded:", data);
     } catch (error) {
-      console.error("❌ Error loading advanced analytics:", error);
+      console.error("❌ Error loading premium analytics:", error);
       setError("Failed to load analytics data. Please try again.");
     } finally {
       setLoading(false);
@@ -162,11 +162,11 @@ const AdvancedAnalytics = () => {
       <div className="max-w-7xl mx-auto p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
           <h3 className="text-lg font-semibold text-red-800 mb-2">
-            Unable to Load Advanced Analytics
+            Unable to Load Premium Analytics
           </h3>
           <p className="text-red-600 mb-4">{error}</p>
           <button
-            onClick={loadAdvancedAnalytics}
+            onClick={loadPremiumAnalytics}
             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
             Try Again
@@ -187,7 +187,7 @@ const AdvancedAnalytics = () => {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                Advanced Analytics
+                Premium Analytics
               </h1>
               <p className="text-gray-600">
                 Deep insights powered by AI pattern recognition
@@ -265,7 +265,7 @@ const AdvancedAnalytics = () => {
         <EmptyAdvancedState />
       ) : (
         <>
-          {/* Advanced Tab Navigation - Two Row Layout */}
+          {/* Premium Tab Navigation - Two Row Layout */}
           <div className="mb-8">
             <div className="bg-gray-50 p-3 rounded-lg">
               {/* First Row */}
@@ -372,7 +372,7 @@ const EmptyAdvancedState = () => (
   <div className="text-center py-12">
     <Sparkles className="h-16 w-16 text-gray-400 mx-auto mb-4" />
     <h3 className="text-lg font-semibold text-gray-600 mb-2">
-      Start Your Advanced Analytics Journey
+      Start Your Premium Analytics Journey
     </h3>
     <p className="text-gray-500 max-w-md mx-auto mb-6">
       Create journal entries with our AI analysis to unlock deep insights about
@@ -384,7 +384,7 @@ const EmptyAdvancedState = () => (
       </h4>
       <ul className="text-purple-700 text-sm space-y-1 text-left">
         <li>
-          • Advanced sentiment analysis and emotional intelligence tracking
+          • Premium sentiment analysis and emotional intelligence tracking
         </li>
         <li>• Cognitive pattern recognition and thinking style analysis</li>
         <li>• Growth trajectory and resilience measurements</li>
@@ -396,4 +396,4 @@ const EmptyAdvancedState = () => (
   </div>
 );
 
-export default AdvancedAnalytics;
+export default PremiumAnalytics;
