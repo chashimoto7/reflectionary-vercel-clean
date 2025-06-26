@@ -1,366 +1,487 @@
-// src/pages/Welcome.jsx - Updated for new tier structure
+// src/pages/Welcome.jsx - Dark Theme with Logo Reveal Animation
+import logoWhite from "../assets/ReflectionaryLogoWhite.png"; // Your white logo
+import squarelogo from "../assets/FinalReflectionarySquare.png";
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useMembership } from "../hooks/useMembership";
-import { supabase } from "../lib/supabase";
-import { useAuth } from "../contexts/AuthContext";
 import {
-  BookOpen,
+  Sparkles,
+  TrendingUp,
+  Shield,
+  Brain,
+  Heart,
+  Clock,
+  ChevronRight,
+  Quote,
+  Bell,
+  Calendar,
   BarChart3,
   Target,
-  Heart,
-  MessageCircle,
+  Lightbulb,
+  Award,
+  ArrowRight,
   Activity,
-  PlusCircle,
-  Calendar,
-  TrendingUp,
-  Lock,
-  Crown,
 } from "lucide-react";
 
-export default function Welcome() {
-  const { user } = useAuth();
-  const { tier, canAccessTier, getTierDisplayName, loading } = useMembership();
-  const [stats, setStats] = useState({
-    totalEntries: 0,
-    currentStreak: 0,
-    totalWords: 0,
-  });
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [upgradeMessage, setUpgradeMessage] = useState("");
+const QUOTES = [
+  {
+    text: "The unexamined life is not worth living.",
+    author: "Socrates",
+    theme: "reflection",
+  },
+  {
+    text: "You don't have to control your thoughts. You just have to stop letting them control you.",
+    author: "Dan Millman",
+    theme: "mindfulness",
+  },
+  {
+    text: "Journaling is like whispering to one's self and listening at the same time.",
+    author: "Mina Murray",
+    theme: "journaling",
+  },
+  {
+    text: "Sometimes the most productive thing you can do is relax.",
+    author: "Mark Black",
+    theme: "wellness",
+  },
+  {
+    text: "Feelings are much like waves. We can't stop them from coming but we can choose which ones to surf.",
+    author: "Jonatan Mårtensson",
+    theme: "emotions",
+  },
+  {
+    text: "Your present circumstances don't determine where you can go; they merely determine where you start.",
+    author: "Nido Qubein",
+    theme: "growth",
+  },
+  {
+    text: "The act of writing is the act of discovering what you believe.",
+    author: "David Hare",
+    theme: "discovery",
+  },
+  {
+    text: "To be yourself in a world that is constantly trying to make you something else is the greatest accomplishment.",
+    author: "Ralph Waldo Emerson",
+    theme: "authenticity",
+  },
+];
+
+function getRandomQuote(excludeIndex) {
+  let idx;
+  do {
+    idx = Math.floor(Math.random() * QUOTES.length);
+  } while (idx === excludeIndex);
+  return { ...QUOTES[idx], idx };
+}
+
+// Logo Reveal Animation Component
+const LogoReveal = ({ onComplete }) => {
+  const [stage, setStage] = useState("hidden"); // hidden -> revealing -> revealed
 
   useEffect(() => {
-    if (user) {
-      fetchUserStats();
-    }
-  }, [user]);
+    // Start the animation sequence
+    const timer1 = setTimeout(() => setStage("revealing"), 200);
+    const timer2 = setTimeout(() => setStage("revealed"), 2000);
+    const timer3 = setTimeout(() => onComplete?.(), 2500);
 
-  const fetchUserStats = async () => {
-    try {
-      // Get basic journal stats
-      const { data: entries } = await supabase
-        .from("journal_entries")
-        .select("created_at, word_count")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, [onComplete]);
 
-      if (entries) {
-        const totalEntries = entries.length;
-        const totalWords = entries.reduce(
-          (sum, entry) => sum + (entry.word_count || 0),
-          0
-        );
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Dark overlay that fades out */}
+      <div
+        className={`absolute inset-0 bg-black transition-opacity duration-1000 ${
+          stage === "revealed" ? "opacity-0 pointer-events-none" : "opacity-90"
+        }`}
+      />
 
-        // Calculate streak (simplified)
-        let currentStreak = 0;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+      {/* Logo container */}
+      <div className="relative z-10 flex flex-col items-center">
+        {/* Main logo with light sweep effect */}
+        <div className="relative">
+          <img
+            src={squarelogo}
+            alt="Reflectionary"
+            className={`w-32 h-32 transition-all duration-2000 ${
+              stage === "hidden"
+                ? "opacity-0 scale-75"
+                : "opacity-100 scale-100"
+            }`}
+          />
 
-        for (let i = 0; i < entries.length; i++) {
-          const entryDate = new Date(entries[i].created_at);
-          entryDate.setHours(0, 0, 0, 0);
+          {/* Light sweep effect */}
+          {stage === "revealing" && (
+            <div className="absolute inset-0 overflow-hidden rounded-full">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent transform -skew-x-12 animate-sweep" />
+            </div>
+          )}
 
-          const daysDiff = Math.floor(
-            (today - entryDate) / (1000 * 60 * 60 * 24)
-          );
+          {/* Glow effect */}
+          <div
+            className={`absolute inset-0 bg-gradient-to-r from-cyan-400/20 via-purple-400/30 to-pink-400/20 rounded-full blur-2xl transition-opacity duration-2000 ${
+              stage === "revealing" ? "opacity-100" : "opacity-0"
+            }`}
+          />
+        </div>
 
-          if (daysDiff === currentStreak) {
-            currentStreak++;
-          } else {
-            break;
-          }
-        }
+        {/* Text reveal */}
+        <div
+          className={`mt-6 text-center transition-all duration-1000 delay-1000 ${
+            stage === "revealed"
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-4"
+          }`}
+        >
+          <h1 className="text-4xl font-bold text-white mb-2">Reflectionary</h1>
+          <p className="text-gray-300">Where your voice finds meaning</p>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-        setStats({ totalEntries, currentStreak, totalWords });
-      }
-    } catch (error) {
-      console.error("Error fetching user stats:", error);
-    } finally {
-      setIsLoadingStats(false);
-    }
+export default function Welcome() {
+  const [quote, setQuote] = useState(() => getRandomQuote(-1));
+  const [userName, setUserName] = useState("Christine");
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [showLogo, setShowLogo] = useState(true);
+  const [contentVisible, setContentVisible] = useState(false);
+
+  // Update time every minute
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Auto-rotate quote every 20 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setQuote((q) => getRandomQuote(q.idx));
+    }, 20000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleLogoComplete = () => {
+    setShowLogo(false);
+    setContentVisible(true);
   };
 
-  // Quick actions based on membership tier
-  const getQuickActions = () => {
-    const baseActions = [
-      {
-        title: "Write New Entry",
-        description: "Start journaling today",
-        href: "/journaling",
-        icon: PlusCircle,
-        color: "from-purple-500 to-purple-600",
-        available: true,
-      },
-      {
-        title: "View History",
-        description: "Browse past entries",
-        href: "/history",
-        icon: Calendar,
-        color: "from-blue-500 to-blue-600",
-        available: true,
-      },
-    ];
-
-    const conditionalActions = [
-      {
-        title: "Analytics",
-        description: "Track your progress",
-        href: "/analytics",
-        icon: BarChart3,
-        color: "from-green-500 to-green-600",
-        available: canAccessTier("basic"),
-        requiredTier: "Basic",
-      },
-      {
-        title: "Women's Health",
-        description: "Track cycle & symptoms",
-        href: "/womens-health",
-        icon: Heart,
-        color: "from-pink-500 to-pink-600",
-        available: canAccessTier("basic"),
-        requiredTier: "Basic",
-      },
-      {
-        title: "Goals",
-        description: "Set and track goals",
-        href: "/goals",
-        icon: Target,
-        color: "from-orange-500 to-orange-600",
-        available: canAccessTier("standard"),
-        requiredTier: "Standard",
-      },
-      {
-        title: "Wellness",
-        description: "Holistic health tracking",
-        href: "/wellness",
-        icon: Activity,
-        color: "from-emerald-500 to-emerald-600",
-        available: canAccessTier("standard"),
-        requiredTier: "Standard",
-      },
-      {
-        title: "Reflectionarian",
-        description: "AI-powered insights",
-        href: "/reflectionarian",
-        icon: MessageCircle,
-        color: "from-indigo-500 to-indigo-600",
-        available: canAccessTier("standard"),
-        requiredTier: "Standard",
-      },
-    ];
-
-    return [...baseActions, ...conditionalActions];
+  const getTimeOfDay = () => {
+    const hour = currentTime.getHours();
+    if (hour < 12) return "morning";
+    if (hour < 17) return "afternoon";
+    return "evening";
   };
 
-  const handleLockedFeatureClick = (action) => {
-    setUpgradeMessage(
-      `Upgrade to ${action.requiredTier} membership to access ${action.title} and unlock more features!`
-    );
-    setShowUpgradeModal(true);
+  const getGreeting = () => {
+    const timeOfDay = getTimeOfDay();
+    return `Good ${timeOfDay}, ${userName}`;
   };
 
-  const quickActions = getQuickActions();
-
-  const statsDisplay = [
+  // Quick Actions
+  const quickActions = [
     {
-      label: "Total Entries",
-      value: isLoadingStats ? "..." : stats.totalEntries,
-      icon: BookOpen,
+      icon: Brain,
+      title: "New Entry",
+      description: "Start your reflection",
+      href: "/journaling",
+      color: "from-purple-500 to-purple-600",
     },
     {
-      label: "Day Streak",
-      value: isLoadingStats ? "..." : stats.currentStreak,
-      icon: Calendar,
+      icon: BarChart3,
+      title: "Analytics",
+      description: "View your insights",
+      href: "/analytics",
+      color: "from-cyan-500 to-cyan-600",
     },
     {
-      label: "Words Written",
-      value: isLoadingStats ? "..." : stats.totalWords.toLocaleString(),
-      icon: TrendingUp,
+      icon: Target,
+      title: "Goals",
+      description: "Track progress",
+      href: "/goals",
+      color: "from-emerald-500 to-emerald-600",
+    },
+    {
+      icon: Activity,
+      title: "Wellness",
+      description: "Track your wellbeing",
+      href: "/wellness",
+      color: "from-rose-500 to-rose-600",
+    },
+    {
+      icon: Heart,
+      title: "Women's Health",
+      description: "Track your cycle & health",
+      href: "/womens-health",
+      color: "from-pink-500 to-pink-600",
     },
   ];
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  const stats = [
+    { label: "Current Streak", value: "7 days", icon: Award },
+    { label: "Total Entries", value: "142", icon: Heart },
+    { label: "Insights Generated", value: "28", icon: Lightbulb },
+  ];
+
+  const announcements = [
+    {
+      type: "feature",
+      title: "Deep Dives Coming Soon",
+      description:
+        "Explore focused self-discovery modules tailored to your journey",
+      icon: Sparkles,
+      date: "Coming Fall 2025",
+    },
+    {
+      type: "update",
+      title: "Enhanced Analytics Now Live",
+      description:
+        "Discover new insights with our advanced intelligence dashboard",
+      icon: TrendingUp,
+      date: "Released this week",
+    },
+    {
+      type: "tip",
+      title: "Privacy First, Always",
+      description:
+        "Your reflections are end-to-end encrypted and visible only to you",
+      icon: Shield,
+      date: "Core promise",
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 overflow-auto">
-      <div className="max-w-6xl mx-auto p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Welcome back! 👋
-              </h1>
-              <p className="text-gray-600 mt-1">
-                Ready to continue your journaling journey?
-              </p>
-            </div>
-            <div className="flex items-center space-x-2 bg-white rounded-lg px-4 py-2 shadow-sm">
-              {tier === "premium" && (
-                <Crown className="w-5 h-5 text-yellow-500" />
-              )}
-              {tier === "advanced" && (
-                <Crown className="w-5 h-5 text-purple-500" />
-              )}
-              {tier === "standard" && (
-                <Crown className="w-5 h-5 text-blue-500" />
-              )}
-              {tier === "basic" && <Crown className="w-5 h-5 text-green-500" />}
-              <span className="font-medium text-gray-900">
-                {getTierDisplayName()} Member
-              </span>
+    <div className="min-h-screen relative">
+      {/* Animated Background */}
+      <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/30 to-pink-600/20 animate-pulse"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-purple-600/20 via-transparent to-transparent"></div>
+      </div>
+
+      {/* Logo Reveal Animation */}
+      {showLogo && <LogoReveal onComplete={handleLogoComplete} />}
+
+      {/* Main Content */}
+      <div
+        className={`relative z-10 transition-all duration-1000 ${
+          contentVisible ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        {/* Header Section */}
+        <div className="backdrop-blur-xl bg-white/10 border-b border-white/20 shadow-lg">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="flex items-center gap-4">
+              <img
+                src={squarelogo}
+                alt="Reflectionary logo"
+                className="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 drop-shadow-2xl"
+              />
+              <div className="flex-1">
+                <h1 className="text-3xl md:text-4xl font-bold text-white mb-1">
+                  Reflectionary
+                </h1>
+                <h2 className="text-xl md:text-2xl font-medium text-gray-300">
+                  {getGreeting()}
+                </h2>
+                <p className="text-lg text-gray-400 mt-1">
+                  Your personal space for reflection and growth
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          {statsDisplay.map((stat, index) => {
-            const Icon = stat.icon;
-            return (
-              <div
-                key={index}
-                className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">{stat.label}</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">
-                      {stat.value}
-                    </p>
-                  </div>
-                  <div className="bg-purple-100 p-3 rounded-lg">
-                    <Icon className="w-6 h-6 text-purple-600" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            {stats.map((stat, index) => {
+              const Icon = stat.icon;
+              return (
+                <div
+                  key={index}
+                  className="backdrop-blur-xl bg-white/10 rounded-xl p-6 border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-300"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-300">{stat.label}</p>
+                      <p className="text-2xl font-bold text-white mt-1">
+                        {stat.value}
+                      </p>
+                    </div>
+                    <div className="bg-gradient-to-br from-purple-500/30 to-pink-500/30 p-3 rounded-lg backdrop-blur-sm border border-purple-400/30">
+                      <Icon className="w-6 h-6 text-purple-200" />
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
 
-        {/* Quick Actions */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Quick Actions
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {quickActions.map((action, index) => {
-              const Icon = action.icon;
-
-              if (action.available) {
+          {/* Quick Actions */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-white mb-4">
+              Quick Actions
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {quickActions.map((action, index) => {
+                const Icon = action.icon;
                 return (
                   <Link
                     key={index}
                     to={action.href}
-                    className="group bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-all hover:border-purple-200"
+                    className="group backdrop-blur-xl bg-white/10 rounded-xl p-4 border border-white/20 shadow-lg hover:bg-white/15 hover:border-purple-400/50 transition-all duration-300"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="text-center">
                       <div
-                        className={`bg-gradient-to-br ${action.color} p-3 rounded-lg group-hover:scale-110 transition-transform flex-shrink-0`}
+                        className={`bg-gradient-to-br ${action.color} p-3 rounded-lg group-hover:scale-110 transition-transform mx-auto mb-3 w-fit shadow-lg`}
                       >
-                        <Icon className="w-5 h-5 text-white" />
+                        <Icon className="w-6 h-6 text-white" />
                       </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 group-hover:text-purple-600 transition-colors">
-                          {action.title}
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          {action.description}
-                        </p>
-                      </div>
+                      <h3 className="font-semibold text-white group-hover:text-purple-200 transition-colors mb-1">
+                        {action.title}
+                      </h3>
+                      <p className="text-xs text-gray-300">
+                        {action.description}
+                      </p>
                     </div>
                   </Link>
                 );
-              } else {
-                return (
-                  <button
-                    key={index}
-                    onClick={() => handleLockedFeatureClick(action)}
-                    className="group bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-all hover:border-orange-200 opacity-75"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="bg-gray-100 p-3 rounded-lg flex-shrink-0 relative">
-                        <Icon className="w-5 h-5 text-gray-400" />
-                        <Lock className="w-3 h-3 text-orange-500 absolute -top-1 -right-1" />
+              })}
+            </div>
+          </div>
+
+          {/* Updates & Announcements */}
+          <div className="mb-8">
+            <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 shadow-lg p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-white">
+                  Updates & Announcements
+                </h2>
+                <Bell className="w-5 h-5 text-gray-300" />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {announcements.map((announcement, index) => {
+                  const Icon = announcement.icon;
+                  const typeColors = {
+                    feature:
+                      "bg-purple-500/20 text-purple-200 border-purple-400/30",
+                    update: "bg-cyan-500/20 text-cyan-200 border-cyan-400/30",
+                    tip: "bg-emerald-500/20 text-emerald-200 border-emerald-400/30",
+                  };
+
+                  return (
+                    <div key={index} className="flex gap-4">
+                      <div
+                        className={`p-2 rounded-lg backdrop-blur-sm border ${
+                          typeColors[announcement.type]
+                        } flex-shrink-0`}
+                      >
+                        <Icon className="w-5 h-5" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-700 group-hover:text-orange-600 transition-colors">
-                          {action.title}
+                        <h3 className="font-medium text-white">
+                          {announcement.title}
                         </h3>
-                        <p className="text-sm text-gray-500">
-                          {action.description} • Requires {action.requiredTier}
+                        <p className="text-sm text-gray-300 mt-1">
+                          {announcement.description}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-2">
+                          {announcement.date}
                         </p>
                       </div>
                     </div>
-                  </button>
-                );
-              }
-            })}
-          </div>
-        </div>
+                  );
+                })}
+              </div>
 
-        {/* Upgrade CTA for Free users */}
-        {tier === "free" && (
-          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold mb-2">
-                  Unlock More Features
-                </h3>
-                <p className="text-purple-100">
-                  Upgrade to Basic for analytics, women's health tracking, and
-                  more!
+              <div className="mt-6 pt-6 border-t border-white/20 text-center">
+                <Link
+                  to="/security"
+                  className="text-sm text-purple-300 hover:text-purple-200 font-medium inline-flex items-center gap-2 group"
+                >
+                  View all updates
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Quote and Privacy Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Daily Inspiration */}
+            <div className="lg:col-span-2">
+              <div className="bg-gradient-to-br from-purple-600/80 to-pink-600/80 backdrop-blur-xl rounded-2xl p-8 text-white shadow-2xl border border-purple-400/30">
+                <div className="flex items-start gap-4">
+                  <Quote className="w-8 h-8 opacity-70 flex-shrink-0 mt-1" />
+                  <div className="flex-1">
+                    <blockquote className="text-xl font-medium mb-4 leading-relaxed">
+                      "{quote.text}"
+                    </blockquote>
+                    <cite className="text-purple-100 text-sm flex items-center gap-2">
+                      <span className="w-8 h-px bg-purple-300"></span>
+                      {quote.author}
+                    </cite>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Privacy Section */}
+            <div>
+              <div className="backdrop-blur-xl bg-purple-500/20 rounded-xl p-6 border border-purple-400/30 h-fit">
+                <h4 className="text-lg font-semibold text-purple-200 mb-3">
+                  🔒 Your Privacy Matters
+                </h4>
+                <p className="text-sm text-purple-100 leading-relaxed">
+                  Your journal is personal — and we treat it that way. All your
+                  reflections are end-to-end encrypted so no one else can read
+                  your words. Not our team. Not our servers. Just you.
+                  Reflectionary is your private space to be real, raw, and fully
+                  yourself.
                 </p>
               </div>
-              <button
-                onClick={() => (window.location.href = "/pricing")}
-                className="bg-white text-purple-600 px-6 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors"
-              >
-                Upgrade Now
-              </button>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Upgrade Modal */}
-      {showUpgradeModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Upgrade Required
-            </h3>
-            <p className="text-gray-600 mb-6">{upgradeMessage}</p>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowUpgradeModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+          {/* Recent Activity Footer */}
+          <div className="mt-12 backdrop-blur-xl bg-white/10 rounded-xl border border-white/20 shadow-lg p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-gray-300" />
+                <span className="text-sm text-gray-300">
+                  Last entry: 2 hours ago
+                </span>
+              </div>
+              <Link
+                to="/journaling"
+                className="text-sm font-medium text-purple-300 hover:text-purple-200 transition-colors"
               >
-                Maybe Later
-              </button>
-              <button
-                onClick={() => {
-                  setShowUpgradeModal(false);
-                  window.location.href = "/pricing";
-                }}
-                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
-              >
-                Upgrade Now
-              </button>
+                Continue your journey →
+              </Link>
             </div>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* CSS for sweep animation */}
+      <style jsx>{`
+        @keyframes sweep {
+          0% {
+            transform: translateX(-100%) skewX(-12deg);
+          }
+          100% {
+            transform: translateX(300%) skewX(-12deg);
+          }
+        }
+        .animate-sweep {
+          animation: sweep 2s ease-in-out;
+        }
+      `}</style>
     </div>
   );
 }
