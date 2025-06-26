@@ -32,7 +32,6 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { format, subDays, subMonths, isAfter } from "date-fns";
 
 const AdvancedGoals = () => {
   const { user } = useAuth();
@@ -49,6 +48,14 @@ const AdvancedGoals = () => {
     accent: "#10B981",
     warning: "#F59E0B",
     danger: "#EF4444",
+  };
+
+  const formatTime = (date) => {
+    return new Date(date).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
   };
 
   useEffect(() => {

@@ -22,14 +22,6 @@ import {
   X,
 } from "lucide-react";
 import {
-  format,
-  addDays,
-  subDays,
-  differenceInDays,
-  startOfMonth,
-  endOfMonth,
-} from "date-fns";
-import {
   LineChart,
   Line,
   BarChart,
@@ -58,6 +50,62 @@ const AdvancedWomensHealth = () => {
     accent: "#06B6D4",
     warning: "#F59E0B",
     success: "#10B981",
+  };
+
+  // Date utility functions
+  const formatDate = (date, formatStr) => {
+    const d = new Date(date);
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    switch (formatStr) {
+      case "MMM d":
+        return `${months[d.getMonth()]} ${d.getDate()}`;
+      default:
+        return d.toISOString();
+    }
+  };
+
+  const subDays = (date, days) => {
+    const d = new Date(date);
+    d.setDate(d.getDate() - days);
+    return d;
+  };
+
+  const addDays = (date, days) => {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d;
+  };
+
+  const differenceInDays = (date1, date2) => {
+    const d1 = new Date(date1);
+    const d2 = new Date(date2);
+    const diffTime = Math.abs(d2 - d1);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const startOfMonth = (date) => {
+    const d = new Date(date);
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  };
+
+  const endOfMonth = (date) => {
+    const d = new Date(date);
+    return new Date(d.getFullYear(), d.getMonth() + 1, 0);
   };
 
   // Life stage information
@@ -293,7 +341,7 @@ const AdvancedWomensHealth = () => {
 
     // Create trend data
     processed.trends = logs.map((log) => ({
-      date: format(new Date(log.date), "MMM d"),
+      date: formatDate(new Date(log.date), "MMM d"),
       mood: log.mood || 0,
       energy: log.energy || 0,
       symptoms: log.symptoms?.length || 0,

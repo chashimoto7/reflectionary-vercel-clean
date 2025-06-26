@@ -11,15 +11,6 @@ import {
   FileText,
 } from "lucide-react";
 import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
-  parseISO,
-  subMonths,
-  startOfYear,
-} from "date-fns";
-import {
   LineChart,
   Line,
   XAxis,
@@ -41,6 +32,94 @@ const AdvancedHistory = () => {
   const [exportRange, setExportRange] = useState("month");
   const [exportFormat, setExportFormat] = useState("pdf");
   const [isExporting, setIsExporting] = useState(false);
+
+  // Date utility functions
+  const formatDate = (date, formatStr) => {
+    const d = new Date(date);
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const fullMonths = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+
+    switch (formatStr) {
+      case "MMM d":
+        return `${months[d.getMonth()]} ${d.getDate()}`;
+      case "MMMM yyyy":
+        return `${fullMonths[d.getMonth()]} ${d.getFullYear()}`;
+      case "MMMM d, yyyy":
+        return `${fullMonths[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+      case "yyyy-MM-dd":
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+          2,
+          "0"
+        )}-${String(d.getDate()).padStart(2, "0")}`;
+      case "d":
+        return String(d.getDate());
+      default:
+        return d.toISOString();
+    }
+  };
+
+  const startOfMonth = (date) => {
+    const d = new Date(date);
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  };
+
+  const endOfMonth = (date) => {
+    const d = new Date(date);
+    return new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  };
+
+  const startOfYear = (date) => {
+    const d = new Date(date);
+    return new Date(d.getFullYear(), 0, 1);
+  };
+
+  const subMonths = (date, months) => {
+    const d = new Date(date);
+    d.setMonth(d.getMonth() - months);
+    return d;
+  };
+
+  const eachDayOfInterval = (start, end) => {
+    const days = [];
+    const current = new Date(start);
+
+    while (current <= end) {
+      days.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+
+    return days;
+  };
+
+  const parseISO = (dateString) => {
+    return new Date(dateString);
+  };
 
   useEffect(() => {
     if (user) {
@@ -93,17 +172,17 @@ const AdvancedHistory = () => {
     const last30Days = Array.from({ length: 30 }, (_, i) => {
       const date = new Date();
       date.setDate(date.getDate() - (29 - i));
-      return format(date, "yyyy-MM-dd");
+      return formatDate(date, "yyyy-MM-dd");
     });
 
     const entryCounts = {};
     entries.forEach((entry) => {
-      const date = format(parseISO(entry.created_at), "yyyy-MM-dd");
+      const date = formatDate(parseISO(entry.created_at), "yyyy-MM-dd");
       entryCounts[date] = (entryCounts[date] || 0) + 1;
     });
 
     return last30Days.map((date) => ({
-      date: format(parseISO(date), "MMM d"),
+      date: formatDate(parseISO(date), "MMM d"),
       entries: entryCounts[date] || 0,
     }));
   };
@@ -188,13 +267,15 @@ const AdvancedHistory = () => {
   const getDaysInMonth = () => {
     const start = startOfMonth(currentDate);
     const end = endOfMonth(currentDate);
-    return eachDayOfInterval({ start, end });
+    return eachDayOfInterval(start, end);
   };
 
   const getEntriesForDay = (day) => {
     return entries.filter((entry) => {
       const entryDate = parseISO(entry.created_at);
-      return format(entryDate, "yyyy-MM-dd") === format(day, "yyyy-MM-dd");
+      return (
+        formatDate(entryDate, "yyyy-MM-dd") === formatDate(day, "yyyy-MM-dd")
+      );
     });
   };
 
@@ -363,7 +444,7 @@ const AdvancedHistory = () => {
                 ←
               </button>
               <span className="font-medium">
-                {format(currentDate, "MMMM yyyy")}
+                {formatDate(currentDate, "MMMM yyyy")}
               </span>
               <button
                 onClick={() =>
@@ -404,7 +485,9 @@ const AdvancedHistory = () => {
                     }
                   `}
                 >
-                  <div className="text-sm font-medium">{format(day, "d")}</div>
+                  <div className="text-sm font-medium">
+                    {formatDate(day, "d")}
+                  </div>
                   {hasEntries && (
                     <div className="text-xs text-purple-600 mt-1">
                       {dayEntries.length}{" "}
@@ -421,7 +504,7 @@ const AdvancedHistory = () => {
         {selectedEntry && (
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {format(parseISO(selectedEntry.created_at), "MMMM d, yyyy")}
+              {formatDate(parseISO(selectedEntry.created_at), "MMMM d, yyyy")}
             </h3>
             {selectedEntry.prompt_text && (
               <p className="text-sm text-gray-600 mb-3">

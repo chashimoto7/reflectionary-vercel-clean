@@ -39,7 +39,6 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { format, subDays, startOfWeek, endOfWeek } from "date-fns";
 
 const AdvancedWellness = () => {
   const { user } = useAuth();
@@ -65,6 +64,14 @@ const AdvancedWellness = () => {
     warning: "#F59E0B",
     danger: "#EF4444",
     pink: "#EC4899",
+  };
+
+  const formatTime = (date) => {
+    return new Date(date).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
   };
 
   useEffect(() => {
