@@ -1,819 +1,299 @@
-// src/pages/AdvancedJournaling.jsx
-import React, { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
-import { PromptRecommendations } from "../components/ReflectionarianRecommendations";
-import { useSecurity } from "../contexts/SecurityContext";
-import { useMembership } from "../hooks/useMembership";
-import { supabase } from "../lib/supabase";
-import encryptionService from "../services/encryptionService";
-import Quill from "quill";
-import "quill/dist/quill.snow.css";
-import { useCrisisIntegration } from "../hooks/useCrisisIntegration";
-import CrisisResourceModal from "../components/CrisisResourceModal";
+//src/pages/AdvancedJournaling
+import React, { useState, useEffect } from "react";
+import { supabase } from "../config/supabaseClient";
+import { useAuth } from "../hooks/useAuth";
 import {
-  Info,
-  Mic,
-  MicOff,
-  Volume2,
-  VolumeX,
-  FileText,
   Sparkles,
-  BookOpen,
-  Tag,
-  Calendar,
-  Image,
-  Link,
+  Edit3,
   Hash,
-  Heart,
-  Zap,
-  Target,
-  Crown,
-  ChevronDown,
+  FileText,
+  RefreshCw,
   ChevronRight,
-  Settings,
-  Palette,
-  MessageCircle,
-  Lightbulb,
+  Save,
   Clock,
-  Star,
-  Check,
-  Users,
-  Folder,
-  FolderPlus,
-  Pin,
-  PinOff,
-  StarOff,
+  AlertCircle,
   X,
-  Plus,
-  Shuffle,
-  Search,
+  Loader2,
 } from "lucide-react";
+import { format } from "date-fns";
+import CrisisDetection from "../components/CrisisDetection";
 
-// Journal templates for different use cases
-const JOURNAL_TEMPLATES = {
-  daily: {
-    name: "Daily Reflection",
-    icon: Calendar,
-    prompts: [
-      "What am I grateful for today?",
-      "What challenged me and how did I respond?",
-      "What did I learn about myself?",
-      "What intentions do I set for tomorrow?",
-    ],
-  },
-  gratitude: {
-    name: "Gratitude Practice",
-    icon: Heart,
-    prompts: [
-      "Three things I'm grateful for...",
-      "Someone who made a positive impact today...",
-      "A small moment that brought joy...",
-      "Something about myself I appreciate...",
-    ],
-  },
-  goals: {
-    name: "Goal Tracking",
-    icon: Target,
-    prompts: [
-      "Progress I made toward my goals today...",
-      "Obstacles I encountered and how I'll overcome them...",
-      "Next steps for tomorrow...",
-      "How I'm feeling about my progress...",
-    ],
-  },
-  creative: {
-    name: "Creative Expression",
-    icon: Palette,
-    prompts: [
-      "A story or scene that came to mind...",
-      "Colors, sounds, or sensations I noticed...",
-      "An idea I want to explore...",
-      "Something that inspired me today...",
-    ],
-  },
-};
-
-export default function AdvancedJournaling() {
-  const navigate = useNavigate();
+const AdvancedJournaling = () => {
   const { user } = useAuth();
-  const { isLocked } = useSecurity();
-  const { hasAccess, tier } = useMembership();
-  const editorRef = useRef(null);
-  const quillRef = useRef(null);
-  const audioRef = useRef(null);
-  const quillInitialized = useRef(false);
-
-  // Crisis integration
-  const {
-    showModal: showCrisisModal,
-    analysisResult: crisisAnalysisResult,
-    showCrisisModal: triggerCrisisModal,
-    closeCrisisModal,
-    showCrisisResources,
-  } = useCrisisIntegration();
-
-  // Core state
-  const [lastSavedEntry, setLastSavedEntry] = useState(null);
-  const [prompt, setPrompt] = useState("");
-  const [promptType, setPromptType] = useState("initial");
-  const [showPromptButton, setShowPromptButton] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
-  const [saveLabel, setSaveLabel] = useState("Save Entry");
-  const [editorContent, setEditorContent] = useState("");
-  const [entryChain, setEntryChain] = useState([]);
-  const [isEditorReady, setIsEditorReady] = useState(false);
-  const [saveConfirmation, setSaveConfirmation] = useState(false);
-  const [showFollowUpButtons, setShowFollowUpButtons] = useState(false);
-  const [subject, setSubject] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [currentThreadId, setCurrentThreadId] = useState(null);
-  const [followUpPrompt, setFollowUpPrompt] = useState("");
-
-  // Advanced features state
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [audioPlayback, setAudioPlayback] = useState(true);
-  const [showReflectionarian, setShowReflectionarian] = useState(false);
+  const [entry, setEntry] = useState("");
+  const [currentPrompt, setCurrentPrompt] = useState(null);
+  const [promptType, setPromptType] = useState("random");
+  const [selectedSubject, setSelectedSubject] = useState("");
+  const [followUpPrompt, setFollowUpPrompt] = useState(null);
   const [tags, setTags] = useState([]);
   const [currentTag, setCurrentTag] = useState("");
-  const [showTemplates, setShowTemplates] = useState(false);
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
-  const [mediaAttachments, setMediaAttachments] = useState([]);
-  const [smartPromptsEnabled, setSmartPromptsEnabled] = useState(true);
-  const [reflectionarianInsight, setReflectionarianInsight] = useState("");
-  const [isStarred, setIsStarred] = useState(false);
-  const [isPinned, setIsPinned] = useState(false);
-  const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
-  const [isLoadingRandom, setIsLoadingRandom] = useState(false);
-  const [isLoadingSubject, setIsLoadingSubject] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [loadingPrompt, setLoadingPrompt] = useState(false);
+  const [loadingFollowUp, setLoadingFollowUp] = useState(false);
+  const [wordCount, setWordCount] = useState(0);
+  const [lastSaved, setLastSaved] = useState(null);
+  const [showCrisisResources, setShowCrisisResources] = useState(false);
+  const [crisisKeywords, setCrisisKeywords] = useState([]);
+  const [recentEntries, setRecentEntries] = useState([]);
 
-  // Folders state
-  const [folders, setFolders] = useState([]);
-  const [selectedFolder, setSelectedFolder] = useState(null);
-  const [showFolderModal, setShowFolderModal] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
-  const [loadingFolders, setLoadingFolders] = useState(false);
+  // Subjects for AI-powered prompts
+  const subjects = [
+    "Relationships",
+    "Career",
+    "Personal Growth",
+    "Health & Wellness",
+    "Creativity",
+    "Family",
+    "Goals & Dreams",
+    "Challenges",
+    "Gratitude",
+    "Self-Reflection",
+  ];
 
-  // Voice recording state
-  const [mediaRecorder, setMediaRecorder] = useState(null);
-  const [audioChunks, setAudioChunks] = useState([]);
-  const [transcribedText, setTranscribedText] = useState("");
-  const [isTranscribing, setIsTranscribing] = useState(false);
+  // Predefined random prompts (no AI)
+  const randomPrompts = [
+    "What moment from today would you like to relive?",
+    "What's been occupying your thoughts lately?",
+    "Describe a recent challenge and how you're handling it.",
+    "What are you most grateful for right now?",
+    "What would you tell your younger self?",
+    "What's one thing you'd like to change about your current situation?",
+    "Describe your ideal day from start to finish.",
+    "What fear would you like to overcome?",
+    "What's bringing you joy in this season of life?",
+    "If you could master one skill instantly, what would it be and why?",
+    "What does happiness mean to you right now?",
+    "What tradition would you like to start?",
+    "Describe a place where you feel completely at peace.",
+    "What would you do if you knew you couldn't fail?",
+    "How do you want to be remembered?",
+    "What's a belief you've changed your mind about?",
+    "What are you learning about yourself lately?",
+    "Describe a moment when you felt truly alive.",
+    "What would your perfect Sunday look like?",
+    "What advice would you give to a friend in your situation?",
+  ];
 
-  // Encryption function (same as StandardJournaling)
-  const encryptJournalEntry = async (entryData) => {
-    const masterKey = await encryptionService.getStaticMasterKey();
-    const dataKey = await encryptionService.generateDataKey();
+  // Templates
+  const templates = [
+    {
+      id: "daily-reflection",
+      name: "Daily Reflection",
+      content:
+        "Today I am grateful for:\n\n\nChallenges I faced:\n\n\nWhat I learned:\n\n\nTomorrow I will:",
+    },
+    {
+      id: "goal-check-in",
+      name: "Goal Check-In",
+      content:
+        "Goal I'm focusing on:\n\n\nProgress made:\n\n\nObstacles encountered:\n\n\nNext steps:",
+    },
+    {
+      id: "emotional-processing",
+      name: "Emotional Processing",
+      content:
+        "What I'm feeling:\n\n\nWhat triggered these emotions:\n\n\nWhat I need right now:\n\n\nHow I can support myself:",
+    },
+    {
+      id: "weekly-review",
+      name: "Weekly Review",
+      content:
+        "Wins this week:\n\n\nChallenges faced:\n\n\nLessons learned:\n\n\nPriorities for next week:",
+    },
+    {
+      id: "morning-pages",
+      name: "Morning Pages",
+      content: "Stream of consciousness - write whatever comes to mind:\n\n",
+    },
+    {
+      id: "problem-solving",
+      name: "Problem Solving",
+      content:
+        "The problem:\n\n\nPossible solutions:\n1.\n2.\n3.\n\nPros and cons:\n\n\nNext action:",
+    },
+  ];
 
-    const encryptedContent = await encryptionService.encryptText(
-      entryData.content,
-      dataKey
-    );
-
-    let encryptedPrompt = { encryptedData: "", iv: "" };
-    if (entryData.prompt) {
-      encryptedPrompt = await encryptionService.encryptText(
-        entryData.prompt,
-        dataKey
-      );
-    }
-
-    const encryptedDataKey = await encryptionService.encryptKey(
-      dataKey,
-      masterKey
-    );
-
-    return {
-      encrypted_content: encryptedContent.encryptedData,
-      content_iv: encryptedContent.iv,
-      encrypted_prompt: encryptedPrompt.encryptedData,
-      prompt_iv: encryptedPrompt.iv,
-      encrypted_data_key: encryptedDataKey.encryptedData,
-      data_key_iv: encryptedDataKey.iv,
-    };
-  };
-
-  // Clear editor function
-  const clearEditor = () => {
-    if (quillRef.current && isEditorReady) {
-      try {
-        quillRef.current.setText("");
-        setEditorContent("");
-        console.log("Advanced editor cleared");
-      } catch (error) {
-        console.error("Error clearing advanced editor:", error);
-      }
-    }
-  };
-
-  // Format greeting based on time of day
-  const formatGreeting = () => {
-    const hour = new Date().getHours();
-    const timeOfDay =
-      hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
-    const name = user?.user_metadata?.name || user?.email?.split("@")[0] || "";
-    return `Good ${timeOfDay}, ${name}`;
-  };
-
-  // Load folders on mount
   useEffect(() => {
     if (user) {
-      loadFolders();
+      loadRecentEntries();
     }
   }, [user]);
 
-  // Initialize Quill editor
   useEffect(() => {
-    if (isLocked || !editorRef.current || quillInitialized.current) return;
+    // Generate initial prompt when component mounts or type changes
+    generatePrompt();
+  }, [promptType, selectedSubject, recentEntries]);
 
-    // Check if Quill is already initialized in this element
-    if (editorRef.current.classList.contains("ql-container")) {
-      return;
-    }
+  useEffect(() => {
+    // Update word count
+    const words = entry
+      .trim()
+      .split(/\s+/)
+      .filter((word) => word.length > 0).length;
+    setWordCount(words);
 
-    const toolbarOptions = [
-      ["bold", "italic", "underline", "strike"],
-      ["blockquote", "code-block"],
-      [{ header: 1 }, { header: 2 }],
-      [{ list: "ordered" }, { list: "bullet" }],
-      [{ script: "sub" }, { script: "super" }],
-      [{ indent: "-1" }, { indent: "+1" }],
-      [{ direction: "rtl" }],
-      [{ size: ["small", false, "large", "huge"] }],
-      [{ header: [1, 2, 3, 4, 5, 6, false] }],
-      [{ color: [] }, { background: [] }],
-      [{ font: [] }],
-      [{ align: [] }],
-      ["link", "image"],
-      ["clean"],
+    // Check for crisis keywords
+    const keywords = [
+      "suicide",
+      "kill myself",
+      "end it all",
+      "want to die",
+      "no point",
+      "hopeless",
     ];
-
-    const quill = new Quill(editorRef.current, {
-      theme: "snow",
-      modules: {
-        toolbar: toolbarOptions,
-      },
-      placeholder: selectedTemplate
-        ? "Start writing based on the template prompts..."
-        : "Start writing your thoughts...",
-    });
-
-    quill.on("text-change", () => {
-      setEditorContent(quill.root.innerHTML);
-    });
-
-    quillRef.current = quill;
-    quillInitialized.current = true;
-    setIsEditorReady(true);
-
-    // Load the last saved entry
-    loadLastEntry();
-
-    return () => {
-      // Don't destroy Quill on visibility change, only on actual unmount
-      if (quillRef.current) {
-        quillInitialized.current = false;
-      }
-    };
-  }, [isLocked, user]);
-
-  // Update placeholder when template changes
-  useEffect(() => {
-    if (quillRef.current && isEditorReady) {
-      quillRef.current.root.dataset.placeholder = selectedTemplate
-        ? "Start writing based on the template prompts..."
-        : "Start writing your thoughts...";
+    const detected = keywords.filter((keyword) =>
+      entry.toLowerCase().includes(keyword)
+    );
+    setCrisisKeywords(detected);
+    if (detected.length > 0) {
+      setShowCrisisResources(true);
     }
-  }, [selectedTemplate, isEditorReady]);
+  }, [entry]);
 
-  // Load folders
-  const loadFolders = async () => {
-    setLoadingFolders(true);
+  const loadRecentEntries = async () => {
     try {
       const { data, error } = await supabase
-        .from("journal_folders")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("name");
-
-      if (error) throw error;
-      setFolders(data || []);
-    } catch (error) {
-      console.error("Error loading folders:", error);
-    } finally {
-      setLoadingFolders(false);
-    }
-  };
-
-  // Create new folder
-  const createFolder = async () => {
-    if (!newFolderName.trim()) return;
-
-    try {
-      const { data, error } = await supabase
-        .from("journal_folders")
-        .insert({
-          user_id: user.id,
-          name: newFolderName.trim(),
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setFolders([...folders, data]);
-      setSelectedFolder(data.id);
-      setNewFolderName("");
-      setShowFolderModal(false);
-    } catch (error) {
-      console.error("Error creating folder:", error);
-      alert("Failed to create folder. Please try again.");
-    }
-  };
-
-  // Generate AI prompt (random)
-  const generateAIPrompt = async () => {
-    setIsLoadingRandom(true);
-    try {
-      const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/generatePrompt",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: user.id }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.prompt) {
-        setPrompt(data.prompt);
-        setPromptType("initial");
-        setShowPromptButton(false);
-      }
-    } catch (error) {
-      console.error("Error generating prompt:", error);
-      setPrompt("What's on your mind today?");
-    } finally {
-      setIsLoadingRandom(false);
-    }
-  };
-
-  // Generate subject-specific prompt
-  const handleSubjectPrompt = async () => {
-    if (!subject.trim()) return;
-
-    try {
-      setIsLoadingSubject(true);
-
-      const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/generate-subject-prompt",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            subject,
-            user_id: user.id,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.prompt) {
-        setPrompt(data.prompt);
-        setPromptType("subject");
-        setShowPromptButton(false);
-        setSubject("");
-      } else {
-        alert("No prompt returned. Try again.");
-      }
-    } catch (err) {
-      console.error("Failed to fetch subject prompt:", err);
-      alert("Something went wrong while generating the prompt.");
-    } finally {
-      setIsLoadingSubject(false);
-    }
-  };
-
-  <div className="mb-6">
-    <PromptRecommendations
-      onSelectPrompt={(promptText) => {
-        // This integrates with your existing prompt system
-        setPrompt(promptText);
-        setPromptType("reflectionarian");
-        setShowPromptButton(false);
-      }}
-    />
-  </div>;
-
-  // Generate folder-specific prompt
-  const generateFolderPrompt = async () => {
-    if (!selectedFolder) {
-      alert("Please select a folder first");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      // Get entries from selected folder
-      const { data: folderEntries, error } = await supabase
         .from("journal_entries")
-        .select("content, encryption_key")
+        .select("content, created_at")
         .eq("user_id", user.id)
-        .eq("folder_id", selectedFolder)
         .order("created_at", { ascending: false })
         .limit(5);
 
       if (error) throw error;
-
-      // For now, use the folder name as context
-      const folder = folders.find((f) => f.id === selectedFolder);
-      const folderContext = `Generate a journaling prompt for the folder "${
-        folder?.name || "Untitled"
-      }". This folder contains ${folderEntries?.length || 0} entries.`;
-
-      setPrompt(
-        `Reflect on your journey in "${folder?.name}" - what patterns or insights have emerged?`
-      );
-      setPromptType("folder");
-      setShowPromptButton(false);
+      setRecentEntries(data || []);
     } catch (error) {
-      console.error("Error generating folder prompt:", error);
-      setPrompt("What would you like to add to this folder today?");
-    } finally {
-      setIsLoading(false);
+      console.error("Error loading recent entries:", error);
     }
   };
 
-  // Voice recording functions
-  const startVoiceRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      const chunks = [];
+  const generatePrompt = async () => {
+    if (promptType === "random") {
+      // Use predefined random prompt (no AI)
+      const randomIndex = Math.floor(Math.random() * randomPrompts.length);
+      setCurrentPrompt(randomPrompts[randomIndex]);
+    } else if (promptType === "subject" && selectedSubject) {
+      // Use AI for subject-specific prompts
+      setLoadingPrompt(true);
+      try {
+        const response = await fetch("/api/generate-prompt", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${user.id}`,
+          },
+          body: JSON.stringify({
+            type: "subject",
+            subject: selectedSubject,
+            recentEntries: recentEntries.map((e) => e.content).join("\n\n"),
+            instructions: `Generate a thoughtful journaling prompt about ${selectedSubject}. 
+              Consider the user's recent journal entries to make it relevant and personal.
+              The prompt should encourage deep reflection and self-discovery.
+              Keep it open-ended and thought-provoking.`,
+          }),
+        });
 
-      recorder.ondataavailable = (event) => {
-        chunks.push(event.data);
-      };
-
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(chunks, { type: "audio/webm" });
-        await transcribeAudio(audioBlob);
-      };
-
-      setMediaRecorder(recorder);
-      setAudioChunks([]);
-      recorder.start();
-      setIsRecording(true);
-    } catch (error) {
-      console.error("Error starting voice recording:", error);
-      alert("Unable to access microphone. Please check your permissions.");
-    }
-  };
-
-  const stopVoiceRecording = () => {
-    if (mediaRecorder && isRecording) {
-      mediaRecorder.stop();
-      mediaRecorder.stream.getTracks().forEach((track) => track.stop());
-      setIsRecording(false);
-    }
-  };
-
-  const transcribeAudio = async (audioBlob) => {
-    setIsTranscribing(true);
-    try {
-      // Here you would integrate with a transcription service
-      // For now, we'll simulate with a placeholder
-      setTimeout(() => {
-        const simulatedTranscription =
-          "This is where your transcribed text would appear.";
-        setTranscribedText(simulatedTranscription);
-
-        // Append to editor
-        if (quillRef.current) {
-          const currentContent = quillRef.current.root.innerHTML;
-          quillRef.current.root.innerHTML =
-            currentContent + "<p>" + simulatedTranscription + "</p>";
-          setEditorContent(quillRef.current.root.innerHTML);
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentPrompt(data.prompt);
+        } else {
+          // Fallback to a generic subject prompt
+          setCurrentPrompt(
+            `Reflect on your relationship with ${selectedSubject.toLowerCase()} and how it's evolving.`
+          );
         }
-
-        setIsTranscribing(false);
-      }, 2000);
-    } catch (error) {
-      console.error("Error transcribing audio:", error);
-      setIsTranscribing(false);
+      } catch (error) {
+        console.error("Error generating AI prompt:", error);
+        setCurrentPrompt(
+          `What role does ${selectedSubject.toLowerCase()} play in your life right now?`
+        );
+      } finally {
+        setLoadingPrompt(false);
+      }
     }
   };
 
-  // Text-to-speech for reading entries
-  const toggleAudioPlayback = () => {
-    if (!audioPlayback) {
-      setAudioPlayback(true);
-      return;
-    }
+  const generateFollowUp = async () => {
+    if (!entry.trim()) return;
 
-    const text = quillRef.current?.getText() || "";
-    if (text) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.9;
-      utterance.pitch = 1;
-      speechSynthesis.speak(utterance);
-    }
-  };
-
-  // Load last entry
-  const loadLastEntry = async () => {
+    setLoadingFollowUp(true);
     try {
-      const { data: entries, error } = await supabase
-        .from("journal_entries")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1);
+      const response = await fetch("/api/generate-prompt", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user.id}`,
+        },
+        body: JSON.stringify({
+          type: "followup",
+          currentEntry: entry,
+          originalPrompt: currentPrompt,
+          instructions: `Based on what the user just wrote, generate a compassionate follow-up question 
+            that helps them dive deeper into their thoughts and feelings. 
+            The question should be supportive and encourage further self-exploration.
+            Keep it concise and relevant to what they shared.`,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setFollowUpPrompt(data.prompt);
+      } else {
+        // Fallback follow-up
+        setFollowUpPrompt(
+          "What insights are emerging for you as you reflect on this?"
+        );
+      }
+    } catch (error) {
+      console.error("Error generating follow-up:", error);
+      setFollowUpPrompt("How does reflecting on this make you feel?");
+    } finally {
+      setLoadingFollowUp(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!entry.trim()) return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("journal_entries").insert({
+        user_id: user.id,
+        content: entry,
+        prompt_type: promptType,
+        prompt_text: currentPrompt,
+        subject: selectedSubject || null,
+        tags: tags.length > 0 ? tags : null,
+        metadata: {
+          word_count: wordCount,
+          template_used: selectedTemplate?.id || null,
+          follow_up_prompt: followUpPrompt,
+        },
+      });
 
       if (error) throw error;
 
-      if (entries && entries.length > 0) {
-        const lastEntry = entries[0];
-        const decryptedContent = await encryptionService.decrypt(
-          lastEntry.content,
-          lastEntry.encryption_key
-        );
-        setLastSavedEntry({ ...lastEntry, content: decryptedContent });
+      // Reset form
+      setEntry("");
+      setTags([]);
+      setFollowUpPrompt(null);
+      setSelectedTemplate(null);
+      setLastSaved(new Date());
 
-        // Load metadata if available
-        if (lastEntry.metadata) {
-          if (lastEntry.metadata.tags) setTags(lastEntry.metadata.tags);
-          if (lastEntry.metadata.folder_id)
-            setSelectedFolder(lastEntry.metadata.folder_id);
-          if (lastEntry.metadata.is_starred)
-            setIsStarred(lastEntry.metadata.is_starred);
-          if (lastEntry.metadata.is_pinned)
-            setIsPinned(lastEntry.metadata.is_pinned);
-        }
-      }
+      // Generate new prompt
+      generatePrompt();
+
+      // Reload recent entries for future AI prompts
+      loadRecentEntries();
     } catch (error) {
-      console.error("Error loading last entry:", error);
-    }
-  };
-
-  // FIXED: Enhanced save entry using same workflow as StandardJournaling
-  const saveEntry = async () => {
-    console.log("🔄 Advanced journaling save entry function called");
-
-    if (!editorContent.trim() || saveLabel === "Saving...") return;
-
-    setSaveLabel("Saving...");
-
-    try {
-      const journalContent = quillRef.current?.getText().trim();
-
-      if (!journalContent) {
-        alert("Please write something before saving.");
-        setSaveLabel("Save Entry");
-        return;
-      }
-
-      const htmlContent = quillRef.current?.root.innerHTML;
-      const userId = user?.id;
-
-      if (!userId) {
-        alert("Something went wrong. Please log in again.");
-        setSaveLabel("Save Entry");
-        return;
-      }
-
-      console.log("🔐 Encrypting entry data on frontend...");
-
-      // Use the same encryption workflow as StandardJournaling
-      const encryptedData = await encryptJournalEntry({
-        content: htmlContent,
-        prompt: prompt || null,
-      });
-
-      console.log("✅ Entry encrypted successfully");
-
-      // Crisis detection using plain text
-      if (showCrisisResources && journalContent) {
-        const crisisCheck = await checkForCrisisContent(journalContent);
-        if (crisisCheck.showResources) {
-          triggerCrisisModal(crisisCheck);
-        }
-      }
-
-      // Prepare Advanced journaling specific metadata
-      const advancedMetadata = {
-        template: selectedTemplate,
-        tags: tags,
-        hasAudio: audioChunks?.length > 0 || false,
-        attachments: mediaAttachments?.length || 0,
-        promptType: promptType,
-        isFollowUp: promptType === "followUp",
-        isStarred: isStarred,
-        isPinned: isPinned,
-        folder_id: selectedFolder,
-      };
-
-      // Prepare the entry data using the same structure as StandardJournaling
-      const entryData = {
-        ...encryptedData,
-        user_id: userId,
-        is_follow_up: promptType === "followUp",
-        parent_entry_id: currentThreadId,
-        thread_id: currentThreadId,
-        cycle_day: null, // Advanced doesn't track cycle by default
-        cycle_phase: null,
-        // Store Advanced metadata in a way that won't break the backend
-        metadata: advancedMetadata,
-      };
-
-      console.log(
-        "📦 Sending encrypted entry data to backend (Advanced journaling)"
-      );
-
-      // Use the same backend API as StandardJournaling
-      const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/save-entry",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(entryData),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        setSaveLabel("Save Entry");
-        throw new Error(result.error || "Failed to save entry");
-      }
-
-      console.log("✅ Advanced entry saved with ID:", result.entry_id);
-
-      // Check for crisis analysis
-      if (result.crisis_analysis?.should_alert) {
-        console.log("🚨 Crisis analysis triggered:", result.crisis_analysis);
-        triggerCrisisModal(result.crisis_analysis);
-      }
-
-      // Create the new entry object for follow-ups
-      const newEntry = {
-        id: result.entry_id,
-        prompt: prompt || null,
-        content: htmlContent,
-        metadata: advancedMetadata,
-      };
-
-      setLastSavedEntry(newEntry);
-
-      // Set thread ID if this is a new conversation
-      if (!currentThreadId && result.entry_id) {
-        setCurrentThreadId(result.entry_id);
-      }
-
-      // Update entry chain for follow-ups
-      const updatedChain = [...entryChain, newEntry];
-      setEntryChain(updatedChain);
-
-      // Set global variables for follow-up workflow
-      window.currentConversationChain = updatedChain;
-      window.currentThreadId = currentThreadId || result.entry_id;
-
-      setSaveLabel("Saved!");
-      setSaveConfirmation(true);
-
-      setTimeout(() => {
-        setSaveLabel("Save Entry");
-        setSaveConfirmation(false);
-        setShowModal(true); // Show follow-up modal
-      }, 1500);
-    } catch (error) {
-      console.error("❌ Error saving advanced entry:", error);
-      setSaveLabel("Error Saving");
-      setTimeout(() => setSaveLabel("Save Entry"), 3000);
-    }
-  };
-
-  // FIXED: Generate follow-up prompt using same workflow as StandardJournaling
-  const generateFollowUp = async () => {
-    if (!lastSavedEntry) {
-      alert("Please write a journal entry first.");
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setShowModal(false);
-
-      console.log("Sending follow-up request for entry ID:", lastSavedEntry.id);
-
-      const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/follow-up",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_id: user.id,
-            entry_id: lastSavedEntry.id,
-          }),
-        }
-      );
-
-      const data = await response.json();
-      console.log("🎯 FollowUp response:", data);
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch follow-up");
-      }
-
-      if (data.prompt) {
-        setPrompt(data.prompt);
-        setPromptType("followUp");
-        setSaveLabel("Save Follow-Up Answer");
-        setShowPromptButton(false);
-        setShowFollowUpButtons(true);
-        setFollowUpPrompt(data.prompt);
-
-        // Clear the editor for the follow-up response
-        if (quillRef.current) {
-          quillRef.current.setText("");
-          setEditorContent("");
-        }
-
-        setShowFollowUpModal(true);
-      } else {
-        throw new Error("No follow-up prompt returned");
-      }
-    } catch (error) {
-      console.error("❌ FollowUp error:", error);
-      setPrompt("Sorry, I couldn't generate a follow-up question this time.");
-      alert(`Failed to generate follow-up question: ${error.message}`);
+      console.error("Error saving entry:", error);
+      alert("Failed to save entry. Please try again.");
     } finally {
-      setIsLoading(false);
+      setSaving(false);
     }
   };
 
-  // ADDED: Handle ending follow-ups (same as StandardJournaling)
-  const handleEndFollowUps = () => {
-    console.log("✋ User ending follow-up session");
-
-    setEntryChain([]);
-    setLastSavedEntry(null);
-    setPrompt("");
-    setPromptType("initial");
-    setSaveLabel("Save Entry");
-    setEditorContent("");
-    setShowPromptButton(true);
-    setShowFollowUpButtons(false);
-    setShowFollowUpModal(false);
-    setCurrentThreadId(null);
-
-    // Clear global variables
-    window.currentConversationChain = [];
-    window.currentThreadId = null;
-
-    // Clear the advanced editor
-    clearEditor();
-    console.log("🎉 Ready for new conversation thread");
-  };
-
-  // ADDED: Handle "No Thanks" (same as StandardJournaling)
-  const handleNoThanks = () => {
-    setPrompt("");
-    setPromptType("initial");
-    setSaveLabel("Save Entry");
-    setEntryChain([]);
-    setLastSavedEntry(null);
-    setShowModal(false);
-    setShowFollowUpModal(false);
-    setShowPromptButton(true);
-    setCurrentThreadId(null);
-    clearEditor();
-  };
-
-  // Continue with follow-up
-  const continueWithFollowUp = () => {
-    setPrompt(followUpPrompt);
-    setPromptType("followUp");
-    setShowFollowUpModal(false);
-
-    // Clear editor
-    if (quillRef.current) {
-      quillRef.current.setText("");
-      setEditorContent("");
-    }
-
-    // Maintain thread
-    if (!currentThreadId && lastSavedEntry) {
-      setCurrentThreadId(lastSavedEntry.id);
-    }
-  };
-
-  // Tag management
-  const addTag = (e) => {
+  const handleTagAdd = (e) => {
     if (e.key === "Enter" && currentTag.trim()) {
       e.preventDefault();
       if (!tags.includes(currentTag.trim())) {
@@ -827,310 +307,182 @@ export default function AdvancedJournaling() {
     setTags(tags.filter((tag) => tag !== tagToRemove));
   };
 
-  // Template selection
-  const selectTemplate = (templateKey) => {
-    setSelectedTemplate(templateKey);
-    setShowTemplates(false);
-
-    // Pre-fill with template prompts
-    if (quillRef.current && JOURNAL_TEMPLATES[templateKey]) {
-      const prompts = JOURNAL_TEMPLATES[templateKey].prompts;
-      const formattedPrompts = prompts
-        .map((p) => `<p><strong>${p}</strong></p><p><br></p>`)
-        .join("");
-      quillRef.current.root.innerHTML = formattedPrompts;
-      setEditorContent(formattedPrompts);
-    }
+  const applyTemplate = (template) => {
+    setEntry(template.content);
+    setSelectedTemplate(template);
+    setPromptType("template");
+    setCurrentPrompt(`Using template: ${template.name}`);
   };
-
-  // Check for crisis content
-  const checkForCrisisContent = async (text) => {
-    // This would integrate with your crisis detection service
-    return { showResources: false };
-  };
-
-  if (isLocked) {
-    return (
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-yellow-800 mb-2">
-            Session Locked
-          </h3>
-          <p className="text-yellow-700">
-            For your security, this session has been locked. Please unlock to
-            continue journaling.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      {/* Premium Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-              <Sparkles className="text-white" size={20} />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                {formatGreeting()}
-              </h1>
-              <p className="text-gray-600">
-                Your premium journaling experience awaits
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 bg-gradient-to-r from-purple-100 to-pink-100 px-3 py-2 rounded-full">
-            <Crown className="text-purple-600" size={16} />
-            <span className="text-purple-700 font-medium text-sm">Premium</span>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setShowTemplates(!showTemplates)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-sm"
-          >
-            <FileText size={16} />
-            Templates
-          </button>
-
-          <button
-            onClick={generateAIPrompt}
-            disabled={isLoadingRandom}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-purple-400 text-sm"
-          >
-            {isLoadingRandom ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-            ) : (
-              <Shuffle size={16} />
-            )}
-            Random Prompt
-          </button>
-
-          <button
-            onClick={() => setShowReflectionarian(!showReflectionarian)}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 text-sm"
-          >
-            <MessageCircle size={16} />
-            Reflectionarian
-          </button>
-
-          <button
-            onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm ${
-              isRecording
-                ? "bg-red-600 text-white hover:bg-red-700"
-                : "bg-white border border-gray-200 hover:bg-gray-50"
-            }`}
-          >
-            {isRecording ? <MicOff size={16} /> : <Mic size={16} />}
-            {isRecording ? "Stop" : "Voice"}
-          </button>
-
-          <button
-            onClick={toggleAudioPlayback}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-sm"
-          >
-            {audioPlayback ? <Volume2 size={16} /> : <VolumeX size={16} />}
-            Read Aloud
-          </button>
-
-          <button
-            onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-sm"
-          >
-            <Info size={16} />
-            Privacy
-          </button>
-        </div>
-
-        {/* Privacy Information */}
-        {showPrivacyInfo && (
-          <div className="mt-4 bg-purple-50 p-4 rounded-lg border border-purple-200">
-            <div className="flex items-start gap-3">
-              <Info
-                className="text-purple-600 mt-0.5 flex-shrink-0"
-                size={20}
-              />
-              <div>
-                <h3 className="font-semibold text-purple-900 mb-2">
-                  Your Privacy is Protected
-                </h3>
-                <p className="text-purple-700 text-sm mb-2">
-                  Your journal is personal — and we treat it that way. Every
-                  entry is end-to-end encrypted before it's stored, so no one
-                  else can read your words. Not our team. Not our servers. Just
-                  you. Reflectionary is your private space to be real, raw, and
-                  fully yourself.
-                </p>
-                <ul className="text-purple-700 text-sm space-y-1">
-                  <li>• Entries are encrypted locally on your device</li>
-                  <li>• We cannot read your journal content</li>
-                  <li>
-                    • Starred, pinned, and tag data is stored separately from
-                    content
-                  </li>
-                  <li>• Analytics are performed on encrypted metadata only</li>
-                  <li>• Your data is never shared or sold</li>
-                </ul>
-                <p className="text-purple-600 text-xs mt-2">
-                  Folder names, tags, and organizational data are stored in our
-                  database to enable search and filtering features, but your
-                  journal content remains fully encrypted.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Subject Prompt Input */}
-        <div className="mt-4 flex gap-2">
-          <input
-            type="text"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleSubjectPrompt()}
-            placeholder="Enter a subject for a specific prompt..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-          <button
-            onClick={handleSubjectPrompt}
-            disabled={isLoadingSubject || !subject.trim()}
-            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            {isLoadingSubject ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-            ) : (
-              <Lightbulb size={16} />
-            )}
-            Get Prompt
-          </button>
-        </div>
-      </div>
-
-      {/* Templates Section */}
-      {showTemplates && (
-        <div className="mb-6 grid grid-cols-2 md:grid-cols-3 gap-3">
-          {Object.entries(JOURNAL_TEMPLATES).map(([key, template]) => {
-            const Icon = template.icon;
-            return (
-              <button
-                key={key}
-                onClick={() => selectTemplate(key)}
-                className={`p-4 rounded-lg border text-left transition-all ${
-                  selectedTemplate === key
-                    ? "border-purple-500 bg-purple-50"
-                    : "border-gray-200 hover:border-purple-300 bg-white"
-                }`}
-              >
-                <Icon className="w-5 h-5 text-purple-600 mb-2" />
-                <h3 className="font-medium text-gray-900">{template.name}</h3>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* AI Prompt Display */}
-      {prompt && (
-        <div className="bg-gradient-to-r from-purple-100 to-pink-100 px-4 py-3 rounded-lg mb-6 border border-purple-200">
-          <p className="text-lg font-bold text-purple-800">
-            {promptType === "followUp"
-              ? "Follow-up prompt:"
-              : promptType === "subject"
-              ? "Subject-specific prompt:"
-              : promptType === "folder"
-              ? "Folder-based prompt:"
-              : promptType === "template"
-              ? "Template-based prompt:"
-              : "Your journaling prompt:"}
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-50 p-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Advanced Journaling
+          </h1>
+          <p className="text-gray-600">
+            AI-powered prompts, templates, and intelligent follow-ups
           </p>
-          <p className="text-purple-700 mt-1">{prompt}</p>
         </div>
-      )}
 
-      {/* Folder & Organization Section */}
-      <div className="mb-6 space-y-4">
-        {/* Folder Selection */}
-        <div className="flex items-center gap-2">
-          <Folder className="w-4 h-4 text-gray-500" />
-          <span className="text-sm text-gray-600">Folder:</span>
-          <select
-            value={selectedFolder || ""}
-            onChange={(e) => setSelectedFolder(e.target.value || null)}
-            className="flex-1 px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-          >
-            <option value="">No folder</option>
-            {folders.map((folder) => (
-              <option key={folder.id} value={folder.id}>
-                {folder.name}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => setShowFolderModal(true)}
-            className="px-3 py-1 bg-purple-600 text-white rounded-md text-sm hover:bg-purple-700"
-          >
-            <FolderPlus size={16} />
-          </button>
-          {selectedFolder && (
+        {/* Prompt Selection */}
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Choose Your Prompt Type
+            </h2>
             <button
-              onClick={generateFolderPrompt}
-              disabled={isLoading}
-              className="px-3 py-1 bg-purple-100 text-purple-700 rounded-md text-sm hover:bg-purple-200"
+              onClick={generatePrompt}
+              disabled={loadingPrompt}
+              className="text-purple-600 hover:text-purple-700 flex items-center gap-1 text-sm"
             >
-              Folder Prompt
+              <RefreshCw
+                className={`h-4 w-4 ${loadingPrompt ? "animate-spin" : ""}`}
+              />
+              New Prompt
             </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <button
+              onClick={() => setPromptType("random")}
+              className={`p-3 rounded-lg border-2 transition-all ${
+                promptType === "random"
+                  ? "border-purple-600 bg-purple-50 text-purple-700"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <Sparkles className="h-5 w-5 mx-auto mb-1" />
+              <span className="text-sm font-medium">Random</span>
+            </button>
+            <button
+              onClick={() => setPromptType("subject")}
+              className={`p-3 rounded-lg border-2 transition-all ${
+                promptType === "subject"
+                  ? "border-purple-600 bg-purple-50 text-purple-700"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <Edit3 className="h-5 w-5 mx-auto mb-1" />
+              <span className="text-sm font-medium">By Subject</span>
+            </button>
+            <button
+              onClick={() => setPromptType("template")}
+              className={`p-3 rounded-lg border-2 transition-all ${
+                promptType === "template"
+                  ? "border-purple-600 bg-purple-50 text-purple-700"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <FileText className="h-5 w-5 mx-auto mb-1" />
+              <span className="text-sm font-medium">Templates</span>
+            </button>
+          </div>
+
+          {/* Subject Selection */}
+          {promptType === "subject" && (
+            <div className="mb-4">
+              <select
+                value={selectedSubject}
+                onChange={(e) => setSelectedSubject(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              >
+                <option value="">Choose a subject...</option>
+                {subjects.map((subject) => (
+                  <option key={subject} value={subject}>
+                    {subject}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Template Selection */}
+          {promptType === "template" && (
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              {templates.map((template) => (
+                <button
+                  key={template.id}
+                  onClick={() => applyTemplate(template)}
+                  className={`p-3 text-left rounded-lg border transition-all ${
+                    selectedTemplate?.id === template.id
+                      ? "border-purple-600 bg-purple-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="font-medium text-sm">{template.name}</div>
+                  <div className="text-xs text-gray-600 mt-1">
+                    {template.content.split("\n")[0].substring(0, 30)}...
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Current Prompt */}
+          {currentPrompt && (
+            <div className="bg-purple-50 rounded-lg p-4">
+              {loadingPrompt ? (
+                <div className="flex items-center gap-2 text-purple-700">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Generating personalized prompt...</span>
+                </div>
+              ) : (
+                <p className="text-purple-800 font-medium">{currentPrompt}</p>
+              )}
+            </div>
           )}
         </div>
 
-        {/* Entry Options */}
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setIsStarred(!isStarred)}
-            className={`flex items-center gap-1 px-3 py-1 rounded-md text-sm ${
-              isStarred
-                ? "bg-yellow-100 text-yellow-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            {isStarred ? (
-              <Star size={16} fill="currentColor" />
-            ) : (
-              <StarOff size={16} />
-            )}
-            {isStarred ? "Starred" : "Star"}
-          </button>
+        {/* Journal Entry */}
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+          <textarea
+            value={entry}
+            onChange={(e) => setEntry(e.target.value)}
+            placeholder="Start writing your thoughts..."
+            className="w-full h-64 p-4 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+          />
 
-          <button
-            onClick={() => setIsPinned(!isPinned)}
-            className={`flex items-center gap-1 px-3 py-1 rounded-md text-sm ${
-              isPinned
-                ? "bg-blue-100 text-blue-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            {isPinned ? (
-              <Pin size={16} fill="currentColor" />
-            ) : (
-              <PinOff size={16} />
+          <div className="flex items-center justify-between mt-4">
+            <span className="text-sm text-gray-600">{wordCount} words</span>
+            {entry.length > 100 && !followUpPrompt && (
+              <button
+                onClick={generateFollowUp}
+                disabled={loadingFollowUp}
+                className="text-purple-600 hover:text-purple-700 text-sm flex items-center gap-1"
+              >
+                {loadingFollowUp ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generating follow-up...
+                  </>
+                ) : (
+                  <>
+                    <ChevronRight className="h-4 w-4" />
+                    Get follow-up prompt
+                  </>
+                )}
+              </button>
             )}
-            {isPinned ? "Pinned" : "Pin"}
-          </button>
+          </div>
+
+          {/* Follow-up Prompt */}
+          {followUpPrompt && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <p className="text-blue-800 font-medium text-sm">
+                Follow-up question:
+              </p>
+              <p className="text-blue-700 mt-1">{followUpPrompt}</p>
+            </div>
+          )}
         </div>
 
-        {/* Tags Input */}
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Hash className="w-4 h-4 text-gray-500" />
-            <span className="text-sm text-gray-600">Tags</span>
-          </div>
-          <div className="flex flex-wrap gap-2 items-center">
+        {/* Tags */}
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+          <h3 className="text-lg font-semibold mb-3">Tags</h3>
+          <div className="flex flex-wrap gap-2 mb-3">
             {tags.map((tag) => (
               <span
                 key={tag}
@@ -1139,199 +491,53 @@ export default function AdvancedJournaling() {
                 {tag}
                 <button
                   onClick={() => removeTag(tag)}
-                  className="text-purple-500 hover:text-purple-700"
+                  className="hover:text-purple-900"
                 >
-                  ×
+                  <X className="h-3 w-3" />
                 </button>
               </span>
             ))}
-            <input
-              type="text"
-              value={currentTag}
-              onChange={(e) => setCurrentTag(e.target.value)}
-              onKeyDown={addTag}
-              placeholder="Add tag..."
-              className="px-3 py-1 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
           </div>
+          <input
+            type="text"
+            value={currentTag}
+            onChange={(e) => setCurrentTag(e.target.value)}
+            onKeyDown={handleTagAdd}
+            placeholder="Add tags and press Enter..."
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          />
         </div>
-      </div>
 
-      {/* Transcription Status */}
-      {isTranscribing && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
-          <span className="text-blue-700 text-sm">
-            Transcribing your voice note...
-          </span>
-        </div>
-      )}
-
-      {/* Quill Editor */}
-      <div className="mb-6">
-        <div
-          ref={editorRef}
-          className="border border-gray-300 rounded-lg"
-          style={{ minHeight: "400px" }}
-        />
-      </div>
-
-      {/* Save Button & Status */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <div className="text-sm text-gray-500">
-            {isEditorReady ? (
+        {/* Save Button */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            {lastSaved && (
               <span className="flex items-center gap-1">
-                <Check className="w-4 h-4 text-green-500" />
-                Premium editor ready
+                <Clock className="h-4 w-4" />
+                Last saved {format(lastSaved, "h:mm a")}
               </span>
-            ) : (
-              <span>Setting up editor...</span>
             )}
           </div>
-          {tags.length > 0 && (
-            <div className="text-sm text-gray-500">
-              {tags.length} tag{tags.length !== 1 ? "s" : ""} added
-            </div>
-          )}
+          <button
+            onClick={handleSave}
+            disabled={saving || !entry.trim()}
+            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            <Save className="h-5 w-5" />
+            {saving ? "Saving..." : "Save Entry"}
+          </button>
         </div>
 
-        <button
-          className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-3 rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2 shadow-lg"
-          onClick={saveEntry}
-          disabled={
-            !isEditorReady || !editorContent.trim() || saveLabel === "Saving..."
-          }
-        >
-          {saveLabel === "Saving..." && (
-            <span className="inline-block animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-          )}
-          {saveLabel}
-        </button>
+        {/* Crisis Detection */}
+        {showCrisisResources && (
+          <CrisisDetection
+            keywords={crisisKeywords}
+            onClose={() => setShowCrisisResources(false)}
+          />
+        )}
       </div>
-
-      {/* Save Confirmation */}
-      {saveConfirmation && (
-        <div className="fixed bottom-8 right-8 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in">
-          <Star className="w-5 h-5" />
-          Entry saved successfully!
-        </div>
-      )}
-
-      {/* FIXED: Follow-up Modal using same workflow as StandardJournaling */}
-      {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm text-center">
-            <div className="mb-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Sparkles className="text-white" size={32} />
-              </div>
-              <p className="text-lg font-medium">
-                Great job! Your entry has been saved.
-              </p>
-            </div>
-            <p className="mb-6 text-gray-600">
-              Would you like a personalized follow-up question?
-            </p>
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={generateFollowUp}
-                disabled={isLoading}
-                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50"
-              >
-                {isLoading ? "Generating..." : "Yes, Please!"}
-              </button>
-              <button
-                onClick={handleNoThanks}
-                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                No Thanks
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* FIXED: Follow-up Question Modal */}
-      {showFollowUpModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md text-center">
-            <div className="mb-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                <MessageCircle className="text-white" size={32} />
-              </div>
-              <p className="text-lg font-medium">Follow-up Question</p>
-            </div>
-            <p className="mb-6 text-gray-600 text-left bg-gray-50 p-4 rounded-lg">
-              {followUpPrompt || prompt}
-            </p>
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={() => {
-                  setShowFollowUpModal(false);
-                  // Focus on editor to continue writing
-                  if (quillRef.current) {
-                    quillRef.current.focus();
-                  }
-                }}
-                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700"
-              >
-                Continue Writing
-              </button>
-              <button
-                onClick={handleEndFollowUps}
-                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                End Session
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Folder Creation Modal */}
-      {showFolderModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
-            <h3 className="text-lg font-semibold mb-4">Create New Folder</h3>
-            <input
-              type="text"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              placeholder="Folder name..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4"
-              autoFocus
-            />
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={createFolder}
-                disabled={!newFolderName.trim()}
-                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400"
-              >
-                Create
-              </button>
-              <button
-                onClick={() => {
-                  setShowFolderModal(false);
-                  setNewFolderName("");
-                }}
-                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Crisis Resource Modal */}
-      {showCrisisModal && (
-        <CrisisResourceModal
-          isOpen={showCrisisModal}
-          onClose={closeCrisisModal}
-          analysisResult={crisisAnalysisResult}
-        />
-      )}
     </div>
   );
-}
+};
+
+export default AdvancedJournaling;
