@@ -1,3 +1,4 @@
+//src/pages/AdvancedJournaling.jsx
 //src/pages/AdvancedJournaling
 import React, { useState, useEffect } from "react";
 import { supabase } from "../config/supabaseClient";
@@ -15,7 +16,6 @@ import {
   X,
   Loader2,
 } from "lucide-react";
-import { format } from "date-fns";
 import CrisisDetection from "../components/CrisisDetection";
 
 const AdvancedJournaling = () => {
@@ -113,6 +113,15 @@ const AdvancedJournaling = () => {
         "The problem:\n\n\nPossible solutions:\n1.\n2.\n3.\n\nPros and cons:\n\n\nNext action:",
     },
   ];
+
+  // Format time helper function
+  const formatTime = (date) => {
+    return new Date(date).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
 
   useEffect(() => {
     if (user) {
@@ -514,7 +523,7 @@ const AdvancedJournaling = () => {
             {lastSaved && (
               <span className="flex items-center gap-1">
                 <Clock className="h-4 w-4" />
-                Last saved {format(lastSaved, "h:mm a")}
+                Last saved {formatTime(lastSaved)}
               </span>
             )}
           </div>
