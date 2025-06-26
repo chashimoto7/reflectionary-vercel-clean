@@ -1,4 +1,4 @@
-// src/components/Layout.jsx - Updated for new tier structure
+// src/components/Layout.jsx - Dark Theme with Frosted Glass Sidebar
 import { Link, NavLink, useLocation } from "react-router-dom";
 import {
   Plus,
@@ -38,8 +38,8 @@ export default function Layout({ children }) {
       to: "/journaling",
       icon: Notebook,
       label: "Journaling",
-      feature: "journaling", // This will route to appropriate tier automatically
-      requiredTier: "free", // Minimum tier needed to show this nav item
+      feature: "journaling",
+      requiredTier: "free",
     },
     {
       to: "/history",
@@ -53,7 +53,7 @@ export default function Layout({ children }) {
       icon: BarChart3,
       label: "Analytics",
       feature: "analytics",
-      requiredTier: "basic", // Only show if user has basic+ tier
+      requiredTier: "basic",
     },
     {
       to: "/goals",
@@ -64,201 +64,222 @@ export default function Layout({ children }) {
     },
     {
       to: "/wellness",
-      icon: Activity,
+      icon: Heart,
       label: "Wellness",
       feature: "wellness",
       requiredTier: "standard",
     },
     {
       to: "/womens-health",
-      icon: Heart,
+      icon: Activity,
       label: "Women's Health",
       feature: "womens_health",
-      requiredTier: "basic",
+      requiredTier: "premium",
     },
     {
-      to: "/reflectionarian",
+      to: "/reflectarian",
       icon: MessageCircle,
-      label: "Reflectionarian",
-      feature: "reflectionarian",
-      requiredTier: "standard",
+      label: "Reflectarian",
+      feature: "reflectarian",
+      requiredTier: "premium",
     },
   ];
 
-  const getMembershipDisplayInfo = () => {
-    switch (tier) {
-      case "premium":
-        return { label: "Premium", icon: Crown, color: "text-yellow-600" };
-      case "advanced":
-        return { label: "Advanced", icon: Crown, color: "text-purple-600" };
-      case "standard":
-        return { label: "Standard", icon: Crown, color: "text-blue-600" };
-      case "basic":
-        return { label: "Basic", icon: User, color: "text-green-600" };
-      default:
-        return { label: "Free", icon: User, color: "text-gray-600" };
+  const handleNavClick = (item) => {
+    if (!hasAccess(item.feature)) {
+      const message = getUpgradeMessage(item.feature);
+      setUpgradeMessage(message);
+      setShowUpgradeModal(true);
+      return false;
     }
+    return true;
   };
 
   const canAccessTier = (requiredTier) => {
-    const tierOrder = ["free", "basic", "standard", "advanced", "premium"];
-    const userTierIndex = tierOrder.indexOf(tier);
-    const requiredTierIndex = tierOrder.indexOf(requiredTier);
-    return userTierIndex >= requiredTierIndex;
+    const tierHierarchy = { free: 0, basic: 1, standard: 2, premium: 3 };
+    const userTierLevel = tierHierarchy[tier] || 0;
+    const requiredTierLevel = tierHierarchy[requiredTier] || 0;
+    return userTierLevel >= requiredTierLevel;
+  };
+
+  const getMembershipDisplayInfo = () => {
+    const tierColors = {
+      free: "bg-gray-100 text-gray-700 border-gray-300",
+      basic: "bg-blue-100 text-blue-700 border-blue-300",
+      standard: "bg-purple-100 text-purple-700 border-purple-300",
+      premium:
+        "bg-gradient-to-r from-purple-500 to-pink-500 text-white border-transparent",
+    };
+
+    const tierIcons = {
+      free: "🆓",
+      basic: "⭐",
+      standard: "💎",
+      premium: "👑",
+    };
+
+    return {
+      color: tierColors[tier] || tierColors.free,
+      icon: tierIcons[tier] || tierIcons.free,
+      label: tier ? tier.charAt(0).toUpperCase() + tier.slice(1) : "Free",
+    };
   };
 
   const membershipInfo = getMembershipDisplayInfo();
 
   if (loading) {
     return (
-      <div className="flex min-h-screen bg-[#F5F5F5] items-center justify-center">
-        <div className="text-purple-600">Loading your membership...</div>
+      <div className="flex min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 items-center justify-center">
+        <div className="text-purple-300">Loading your membership...</div>
       </div>
     );
   }
 
   return (
-    <div className="flex bg-[#F5F5F5] text-gray-800 min-h-screen overflow-hidden">
+    <div className="flex min-h-screen overflow-hidden relative">
+      {/* Animated Background */}
+      <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/30 to-pink-600/20 animate-pulse"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-purple-600/20 via-transparent to-transparent"></div>
+      </div>
+
       {/* Sidebar - Hidden on Welcome page */}
       {!isWelcomePage && (
-        <aside className="w-64 bg-gradient-to-b from-[#E5E3EA] to-[#D9D6DF] p-6 shadow-lg overflow-y-auto">
-          {/* Logo */}
-          <Link to="/" className="flex items-center justify-center mb-8">
-            <img
-              src={logo}
-              alt="Reflectionary Logo"
-              className="w-17 h-17 hover:scale-105 transition-transform"
-            />
-          </Link>
-
-          {/* All Buttons Grouped */}
-          <div className="flex flex-col space-y-4">
-            {/* Navigation Links */}
-            <nav className="space-y-3">
-              {navigationItems.map((item) => {
-                const IconComponent = item.icon;
-                const userCanAccessFeature = canAccessTier(item.requiredTier);
-
-                if (userCanAccessFeature) {
-                  return (
-                    <NavLink
-                      key={item.feature}
-                      to={item.to}
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
-                          isActive
-                            ? "bg-gradient-to-br from-purple-400 to-purple-600 text-white shadow-md transform scale-105"
-                            : "bg-white/20 backdrop-blur-sm text-purple-900 hover:from-purple-500 hover:to-purple-700 hover:bg-gradient-to-br hover:text-white hover:shadow-md hover:scale-102"
-                        }`
-                      }
-                    >
-                      <IconComponent size={20} />
-                      {item.label}
-                    </NavLink>
-                  );
-                } else {
-                  return (
-                    <button
-                      key={item.feature}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setUpgradeMessage(getUpgradeMessage(item.feature));
-                        setShowUpgradeModal(true);
-                      }}
-                      className="flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 bg-white/10 backdrop-blur-sm text-purple-800 hover:bg-white/20 hover:shadow-md w-full text-left opacity-75 cursor-pointer"
-                    >
-                      <IconComponent size={20} />
-                      <span className="flex-1">{item.label}</span>
-                      <Lock size={16} className="text-purple-600" />
-                    </button>
-                  );
-                }
-              })}
-            </nav>
-
-            {/* Security Settings */}
-            {securitySettings.showLockStatus && (
-              <NavLink
-                to="/security"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
-                    isActive
-                      ? "bg-gradient-to-br from-purple-400 to-purple-600 text-white shadow-md transform scale-105"
-                      : "bg-white/20 backdrop-blur-sm text-purple-900 hover:from-purple-500 hover:to-purple-700 hover:bg-gradient-to-br hover:text-white hover:shadow-md hover:scale-102"
-                  }`
-                }
+        <aside className="relative w-72 z-10">
+          {/* Frosted Glass Container */}
+          <div className="fixed left-0 top-0 h-full w-72 backdrop-blur-xl bg-white/10 border-r border-white/20 shadow-2xl">
+            <div className="p-6 h-full flex flex-col">
+              {/* Logo */}
+              <Link
+                to="/"
+                className="flex items-center justify-center mb-8 group"
               >
-                <Settings size={20} />
-                Security
-              </NavLink>
-            )}
+                <div className="relative">
+                  <img
+                    src={logo}
+                    alt="Reflectionary Logo"
+                    className="w-20 h-20 transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-2xl"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded-full blur-xl group-hover:blur-2xl transition-all duration-300"></div>
+                </div>
+              </Link>
 
-            {/* Membership Status */}
-            <div className="border-t border-white/20 pt-4 mt-4">
-              <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-white/10 backdrop-blur-sm">
-                <membershipInfo.icon
-                  size={20}
-                  className={membershipInfo.color}
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-purple-900">
-                    {membershipInfo.label} Member
-                  </p>
-                  {tier === "free" && (
-                    <button
-                      onClick={() => {
-                        setUpgradeMessage("Upgrade to unlock more features!");
-                        setShowUpgradeModal(true);
-                      }}
-                      className="text-xs text-purple-600 hover:text-purple-800 font-medium"
-                    >
-                      Upgrade
-                    </button>
-                  )}
+              {/* Navigation Links */}
+              <nav className="space-y-2 flex-1">
+                {navigationItems.map((item) => {
+                  const IconComponent = item.icon;
+                  const userCanAccessFeature = canAccessTier(item.requiredTier);
+
+                  if (userCanAccessFeature) {
+                    return (
+                      <NavLink
+                        key={item.feature}
+                        to={item.to}
+                        className={({ isActive }) =>
+                          `group flex items-center gap-4 px-4 py-3 rounded-xl font-medium transition-all duration-200 relative overflow-hidden ${
+                            isActive
+                              ? "bg-gradient-to-r from-purple-500/30 to-pink-500/30 text-white shadow-lg backdrop-blur-sm border border-purple-400/50"
+                              : "text-gray-300 hover:text-white hover:bg-white/10 hover:backdrop-blur-sm hover:border-white/20 border border-transparent"
+                          }`
+                        }
+                      >
+                        <IconComponent className="h-5 w-5 relative z-10" />
+                        <span className="relative z-10">{item.label}</span>
+                        {/* Hover glow effect */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-purple-500/20 to-pink-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      </NavLink>
+                    );
+                  } else {
+                    return (
+                      <button
+                        key={item.feature}
+                        onClick={() => handleNavClick(item)}
+                        className="group flex items-center gap-4 px-4 py-3 rounded-xl font-medium transition-all duration-200 text-gray-500 hover:text-gray-400 relative border border-gray-600/30 bg-gray-800/20"
+                      >
+                        <IconComponent className="h-5 w-5" />
+                        <span className="flex-1 text-left">{item.label}</span>
+                        <Lock className="h-4 w-4 text-gray-600" />
+                      </button>
+                    );
+                  }
+                })}
+              </nav>
+
+              {/* Bottom Section */}
+              <div className="space-y-4 mt-8">
+                {/* Membership Badge */}
+                <div
+                  className={`px-4 py-3 rounded-xl border backdrop-blur-sm ${membershipInfo.color} bg-white/10`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">{membershipInfo.icon}</span>
+                    <div>
+                      <div className="text-sm font-semibold text-white">
+                        {membershipInfo.label} Plan
+                      </div>
+                      <div className="text-xs text-gray-300">{user?.email}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col gap-2">
+                  <NavLink
+                    to="/security"
+                    className="flex items-center gap-3 px-4 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-all duration-200 backdrop-blur-sm"
+                  >
+                    <Settings className="h-4 w-4" />
+                    <span className="text-sm">Security Settings</span>
+                  </NavLink>
+
+                  <button
+                    onClick={() => {
+                      lock();
+                      signOut();
+                    }}
+                    className="flex items-center gap-3 px-4 py-2 rounded-lg text-gray-300 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200 backdrop-blur-sm"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span className="text-sm">Lock & Sign Out</span>
+                  </button>
                 </div>
               </div>
             </div>
-
-            {/* Logout */}
-            <button
-              onClick={signOut}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 bg-white/10 backdrop-blur-sm text-purple-900 hover:bg-red-500 hover:text-white hover:shadow-md"
-            >
-              <LogOut size={20} />
-              Sign Out
-            </button>
           </div>
         </aside>
       )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-hidden">{children}</main>
+      <main className={`flex-1 relative z-10 ${!isWelcomePage ? "ml-72" : ""}`}>
+        <div className="min-h-screen backdrop-blur-sm bg-black/10">
+          {children}
+        </div>
+      </main>
 
       {/* Upgrade Modal */}
       {showUpgradeModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Upgrade Required
-            </h3>
-            <p className="text-gray-600 mb-6">{upgradeMessage}</p>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowUpgradeModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                Maybe Later
-              </button>
-              <button
-                onClick={() => {
-                  setShowUpgradeModal(false);
-                  // TODO: Navigate to pricing/upgrade page
-                  window.location.href = "/pricing";
-                }}
-                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
-              >
-                Upgrade Now
-              </button>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
+            <div className="text-center">
+              <Crown className="h-12 w-12 text-yellow-400 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-white mb-2">
+                Upgrade Required
+              </h3>
+              <p className="text-gray-300 mb-6">{upgradeMessage}</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-500 text-gray-300 rounded-lg hover:bg-white/10 transition-colors"
+                >
+                  Maybe Later
+                </button>
+                <Link
+                  to="/upgrade"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all"
+                >
+                  Upgrade Now
+                </Link>
+              </div>
             </div>
           </div>
         </div>
