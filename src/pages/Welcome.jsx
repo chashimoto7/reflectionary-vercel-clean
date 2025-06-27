@@ -82,7 +82,7 @@ export default function Welcome() {
     currentStreak: 0,
     totalEntries: 0,
     insightsGenerated: 0,
-    loading: true
+    loading: true,
   });
 
   // Update time every minute
@@ -103,20 +103,20 @@ export default function Welcome() {
   useEffect(() => {
     const fetchUserStats = async () => {
       if (!user) return;
-      
+
       try {
         // Get total entries count
         const { count: entriesCount } = await supabase
-          .from('entries')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id);
+          .from("entries")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id);
 
         // Get recent entries for streak calculation
         const { data: recentEntries } = await supabase
-          .from('entries')
-          .select('created_at')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
+          .from("entries")
+          .select("created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
           .limit(30);
 
         // Calculate current streak
@@ -124,12 +124,12 @@ export default function Welcome() {
         if (recentEntries && recentEntries.length > 0) {
           const today = new Date();
           let currentDate = new Date(today);
-          
+
           for (let i = 0; i < recentEntries.length; i++) {
             const entryDate = new Date(recentEntries[i].created_at);
             const diffTime = Math.abs(currentDate - entryDate);
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            
+
             if (diffDays <= 1) {
               streak++;
               currentDate.setDate(currentDate.getDate() - 1);
@@ -147,17 +147,14 @@ export default function Welcome() {
           currentStreak: streak,
           totalEntries: entriesCount || 0,
           insightsGenerated,
-          loading: false
+          loading: false,
         });
       } catch (error) {
-        console.error('Error fetching user stats:', error);
-        setUserStats(prev => ({ ...prev, loading: false }));
+        console.error("Error fetching user stats:", error);
+        setUserStats((prev) => ({ ...prev, loading: false }));
       }
     };
-
-    fetchUserStats();
-  }, [user]);
-  };
+  }, []);
 
   const getTimeOfDay = () => {
     const hour = currentTime.getHours();
@@ -212,20 +209,20 @@ export default function Welcome() {
   ];
 
   const stats = [
-    { 
-      label: "Current Streak", 
-      value: userStats.loading ? "..." : `${userStats.currentStreak} days`, 
-      icon: Award 
+    {
+      label: "Current Streak",
+      value: userStats.loading ? "..." : `${userStats.currentStreak} days`,
+      icon: Award,
     },
-    { 
-      label: "Total Entries", 
-      value: userStats.loading ? "..." : userStats.totalEntries.toString(), 
-      icon: Heart 
+    {
+      label: "Total Entries",
+      value: userStats.loading ? "..." : userStats.totalEntries.toString(),
+      icon: Heart,
     },
-    { 
-      label: "Insights Generated", 
-      value: userStats.loading ? "..." : userStats.insightsGenerated.toString(), 
-      icon: Lightbulb 
+    {
+      label: "Insights Generated",
+      value: userStats.loading ? "..." : userStats.insightsGenerated.toString(),
+      icon: Lightbulb,
     },
   ];
 
@@ -233,21 +230,24 @@ export default function Welcome() {
     {
       type: "feature",
       title: "Deep Dives Coming Soon",
-      description: "Explore focused self-discovery modules tailored to your journey",
+      description:
+        "Explore focused self-discovery modules tailored to your journey",
       icon: Sparkles,
       date: "Coming Fall 2025",
     },
     {
       type: "update",
       title: "Enhanced Analytics Now Live",
-      description: "Discover new insights with our advanced intelligence dashboard",
+      description:
+        "Discover new insights with our advanced intelligence dashboard",
       icon: TrendingUp,
       date: "Released this week",
     },
     {
       type: "tip",
       title: "Privacy First, Always",
-      description: "Your reflections are end-to-end encrypted and visible only to you",
+      description:
+        "Your reflections are end-to-end encrypted and visible only to you",
       icon: Shield,
       date: "Core promise",
     },
@@ -273,7 +273,7 @@ export default function Welcome() {
                 className="h-32 w-32 drop-shadow-2xl hover:scale-105 transition-transform duration-300"
               />
             </div>
-            
+
             {/* Header Text Content */}
             <div className="flex-1">
               <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
@@ -362,7 +362,8 @@ export default function Welcome() {
                 {announcements.map((announcement, index) => {
                   const Icon = announcement.icon;
                   const typeColors = {
-                    feature: "bg-purple-500/20 text-purple-200 border-purple-400/30",
+                    feature:
+                      "bg-purple-500/20 text-purple-200 border-purple-400/30",
                     update: "bg-cyan-500/20 text-cyan-200 border-cyan-400/30",
                     tip: "bg-emerald-500/20 text-emerald-200 border-emerald-400/30",
                   };
