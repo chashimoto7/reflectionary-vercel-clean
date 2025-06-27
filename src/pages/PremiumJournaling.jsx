@@ -48,6 +48,7 @@ import {
   Plus,
   Shuffle,
   Search,
+  Shield,
 } from "lucide-react";
 
 // Journal templates for different use cases
@@ -336,7 +337,10 @@ export default function PremiumJournaling() {
 
   // Initialize Quill editor - Fixed to prevent multiple toolbars
   useEffect(() => {
-    if (isLocked || !editorRef.current || quillInitialized.current) return;
+    if (isLocked || !editorRef.current) return;
+
+    // Don't initialize if already initialized
+    if (quillInitialized.current) return;
 
     // Clean up any existing editor
     if (editorRef.current.querySelector(".ql-toolbar")) {
@@ -348,49 +352,53 @@ export default function PremiumJournaling() {
       return;
     }
 
-    try {
-      const toolbarOptions = [
-        ["bold", "italic", "underline", "strike"],
-        ["blockquote", "code-block"],
-        [{ header: 1 }, { header: 2 }],
-        [{ list: "ordered" }, { list: "bullet" }],
-        [{ script: "sub" }, { script: "super" }],
-        [{ indent: "-1" }, { indent: "+1" }],
-        [{ direction: "rtl" }],
-        [{ size: ["small", false, "large", "huge"] }],
-        [{ header: [1, 2, 3, 4, 5, 6, false] }],
-        [{ color: [] }, { background: [] }],
-        [{ font: [] }],
-        [{ align: [] }],
-        ["link", "image"],
-        ["clean"],
-      ];
+    // Small delay to ensure DOM is ready
+    const initTimer = setTimeout(() => {
+      try {
+        const toolbarOptions = [
+          ["bold", "italic", "underline", "strike"],
+          ["blockquote", "code-block"],
+          [{ header: 1 }, { header: 2 }],
+          [{ list: "ordered" }, { list: "bullet" }],
+          [{ script: "sub" }, { script: "super" }],
+          [{ indent: "-1" }, { indent: "+1" }],
+          [{ direction: "rtl" }],
+          [{ size: ["small", false, "large", "huge"] }],
+          [{ header: [1, 2, 3, 4, 5, 6, false] }],
+          [{ color: [] }, { background: [] }],
+          [{ font: [] }],
+          [{ align: [] }],
+          ["link", "image"],
+          ["clean"],
+        ];
 
-      const quill = new Quill(editorRef.current, {
-        theme: "snow",
-        modules: {
-          toolbar: toolbarOptions,
-        },
-        placeholder: selectedTemplate
-          ? "Start writing based on the template prompts..."
-          : "Start writing your thoughts...",
-      });
+        const quill = new Quill(editorRef.current, {
+          theme: "snow",
+          modules: {
+            toolbar: toolbarOptions,
+          },
+          placeholder: selectedTemplate
+            ? "Start writing based on the template prompts..."
+            : "Start writing your thoughts...",
+        });
 
-      quill.on("text-change", () => {
-        setEditorContent(quill.root.innerHTML);
-      });
+        quill.on("text-change", () => {
+          setEditorContent(quill.root.innerHTML);
+        });
 
-      quillRef.current = quill;
-      quillInitialized.current = true;
-      setIsEditorReady(true);
+        quillRef.current = quill;
+        quillInitialized.current = true;
+        setIsEditorReady(true);
 
-      // Load the last saved entry
-      loadLastEntry();
-    } catch (error) {
-      console.error("Error initializing Quill:", error);
-    }
+        // Load the last saved entry
+        loadLastEntry();
+      } catch (error) {
+        console.error("Error initializing Quill:", error);
+      }
+    }, 100);
 
     return () => {
+      clearTimeout(initTimer);
       // Cleanup on unmount
       if (quillRef.current) {
         quillInitialized.current = false;
@@ -813,8 +821,8 @@ export default function PremiumJournaling() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      <div className="container mx-auto px-4 py-6 max-w-full">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 -m-8">
+      <div className="px-6 py-6 max-w-full">
         {/* Premium Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -840,10 +848,11 @@ export default function PremiumJournaling() {
               </div>
               <button
                 onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
-                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                className="flex items-center gap-2 px-3 py-2 hover:bg-white/10 rounded-lg transition-colors text-gray-300 hover:text-white text-sm"
                 title="Privacy Info"
               >
-                <Info className="text-gray-400 hover:text-white" size={20} />
+                <Shield size={16} />
+                <span>Privacy Info</span>
               </button>
             </div>
           </div>

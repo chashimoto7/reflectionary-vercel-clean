@@ -148,7 +148,7 @@ export default function Layout({ children }) {
         <aside className="relative w-72 z-10">
           {/* Frosted Glass Container */}
           <div className="fixed left-0 top-0 h-full w-72 backdrop-blur-xl bg-white/10 border-r border-white/20 shadow-2xl">
-            <div className="p-6 h-full flex flex-col">
+            <div className="p-2 h-full flex flex-col">
               {/* Logo */}
               {/* Logo */}
               <Link
@@ -260,7 +260,7 @@ export default function Layout({ children }) {
       {/* Upgrade Modal */}
       {showUpgradeModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-2 max-w-md mx-4 shadow-2xl">
             <div className="text-center">
               <Crown className="h-12 w-12 text-yellow-400 mx-auto mb-4" />
               <h3 className="text-xl font-bold text-white mb-2">
