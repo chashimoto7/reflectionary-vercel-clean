@@ -18,7 +18,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
 import { useMembership } from "../hooks/useMembership";
 import { useState } from "react";
-import logo from "../assets/LightReflectionarySquare.svg";
+import logo from "../assets/ReflectionaryLight.png";
 
 export default function Layout({ children }) {
   const { user, signOut } = useAuth();
@@ -150,17 +150,18 @@ export default function Layout({ children }) {
           <div className="fixed left-0 top-0 h-full w-72 backdrop-blur-xl bg-white/10 border-r border-white/20 shadow-2xl">
             <div className="p-6 h-full flex flex-col">
               {/* Logo */}
+              {/* Logo */}
               <Link
                 to="/"
-                className="flex items-center justify-center mb-8 group"
+                className="flex items-center justify-center mb-8 group w-full"
               >
-                <div className="relative">
+                <div className="relative w-full">
                   <img
                     src={logo}
                     alt="Reflectionary Logo"
-                    className="w-24 h-24 transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-2xl"
+                    className="w-full h-auto max-h-16 object-contain transition-all duration-300 group-hover:scale-105 group-hover:drop-shadow-2xl"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded-full blur-xl group-hover:blur-2xl transition-all duration-300"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded-lg blur-xl group-hover:blur-2xl transition-all duration-300"></div>
                 </div>
               </Link>
 
