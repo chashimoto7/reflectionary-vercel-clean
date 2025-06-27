@@ -270,7 +270,7 @@ export default function Welcome() {
               <img
                 src={lightLogo}
                 alt="Reflectionary Logo"
-                className="h-36 w-36 drop-shadow-2xl hover:scale-105 transition-transform duration-300"
+                className="h-40 w-40 drop-shadow-2xl hover:scale-105 transition-transform duration-300"
               />
             </div>
 
