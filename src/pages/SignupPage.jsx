@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import { Eye, EyeOff, Check, Crown, Star, Sparkles } from "lucide-react";
-import logo from "../assets/ReflectionaryLogoWelcome.png";
+import logo from "../assets/ReflectionaryLight.png";
 
 const SUBSCRIPTION_PLANS = {
   free: {
