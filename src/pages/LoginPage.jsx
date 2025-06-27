@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
 import { Eye, EyeOff, Lock, ChevronLeft } from "lucide-react";
-import logo from "../assets/ReflectionaryLogoWelcome.png";
+import logo from "../assets/LightReflectionarySquare.svg";
 
 export default function LoginPage() {
   const navigate = useNavigate();
