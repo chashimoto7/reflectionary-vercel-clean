@@ -103,7 +103,6 @@ export default function PremiumJournaling() {
   const quillRef = useRef(null);
   const audioRef = useRef(null);
   const quillInitialized = useRef(false);
-  const quillContainerRef = useRef(null);
 
   // Add custom CSS for white text in Quill
   useEffect(() => {
@@ -312,9 +311,9 @@ export default function PremiumJournaling() {
       try {
         quillRef.current.setText("");
         setEditorContent("");
-        console.log("Premium editor cleared");
+        console.log("Advanced editor cleared");
       } catch (error) {
-        console.error("Error clearing premium editor:", error);
+        console.error("Error clearing advanced editor:", error);
       }
     }
   };
@@ -335,15 +334,13 @@ export default function PremiumJournaling() {
     }
   }, [user]);
 
-  // Initialize Quill editor with toolbar fix
+  // Initialize Quill editor - Fixed to prevent multiple toolbars
   useEffect(() => {
     if (isLocked || !editorRef.current || quillInitialized.current) return;
 
-    // Clean up any existing Quill instances
-    const existingToolbar =
-      quillContainerRef.current?.querySelector(".ql-toolbar");
-    if (existingToolbar) {
-      existingToolbar.remove();
+    // Clean up any existing editor
+    if (editorRef.current.querySelector(".ql-toolbar")) {
+      editorRef.current.innerHTML = "";
     }
 
     // Check if Quill is already initialized in this element
@@ -351,48 +348,51 @@ export default function PremiumJournaling() {
       return;
     }
 
-    const toolbarOptions = [
-      ["bold", "italic", "underline", "strike"],
-      ["blockquote", "code-block"],
-      [{ header: 1 }, { header: 2 }],
-      [{ list: "ordered" }, { list: "bullet" }],
-      [{ script: "sub" }, { script: "super" }],
-      [{ indent: "-1" }, { indent: "+1" }],
-      [{ direction: "rtl" }],
-      [{ size: ["small", false, "large", "huge"] }],
-      [{ header: [1, 2, 3, 4, 5, 6, false] }],
-      [{ color: [] }, { background: [] }],
-      [{ font: [] }],
-      [{ align: [] }],
-      ["link", "image"],
-      ["clean"],
-    ];
+    try {
+      const toolbarOptions = [
+        ["bold", "italic", "underline", "strike"],
+        ["blockquote", "code-block"],
+        [{ header: 1 }, { header: 2 }],
+        [{ list: "ordered" }, { list: "bullet" }],
+        [{ script: "sub" }, { script: "super" }],
+        [{ indent: "-1" }, { indent: "+1" }],
+        [{ direction: "rtl" }],
+        [{ size: ["small", false, "large", "huge"] }],
+        [{ header: [1, 2, 3, 4, 5, 6, false] }],
+        [{ color: [] }, { background: [] }],
+        [{ font: [] }],
+        [{ align: [] }],
+        ["link", "image"],
+        ["clean"],
+      ];
 
-    const quill = new Quill(editorRef.current, {
-      theme: "snow",
-      modules: {
-        toolbar: toolbarOptions,
-      },
-      placeholder: selectedTemplate
-        ? "Start writing based on the template prompts..."
-        : "Start writing your thoughts...",
-    });
+      const quill = new Quill(editorRef.current, {
+        theme: "snow",
+        modules: {
+          toolbar: toolbarOptions,
+        },
+        placeholder: selectedTemplate
+          ? "Start writing based on the template prompts..."
+          : "Start writing your thoughts...",
+      });
 
-    quill.on("text-change", () => {
-      setEditorContent(quill.root.innerHTML);
-    });
+      quill.on("text-change", () => {
+        setEditorContent(quill.root.innerHTML);
+      });
 
-    quillRef.current = quill;
-    quillInitialized.current = true;
-    setIsEditorReady(true);
+      quillRef.current = quill;
+      quillInitialized.current = true;
+      setIsEditorReady(true);
 
-    // Load the last saved entry
-    loadLastEntry();
+      // Load the last saved entry
+      loadLastEntry();
+    } catch (error) {
+      console.error("Error initializing Quill:", error);
+    }
 
     return () => {
-      // Clean up on unmount
+      // Cleanup on unmount
       if (quillRef.current) {
-        quillRef.current = null;
         quillInitialized.current = false;
       }
     };
@@ -814,7 +814,7 @@ export default function PremiumJournaling() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="container mx-auto px-4 py-6 max-w-full">
         {/* Premium Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -831,11 +831,20 @@ export default function PremiumJournaling() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 bg-gradient-to-r from-purple-600/20 to-pink-600/20 px-3 py-2 rounded-full border border-purple-400/30">
-              <Crown className="text-purple-400" size={16} />
-              <span className="text-purple-300 font-medium text-sm">
-                Premium
-              </span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 bg-gradient-to-r from-purple-600/20 to-pink-600/20 px-3 py-2 rounded-full border border-purple-400/30">
+                <Crown className="text-purple-400" size={16} />
+                <span className="text-purple-300 font-medium text-sm">
+                  Premium
+                </span>
+              </div>
+              <button
+                onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                title="Privacy Info"
+              >
+                <Info className="text-gray-400 hover:text-white" size={20} />
+              </button>
             </div>
           </div>
 
@@ -847,6 +856,19 @@ export default function PremiumJournaling() {
             >
               <FileText size={16} />
               Templates
+            </button>
+
+            <button
+              onClick={generateSubjectPrompt}
+              disabled={!subject.trim() || isLoadingSubject}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-600 text-sm transition-colors"
+            >
+              {isLoadingSubject ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+              ) : (
+                <Search size={16} />
+              )}
+              Subject Prompt
             </button>
 
             <button
@@ -891,6 +913,38 @@ export default function PremiumJournaling() {
             </button>
           </div>
         </div>
+
+        {/* Privacy Modal */}
+        {showPrivacyInfo && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowPrivacyInfo(false)}
+          >
+            <div
+              className="bg-slate-800 border border-white/20 rounded-lg p-6 max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white">
+                  Your Privacy Matters
+                </h3>
+                <button
+                  onClick={() => setShowPrivacyInfo(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <p className="text-gray-300">
+                Your information is personal — and we treat it that way. All
+                your reflections and data are end-to-end encrypted so no one
+                else can read it. Not our team. Not our servers. Just you.
+                Reflectionary is your private space to be real, raw, and fully
+                yourself.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Templates Section */}
         {showTemplates && (
@@ -959,63 +1013,76 @@ export default function PremiumJournaling() {
           </div>
         </div>
 
-        {/* Tags Input */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-2">
+        {/* Tags, Folder, Star/Pin Row */}
+        <div className="mb-6 space-y-4">
+          {/* Tags Input */}
+          <div className="flex items-center gap-2">
             <Tag className="w-4 h-4 text-gray-400" />
             <span className="text-sm text-gray-300">Add tags:</span>
-          </div>
-          <div className="flex flex-wrap gap-2 items-center">
-            {tags.map((tag) => (
-              <span
-                key={tag}
-                className="px-3 py-1 bg-purple-600/20 text-purple-300 rounded-full text-sm flex items-center gap-1"
-              >
-                #{tag}
-                <button
-                  onClick={() => removeTag(tag)}
-                  className="hover:text-purple-100"
+            <div className="flex flex-wrap gap-2 items-center flex-1">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="px-3 py-1 bg-purple-600/20 text-purple-300 rounded-full text-sm flex items-center gap-1"
                 >
-                  <X size={14} />
-                </button>
-              </span>
-            ))}
-            <input
-              type="text"
-              value={currentTag}
-              onChange={(e) => setCurrentTag(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addTag();
-                }
-              }}
-              placeholder="Add tag..."
-              className="px-3 py-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-        </div>
+                  #{tag}
+                  <button
+                    onClick={() => removeTag(tag)}
+                    className="hover:text-purple-100"
+                  >
+                    <X size={14} />
+                  </button>
+                </span>
+              ))}
+              <input
+                type="text"
+                value={currentTag}
+                onChange={(e) => setCurrentTag(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addTag();
+                  }
+                }}
+                placeholder="Add tag..."
+                className="px-3 py-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
 
-        {/* Current Prompt Display */}
-        {prompt && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-lg border border-purple-400/30">
-            <p className="text-sm text-purple-300 mb-1">
-              {promptType === "followup"
-                ? "Follow-up prompt:"
-                : promptType === "subject"
-                ? "Subject-specific prompt:"
-                : promptType === "folder"
-                ? "Folder-based prompt:"
-                : promptType === "template"
-                ? "Template-based prompt:"
-                : "Your journaling prompt:"}
-            </p>
-            <p className="text-white">{prompt}</p>
-          </div>
-        )}
+            {/* Star and Pin buttons */}
+            <button
+              onClick={() => setIsStarred(!isStarred)}
+              className={`flex items-center gap-1 px-3 py-1 rounded-md text-sm transition-colors ${
+                isStarred
+                  ? "bg-yellow-500/20 text-yellow-300"
+                  : "bg-white/10 text-gray-300 hover:bg-white/20"
+              }`}
+            >
+              {isStarred ? (
+                <Star size={16} fill="currentColor" />
+              ) : (
+                <StarOff size={16} />
+              )}
+              Star
+            </button>
 
-        {/* Folder & Organization Section */}
-        <div className="mb-6 space-y-4">
+            <button
+              onClick={() => setIsPinned(!isPinned)}
+              className={`flex items-center gap-1 px-3 py-1 rounded-md text-sm transition-colors ${
+                isPinned
+                  ? "bg-blue-500/20 text-blue-300"
+                  : "bg-white/10 text-gray-300 hover:bg-white/20"
+              }`}
+            >
+              {isPinned ? (
+                <Pin size={16} fill="currentColor" />
+              ) : (
+                <PinOff size={16} />
+              )}
+              Pin
+            </button>
+          </div>
+
           {/* Folder Selection */}
           <div className="flex items-center gap-2">
             <Folder className="w-4 h-4 text-gray-400" />
@@ -1048,45 +1115,28 @@ export default function PremiumJournaling() {
               </button>
             )}
           </div>
-
-          {/* Entry Options */}
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setIsStarred(!isStarred)}
-              className={`flex items-center gap-1 px-3 py-1 rounded-md text-sm transition-colors ${
-                isStarred
-                  ? "bg-yellow-500/20 text-yellow-300"
-                  : "bg-white/10 text-gray-300 hover:bg-white/20"
-              }`}
-            >
-              {isStarred ? (
-                <Star size={16} fill="currentColor" />
-              ) : (
-                <StarOff size={16} />
-              )}
-              {isStarred ? "Starred" : "Star"}
-            </button>
-
-            <button
-              onClick={() => setIsPinned(!isPinned)}
-              className={`flex items-center gap-1 px-3 py-1 rounded-md text-sm transition-colors ${
-                isPinned
-                  ? "bg-blue-500/20 text-blue-300"
-                  : "bg-white/10 text-gray-300 hover:bg-white/20"
-              }`}
-            >
-              {isPinned ? (
-                <Pin size={16} fill="currentColor" />
-              ) : (
-                <PinOff size={16} />
-              )}
-              {isPinned ? "Pinned" : "Pin"}
-            </button>
-          </div>
         </div>
 
+        {/* Current Prompt Display */}
+        {prompt && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-lg border border-purple-400/30">
+            <p className="text-sm text-purple-300 mb-1">
+              {promptType === "followup"
+                ? "Follow-up prompt:"
+                : promptType === "subject"
+                ? "Subject-specific prompt:"
+                : promptType === "folder"
+                ? "Folder-based prompt:"
+                : promptType === "template"
+                ? "Template-based prompt:"
+                : "Your journaling prompt:"}
+            </p>
+            <p className="text-white">{prompt}</p>
+          </div>
+        )}
+
         {/* Quill Editor Container */}
-        <div className="mb-6" ref={quillContainerRef}>
+        <div className="mb-6">
           <div className="premium-quill-container">
             <div ref={editorRef} />
           </div>
