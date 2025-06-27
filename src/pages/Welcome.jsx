@@ -1,8 +1,7 @@
-// src/pages/Welcome.jsx - Dark Theme with Logo Reveal Animation
-import logoWhite from "../assets/ReflectionaryLight.png"; // Your white logo
-import squarelogo from "../assets/LightReflectionarySquare.svg";
+// src/pages/Welcome.jsx - Dark Theme with Large Logo Placeholder
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import squarelogo from "../assets/LightReflectionarySquare.gif";
 import {
   Sparkles,
   TrendingUp,
@@ -10,10 +9,8 @@ import {
   Brain,
   Heart,
   Clock,
-  ChevronRight,
   Quote,
   Bell,
-  Calendar,
   BarChart3,
   Target,
   Lightbulb,
@@ -73,83 +70,10 @@ function getRandomQuote(excludeIndex) {
   return { ...QUOTES[idx], idx };
 }
 
-// Logo Reveal Animation Component
-const LogoReveal = ({ onComplete }) => {
-  const [stage, setStage] = useState("hidden"); // hidden -> revealing -> revealed
-
-  useEffect(() => {
-    // Start the animation sequence
-    const timer1 = setTimeout(() => setStage("revealing"), 200);
-    const timer2 = setTimeout(() => setStage("revealed"), 2000);
-    const timer3 = setTimeout(() => onComplete?.(), 2500);
-
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      clearTimeout(timer3);
-    };
-  }, [onComplete]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Dark overlay that fades out */}
-      <div
-        className={`absolute inset-0 bg-black transition-opacity duration-1000 ${
-          stage === "revealed" ? "opacity-0 pointer-events-none" : "opacity-90"
-        }`}
-      />
-
-      {/* Logo container */}
-      <div className="relative z-10 flex flex-col items-center">
-        {/* Main logo with light sweep effect */}
-        <div className="relative">
-          <img
-            src={squarelogo}
-            alt="Reflectionary"
-            className={`w-60 h-60 transition-all duration-2000 ${
-              stage === "hidden"
-                ? "opacity-0 scale-75"
-                : "opacity-100 scale-100"
-            }`}
-          />
-
-          {/* Light sweep effect */}
-          {stage === "revealing" && (
-            <div className="absolute inset-0 overflow-hidden rounded-full">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent transform -skew-x-12 animate-sweep" />
-            </div>
-          )}
-
-          {/* Glow effect */}
-          <div
-            className={`absolute inset-0 bg-gradient-to-r from-cyan-400/20 via-purple-400/30 to-pink-400/20 rounded-full blur-2xl transition-opacity duration-2000 ${
-              stage === "revealing" ? "opacity-100" : "opacity-0"
-            }`}
-          />
-        </div>
-
-        {/* Text reveal */}
-        <div
-          className={`mt-6 text-center transition-all duration-1000 delay-1000 ${
-            stage === "revealed"
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-4"
-          }`}
-        >
-          <h1 className="text-4xl font-bold text-white mb-2">Reflectionary</h1>
-          <p className="text-gray-300">Where your voice finds meaning</p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 export default function Welcome() {
   const [quote, setQuote] = useState(() => getRandomQuote(-1));
   const [userName, setUserName] = useState("Christine");
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [showLogo, setShowLogo] = useState(true);
-  const [contentVisible, setContentVisible] = useState(false);
 
   // Update time every minute
   useEffect(() => {
@@ -164,11 +88,6 @@ export default function Welcome() {
     }, 20000);
     return () => clearInterval(interval);
   }, []);
-
-  const handleLogoComplete = () => {
-    setShowLogo(false);
-    setContentVisible(true);
-  };
 
   const getTimeOfDay = () => {
     const hour = currentTime.getHours();
@@ -262,39 +181,37 @@ export default function Welcome() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-purple-600/20 via-transparent to-transparent"></div>
       </div>
 
-      {/* Logo Reveal Animation */}
-      {showLogo && <LogoReveal onComplete={handleLogoComplete} />}
-
-      {/* Main Content */}
-      <div
-        className={`relative z-10 transition-all duration-1000 ${
-          contentVisible ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        {/* Header Section */}
-        <div className="backdrop-blur-xl bg-white/10 border-b border-white/20 shadow-lg">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="flex items-center gap-4">
-              <img
-                src={squarelogo}
-                alt="Reflectionary logo"
-                className="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 drop-shadow-2xl"
-              />
-              <div className="flex-1">
-                <h1 className="text-3xl md:text-4xl font-bold text-white mb-1">
-                  Reflectionary
-                </h1>
-                <h2 className="text-xl md:text-2xl font-medium text-gray-300">
-                  {getGreeting()}
-                </h2>
-                <p className="text-lg text-gray-400 mt-1">
-                  Your personal space for reflection and growth
-                </p>
+      {/* Header Section - Solid Black */}
+      <div className="relative z-10 bg-black shadow-2xl">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center gap-6">
+            {/* Large Logo Placeholder - Takes full header height */}
+            <div className="flex-shrink-0">
+              <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center border-2 border-purple-400/50 shadow-2xl">
+                <span className="text-white text-xs font-medium text-center">
+                  src={squarelogo}
+                </span>
               </div>
+            </div>
+
+            {/* Header Text Content */}
+            <div className="flex-1">
+              <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
+                Reflectionary
+              </h1>
+              <h2 className="text-xl md:text-2xl font-medium text-gray-300 mb-1">
+                {getGreeting()}
+              </h2>
+              <p className="text-lg text-gray-400">
+                Your personal space for reflection and growth
+              </p>
             </div>
           </div>
         </div>
+      </div>
 
+      {/* Main Content */}
+      <div className="relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -467,21 +384,6 @@ export default function Welcome() {
           </div>
         </div>
       </div>
-
-      {/* CSS for sweep animation */}
-      <style jsx>{`
-        @keyframes sweep {
-          0% {
-            transform: translateX(-100%) skewX(-12deg);
-          }
-          100% {
-            transform: translateX(300%) skewX(-12deg);
-          }
-        }
-        .animate-sweep {
-          animation: sweep 2s ease-in-out;
-        }
-      `}</style>
     </div>
   );
 }
