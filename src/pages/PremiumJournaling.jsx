@@ -104,6 +104,7 @@ export default function PremiumJournaling() {
   const quillRef = useRef(null);
   const audioRef = useRef(null);
   const quillInitialized = useRef(false);
+  const initTimeoutRef = useRef(null);
 
   // Add custom CSS for white text in Quill
   useEffect(() => {
@@ -335,25 +336,29 @@ export default function PremiumJournaling() {
     }
   }, [user]);
 
-  // Initialize Quill editor - Fixed to prevent multiple toolbars
+  // FIXED: Initialize Quill editor - Better handling for refresh issues
   useEffect(() => {
-    if (isLocked || !editorRef.current) return;
+    if (isLocked || !editorRef.current || !user) return;
 
-    // Don't initialize if already initialized
-    if (quillInitialized.current) return;
-
-    // Clean up any existing editor
-    if (editorRef.current.querySelector(".ql-toolbar")) {
-      editorRef.current.innerHTML = "";
+    // Clean up any existing timeout
+    if (initTimeoutRef.current) {
+      clearTimeout(initTimeoutRef.current);
     }
 
-    // Check if Quill is already initialized in this element
-    if (editorRef.current.classList.contains("ql-container")) {
-      return;
-    }
+    const initializeQuill = () => {
+      // Don't initialize if already initialized
+      if (quillInitialized.current || !editorRef.current) return;
 
-    // Small delay to ensure DOM is ready
-    const initTimer = setTimeout(() => {
+      // Clean up any existing editor
+      if (editorRef.current.querySelector(".ql-toolbar")) {
+        editorRef.current.innerHTML = "";
+      }
+
+      // Check if Quill is already initialized in this element
+      if (editorRef.current.classList.contains("ql-container")) {
+        return;
+      }
+
       try {
         const toolbarOptions = [
           ["bold", "italic", "underline", "strike"],
@@ -392,19 +397,28 @@ export default function PremiumJournaling() {
 
         // Load the last saved entry
         loadLastEntry();
+
+        console.log("✅ Quill editor initialized successfully");
       } catch (error) {
-        console.error("Error initializing Quill:", error);
+        console.error("❌ Error initializing Quill:", error);
+        // Retry after a short delay
+        initTimeoutRef.current = setTimeout(initializeQuill, 500);
       }
-    }, 100);
+    };
+
+    // Use a longer delay for better initialization, especially on refresh
+    initTimeoutRef.current = setTimeout(initializeQuill, 200);
 
     return () => {
-      clearTimeout(initTimer);
+      if (initTimeoutRef.current) {
+        clearTimeout(initTimeoutRef.current);
+      }
       // Cleanup on unmount
       if (quillRef.current) {
         quillInitialized.current = false;
       }
     };
-  }, [isLocked, user]);
+  }, [isLocked, user, selectedTemplate]);
 
   // Update placeholder when template changes
   useEffect(() => {
@@ -513,7 +527,7 @@ export default function PremiumJournaling() {
     }
   };
 
-  // Generate subject-based prompt (Premium feature)
+  // FIXED: Generate subject-based prompt (Premium feature) - Connected to Subject Prompt button
   const generateSubjectPrompt = async () => {
     if (!subject.trim() || isLocked) return;
 
@@ -536,9 +550,11 @@ export default function PremiumJournaling() {
       setPromptType("subject");
       setSaveLabel("Save Entry");
       setShowPromptButton(false);
+      setSubject(""); // Clear the subject input after generating prompt
     } catch (error) {
       console.error("Error generating subject prompt:", error);
       setPrompt(`Explore your thoughts about ${subject}...`);
+      setSubject(""); // Clear even on error
     } finally {
       setIsLoadingSubject(false);
     }
@@ -870,7 +886,7 @@ export default function PremiumJournaling() {
             <button
               onClick={generateSubjectPrompt}
               disabled={!subject.trim() || isLoadingSubject}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 text-sm transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 text-sm transition-colors"
             >
               {isLoadingSubject ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
@@ -995,70 +1011,59 @@ export default function PremiumJournaling() {
 
         {/* Subject Prompt Input */}
         <div className="mb-6">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="Enter a subject for a specific prompt..."
-              className="flex-1 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              onKeyPress={(e) => {
-                if (e.key === "Enter" && subject.trim()) {
-                  generateSubjectPrompt();
-                }
-              }}
-            />
-            <button
-              onClick={generateSubjectPrompt}
-              disabled={!subject.trim() || isLoadingSubject}
-              className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-            >
-              {isLoadingSubject ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
-              ) : (
-                "Get Prompt"
-              )}
-            </button>
-          </div>
+          <input
+            type="text"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            placeholder="Enter a subject for a specific prompt..."
+            className="w-full px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            onKeyPress={(e) => {
+              if (e.key === "Enter" && subject.trim()) {
+                generateSubjectPrompt();
+              }
+            }}
+          />
         </div>
 
-        {/* Tags, Folder, Star/Pin Row */}
-        <div className="mb-6 space-y-4">
-          {/* Tags Input */}
-          <div className="flex items-center gap-2">
-            <Tag className="w-4 h-4 text-gray-400" />
-            <span className="text-sm text-gray-300">Add tags:</span>
-            <div className="flex flex-wrap gap-2 items-center flex-1">
-              {tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="px-3 py-1 bg-purple-600/20 text-purple-300 rounded-full text-sm flex items-center gap-1"
-                >
-                  #{tag}
-                  <button
-                    onClick={() => removeTag(tag)}
-                    className="hover:text-purple-100"
+        {/* FIXED: Reorganized Tags, Star, Pin, Folder - All on one line */}
+        <div className="mb-6">
+          <div className="flex items-center gap-4 flex-wrap">
+            {/* Tags Section */}
+            <div className="flex items-center gap-2">
+              <Tag className="w-4 h-4 text-gray-400" />
+              <span className="text-sm text-gray-300">Add tags:</span>
+              <div className="flex flex-wrap gap-2 items-center">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="px-3 py-1 bg-purple-600/20 text-purple-300 rounded-full text-sm flex items-center gap-1"
                   >
-                    <X size={14} />
-                  </button>
-                </span>
-              ))}
-              <input
-                type="text"
-                value={currentTag}
-                onChange={(e) => setCurrentTag(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addTag();
-                  }
-                }}
-                placeholder="Add tag..."
-                className="px-3 py-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
+                    #{tag}
+                    <button
+                      onClick={() => removeTag(tag)}
+                      className="hover:text-purple-100"
+                    >
+                      <X size={14} />
+                    </button>
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  value={currentTag}
+                  onChange={(e) => setCurrentTag(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addTag();
+                    }
+                  }}
+                  placeholder="Add tag..."
+                  className="px-3 py-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-20"
+                />
+              </div>
             </div>
 
-            {/* Star and Pin buttons */}
+            {/* Star and Pin buttons - Next to tags */}
             <button
               onClick={() => setIsStarred(!isStarred)}
               className={`flex items-center gap-1 px-3 py-1 rounded-md text-sm transition-colors ${
@@ -1090,39 +1095,39 @@ export default function PremiumJournaling() {
               )}
               Pin
             </button>
-          </div>
 
-          {/* Folder Selection */}
-          <div className="flex items-center gap-2">
-            <Folder className="w-4 h-4 text-gray-400" />
-            <span className="text-sm text-gray-300">Folder:</span>
-            <select
-              value={selectedFolder || ""}
-              onChange={(e) => setSelectedFolder(e.target.value || null)}
-              className="flex-1 px-3 py-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              <option value="">No folder</option>
-              {folders.map((folder) => (
-                <option key={folder.id} value={folder.id}>
-                  {folder.name}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={() => setShowFolderModal(true)}
-              className="px-3 py-1 bg-purple-600 text-white rounded-md text-sm hover:bg-purple-700"
-            >
-              <FolderPlus size={16} />
-            </button>
-            {selectedFolder && (
-              <button
-                onClick={generateFolderPrompt}
-                disabled={isLoading}
-                className="px-3 py-1 bg-purple-100 text-purple-700 rounded-md text-sm hover:bg-purple-200"
+            {/* Folder Section - Moved to same line */}
+            <div className="flex items-center gap-2">
+              <Folder className="w-4 h-4 text-gray-400" />
+              <span className="text-sm text-gray-300">Folder:</span>
+              <select
+                value={selectedFolder || ""}
+                onChange={(e) => setSelectedFolder(e.target.value || null)}
+                className="px-3 py-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
-                Folder Prompt
+                <option value="">No folder</option>
+                {folders.map((folder) => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => setShowFolderModal(true)}
+                className="px-3 py-1 bg-purple-600 text-white rounded-md text-sm hover:bg-purple-700"
+              >
+                <FolderPlus size={16} />
               </button>
-            )}
+              {selectedFolder && (
+                <button
+                  onClick={generateFolderPrompt}
+                  disabled={isLoading}
+                  className="px-3 py-1 bg-purple-100 text-purple-700 rounded-md text-sm hover:bg-purple-200"
+                >
+                  Folder Prompt
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
