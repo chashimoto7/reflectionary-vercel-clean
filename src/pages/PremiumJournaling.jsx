@@ -127,6 +127,7 @@ export default function PremiumJournaling() {
   const editorRef = useRef(null);
   const quillRef = useRef(null);
   const quillInitialized = useRef(false);
+  const toolbarId = useRef(`toolbar-${Date.now()}-${Math.random()}`);
 
   // UI state
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
@@ -188,40 +189,237 @@ export default function PremiumJournaling() {
     }
   }, [user]);
 
-  // Initialize Quill editor with custom styling
+  // Apply enhanced Quill dark theme
+  const applyEnhancedQuillDarkTheme = () => {
+    // Remove any existing styles first
+    const existingStyle = document.getElementById("quill-premium-theme");
+    if (existingStyle) {
+      existingStyle.remove();
+    }
+
+    const style = document.createElement("style");
+    style.id = "quill-premium-theme";
+    style.textContent = `
+      /* Quill Editor Dark Theme for Premium */
+      .ql-editor {
+        background-color: #1e293b !important;
+        color: #ffffff !important;
+        border: 1px solid #475569 !important;
+        min-height: 400px !important;
+        max-height: 500px !important;
+        overflow-y: auto !important;
+        line-height: 1.6 !important;
+        font-size: 16px !important;
+      }
+      
+      .ql-editor.ql-blank::before {
+        color: #94a3b8 !important;
+        font-style: italic !important;
+      }
+      
+      .ql-toolbar {
+        background-color: #334155 !important;
+        border: 1px solid #475569 !important;
+        border-bottom: none !important;
+        border-radius: 8px 8px 0 0 !important;
+      }
+      
+      .ql-container {
+        border: 1px solid #475569 !important;
+        border-radius: 0 0 8px 8px !important;
+        background-color: #1e293b !important;
+      }
+      
+      /* Toolbar button styling */
+      .ql-toolbar .ql-stroke {
+        stroke: #ffffff !important;
+      }
+      
+      .ql-toolbar .ql-fill {
+        fill: #ffffff !important;
+      }
+      
+      .ql-toolbar button {
+        color: #ffffff !important;
+        border: 1px solid transparent !important;
+        border-radius: 4px !important;
+        margin: 1px !important;
+      }
+      
+      .ql-toolbar button:hover {
+        background-color: #475569 !important;
+        border-color: #8b5cf6 !important;
+      }
+      
+      .ql-toolbar button.ql-active {
+        background-color: #8b5cf6 !important;
+        border-color: #8b5cf6 !important;
+        color: #ffffff !important;
+      }
+      
+      .ql-toolbar button.ql-active .ql-stroke {
+        stroke: #ffffff !important;
+      }
+      
+      .ql-toolbar button.ql-active .ql-fill {
+        fill: #ffffff !important;
+      }
+      
+      /* Dropdown styling */
+      .ql-toolbar .ql-picker {
+        color: #ffffff !important;
+      }
+      
+      .ql-toolbar .ql-picker-label {
+        border: 1px solid transparent !important;
+        border-radius: 4px !important;
+        color: #ffffff !important;
+      }
+      
+      .ql-toolbar .ql-picker-label:hover {
+        background-color: #475569 !important;
+        border-color: #8b5cf6 !important;
+      }
+      
+      .ql-toolbar .ql-picker-options {
+        background-color: #334155 !important;
+        border: 1px solid #475569 !important;
+        border-radius: 4px !important;
+      }
+      
+      .ql-toolbar .ql-picker-item {
+        color: #ffffff !important;
+      }
+      
+      .ql-toolbar .ql-picker-item:hover {
+        background-color: #475569 !important;
+      }
+      
+      /* Tooltip styling */
+      .ql-tooltip {
+        background-color: #334155 !important;
+        border: 1px solid #475569 !important;
+        border-radius: 4px !important;
+        color: #ffffff !important;
+      }
+      
+      .ql-tooltip input {
+        background-color: #1e293b !important;
+        border: 1px solid #475569 !important;
+        color: #ffffff !important;
+      }
+      
+      /* Custom formatting styles in editor */
+      .ql-editor h1, .ql-editor h2, .ql-editor h3, 
+      .ql-editor h4, .ql-editor h5, .ql-editor h6 {
+        color: #b7ebff !important;
+      }
+      
+      .ql-editor blockquote {
+        border-left: 4px solid #8b5cf6 !important;
+        background-color: #2d3748 !important;
+        color: #e2e8f0 !important;
+        padding: 10px 15px !important;
+        margin: 10px 0 !important;
+      }
+      
+      .ql-editor code {
+        background-color: #2d3748 !important;
+        color: #fbbf24 !important;
+        padding: 2px 4px !important;
+        border-radius: 3px !important;
+      }
+      
+      .ql-editor pre {
+        background-color: #1a202c !important;
+        color: #ffffff !important;
+        border: 1px solid #475569 !important;
+        border-radius: 4px !important;
+      }
+    `;
+    document.head.appendChild(style);
+  };
+
+  // Initialize Enhanced Quill editor
   useEffect(() => {
     if (isLocked || !editorRef.current || quillInitialized.current) return;
 
-    // Check if Quill is already initialized in this element
-    if (editorRef.current.classList.contains("ql-container")) {
+    // Prevent multiple initializations
+    if (editorRef.current.querySelector(".ql-toolbar")) {
       return;
     }
 
+    // Create unique toolbar container
+    const toolbarContainer = document.createElement("div");
+    toolbarContainer.id = toolbarId.current;
+    editorRef.current.insertBefore(
+      toolbarContainer,
+      editorRef.current.firstChild
+    );
+
+    // Enhanced Premium toolbar options
     const toolbarOptions = [
-      ["bold", "italic", "underline", "strike"],
-      ["blockquote", "code-block"],
-      [{ header: 1 }, { header: 2 }],
-      [{ list: "ordered" }, { list: "bullet" }],
-      [{ script: "sub" }, { script: "super" }],
-      [{ indent: "-1" }, { indent: "+1" }],
-      [{ direction: "rtl" }],
       [{ size: ["small", false, "large", "huge"] }],
       [{ header: [1, 2, 3, 4, 5, 6, false] }],
+      ["bold", "italic", "underline", "strike"],
       [{ color: [] }, { background: [] }],
-      [{ font: [] }],
+      [{ script: "sub" }, { script: "super" }],
+      [{ list: "ordered" }, { list: "bullet" }],
+      [{ indent: "-1" }, { indent: "+1" }],
+      [{ direction: "rtl" }],
       [{ align: [] }],
-      ["link", "image"],
+      ["blockquote", "code-block"],
+      ["link", "image", "video"],
+      [{ font: [] }],
       ["clean"],
     ];
 
     const quill = new Quill(editorRef.current, {
       theme: "snow",
       modules: {
-        toolbar: toolbarOptions,
+        toolbar: {
+          container: `#${toolbarId.current}`,
+          handlers: {
+            // Custom handlers can be added here
+          },
+        },
+        history: {
+          delay: 1000,
+          maxStack: 100,
+          userOnly: false,
+        },
       },
+      formats: [
+        "background",
+        "bold",
+        "color",
+        "font",
+        "code",
+        "italic",
+        "link",
+        "size",
+        "strike",
+        "script",
+        "underline",
+        "blockquote",
+        "header",
+        "indent",
+        "list",
+        "align",
+        "direction",
+        "code-block",
+        "image",
+        "video",
+      ],
       placeholder: selectedTemplate
         ? "Start writing based on the template prompts..."
         : "Start writing your thoughts...",
+    });
+
+    // Set toolbar options after initialization
+    const toolbar = quill.getModule("toolbar");
+    toolbar.addHandler("size", function (value) {
+      // Custom size handler if needed
     });
 
     quill.on("text-change", () => {
@@ -232,58 +430,23 @@ export default function PremiumJournaling() {
     quillInitialized.current = true;
     setIsEditorReady(true);
 
+    // Apply the enhanced dark theme
+    applyEnhancedQuillDarkTheme();
+
     // Load the last saved entry
     loadLastEntry();
 
-    // Apply custom dark theme styling to Quill
-    applyQuillDarkTheme();
-
     return () => {
-      // Don't destroy Quill on visibility change, only on actual unmount
-      if (quillRef.current) {
+      if (quillRef.current && quillInitialized.current) {
         quillInitialized.current = false;
+        // Clean up toolbar
+        const toolbar = document.getElementById(toolbarId.current);
+        if (toolbar) {
+          toolbar.remove();
+        }
       }
     };
-  }, [isLocked, user]);
-
-  // Apply dark theme to Quill editor
-  const applyQuillDarkTheme = () => {
-    // Add custom styles for dark theme
-    const style = document.createElement("style");
-    style.textContent = `
-      .ql-editor {
-        background-color: #1e293b !important;
-        color: #e2e8f0 !important;
-        border: 1px solid #475569 !important;
-      }
-      .ql-toolbar {
-        background-color: #334155 !important;
-        border: 1px solid #475569 !important;
-        border-bottom: none !important;
-      }
-      .ql-toolbar .ql-stroke {
-        stroke: #e2e8f0 !important;
-      }
-      .ql-toolbar .ql-fill {
-        fill: #e2e8f0 !important;
-      }
-      .ql-toolbar button:hover {
-        color: #b7ebff !important;
-      }
-      .ql-toolbar button.ql-active {
-        color: #8b5cf6 !important;
-      }
-      .ql-container {
-        border: 1px solid #475569 !important;
-      }
-      .ql-tooltip {
-        background-color: #334155 !important;
-        border: 1px solid #475569 !important;
-        color: #e2e8f0 !important;
-      }
-    `;
-    document.head.appendChild(style);
-  };
+  }, [isLocked, user, selectedTemplate]);
 
   // Update placeholder when template changes
   useEffect(() => {
@@ -470,7 +633,7 @@ export default function PremiumJournaling() {
   // Check access
   if (!hasAccess("journaling")) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="w-full p-6">
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-yellow-800 mb-2">
             Access Restricted
@@ -485,7 +648,7 @@ export default function PremiumJournaling() {
 
   if (isLocked) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="w-full p-6">
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-yellow-800 mb-2">
             Session Locked
@@ -500,7 +663,7 @@ export default function PremiumJournaling() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="w-full p-6">
       {/* Premium Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
@@ -569,7 +732,7 @@ export default function PremiumJournaling() {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setShowTemplates(!showTemplates)}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg hover:bg-slate-600 text-sm text-slate-200"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg hover:bg-slate-600 text-sm text-white"
           >
             <FileText size={16} />
             Templates
@@ -614,7 +777,7 @@ export default function PremiumJournaling() {
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm ${
               isRecording
                 ? "bg-red-600 text-white hover:bg-red-700"
-                : "bg-slate-700 border border-slate-600 hover:bg-slate-600 text-slate-200"
+                : "bg-slate-700 border border-slate-600 hover:bg-slate-600 text-white"
             }`}
           >
             {isRecording ? <MicOff size={16} /> : <Mic size={16} />}
@@ -623,7 +786,7 @@ export default function PremiumJournaling() {
 
           <button
             onClick={toggleAudioPlayback}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg hover:bg-slate-600 text-sm text-slate-200"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg hover:bg-slate-600 text-sm text-white"
           >
             {audioPlayback ? <Volume2 size={16} /> : <VolumeX size={16} />}
             Read Aloud
@@ -638,7 +801,7 @@ export default function PremiumJournaling() {
             onChange={(e) => setSubject(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && handleSubjectPrompt()}
             placeholder="Enter a subject for a specific prompt..."
-            className="flex-1 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-200 placeholder-slate-400"
+            className="flex-1 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white placeholder-slate-400"
           />
         </div>
       </div>
@@ -659,7 +822,7 @@ export default function PremiumJournaling() {
                 }`}
               >
                 <Icon className="w-5 h-5 text-purple-400 mb-2" />
-                <h3 className="font-medium text-slate-200">{template.name}</h3>
+                <h3 className="font-medium text-white">{template.name}</h3>
               </button>
             );
           })}
@@ -695,7 +858,7 @@ export default function PremiumJournaling() {
             onChange={(e) => setCurrentTag(e.target.value)}
             onKeyPress={addTag}
             placeholder="Add tag..."
-            className="px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-200 placeholder-slate-400 text-sm w-24"
+            className="px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white placeholder-slate-400 text-sm w-24"
           />
         </div>
 
@@ -706,7 +869,7 @@ export default function PremiumJournaling() {
           <select
             value={selectedFolder}
             onChange={(e) => setSelectedFolder(e.target.value)}
-            className="px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-200 text-sm"
+            className="px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white text-sm"
           >
             <option value="">No folder</option>
             {folders.map((folder) => (
@@ -765,12 +928,9 @@ export default function PremiumJournaling() {
         </div>
       )}
 
-      {/* Rich Text Editor */}
+      {/* Enhanced Rich Text Editor */}
       <div className="mb-6">
-        <div
-          ref={editorRef}
-          className="min-h-[400px] rounded-lg border border-slate-600"
-        />
+        <div ref={editorRef} className="rounded-lg border border-slate-600" />
       </div>
 
       {/* Reflectionarian Section */}
