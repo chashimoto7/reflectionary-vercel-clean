@@ -251,7 +251,9 @@ export default function Layout({ children }) {
       )}
 
       {/* Main Content */}
-      <main className={`flex-1 relative z-10 ${!isWelcomePage ? "ml-72" : ""}`}>
+      <main
+        className={`flex-1 ${isWelcomePage ? "" : "px-6 py-4"} overflow-y-auto`}
+      >
         <div className="min-h-screen backdrop-blur-sm bg-black/10">
           {children}
         </div>
@@ -260,7 +262,7 @@ export default function Layout({ children }) {
       {/* Upgrade Modal */}
       {showUpgradeModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-2 max-w-md mx-4 shadow-2xl">
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 max-w-md mx-4 shadow-2xl">
             <div className="text-center">
               <Crown className="h-12 w-12 text-yellow-400 mx-auto mb-4" />
               <h3 className="text-xl font-bold text-white mb-2">
