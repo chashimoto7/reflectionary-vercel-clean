@@ -1,7 +1,7 @@
-// src/pages/Welcome.jsx - Dark Theme with Large Logo Placeholder
+// src/pages/Welcome.jsx - Dark Theme with Large SVG Logo
+import lightLogo from "../assets/LightReflectionarySquare.svg";
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import squarelogo from "../assets/LightReflectionarySquare.gif";
 import {
   Sparkles,
   TrendingUp,
@@ -181,17 +181,17 @@ export default function Welcome() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-purple-600/20 via-transparent to-transparent"></div>
       </div>
 
-      {/* Header Section - Solid Black */}
-      <div className="relative z-10 bg-black shadow-2xl">
+      {/* Header Section - Frosted Glass Style */}
+      <div className="relative z-10 backdrop-blur-xl bg-white/10 border-b border-white/20 shadow-2xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center gap-6">
-            {/* Large Logo Placeholder - Takes full header height */}
+            {/* Large Logo - Takes full header height */}
             <div className="flex-shrink-0">
-              <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center border-2 border-purple-400/50 shadow-2xl">
-                <span className="text-white text-xs font-medium text-center">
-                  src={squarelogo}
-                </span>
-              </div>
+              <img
+                src={lightLogo}
+                alt="Reflectionary Logo"
+                className="w-24 h-24 drop-shadow-2xl hover:scale-105 transition-transform duration-300"
+              />
             </div>
 
             {/* Header Text Content */}
