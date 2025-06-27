@@ -18,7 +18,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
 import { useMembership } from "../hooks/useMembership";
 import { useState } from "react";
-import logo from "../assets/ReflectionaryLight.png";
+import logo from "../assets/LightReflectionarySquare.png";
 
 export default function Layout({ children }) {
   const { user, signOut } = useAuth();
@@ -158,7 +158,7 @@ export default function Layout({ children }) {
                   <img
                     src={logo}
                     alt="Reflectionary Logo"
-                    className="w-20 h-20 transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-2xl"
+                    className="w-24 h-24 transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-2xl"
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 to-purple-400/20 rounded-full blur-xl group-hover:blur-2xl transition-all duration-300"></div>
                 </div>
