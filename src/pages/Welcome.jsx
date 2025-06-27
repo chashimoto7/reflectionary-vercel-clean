@@ -1,5 +1,5 @@
 // src/pages/Welcome.jsx - Dark Theme with Large SVG Logo
-import lightLogo from "../assets/LightReflectionarySquare.svg";
+import lightLogo from "../assets/BrightReflectionarySquare.svg";
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";

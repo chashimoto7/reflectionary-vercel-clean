@@ -98,7 +98,7 @@ export default function PremiumJournaling() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isLocked } = useSecurity();
-  const { hasAccess, tier } = useMembership();
+  const { hasAccess, tier, loading } = useMembership();
   const editorRef = useRef(null);
   const quillRef = useRef(null);
   const audioRef = useRef(null);
