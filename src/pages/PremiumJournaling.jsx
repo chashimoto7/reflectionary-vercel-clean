@@ -870,7 +870,7 @@ export default function PremiumJournaling() {
             <button
               onClick={generateSubjectPrompt}
               disabled={!subject.trim() || isLoadingSubject}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-600 text-sm transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-600 text-sm transition-colors"
             >
               {isLoadingSubject ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />

@@ -252,7 +252,7 @@ export default function Layout({ children }) {
 
       {/* Main Content */}
       <main
-        className={`flex-1 ${isWelcomePage ? "" : "px-6 py-4"} overflow-y-auto`}
+        className={`flex-1 ${isWelcomePage ? "" : "px-6 py-6"} overflow-y-auto`}
       >
         <div className="min-h-screen backdrop-blur-sm bg-black/10">
           {children}
