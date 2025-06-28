@@ -15,6 +15,7 @@ import {
   Brain,
   Zap,
   Calendar,
+  BarChart3,
   Users,
   Lightbulb,
   Heart,
@@ -64,6 +65,7 @@ import GoalHealthScoreTab from "../components/goals/tabs/GoalHealthScoreTab";
 import ProgressVelocityTab from "../components/goals/tabs/ProgressVelocityTab";
 
 import {
+  LineChart,
   Line,
   AreaChart,
   Area,
@@ -191,7 +193,7 @@ export default function PremiumGoals() {
     {
       id: "progress-patterns",
       label: "Progress Patterns",
-      icon: BarChart,
+      icon: BarChart3,
     },
     {
       id: "goal-insights",
@@ -493,12 +495,20 @@ export default function PremiumGoals() {
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="px-3 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="px-3 py-2 bg-slate-600 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
-                <option value="1month">Last Month</option>
-                <option value="3months">Last 3 Months</option>
-                <option value="6months">Last 6 Months</option>
-                <option value="1year">Last Year</option>
+                <option value="1month" className="bg-slate-700">
+                  Last Month
+                </option>
+                <option value="3months" className="bg-slate-700">
+                  Last 3 Months
+                </option>
+                <option value="6months" className="bg-slate-700">
+                  Last 6 Months
+                </option>
+                <option value="1year" className="bg-slate-700">
+                  Last Year
+                </option>
               </select>
             </div>
 
