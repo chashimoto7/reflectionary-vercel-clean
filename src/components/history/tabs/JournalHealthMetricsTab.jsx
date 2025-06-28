@@ -9,7 +9,6 @@ import {
   AreaChart,
   Area,
   BarChart,
-  BarChart3,
   Bar,
   XAxis,
   YAxis,
@@ -299,7 +298,7 @@ const JournalHealthMetricsTab = ({ entries, analytics, colors }) => {
           <h3 className="text-lg font-semibold text-white">
             Entry Quality Trends
           </h3>
-          <BarChart3 className="h-5 w-5 text-purple-400" />
+          <BarChart className="h-5 w-5 text-purple-400" />
         </div>
 
         <div className="h-80">
