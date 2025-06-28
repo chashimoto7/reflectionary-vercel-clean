@@ -613,19 +613,8 @@ export default function PremiumGoals() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
-      <div className="relative p-6 max-w-7xl mx-auto">
-        {/* Celebration Confetti */}
-        {showCelebration && (
-          <ReactConfetti
-            width={width}
-            height={height}
-            recycle={false}
-            numberOfPieces={200}
-            gravity={0.3}
-          />
-        )}
-
+    <div className="min-h-screen text-white">
+      <div className="p-6 max-w-7xl mx-auto">
         {/* Premium Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -796,13 +785,15 @@ export default function PremiumGoals() {
           {renderTabContent()}
         </div>
 
-        {/* Modals */}
+        {/* Modals - with proper z-index */}
         {showAddModal && (
-          <AddGoalModal
-            isOpen={showAddModal}
-            onClose={() => setShowAddModal(false)}
-            onAdd={handleAddGoal}
-          />
+          <div className="relative z-50">
+            <AddGoalModal
+              isOpen={showAddModal}
+              onClose={() => setShowAddModal(false)}
+              onAdd={handleAddGoal}
+            />
+          </div>
         )}
 
         {showEditModal && selectedGoalId && (
