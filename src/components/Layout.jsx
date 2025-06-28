@@ -136,12 +136,12 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div className="flex min-h-screen overflow-hidden relative bg-gradient-to-tr from-purple-950 via-purple-750 to-orange-800">
+    <div className="flex min-h-screen overflow-hidden relative bg-gradient-to-tr from-purple-950 via-purple-800 to-orange-800">
       {/* Sidebar - Hidden on Welcome page */}
       {!isWelcomePage && (
         <aside className="relative w-72 z-10">
           {/* Frosted Glass Container */}
-          <div className="fixed left-0 top-0 h-full w-72 backdrop-blur-xl bg-white/10 border-r border-white/20 shadow-2xl">
+          <div className="fixed left-0 top-0 h-full w-72 backdrop-blur-lg bg-white/10 border-r border-white/20 shadow-2xl">
             <div className="p-2 h-full flex flex-col">
               {/* Logo */}
               {/* Logo */}
