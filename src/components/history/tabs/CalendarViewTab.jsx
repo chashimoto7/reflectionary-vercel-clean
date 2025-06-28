@@ -201,13 +201,6 @@ const CalendarViewTab = ({ entries, colors, onEntrySelect }) => {
                 size="medium"
                 className="ml-auto"
               />
-              {audioEntry && (
-                <AudioPlayer
-                  entry={audioEntry}
-                  onClose={() => setAudioEntry(null)}
-                  position="bottom-right"
-                />
-              )}
             </div>
           </div>
         </div>
@@ -402,6 +395,15 @@ const CalendarViewTab = ({ entries, colors, onEntrySelect }) => {
 
       {/* Entry Modal */}
       {showEntryModal && <EntryModal />}
+
+      {/* Audio Player - Should be at the root level of the component */}
+      {audioEntry && (
+        <AudioPlayer
+          entry={audioEntry}
+          onClose={() => setAudioEntry(null)}
+          position="bottom-right"
+        />
+      )}
     </div>
   );
 };
