@@ -614,7 +614,7 @@ export default function PremiumGoals() {
 
   return (
     <div className="min-h-screen text-white">
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto p-6">
         {/* Premium Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -651,7 +651,7 @@ export default function PremiumGoals() {
 
           {/* Privacy Information */}
           {showPrivacyInfo && (
-            <div className="bg-purple-900/30 backdrop-blur-md p-4 rounded-lg border border-purple-500/30 mb-4">
+            <div className="bg-purple-900/30 backdrop-blur-md p-4 rounded-lg border border-purple-500/30 mb-4 relative z-10">
               <div className="flex items-start gap-2">
                 <Shield
                   className="text-purple-400 mt-0.5 flex-shrink-0"
@@ -785,15 +785,13 @@ export default function PremiumGoals() {
           {renderTabContent()}
         </div>
 
-        {/* Modals - with proper z-index */}
+        {/* Modals */}
         {showAddModal && (
-          <div className="relative z-50">
-            <AddGoalModal
-              isOpen={showAddModal}
-              onClose={() => setShowAddModal(false)}
-              onAdd={handleAddGoal}
-            />
-          </div>
+          <AddGoalModal
+            isOpen={showAddModal}
+            onClose={() => setShowAddModal(false)}
+            onAdd={handleAddGoal}
+          />
         )}
 
         {showEditModal && selectedGoalId && (
