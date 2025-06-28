@@ -271,7 +271,7 @@ export default function PremiumGoals() {
     } else {
       setLoading(false);
     }
-  }, [user, dateRange, tier, membershipLoading]);
+  }, [user, dateRange, tier, membershipLoading, hasAccess]);
 
   const loadGoalsAndAnalytics = async () => {
     setLoading(true);
