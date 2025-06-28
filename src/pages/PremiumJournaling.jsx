@@ -803,7 +803,6 @@ export default function PremiumJournaling() {
           encrypted_data_key: encryptedData.encrypted_data_key,
           data_key_iv: encryptedData.data_key_iv,
           prompt_type: promptType,
-          entry_number: entryChain.length + 1,
           word_count: contentToAnalyze.split(/\s+/).filter(Boolean).length,
           folder_id: selectedFolder || null,
           tags: tags.length > 0 ? tags : null,
