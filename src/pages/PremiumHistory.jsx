@@ -596,7 +596,7 @@ const AdvancedHistory = () => {
   }
 
   const EmptyHistoryState = () => (
-    <div className="text-center py-12 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+    <div className="text-center py-12 bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
       <BookOpen className="h-16 w-16 text-gray-300 mx-auto mb-4" />
       <h3 className="text-xl font-semibold text-white mb-2">
         No Journal Entries Found
@@ -680,7 +680,7 @@ const AdvancedHistory = () => {
           <>
             {/* Advanced Tab Navigation - Two Row Layout */}
             <div className="mb-8">
-              <div className="bg-white/10 backdrop-blur-sm p-3 rounded-lg border border-white/20">
+              <div className="bg-white/10 backdrop-blur-md p-3 rounded-lg border border-white/20">
                 {/* First Row - 5 tabs */}
                 <div className="flex flex-wrap gap-2 mb-2">
                   {advancedTabs.slice(0, 5).map((tab) => {
