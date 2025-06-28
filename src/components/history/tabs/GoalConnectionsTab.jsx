@@ -21,14 +21,10 @@ import {
   Search,
   Eye,
   Star,
-  Pin,
-  Heart,
-  Brain,
-  Zap,
-  Award,
   CheckCircle2,
   AlertCircle,
   Clock,
+  Award,
 } from "lucide-react";
 
 const GoalConnectionsTab = ({ entries, goals, colors }) => {
@@ -36,31 +32,14 @@ const GoalConnectionsTab = ({ entries, goals, colors }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState("overview"); // overview, detailed, timeline
 
+  // Helper functions defined before useMemo
+  const getMostFrequent = (obj) => {
+    if (!obj || Object.keys(obj).length === 0) return null;
+    return Object.entries(obj).sort((a, b) => b[1] - a[1])[0][0];
+  };
+
   // Calculate goal connections
   const goalConnections = useMemo(() => {
-    return calculateGoalConnections(entries, goals);
-  }, [entries, goals]);
-
-  // Calculate goal mention timeline
-  const goalTimeline = useMemo(() => {
-    return calculateGoalTimeline(entries, goals);
-  }, [entries, goals]);
-
-  // Filter goals based on search
-  const filteredGoals = useMemo(() => {
-    if (!searchQuery.trim()) return goals;
-    return goals.filter(
-      (goal) =>
-        goal.decryptedTitle
-          ?.toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
-        goal.decryptedDescription
-          ?.toLowerCase()
-          .includes(searchQuery.toLowerCase())
-    );
-  }, [goals, searchQuery]);
-
-  const calculateGoalConnections = (entries, goals) => {
     const connections = {};
 
     goals.forEach((goal) => {
@@ -76,12 +55,12 @@ const GoalConnectionsTab = ({ entries, goals, colors }) => {
         relatedEntries: [],
         mentionCount: 0,
         totalWords: 0,
-        moodDistribution: {},
-        themeDistribution: {},
+        progressEntries: [],
         timeline: [],
         lastMention: null,
         avgWordsPerMention: 0,
         consistency: 0,
+        completionCorrelation: 0,
       };
 
       entries.forEach((entry) => {
@@ -97,135 +76,126 @@ const GoalConnectionsTab = ({ entries, goals, colors }) => {
           (keyword) => content.includes(keyword) || prompt.includes(keyword)
         );
 
+        // Check for progress indicators
+        const hasProgress =
+          content.includes("progress") ||
+          content.includes("achieved") ||
+          content.includes("completed") ||
+          content.includes("milestone");
+
         if (isDirect || hasKeywords) {
           const entryData = {
             ...entry,
             mentionType: isDirect ? "direct" : "keyword",
-            relevanceScore: isDirect ? 1.0 : 0.5,
+            relevanceScore: isDirect ? 100 : 50,
+            hasProgress,
           };
+
+          connections[goalId].relatedEntries.push(entryData);
 
           if (isDirect) {
             connections[goalId].directMentions.push(entryData);
           }
-          connections[goalId].relatedEntries.push(entryData);
-          connections[goalId].mentionCount += 1;
-          connections[goalId].totalWords +=
-            entry.decryptedContent?.split(" ").length || 0;
 
-          // Track mood distribution
-          if (entry.mood) {
-            connections[goalId].moodDistribution[entry.mood] =
-              (connections[goalId].moodDistribution[entry.mood] || 0) + 1;
+          if (hasProgress) {
+            connections[goalId].progressEntries.push(entryData);
           }
 
-          // Track theme distribution
-          if (entry.theme) {
-            connections[goalId].themeDistribution[entry.theme] =
-              (connections[goalId].themeDistribution[entry.theme] || 0) + 1;
-          }
-
-          // Update last mention
-          if (
-            !connections[goalId].lastMention ||
-            new Date(entry.created_at) >
-              new Date(connections[goalId].lastMention)
-          ) {
-            connections[goalId].lastMention = entry.created_at;
-          }
+          connections[goalId].mentionCount++;
+          connections[goalId].totalWords += content.split(" ").length;
+          connections[goalId].lastMention = entry.created_at;
         }
       });
 
-      // Calculate averages and consistency
+      // Calculate metrics
       if (connections[goalId].mentionCount > 0) {
         connections[goalId].avgWordsPerMention = Math.round(
           connections[goalId].totalWords / connections[goalId].mentionCount
         );
+      }
 
-        // Calculate consistency (mentions per week over time period)
-        const timeSpan = getTimeSpanWeeks(connections[goalId].relatedEntries);
+      // Calculate consistency (mentions per week)
+      if (entries.length > 0) {
+        const firstEntry = new Date(entries[entries.length - 1].created_at);
+        const lastEntry = new Date(entries[0].created_at);
+        const weeksDiff = (lastEntry - firstEntry) / (1000 * 60 * 60 * 24 * 7);
         connections[goalId].consistency =
-          timeSpan > 0
-            ? (connections[goalId].mentionCount / timeSpan).toFixed(1)
+          weeksDiff > 0
+            ? (connections[goalId].mentionCount / weeksDiff).toFixed(2)
             : 0;
       }
     });
 
     return connections;
-  };
+  }, [entries, goals]);
 
-  const calculateGoalTimeline = (entries, goals) => {
+  // Calculate goal mention timeline
+  const goalTimeline = useMemo(() => {
     const timeline = {};
 
-    goals.forEach((goal) => {
-      const goalTitle = goal.decryptedTitle?.toLowerCase() || "";
-      timeline[goal.id] = [];
-
-      entries.forEach((entry) => {
-        const content = entry.decryptedContent?.toLowerCase() || "";
-        const prompt = entry.decryptedPrompt?.toLowerCase() || "";
-
-        if (content.includes(goalTitle) || prompt.includes(goalTitle)) {
-          const date = new Date(entry.created_at);
-          const monthKey = `${date.getFullYear()}-${String(
-            date.getMonth() + 1
-          ).padStart(2, "0")}`;
-
-          const existing = timeline[goal.id].find(
-            (item) => item.month === monthKey
-          );
-          if (existing) {
-            existing.mentions += 1;
-            existing.entries.push(entry);
-          } else {
-            timeline[goal.id].push({
-              month: monthKey,
-              displayMonth: date.toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "short",
-              }),
-              mentions: 1,
-              entries: [entry],
-            });
+    Object.values(goalConnections).forEach(({ goal, relatedEntries }) => {
+      relatedEntries.forEach((entry) => {
+        const monthKey = new Date(entry.created_at).toLocaleDateString(
+          "en-US",
+          {
+            year: "numeric",
+            month: "short",
           }
+        );
+
+        if (!timeline[monthKey]) {
+          timeline[monthKey] = {};
+        }
+
+        if (!timeline[monthKey][goal.id]) {
+          timeline[monthKey][goal.id] = {
+            goalTitle: goal.decryptedTitle,
+            mentions: 0,
+            progress: 0,
+          };
+        }
+
+        timeline[monthKey][goal.id].mentions++;
+        if (entry.hasProgress) {
+          timeline[monthKey][goal.id].progress++;
         }
       });
-
-      timeline[goal.id].sort((a, b) => a.month.localeCompare(b.month));
     });
 
-    return timeline;
-  };
+    return Object.entries(timeline)
+      .map(([month, goalData]) => ({
+        month,
+        ...Object.entries(goalData).reduce((acc, [goalId, data]) => {
+          acc[`${data.goalTitle}_mentions`] = data.mentions;
+          acc[`${data.goalTitle}_progress`] = data.progress;
+          return acc;
+        }, {}),
+      }))
+      .sort((a, b) => new Date(a.month) - new Date(b.month));
+  }, [goalConnections]);
 
-  const getTimeSpanWeeks = (entries) => {
-    if (entries.length === 0) return 0;
-
-    const dates = entries
-      .map((e) => new Date(e.created_at))
-      .sort((a, b) => a - b);
-    const firstDate = dates[0];
-    const lastDate = dates[dates.length - 1];
-
-    return Math.ceil((lastDate - firstDate) / (7 * 24 * 60 * 60 * 1000));
-  };
-
-  const getTopMood = (moodDist) => {
-    if (!moodDist || Object.keys(moodDist).length === 0) return null;
-    return Object.entries(moodDist).sort((a, b) => b[1] - a[1])[0][0];
-  };
-
-  const getTopTheme = (themeDist) => {
-    if (!themeDist || Object.keys(themeDist).length === 0) return null;
-    return Object.entries(themeDist).sort((a, b) => b[1] - a[1])[0][0];
-  };
+  // Filter goals based on search
+  const filteredGoals = useMemo(() => {
+    if (!searchQuery.trim()) return goals;
+    return goals.filter(
+      (goal) =>
+        goal.decryptedTitle
+          ?.toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        goal.decryptedDescription
+          ?.toLowerCase()
+          .includes(searchQuery.toLowerCase())
+    );
+  }, [goals, searchQuery]);
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="text-sm font-medium text-gray-900">{label}</p>
+        <div className="bg-slate-800 p-3 border border-purple-500/30 rounded-lg shadow-lg">
+          <p className="text-sm font-medium text-white">{label}</p>
           {payload.map((item, index) => (
-            <p key={index} className="text-sm" style={{ color: item.color }}>
-              {`${item.dataKey}: ${item.value}`}
+            <p key={index} className="text-sm text-gray-300">
+              {`${item.name}: ${item.value}`}
             </p>
           ))}
         </div>
@@ -234,23 +204,17 @@ const GoalConnectionsTab = ({ entries, goals, colors }) => {
     return null;
   };
 
-  const GoalCard = ({ connection }) => {
-    const {
-      goal,
-      mentionCount,
-      avgWordsPerMention,
-      lastMention,
-      consistency,
-      moodDistribution,
-      themeDistribution,
-    } = connection;
+  const COLORS = ["#8B5CF6", "#EC4899", "#06B6D4", "#10B981", "#F59E0B"];
+
+  const GoalCard = ({ goal, connection }) => {
+    const isSelected = selectedGoal?.id === goal.id;
 
     return (
       <div
-        className={`bg-white border-2 rounded-xl p-6 transition cursor-pointer ${
-          selectedGoal?.id === goal.id
-            ? "border-purple-500 bg-purple-50"
-            : "border-gray-200 hover:border-purple-300"
+        className={`p-4 rounded-lg border cursor-pointer transition-all ${
+          isSelected
+            ? "border-purple-500 bg-purple-600/20"
+            : "border-white/20 bg-white/10 hover:border-purple-400/50"
         }`}
         onClick={() =>
           setSelectedGoal(selectedGoal?.id === goal.id ? null : goal)
@@ -258,15 +222,15 @@ const GoalConnectionsTab = ({ entries, goals, colors }) => {
       >
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <Target className="h-6 w-6 text-purple-600" />
+            <div className="p-3 bg-purple-600/20 rounded-lg">
+              <Target className="h-6 w-6 text-purple-400" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">
+              <h3 className="font-semibold text-white">
                 {goal.decryptedTitle}
               </h3>
               {goal.decryptedDescription && (
-                <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                <p className="text-sm text-gray-400 mt-1 line-clamp-2">
                   {goal.decryptedDescription}
                 </p>
               )}
@@ -277,10 +241,10 @@ const GoalConnectionsTab = ({ entries, goals, colors }) => {
             <span
               className={`text-xs px-2 py-1 rounded ${
                 goal.status === "completed"
-                  ? "bg-green-100 text-green-700"
+                  ? "bg-green-600/20 text-green-400"
                   : goal.status === "active"
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-gray-100 text-gray-700"
+                  ? "bg-blue-600/20 text-blue-400"
+                  : "bg-gray-600/20 text-gray-400"
               }`}
             >
               {goal.status || "active"}
@@ -288,46 +252,41 @@ const GoalConnectionsTab = ({ entries, goals, colors }) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <div className="text-2xl font-bold text-gray-900">
-              {mentionCount}
-            </div>
-            <div className="text-xs text-gray-600">Mentions</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white/5 p-3 rounded">
+            <p className="text-xs text-gray-400">Total Mentions</p>
+            <p className="text-lg font-semibold text-white">
+              {connection.mentionCount}
+            </p>
           </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <div className="text-2xl font-bold text-gray-900">
-              {avgWordsPerMention}
-            </div>
-            <div className="text-xs text-gray-600">Avg Words</div>
+          <div className="bg-white/5 p-3 rounded">
+            <p className="text-xs text-gray-400">Progress Updates</p>
+            <p className="text-lg font-semibold text-white">
+              {connection.progressEntries.length}
+            </p>
           </div>
-        </div>
-
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            {getTopMood(moodDistribution) && (
-              <span className="flex items-center gap-1 text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded">
-                <Heart className="h-3 w-3" />
-                {getTopMood(moodDistribution)}
-              </span>
-            )}
-            {getTopTheme(themeDistribution) && (
-              <span className="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                <Brain className="h-3 w-3" />
-                {getTopTheme(themeDistribution)}
-              </span>
-            )}
+          <div className="bg-white/5 p-3 rounded">
+            <p className="text-xs text-gray-400">Avg Words</p>
+            <p className="text-lg font-semibold text-white">
+              {connection.avgWordsPerMention}
+            </p>
           </div>
-
-          <div className="text-xs text-gray-500">
-            {consistency} mentions/week
+          <div className="bg-white/5 p-3 rounded">
+            <p className="text-xs text-gray-400">Weekly Mentions</p>
+            <p className="text-lg font-semibold text-white">
+              {connection.consistency}
+            </p>
           </div>
         </div>
 
-        {lastMention && (
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <Clock className="h-3 w-3" />
-            Last mentioned: {new Date(lastMention).toLocaleDateString()}
+        {connection.lastMention && (
+          <div className="mt-3 pt-3 border-t border-white/10">
+            <p className="text-xs text-gray-400">
+              Last mentioned:{" "}
+              <span className="text-gray-300">
+                {new Date(connection.lastMention).toLocaleDateString()}
+              </span>
+            </p>
           </div>
         )}
       </div>
@@ -335,169 +294,119 @@ const GoalConnectionsTab = ({ entries, goals, colors }) => {
   };
 
   const GoalDetails = ({ connection }) => {
-    const {
-      goal,
-      relatedEntries,
-      directMentions,
-      moodDistribution,
-      themeDistribution,
-    } = connection;
+    const { goal, relatedEntries, progressEntries } = connection;
 
     return (
       <div className="mt-6 space-y-6">
         <div className="flex items-center justify-between">
-          <h4 className="text-lg font-semibold text-gray-900">
+          <h4 className="text-lg font-semibold text-white">
             Entries related to "{goal.decryptedTitle}"
           </h4>
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-gray-400">
             {relatedEntries.length} total entries
           </div>
         </div>
 
-        {/* Quick stats */}
+        {/* Progress Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="text-2xl font-bold text-purple-600">
-              {directMentions.length}
+          <div className="bg-purple-600/20 p-4 rounded-lg border border-purple-500/30">
+            <div className="text-2xl font-bold text-purple-300">
+              {connection.directMentions.length}
             </div>
-            <div className="text-sm text-gray-600">Direct mentions</div>
+            <div className="text-sm text-purple-200">Direct mentions</div>
           </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="text-2xl font-bold text-blue-600">
-              {relatedEntries.length - directMentions.length}
+          <div className="bg-pink-600/20 p-4 rounded-lg border border-pink-500/30">
+            <div className="text-2xl font-bold text-pink-300">
+              {progressEntries.length}
             </div>
-            <div className="text-sm text-gray-600">Keyword matches</div>
+            <div className="text-sm text-pink-200">Progress updates</div>
           </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="text-2xl font-bold text-emerald-600">
-              {Object.keys(moodDistribution).length}
+          <div className="bg-emerald-600/20 p-4 rounded-lg border border-emerald-500/30">
+            <div className="text-2xl font-bold text-emerald-300">
+              {connection.consistency}
             </div>
-            <div className="text-sm text-gray-600">Different moods</div>
+            <div className="text-sm text-emerald-200">Mentions per week</div>
           </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="text-2xl font-bold text-amber-600">
-              {Object.keys(themeDistribution).length}
+          <div className="bg-amber-600/20 p-4 rounded-lg border border-amber-500/30">
+            <div className="text-2xl font-bold text-amber-300">
+              {Math.round(
+                (progressEntries.length / relatedEntries.length) * 100
+              ) || 0}
+              %
             </div>
-            <div className="text-sm text-gray-600">Different themes</div>
+            <div className="text-sm text-amber-200">Entries show progress</div>
           </div>
         </div>
 
-        {/* Goal timeline */}
-        {goalTimeline[goal.id] && goalTimeline[goal.id].length > 0 && (
-          <div className="bg-white p-6 rounded-xl border border-gray-200">
-            <h5 className="text-md font-semibold text-gray-900 mb-4">
-              Mention Timeline
-            </h5>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={goalTimeline[goal.id]}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="displayMonth" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar
-                    dataKey="mentions"
-                    fill={colors.primary}
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        )}
-
-        {/* Related entries list */}
-        <div className="space-y-3">
-          <h5 className="text-md font-semibold text-gray-900">
-            Related Entries
+        {/* Recent Entries */}
+        <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20">
+          <h5 className="font-medium text-white mb-4">
+            Recent Related Entries
           </h5>
-          {relatedEntries.slice(0, 10).map((entry) => (
-            <div
-              key={entry.id}
-              className="bg-white border border-gray-200 rounded-lg p-4"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-500">
-                  {new Date(entry.created_at).toLocaleDateString()}
-                </span>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`text-xs px-2 py-1 rounded ${
-                      entry.mentionType === "direct"
-                        ? "bg-purple-100 text-purple-700"
-                        : "bg-blue-100 text-blue-700"
-                    }`}
-                  >
-                    {entry.mentionType === "direct"
-                      ? "Direct mention"
-                      : "Keyword match"}
-                  </span>
-                  {entry.starred && (
-                    <Star className="h-4 w-4 text-yellow-500" />
-                  )}
-                  {entry.pinned && <Pin className="h-4 w-4 text-blue-500" />}
-                </div>
-              </div>
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {relatedEntries
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+              .slice(0, 10)
+              .map((entry) => (
+                <div
+                  key={entry.id}
+                  className="p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-300">
+                        {new Date(entry.created_at).toLocaleDateString()}
+                      </span>
+                      {entry.mentionType === "direct" && (
+                        <span className="text-xs px-2 py-0.5 bg-purple-600/30 text-purple-300 rounded">
+                          Direct
+                        </span>
+                      )}
+                      {entry.hasProgress && (
+                        <span className="text-xs px-2 py-0.5 bg-green-600/30 text-green-300 rounded">
+                          Progress
+                        </span>
+                      )}
+                    </div>
+                  </div>
 
-              {entry.decryptedPrompt && (
-                <p className="text-sm text-purple-600 italic mb-2">
-                  {entry.decryptedPrompt.length > 100
-                    ? `${entry.decryptedPrompt.substring(0, 100)}...`
-                    : entry.decryptedPrompt}
-                </p>
-              )}
+                  <p className="text-sm text-gray-300 line-clamp-2">
+                    {entry.decryptedContent.length > 200
+                      ? `${entry.decryptedContent.substring(0, 200)}...`
+                      : entry.decryptedContent}
+                  </p>
 
-              <p className="text-sm text-gray-700 line-clamp-2">
-                {entry.decryptedContent.length > 200
-                  ? `${entry.decryptedContent.substring(0, 200)}...`
-                  : entry.decryptedContent}
-              </p>
-
-              <div className="flex items-center justify-between mt-2">
-                <div className="flex items-center gap-2">
-                  {entry.mood && (
-                    <span className="text-xs px-2 py-1 bg-pink-100 text-pink-700 rounded">
-                      {entry.mood}
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-xs text-gray-500">
+                      {entry.decryptedContent.split(" ").length} words
                     </span>
-                  )}
-                  {entry.theme && (
-                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
-                      {entry.theme}
-                    </span>
-                  )}
+                    <button className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1">
+                      <Eye className="h-3 w-3" />
+                      View full
+                    </button>
+                  </div>
                 </div>
-                <button className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                  <Eye className="h-3 w-3" />
-                  View full
-                </button>
-              </div>
-            </div>
-          ))}
-
-          {relatedEntries.length > 10 && (
-            <div className="text-center">
-              <button className="text-sm text-purple-600 hover:text-purple-700">
-                Show {relatedEntries.length - 10} more entries
-              </button>
-            </div>
-          )}
+              ))}
+          </div>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-white">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Goal Connections</h2>
-          <p className="text-gray-600 mt-1">
-            Discover how your goals connect with your journal entries
+          <h2 className="text-2xl font-bold text-white">
+            Goal Progress Tracking
+          </h2>
+          <p className="text-gray-400 mt-1">
+            Track how your journaling correlates with goal achievement
           </p>
         </div>
 
-        <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+        <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-lg p-1">
           {[
             { id: "overview", label: "Overview" },
             { id: "detailed", label: "Detailed" },
@@ -508,8 +417,8 @@ const GoalConnectionsTab = ({ entries, goals, colors }) => {
               onClick={() => setViewMode(mode.id)}
               className={`px-3 py-2 text-sm rounded transition ${
                 viewMode === mode.id
-                  ? "bg-white text-purple-700 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
+                  ? "bg-purple-600 text-white"
+                  : "text-gray-300 hover:text-white hover:bg-white/10"
               }`}
             >
               {mode.label}
@@ -526,256 +435,254 @@ const GoalConnectionsTab = ({ entries, goals, colors }) => {
           placeholder="Search goals..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
       </div>
 
-      {/* Overview Stats */}
+      {/* Views */}
       {viewMode === "overview" && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-purple-100 text-sm">Total Goals</p>
-                <p className="text-3xl font-bold">{goals.length}</p>
+        <div className="space-y-6">
+          {/* Summary Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20">
+              <div className="flex items-center justify-between mb-2">
+                <Target className="h-5 w-5 text-purple-400" />
+                <span className="text-2xl font-bold text-white">
+                  {goals.length}
+                </span>
               </div>
-              <Target className="h-8 w-8 text-purple-200" />
+              <p className="text-sm text-gray-300">Total Goals</p>
             </div>
-          </div>
 
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-blue-100 text-sm">Goals Mentioned</p>
-                <p className="text-3xl font-bold">
+            <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20">
+              <div className="flex items-center justify-between mb-2">
+                <TrendingUp className="h-5 w-5 text-emerald-400" />
+                <span className="text-2xl font-bold text-white">
                   {
                     Object.values(goalConnections).filter(
                       (c) => c.mentionCount > 0
                     ).length
                   }
-                </p>
+                </span>
               </div>
-              <CheckCircle2 className="h-8 w-8 text-blue-200" />
+              <p className="text-sm text-gray-300">Goals Tracked</p>
             </div>
-          </div>
 
-          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white p-6 rounded-xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-emerald-100 text-sm">Total Mentions</p>
-                <p className="text-3xl font-bold">
-                  {Object.values(goalConnections).reduce(
-                    (sum, c) => sum + c.mentionCount,
-                    0
-                  )}
-                </p>
+            <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20">
+              <div className="flex items-center justify-between mb-2">
+                <CheckCircle2 className="h-5 w-5 text-green-400" />
+                <span className="text-2xl font-bold text-white">
+                  {goals.filter((g) => g.status === "completed").length}
+                </span>
               </div>
-              <TrendingUp className="h-8 w-8 text-emerald-200" />
+              <p className="text-sm text-gray-300">Completed</p>
             </div>
-          </div>
 
-          <div className="bg-gradient-to-br from-amber-500 to-amber-600 text-white p-6 rounded-xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-amber-100 text-sm">Avg Mentions</p>
-                <p className="text-3xl font-bold">
-                  {goals.length > 0
-                    ? Math.round(
+            <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20">
+              <div className="flex items-center justify-between mb-2">
+                <Award className="h-5 w-5 text-amber-400" />
+                <span className="text-2xl font-bold text-white">
+                  {Math.round(
+                    (Object.values(goalConnections).reduce(
+                      (sum, c) => sum + c.progressEntries.length,
+                      0
+                    ) /
+                      Math.max(
+                        1,
                         Object.values(goalConnections).reduce(
                           (sum, c) => sum + c.mentionCount,
                           0
-                        ) / goals.length
-                      )
-                    : 0}
-                </p>
+                        )
+                      )) *
+                      100
+                  ) || 0}
+                  %
+                </span>
               </div>
-              <Award className="h-8 w-8 text-amber-200" />
+              <p className="text-sm text-gray-300">Progress Rate</p>
+            </div>
+          </div>
+
+          {/* Goal Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredGoals.map((goal) => (
+              <GoalCard
+                key={goal.id}
+                goal={goal}
+                connection={goalConnections[goal.id]}
+              />
+            ))}
+          </div>
+
+          {selectedGoal && goalConnections[selectedGoal.id] && (
+            <GoalDetails connection={goalConnections[selectedGoal.id]} />
+          )}
+        </div>
+      )}
+
+      {viewMode === "detailed" && (
+        <div className="space-y-6">
+          {/* Goal Progress Chart */}
+          <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              Goal Mention Frequency
+            </h3>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={goals.map((goal, index) => ({
+                    name: goal.decryptedTitle,
+                    mentions: goalConnections[goal.id]?.mentionCount || 0,
+                    progress:
+                      goalConnections[goal.id]?.progressEntries.length || 0,
+                  }))}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(255,255,255,0.1)"
+                  />
+                  <XAxis
+                    dataKey="name"
+                    stroke="#9CA3AF"
+                    tick={{ fill: "#9CA3AF", fontSize: 12 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                  />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: "#9CA3AF" }} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar
+                    dataKey="mentions"
+                    fill="#8B5CF6"
+                    name="Total Mentions"
+                  />
+                  <Bar
+                    dataKey="progress"
+                    fill="#10B981"
+                    name="Progress Updates"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Goal Completion Correlation */}
+          <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              Journaling Consistency by Goal Status
+            </h3>
+            <div className="space-y-4">
+              {["completed", "active", "paused"].map((status) => {
+                const statusGoals = goals.filter(
+                  (g) => (g.status || "active") === status
+                );
+                const avgMentions =
+                  statusGoals.length > 0
+                    ? statusGoals.reduce(
+                        (sum, g) =>
+                          sum + (goalConnections[g.id]?.mentionCount || 0),
+                        0
+                      ) / statusGoals.length
+                    : 0;
+
+                return (
+                  <div
+                    key={status}
+                    className="flex items-center justify-between p-3 bg-white/5 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-3 h-3 rounded-full ${
+                          status === "completed"
+                            ? "bg-green-400"
+                            : status === "active"
+                            ? "bg-blue-400"
+                            : "bg-gray-400"
+                        }`}
+                      />
+                      <span className="capitalize text-gray-300">
+                        {status} Goals
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        ({statusGoals.length})
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm text-gray-400">
+                        Avg mentions: {avgMentions.toFixed(1)}
+                      </span>
+                      <div className="w-32 bg-white/10 rounded-full h-2">
+                        <div
+                          className={`h-full rounded-full ${
+                            status === "completed"
+                              ? "bg-green-400"
+                              : status === "active"
+                              ? "bg-blue-400"
+                              : "bg-gray-400"
+                          }`}
+                          style={{
+                            width: `${Math.min(100, avgMentions * 10)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       )}
 
-      {/* Goals Grid */}
-      {(viewMode === "overview" || viewMode === "detailed") && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredGoals
-              .filter((goal) => goalConnections[goal.id])
-              .sort(
-                (a, b) =>
-                  goalConnections[b.id].mentionCount -
-                  goalConnections[a.id].mentionCount
-              )
-              .map((goal) => (
-                <GoalCard key={goal.id} connection={goalConnections[goal.id]} />
-              ))}
-          </div>
-
-          {/* No connections message */}
-          {filteredGoals.filter(
-            (goal) => goalConnections[goal.id]?.mentionCount > 0
-          ).length === 0 && (
-            <div className="text-center py-12 bg-gray-50 rounded-lg">
-              <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No goal connections found
-              </h3>
-              <p className="text-gray-600 mb-4">
-                Start mentioning your goals in your journal entries to see
-                connections here.
-              </p>
-            </div>
-          )}
-
-          {/* Goal details */}
-          {selectedGoal && goalConnections[selectedGoal.id] && (
-            <GoalDetails connection={goalConnections[selectedGoal.id]} />
-          )}
-        </>
-      )}
-
-      {/* Timeline View */}
       {viewMode === "timeline" && (
-        <div className="space-y-6">
-          {/* Timeline chart for top goals */}
-          <div className="bg-white p-6 rounded-xl border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Goal Mentions Over Time
-            </h3>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={getTimelineData()}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip content={<CustomTooltip />} />
-                  {getTopGoals().map((goal, index) => (
-                    <Line
-                      key={goal.id}
-                      type="monotone"
-                      dataKey={goal.id}
-                      stroke={colors.gradient[index % colors.gradient.length]}
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-4">
-              {getTopGoals().map((goal, index) => (
-                <div key={goal.id} className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{
-                      backgroundColor:
-                        colors.gradient[index % colors.gradient.length],
-                    }}
+        <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20">
+          <h3 className="text-lg font-semibold text-white mb-4">
+            Goal Mentions Over Time
+          </h3>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={goalTimeline}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255,255,255,0.1)"
+                />
+                <XAxis
+                  dataKey="month"
+                  stroke="#9CA3AF"
+                  tick={{ fill: "#9CA3AF" }}
+                />
+                <YAxis stroke="#9CA3AF" tick={{ fill: "#9CA3AF" }} />
+                <Tooltip content={<CustomTooltip />} />
+                {goals.slice(0, 5).map((goal, index) => (
+                  <Line
+                    key={goal.id}
+                    type="monotone"
+                    dataKey={`${goal.decryptedTitle}_mentions`}
+                    stroke={COLORS[index % COLORS.length]}
+                    strokeWidth={2}
+                    name={goal.decryptedTitle}
                   />
-                  <span className="text-sm text-gray-600">
-                    {goal.decryptedTitle}
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
           </div>
-
-          {/* Goal progress indicators */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.values(goalConnections)
-              .filter((c) => c.mentionCount > 0)
-              .sort((a, b) => b.mentionCount - a.mentionCount)
-              .slice(0, 6)
-              .map((connection) => (
+          <div className="flex flex-wrap gap-3 mt-4 justify-center">
+            {goals.slice(0, 5).map((goal, index) => (
+              <div key={goal.id} className="flex items-center gap-2">
                 <div
-                  key={connection.goal.id}
-                  className="bg-white p-4 rounded-lg border border-gray-200"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-medium text-gray-900 truncate">
-                      {connection.goal.decryptedTitle}
-                    </h4>
-                    <span className="text-sm text-gray-500">
-                      {connection.mentionCount} mentions
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Consistency</span>
-                      <span className="font-medium">
-                        {connection.consistency}/week
-                      </span>
-                    </div>
-
-                    {connection.lastMention && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Last mentioned</span>
-                        <span className="text-gray-500">
-                          {Math.ceil(
-                            (new Date() - new Date(connection.lastMention)) /
-                              (1000 * 60 * 60 * 24)
-                          )}{" "}
-                          days ago
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="mt-3 w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-purple-500 h-2 rounded-full"
-                        style={{
-                          width: `${Math.min(
-                            (connection.consistency / 2) * 100,
-                            100
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  className="w-3 h-3 rounded"
+                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                />
+                <span className="text-sm text-gray-300">
+                  {goal.decryptedTitle}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       )}
     </div>
   );
-
-  // Helper functions
-  function getTimelineData() {
-    const allMonths = new Set();
-    Object.values(goalTimeline).forEach((timeline) => {
-      timeline.forEach((item) => allMonths.add(item.month));
-    });
-
-    const sortedMonths = Array.from(allMonths).sort();
-
-    return sortedMonths.map((month) => {
-      const data = {
-        month: new Date(month + "-01").toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-        }),
-      };
-
-      getTopGoals().forEach((goal) => {
-        const timelineItem = goalTimeline[goal.id]?.find(
-          (item) => item.month === month
-        );
-        data[goal.id] = timelineItem ? timelineItem.mentions : 0;
-      });
-
-      return data;
-    });
-  }
-
-  function getTopGoals() {
-    return Object.values(goalConnections)
-      .filter((c) => c.mentionCount > 0)
-      .sort((a, b) => b.mentionCount - a.mentionCount)
-      .slice(0, 5)
-      .map((c) => c.goal);
-  }
 };
 
 export default GoalConnectionsTab;

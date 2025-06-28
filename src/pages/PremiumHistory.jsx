@@ -39,7 +39,6 @@ import StarredPinnedTab from "../components/history/tabs/StarredPinnedTab";
 import TimelineViewTab from "../components/history/tabs/TimelineViewTab";
 import MoodThemeAnalysisTab from "../components/history/tabs/MoodThemeAnalysisTab";
 import GoalConnectionsTab from "../components/history/tabs/GoalConnectionsTab";
-import AudioPlaybackTab from "../components/history/tabs/AudioPlaybackTab";
 import DataExportTab from "../components/history/tabs/DataExportTab";
 
 const AdvancedHistory = () => {
@@ -133,11 +132,6 @@ const AdvancedHistory = () => {
       id: "goal-connections",
       label: "Goal Connections",
       icon: Brain,
-    },
-    {
-      id: "audio-playback",
-      label: "Audio Features",
-      icon: Play,
     },
     {
       id: "data-export",
@@ -764,9 +758,6 @@ const AdvancedHistory = () => {
                 goals={goals}
                 colors={colors}
               />
-            )}
-            {activeTab === "audio-playback" && (
-              <AudioPlaybackTab entries={entries} colors={colors} />
             )}
             {activeTab === "data-export" && (
               <DataExportTab
