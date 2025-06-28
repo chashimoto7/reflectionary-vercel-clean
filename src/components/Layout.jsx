@@ -136,7 +136,7 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div className="flex min-h-screen overflow-hidden relative bg-gradient-to-br from-purple-950 via-purple-600 to-fuchsia-800">
+    <div className="flex min-h-screen overflow-hidden relative bg-gradient-to-br from-purple-950 via-purple-700 to-orange-900">
       {/* Sidebar - Hidden on Welcome page */}
       {!isWelcomePage && (
         <aside className="relative w-72 z-10">
