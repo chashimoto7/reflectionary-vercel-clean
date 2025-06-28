@@ -29,11 +29,16 @@ import {
   Zap,
   Layers,
   ChevronRight,
+  Info,
 } from "lucide-react";
 
 const WritingStyleEvolutionTab = ({ entries, analytics, colors }) => {
   const [timeScale, setTimeScale] = useState("monthly"); // weekly, monthly, quarterly
   const [selectedMetric, setSelectedMetric] = useState("vocabulary");
+  const [showVocabularyInfo, setShowVocabularyInfo] = useState(false);
+  const [showLexicalInfo, setShowLexicalInfo] = useState(false);
+  const [showComplexityInfo, setShowComplexityInfo] = useState(false);
+  const [showMaturityInfo, setShowMaturityInfo] = useState(false);
 
   // Process style evolution data
   const styleEvolutionData = useMemo(() => {
@@ -168,7 +173,15 @@ const WritingStyleEvolutionTab = ({ entries, analytics, colors }) => {
             <h4 className="text-sm font-medium text-gray-300">
               Unique Vocabulary
             </h4>
-            <BookOpen className="h-4 w-4 text-purple-400" />
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-purple-400" />
+              <button
+                onClick={() => setShowVocabularyInfo(!showVocabularyInfo)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <Info className="h-4 w-4" />
+              </button>
+            </div>
           </div>
           <p className="text-2xl font-bold text-white">
             {vocabularyMetrics.totalUniqueWords.toLocaleString()}
@@ -176,6 +189,17 @@ const WritingStyleEvolutionTab = ({ entries, analytics, colors }) => {
           <p className="text-xs text-emerald-400 mt-1">
             +{vocabularyMetrics.growthRate}% this month
           </p>
+          {showVocabularyInfo && (
+            <div className="mt-3 p-3 bg-purple-600/20 rounded-lg text-xs text-gray-300">
+              <p className="font-medium text-purple-300 mb-1">
+                Unique Vocabulary
+              </p>
+              <p>
+                Total number of distinct words used across all entries. Growth
+                indicates expanding expression and vocabulary range.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20">
@@ -183,12 +207,31 @@ const WritingStyleEvolutionTab = ({ entries, analytics, colors }) => {
             <h4 className="text-sm font-medium text-gray-300">
               Lexical Diversity
             </h4>
-            <Hash className="h-4 w-4 text-pink-400" />
+            <div className="flex items-center gap-2">
+              <Hash className="h-4 w-4 text-pink-400" />
+              <button
+                onClick={() => setShowLexicalInfo(!showLexicalInfo)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <Info className="h-4 w-4" />
+              </button>
+            </div>
           </div>
           <p className="text-2xl font-bold text-white">
             {(vocabularyMetrics.lexicalDiversity * 100).toFixed(0)}%
           </p>
           <p className="text-xs text-gray-400 mt-1">Type-token ratio</p>
+          {showLexicalInfo && (
+            <div className="mt-3 p-3 bg-purple-600/20 rounded-lg text-xs text-gray-300">
+              <p className="font-medium text-purple-300 mb-1">
+                Lexical Diversity
+              </p>
+              <p>
+                Ratio of unique words to total words. Higher percentages
+                indicate more varied vocabulary usage and less repetition.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20">
@@ -196,7 +239,15 @@ const WritingStyleEvolutionTab = ({ entries, analytics, colors }) => {
             <h4 className="text-sm font-medium text-gray-300">
               Avg Complexity
             </h4>
-            <Layers className="h-4 w-4 text-cyan-400" />
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-cyan-400" />
+              <button
+                onClick={() => setShowComplexityInfo(!showComplexityInfo)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <Info className="h-4 w-4" />
+              </button>
+            </div>
           </div>
           <p className="text-2xl font-bold text-white">
             {styleEvolutionData[
@@ -204,6 +255,18 @@ const WritingStyleEvolutionTab = ({ entries, analytics, colors }) => {
             ]?.sentenceComplexity.toFixed(0) || 75}
           </p>
           <p className="text-xs text-gray-400 mt-1">Flesch-Kincaid score</p>
+          {showComplexityInfo && (
+            <div className="mt-3 p-3 bg-purple-600/20 rounded-lg text-xs text-gray-300">
+              <p className="font-medium text-purple-300 mb-1">
+                Average Complexity
+              </p>
+              <p>
+                Flesch-Kincaid readability score (0-100). Lower scores indicate
+                more complex writing with longer sentences and advanced
+                vocabulary.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20">
@@ -211,10 +274,27 @@ const WritingStyleEvolutionTab = ({ entries, analytics, colors }) => {
             <h4 className="text-sm font-medium text-gray-300">
               Voice Maturity
             </h4>
-            <Feather className="h-4 w-4 text-emerald-400" />
+            <div className="flex items-center gap-2">
+              <Feather className="h-4 w-4 text-emerald-400" />
+              <button
+                onClick={() => setShowMaturityInfo(!showMaturityInfo)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <Info className="h-4 w-4" />
+              </button>
+            </div>
           </div>
           <p className="text-2xl font-bold text-white">Level 4</p>
           <p className="text-xs text-gray-400 mt-1">Developing style</p>
+          {showMaturityInfo && (
+            <div className="mt-3 p-3 bg-purple-600/20 rounded-lg text-xs text-gray-300">
+              <p className="font-medium text-purple-300 mb-1">Voice Maturity</p>
+              <p>
+                Overall writing development level (1-5). Based on consistency,
+                clarity, emotional depth, and stylistic confidence.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -227,7 +307,7 @@ const WritingStyleEvolutionTab = ({ entries, analytics, colors }) => {
           <select
             value={selectedMetric}
             onChange={(e) => setSelectedMetric(e.target.value)}
-            className="px-3 py-2 text-sm bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="px-3 py-2 text-sm bg-slate-700 border border-white/20 rounded text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
           >
             <option value="vocabulary">Vocabulary Diversity</option>
             <option value="complexity">Sentence Complexity</option>

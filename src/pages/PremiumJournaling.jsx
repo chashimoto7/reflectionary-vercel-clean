@@ -703,7 +703,7 @@ export default function PremiumJournaling() {
     setShowTemplates(false);
   };
 
-  // Voice recording functions (Premium feature)
+  // Voice recording functions with OpenAI Whisper transcription
   const startVoiceRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -722,7 +722,9 @@ export default function PremiumJournaling() {
       setIsRecording(true);
     } catch (error) {
       console.error("Error starting recording:", error);
-      alert("Unable to access microphone");
+      alert(
+        "Unable to access microphone. Please check your browser permissions."
+      );
     }
   };
 
@@ -737,20 +739,121 @@ export default function PremiumJournaling() {
   const transcribeAudio = async (audioBlob) => {
     setIsTranscribing(true);
     try {
-      // In a real app, send to transcription service
-      // For now, simulate transcription
-      setTimeout(() => {
-        const mockTranscription =
-          "This is where your transcribed audio would appear...";
-        if (quillRef.current) {
-          const currentContent = quillRef.current.getText();
-          quillRef.current.setText(currentContent + " " + mockTranscription);
+      // Get the current session
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error("No active session");
+      }
+
+      // Create FormData for the audio file
+      const formData = new FormData();
+      formData.append("audio", audioBlob, "recording.webm");
+
+      // Call Supabase Edge Function for transcription
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe-audio`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: formData,
         }
-        setIsTranscribing(false);
-      }, 2000);
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to transcribe audio");
+      }
+
+      const { text } = await response.json();
+
+      // Add transcribed text to the editor
+      if (quillRef.current && text) {
+        const currentContent = quillRef.current.getText();
+        const newContent = currentContent ? currentContent + " " + text : text;
+        quillRef.current.setText(newContent);
+      }
     } catch (error) {
       console.error("Error transcribing audio:", error);
+      alert("Failed to transcribe audio. Please try again.");
+    } finally {
       setIsTranscribing(false);
+    }
+  };
+
+  // Read aloud function using OpenAI TTS
+  const toggleReadAloud = async () => {
+    if (!audioPlayback) {
+      // If turning on, start reading
+      const content = quillRef.current?.getText();
+      if (!content || content.trim() === "") {
+        alert("Please write something first");
+        return;
+      }
+
+      try {
+        setAudioPlayback(true);
+
+        // Get the current session
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session) {
+          throw new Error("No active session");
+        }
+
+        // Call Supabase Edge Function for TTS
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-audio`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              text: content,
+              voice: "nova", // Default voice, could make this configurable
+              model: "tts-1",
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to generate audio");
+        }
+
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+
+        // Create and play audio
+        const audio = new Audio(audioUrl);
+        audioRef.current = audio;
+
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          setAudioPlayback(false);
+          audioRef.current = null;
+        };
+
+        await audio.play();
+      } catch (error) {
+        console.error("Error with text-to-speech:", error);
+        alert("Failed to read aloud. Please try again.");
+        setAudioPlayback(false);
+      }
+    } else {
+      // Stop reading
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setAudioPlayback(false);
     }
   };
 
@@ -803,6 +906,7 @@ export default function PremiumJournaling() {
           encrypted_data_key: encryptedData.encrypted_data_key,
           data_key_iv: encryptedData.data_key_iv,
           prompt_type: promptType,
+          entry_number: entryChain.length + 1,
           word_count: contentToAnalyze.split(/\s+/).filter(Boolean).length,
           folder_id: selectedFolder || null,
           tags: tags.length > 0 ? tags : null,
@@ -1024,11 +1128,12 @@ export default function PremiumJournaling() {
             </button>
 
             <button
-              onClick={() => setAudioPlayback(!audioPlayback)}
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg hover:bg-white/20 text-white text-sm transition-colors"
+              onClick={toggleReadAloud}
+              disabled={audioPlayback && audioRef.current}
+              className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg hover:bg-white/20 text-white text-sm transition-colors disabled:opacity-50"
             >
-              {audioPlayback ? <Volume2 size={16} /> : <VolumeX size={16} />}
-              Read Aloud
+              {audioPlayback ? <VolumeX size={16} /> : <Volume2 size={16} />}
+              {audioPlayback ? "Stop Reading" : "Read Aloud"}
             </button>
           </div>
         </div>

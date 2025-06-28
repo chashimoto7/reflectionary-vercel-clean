@@ -30,11 +30,14 @@ import {
   Lightbulb,
   MessageSquare,
   Layers,
+  Info,
 } from "lucide-react";
 
 const JournalHealthMetricsTab = ({ entries, analytics, colors }) => {
   const [selectedTimeframe, setSelectedTimeframe] = useState("month");
   const [selectedHealthMetric, setSelectedHealthMetric] = useState("overall");
+  const [showComponentsInfo, setShowComponentsInfo] = useState(false);
+  const [showQualityInfo, setShowQualityInfo] = useState(false);
 
   // Calculate journal health score
   const healthScore = useMemo(() => {
@@ -263,9 +266,47 @@ const JournalHealthMetricsTab = ({ entries, analytics, colors }) => {
 
         {/* Health Components */}
         <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20 md:col-span-2">
-          <h3 className="text-lg font-semibold text-white mb-4">
-            Health Components
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white">
+              Health Components
+            </h3>
+            <button
+              onClick={() => setShowComponentsInfo(!showComponentsInfo)}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          </div>
+
+          {showComponentsInfo && (
+            <div className="mb-4 p-3 bg-purple-600/20 rounded-lg text-xs text-gray-300">
+              <p className="font-medium text-purple-300 mb-2">
+                Health Component Definitions:
+              </p>
+              <ul className="space-y-1">
+                <li>
+                  <span className="text-purple-300">Consistency:</span> How
+                  regularly you journal
+                </li>
+                <li>
+                  <span className="text-purple-300">Depth:</span> Length and
+                  detail of entries
+                </li>
+                <li>
+                  <span className="text-purple-300">Reflection:</span> Quality
+                  of self-analysis
+                </li>
+                <li>
+                  <span className="text-purple-300">Engagement:</span> Use of
+                  features and prompts
+                </li>
+                <li>
+                  <span className="text-purple-300">Growth:</span> Personal
+                  development language
+                </li>
+              </ul>
+            </div>
+          )}
 
           <div className="space-y-4">
             {Object.entries(healthScore.components).map(
@@ -298,8 +339,42 @@ const JournalHealthMetricsTab = ({ entries, analytics, colors }) => {
           <h3 className="text-lg font-semibold text-white">
             Entry Quality Trends
           </h3>
-          <BarChart className="h-5 w-5 text-purple-400" />
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-purple-400" />
+            <button
+              onClick={() => setShowQualityInfo(!showQualityInfo)}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          </div>
         </div>
+
+        {showQualityInfo && (
+          <div className="mb-4 p-3 bg-purple-600/20 rounded-lg text-xs text-gray-300">
+            <p className="font-medium text-purple-300 mb-2">
+              Quality Metric Definitions:
+            </p>
+            <ul className="space-y-1">
+              <li>
+                <span className="text-purple-300">Entry Depth:</span> Word count
+                and topic exploration
+              </li>
+              <li>
+                <span className="text-purple-300">Reflection Quality:</span>{" "}
+                Self-awareness and introspection level
+              </li>
+              <li>
+                <span className="text-purple-300">Emotional Processing:</span>{" "}
+                Recognition and exploration of feelings
+              </li>
+              <li>
+                <span className="text-purple-300">Insight Generation:</span> New
+                realizations and connections made
+              </li>
+            </ul>
+          </div>
+        )}
 
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
@@ -413,10 +488,19 @@ const JournalHealthMetricsTab = ({ entries, analytics, colors }) => {
 
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={reflectionDepthData} layout="vertical">
+              <BarChart
+                data={reflectionDepthData}
+                layout="vertical"
+                margin={{ left: 60 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis type="number" stroke="#9CA3AF" />
-                <YAxis dataKey="level" type="category" stroke="#9CA3AF" />
+                <YAxis
+                  dataKey="level"
+                  type="category"
+                  stroke="#9CA3AF"
+                  width={55}
+                />
                 <Tooltip content={<CustomTooltip />} />
                 <Bar dataKey="percentage" name="Percentage">
                   {reflectionDepthData.map((entry, index) => (

@@ -25,6 +25,7 @@ import {
   TrendingUp,
   Calendar,
   Filter,
+  Info,
   Eye,
   Zap,
   Sparkles,
@@ -530,7 +531,15 @@ const ContentAnalysisTab = ({ entries, analytics, colors }) => {
                 <h4 className="text-sm font-medium text-gray-300">
                   Avg Complexity
                 </h4>
-                <Zap className="h-4 w-4 text-pink-400" />
+                <div className="flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-pink-400" />
+                  <button
+                    onClick={() => setShowComplexityInfo(!showComplexityInfo)}
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <Info className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
               <p className="text-2xl font-bold text-white">
                 {Math.round(
@@ -539,6 +548,19 @@ const ContentAnalysisTab = ({ entries, analytics, colors }) => {
                 )}
               </p>
               <p className="text-xs text-gray-400">complexity score</p>
+
+              {showComplexityInfo && (
+                <div className="mt-3 p-3 bg-purple-600/20 rounded-lg text-xs text-gray-300">
+                  <p className="font-medium text-purple-300 mb-1">
+                    Complexity Score (0-100)
+                  </p>
+                  <p>
+                    Measures sentence variety, vocabulary richness, and thought
+                    structure. Higher scores indicate more sophisticated writing
+                    patterns.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20">
