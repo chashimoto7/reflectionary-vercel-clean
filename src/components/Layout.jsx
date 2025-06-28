@@ -136,13 +136,7 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div className="flex min-h-screen overflow-hidden relative">
-      {/* Animated Background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/30 to-pink-600/20 animate-pulse"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-purple-600/20 via-transparent to-transparent"></div>
-      </div>
-
+    <div className="flex min-h-screen overflow-hidden relative bg-gradient-to-br from-purple-950 via-purple-600 to-fuchsia-800">
       {/* Sidebar - Hidden on Welcome page */}
       {!isWelcomePage && (
         <aside className="relative w-72 z-10">
