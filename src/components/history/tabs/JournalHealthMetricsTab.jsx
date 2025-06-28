@@ -9,6 +9,7 @@ import {
   AreaChart,
   Area,
   BarChart,
+  BarChart3,
   Bar,
   XAxis,
   YAxis,

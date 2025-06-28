@@ -596,12 +596,12 @@ const AdvancedHistory = () => {
   }
 
   const EmptyHistoryState = () => (
-    <div className="text-center py-12 bg-gray-50 rounded-lg">
-      <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+    <div className="text-center py-12 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+      <BookOpen className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+      <h3 className="text-xl font-semibold text-white mb-2">
         No Journal Entries Found
       </h3>
-      <p className="text-gray-600 mb-6">
+      <p className="text-gray-300 mb-6">
         Start journaling to see your entries, insights, and patterns here.
       </p>
       <button className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
@@ -611,7 +611,7 @@ const AdvancedHistory = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen text-white">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
