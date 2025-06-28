@@ -401,7 +401,7 @@ const CalendarViewTab = ({ entries, colors, onEntrySelect }) => {
         <AudioPlayer
           entry={audioEntry}
           onClose={() => setAudioEntry(null)}
-          position="bottom-right"
+          position="center"
         />
       )}
     </div>

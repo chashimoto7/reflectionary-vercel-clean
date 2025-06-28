@@ -49,6 +49,7 @@ const AudioPlayer = ({ entry, onClose, position = "bottom-right" }) => {
     "bottom-left": "bottom-4 left-4",
     "top-right": "top-4 right-4",
     "top-left": "top-4 left-4",
+    center: "top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2",
   };
 
   // Generate audio using OpenAI TTS via Supabase Edge Function
@@ -233,140 +234,163 @@ const AudioPlayer = ({ entry, onClose, position = "bottom-right" }) => {
     }
   };
 
+  // Add backdrop for center position
+  const showBackdrop = position === "center";
+
   return (
-    <div
-      className={`fixed ${positionClasses[position]} z-50 bg-slate-800 border border-white/20 rounded-lg shadow-xl p-4 w-80`}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-white">Audio Player</h3>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-white transition-colors"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      {/* Error State */}
-      {error && (
-        <div className="mb-3 p-2 bg-red-500/20 border border-red-500/30 rounded text-red-300 text-xs flex items-center gap-2">
-          <AlertCircle className="h-3 w-3" />
-          {error}
-        </div>
+    <>
+      {/* Backdrop for center position */}
+      {showBackdrop && (
+        <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
       )}
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="mb-3 flex items-center justify-center py-4">
-          <Loader className="h-6 w-6 text-purple-400 animate-spin" />
-          <span className="ml-2 text-sm text-gray-300">
-            Generating audio...
-          </span>
+      {/* Audio Player */}
+      <div
+        className={`fixed ${positionClasses[position]} z-50 bg-slate-800 border border-white/20 rounded-lg shadow-xl p-4 w-80`}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium text-white">Audio Player</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
-      )}
 
-      {/* Player Controls */}
-      {!isLoading && (
-        <>
-          {/* Main Controls */}
-          <div className="flex items-center gap-3 mb-3">
-            <button
-              onClick={togglePlayPause}
-              disabled={isLoading || error}
-              className="w-10 h-10 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-full flex items-center justify-center transition-colors"
-            >
-              {isPlaying ? (
-                <Pause className="h-4 w-4" />
-              ) : (
-                <Play className="h-4 w-4 ml-0.5" />
-              )}
-            </button>
+        {/* Error State */}
+        {error && (
+          <div className="mb-3 p-2 bg-red-500/20 border border-red-500/30 rounded text-red-300 text-xs flex items-center gap-2">
+            <AlertCircle className="h-3 w-3" />
+            {error}
+          </div>
+        )}
 
-            <div className="flex-1">
-              {/* Progress Bar */}
-              <div
-                className="h-2 bg-white/20 rounded-full cursor-pointer relative"
-                onClick={handleProgressClick}
+        {/* Loading State */}
+        {isLoading && (
+          <div className="mb-3 flex items-center justify-center py-4">
+            <Loader className="h-6 w-6 text-purple-400 animate-spin" />
+            <span className="ml-2 text-sm text-gray-300">
+              Generating audio...
+            </span>
+          </div>
+        )}
+
+        {/* Player Controls */}
+        {!isLoading && (
+          <>
+            {/* Main Controls */}
+            <div className="flex items-center gap-3 mb-3">
+              <button
+                onClick={togglePlayPause}
+                disabled={isLoading || error}
+                className="w-10 h-10 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-full flex items-center justify-center transition-colors"
               >
+                {isPlaying ? (
+                  <Pause className="h-4 w-4" />
+                ) : (
+                  <Play className="h-4 w-4 ml-0.5" />
+                )}
+              </button>
+
+              <div className="flex-1">
+                {/* Progress Bar */}
                 <div
-                  className="h-full bg-purple-500 rounded-full transition-all"
-                  style={{ width: `${(currentTime / duration) * 100 || 0}%` }}
-                />
-              </div>
-
-              {/* Time Display */}
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-xs text-gray-400">
-                  {formatTime(currentTime)}
-                </span>
-                <span className="text-xs text-gray-400">
-                  {formatTime(duration)}
-                </span>
-              </div>
-            </div>
-
-            {/* Volume Control */}
-            <button
-              onClick={() => setIsMuted(!isMuted)}
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              {isMuted ? (
-                <VolumeX className="h-4 w-4" />
-              ) : (
-                <Volume2 className="h-4 w-4" />
-              )}
-            </button>
-          </div>
-
-          {/* Speed Control */}
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs text-gray-400">Speed:</span>
-            <div className="flex gap-1">
-              {speeds.map((s) => (
-                <button
-                  key={s.value}
-                  onClick={() => setSpeed(s.value)}
-                  className={`px-2 py-1 text-xs rounded transition-colors ${
-                    speed === s.value
-                      ? "bg-purple-600 text-white"
-                      : "bg-white/10 text-gray-300 hover:bg-white/20"
-                  }`}
+                  className="h-2 bg-white/20 rounded-full cursor-pointer relative"
+                  onClick={handleProgressClick}
                 >
-                  {s.label}
-                </button>
-              ))}
+                  <div
+                    className="h-full bg-purple-500 rounded-full transition-all"
+                    style={{ width: `${(currentTime / duration) * 100 || 0}%` }}
+                  />
+                </div>
+
+                {/* Time Display */}
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-xs text-gray-400">
+                    {formatTime(currentTime)}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {formatTime(duration)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Volume Control */}
+              <button
+                onClick={() => setIsMuted(!isMuted)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                {isMuted ? (
+                  <VolumeX className="h-4 w-4" />
+                ) : (
+                  <Volume2 className="h-4 w-4" />
+                )}
+              </button>
             </div>
-          </div>
 
-          {/* Voice Selection */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400">Voice:</span>
-            <select
-              value={voice}
-              onChange={(e) => handleVoiceChange(e.target.value)}
-              className="flex-1 px-2 py-1 text-xs bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
-            >
-              {voices.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </>
-      )}
+            {/* Speed Control */}
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs text-gray-400">Speed:</span>
+              <div className="flex gap-1">
+                {speeds.map((s) => (
+                  <button
+                    key={s.value}
+                    onClick={() => setSpeed(s.value)}
+                    className={`px-2 py-1 text-xs rounded transition-colors ${
+                      speed === s.value
+                        ? "bg-purple-600 text-white"
+                        : "bg-white/10 text-gray-300 hover:bg-white/20"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-      {/* Hidden Audio Element */}
-      <audio
-        ref={audioRef}
-        onLoadedMetadata={handleLoadedMetadata}
-        onTimeUpdate={handleTimeUpdate}
-        onEnded={handleEnded}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
-      />
-    </div>
+            {/* Voice Selection */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">Voice:</span>
+              <select
+                value={voice}
+                onChange={(e) => handleVoiceChange(e.target.value)}
+                className="flex-1 px-2 py-1 text-xs bg-slate-700 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+                style={{
+                  // Additional styling to ensure options are visible
+                  backgroundColor: "#475569",
+                  color: "#ffffff",
+                }}
+              >
+                {voices.map((v) => (
+                  <option
+                    key={v.id}
+                    value={v.id}
+                    style={{
+                      backgroundColor: "#475569",
+                      color: "#ffffff",
+                    }}
+                  >
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
+
+        {/* Hidden Audio Element */}
+        <audio
+          ref={audioRef}
+          onLoadedMetadata={handleLoadedMetadata}
+          onTimeUpdate={handleTimeUpdate}
+          onEnded={handleEnded}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+        />
+      </div>
+    </>
   );
 };
 
