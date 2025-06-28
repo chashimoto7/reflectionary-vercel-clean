@@ -38,6 +38,7 @@ import {
 const ContentAnalysisTab = ({ entries, analytics, colors }) => {
   const [analysisView, setAnalysisView] = useState("overview"); // overview, topics, depth, evolution
   const [timeRange, setTimeRange] = useState("all");
+  const [showComplexityInfo, setShowComplexityInfo] = useState(false);
 
   // Helper functions
   const getTopWords = (entries, excludeCommon = true) => {

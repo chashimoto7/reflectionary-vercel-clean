@@ -340,7 +340,7 @@ const JournalHealthMetricsTab = ({ entries, analytics, colors }) => {
             Entry Quality Trends
           </h3>
           <div className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-purple-400" />
+            <BarChart className="h-5 w-5 text-purple-400" />
             <button
               onClick={() => setShowQualityInfo(!showQualityInfo)}
               className="text-gray-400 hover:text-white transition-colors"
