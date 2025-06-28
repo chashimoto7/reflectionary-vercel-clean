@@ -15,7 +15,6 @@ import {
   Brain,
   Zap,
   Calendar,
-  BarChart3,
   Users,
   Lightbulb,
   Heart,
@@ -65,7 +64,6 @@ import GoalHealthScoreTab from "../components/goals/tabs/GoalHealthScoreTab";
 import ProgressVelocityTab from "../components/goals/tabs/ProgressVelocityTab";
 
 import {
-  LineChart,
   Line,
   AreaChart,
   Area,
@@ -193,7 +191,7 @@ export default function PremiumGoals() {
     {
       id: "progress-patterns",
       label: "Progress Patterns",
-      icon: BarChart3,
+      icon: BarChart,
     },
     {
       id: "goal-insights",
