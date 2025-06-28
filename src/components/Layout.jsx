@@ -77,10 +77,10 @@ export default function Layout({ children }) {
       requiredTier: "premium",
     },
     {
-      to: "/reflectarian",
+      to: "/reflectionarian",
       icon: MessageCircle,
-      label: "Reflectarian",
-      feature: "reflectarian",
+      label: "Reflectionarian",
+      feature: "reflectionarian",
       requiredTier: "premium",
     },
   ];
