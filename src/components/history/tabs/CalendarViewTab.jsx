@@ -20,6 +20,8 @@ import {
 const CalendarViewTab = ({ entries, colors, onEntrySelect }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEntry, setSelectedEntry] = useState(null);
+  const [selectedDayEntries, setSelectedDayEntries] = useState([]);
+  const [currentEntryIndex, setCurrentEntryIndex] = useState(0);
   const [showEntryModal, setShowEntryModal] = useState(false);
   const [audioEntry, setAudioEntry] = useState(null);
 
@@ -102,9 +104,15 @@ const CalendarViewTab = ({ entries, colors, onEntrySelect }) => {
 
   const handleDayClick = (day) => {
     if (day.hasEntries) {
-      setSelectedEntry(day.entries[0]);
+      // Sort entries by time (earliest first)
+      const sortedEntries = [...day.entries].sort(
+        (a, b) => new Date(a.created_at) - new Date(b.created_at)
+      );
+      setSelectedDayEntries(sortedEntries);
+      setSelectedEntry(sortedEntries[0]);
+      setCurrentEntryIndex(0);
       setShowEntryModal(true);
-      onEntrySelect && onEntrySelect(day.entries[0]);
+      onEntrySelect && onEntrySelect(sortedEntries[0]);
     }
   };
 
@@ -137,6 +145,24 @@ const CalendarViewTab = ({ entries, colors, onEntrySelect }) => {
   const EntryModal = () => {
     if (!selectedEntry) return null;
 
+    const handlePreviousEntry = () => {
+      if (currentEntryIndex > 0) {
+        const newIndex = currentEntryIndex - 1;
+        setCurrentEntryIndex(newIndex);
+        setSelectedEntry(selectedDayEntries[newIndex]);
+        onEntrySelect && onEntrySelect(selectedDayEntries[newIndex]);
+      }
+    };
+
+    const handleNextEntry = () => {
+      if (currentEntryIndex < selectedDayEntries.length - 1) {
+        const newIndex = currentEntryIndex + 1;
+        setCurrentEntryIndex(newIndex);
+        setSelectedEntry(selectedDayEntries[newIndex]);
+        onEntrySelect && onEntrySelect(selectedDayEntries[newIndex]);
+      }
+    };
+
     return (
       <div
         className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -147,20 +173,61 @@ const CalendarViewTab = ({ entries, colors, onEntrySelect }) => {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-semibold text-white">
-              {new Date(selectedEntry.created_at).toLocaleDateString("en-US", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </h3>
-            <button
-              onClick={() => setShowEntryModal(false)}
-              className="text-gray-400 hover:text-white"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            <div>
+              <h3 className="text-xl font-semibold text-white">
+                {new Date(selectedEntry.created_at).toLocaleDateString(
+                  "en-US",
+                  {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  }
+                )}
+              </h3>
+              <p className="text-sm text-gray-400 mt-1">
+                {new Date(selectedEntry.created_at).toLocaleTimeString(
+                  "en-US",
+                  {
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                  }
+                )}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Entry navigation */}
+              {selectedDayEntries.length > 1 && (
+                <div className="flex items-center gap-2 mr-4">
+                  <button
+                    onClick={handlePreviousEntry}
+                    disabled={currentEntryIndex === 0}
+                    className="p-1 text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed transition"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <span className="text-sm text-gray-400">
+                    {currentEntryIndex + 1} of {selectedDayEntries.length}
+                  </span>
+                  <button
+                    onClick={handleNextEntry}
+                    disabled={
+                      currentEntryIndex === selectedDayEntries.length - 1
+                    }
+                    className="p-1 text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed transition"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={() => setShowEntryModal(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
           <div className="space-y-4">
