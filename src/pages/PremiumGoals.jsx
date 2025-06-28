@@ -65,6 +65,7 @@ import GoalHealthScoreTab from "../components/goals/tabs/GoalHealthScoreTab";
 import ProgressVelocityTab from "../components/goals/tabs/ProgressVelocityTab";
 
 import {
+  LineChart as RechartsLineChart,
   Line,
   AreaChart,
   Area,
@@ -293,7 +294,12 @@ export default function PremiumGoals() {
 
   // Data loading functions (same as original)
   const loadGoals = async () => {
-    // Implementation remains the same
+    try {
+      // Mock implementation - in real app, load from database
+      setGoals([]); // Empty array for now
+    } catch (error) {
+      console.error("Error loading goals:", error);
+    }
   };
 
   const loadAnalyticsData = async () => {
@@ -391,17 +397,6 @@ export default function PremiumGoals() {
           >
             Upgrade to Premium
           </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500 mx-auto mb-4"></div>
-          <p className="text-gray-300">Loading your goals and insights...</p>
         </div>
       </div>
     );
@@ -777,9 +772,18 @@ export default function PremiumGoals() {
           />
         )}
 
-        {/* Goal Tips Section */}
+        {/* Goal Tips Section - Show regardless of goals */}
         <div className="mt-8">
-          <GoalTips />
+          {loading ? (
+            <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-6 text-center">
+              <div className="animate-pulse">
+                <div className="h-4 bg-white/20 rounded w-1/3 mx-auto mb-2"></div>
+                <div className="h-4 bg-white/20 rounded w-2/3 mx-auto"></div>
+              </div>
+            </div>
+          ) : (
+            <GoalTips />
+          )}
         </div>
       </div>
     </div>
