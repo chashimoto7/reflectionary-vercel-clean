@@ -106,14 +106,16 @@ export default function PremiumJournaling() {
   const quillInitialized = useRef(false);
   const initTimeoutRef = useRef(null);
 
-  // Add custom CSS for white text in Quill
+  // Add custom CSS for white text in Quill with frosted glass effect
   useEffect(() => {
     const style = document.createElement("style");
     style.textContent = `
-      /* Premium Quill Editor Styling */
+      /* Premium Quill Editor Styling with Frosted Glass Effect */
       .premium-quill-container .ql-toolbar {
-        background: rgba(139, 92, 246, 0.1);
-        border: 1px solid rgba(139, 92, 246, 0.3);
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
         border-radius: 0.5rem 0.5rem 0 0;
       }
       
@@ -146,13 +148,17 @@ export default function PremiumJournaling() {
       }
       
       .premium-quill-container .ql-container {
-        background: rgba(15, 23, 42, 0.6);
-        border: 1px solid rgba(139, 92, 246, 0.3);
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
         border-top: none;
         border-radius: 0 0 0.5rem 0.5rem;
         min-height: 400px;
         max-height: 600px;
         overflow-y: auto;
+        /* Fix for jumping issue - reserve space for scrollbar */
+        scrollbar-gutter: stable;
       }
       
       .premium-quill-container .ql-editor {
@@ -207,6 +213,17 @@ export default function PremiumJournaling() {
       
       .premium-quill-container .ql-container::-webkit-scrollbar-thumb:hover {
         background: rgba(139, 92, 246, 0.7);
+      }
+      
+      /* Fix for select dropdowns */
+      select {
+        background-color: #475569 !important;
+        color: white !important;
+      }
+      
+      select option {
+        background-color: #475569 !important;
+        color: white !important;
       }
     `;
     document.head.appendChild(style);
@@ -274,37 +291,46 @@ export default function PremiumJournaling() {
   const [transcribedText, setTranscribedText] = useState("");
   const [isTranscribing, setIsTranscribing] = useState(false);
 
-  // Encryption function (same as StandardJournaling)
+  // Fixed encryption function
   const encryptJournalEntry = async (entryData) => {
-    const masterKey = await encryptionService.getStaticMasterKey();
-    const dataKey = await encryptionService.generateDataKey();
+    try {
+      const masterKey = await encryptionService.getStaticMasterKey();
+      const dataKey = await encryptionService.generateDataKey();
 
-    const encryptedContent = await encryptionService.encryptText(
-      entryData.content,
-      dataKey
-    );
-
-    let encryptedPrompt = { encryptedData: "", iv: "" };
-    if (entryData.prompt) {
-      encryptedPrompt = await encryptionService.encryptText(
-        entryData.prompt,
+      const encryptedContent = await encryptionService.encryptText(
+        entryData.content,
         dataKey
       );
+
+      let encryptedPrompt = null;
+      let promptIv = null;
+
+      if (entryData.prompt) {
+        const promptEncryption = await encryptionService.encryptText(
+          entryData.prompt,
+          dataKey
+        );
+        encryptedPrompt = promptEncryption.encryptedData;
+        promptIv = promptEncryption.iv;
+      }
+
+      const encryptedDataKey = await encryptionService.encryptKey(
+        dataKey,
+        masterKey
+      );
+
+      return {
+        encrypted_content: encryptedContent.encryptedData,
+        content_iv: encryptedContent.iv,
+        encrypted_prompt: encryptedPrompt,
+        prompt_iv: promptIv,
+        encrypted_data_key: encryptedDataKey.encryptedData,
+        data_key_iv: encryptedDataKey.iv,
+      };
+    } catch (error) {
+      console.error("Encryption error:", error);
+      throw error;
     }
-
-    const encryptedDataKey = await encryptionService.encryptKey(
-      dataKey,
-      masterKey
-    );
-
-    return {
-      encrypted_content: encryptedContent.encryptedData,
-      content_iv: encryptedContent.iv,
-      encrypted_prompt: encryptedPrompt.encryptedData,
-      prompt_iv: encryptedPrompt.iv,
-      encrypted_data_key: encryptedDataKey.encryptedData,
-      data_key_iv: encryptedDataKey.iv,
-    };
   };
 
   // Clear editor function
@@ -336,8 +362,7 @@ export default function PremiumJournaling() {
     }
   }, [user]);
 
-  // Replace your existing Quill initialization useEffect with this improved version:
-
+  // Initialize Quill editor
   useEffect(() => {
     if (isLocked || !user) return;
 
@@ -439,11 +464,10 @@ export default function PremiumJournaling() {
       if (initTimeoutRef.current) {
         clearTimeout(initTimeoutRef.current);
       }
-      // Don't reset the initialized flag here - let it persist
     };
-  }, [isLocked, user, selectedTemplate]); // Keep the same dependencies
+  }, [isLocked, user, selectedTemplate]);
 
-  // ADD this new useEffect for handling visibility changes (browser tab switching):
+  // Handle visibility changes (browser tab switching)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && editorRef.current && user && !isLocked) {
@@ -466,7 +490,7 @@ export default function PremiumJournaling() {
     };
   }, [user, isLocked, isEditorReady]);
 
-  // ALSO ADD this useEffect to handle navigation back to the component:
+  // Handle navigation back to the component
   useEffect(() => {
     // This runs every time the component mounts/becomes active
     if (!isLocked && user && editorRef.current) {
@@ -590,7 +614,7 @@ export default function PremiumJournaling() {
     }
   };
 
-  // FIXED: Generate subject-based prompt (Premium feature) - Connected to Subject Prompt button
+  // Generate subject-based prompt (Premium feature)
   const generateSubjectPrompt = async () => {
     if (!subject.trim() || isLocked) return;
 
@@ -742,9 +766,13 @@ export default function PremiumJournaling() {
     setTags(tags.filter((tag) => tag !== tagToRemove));
   };
 
-  // Save entry function
+  // Fixed save entry function
   const saveEntry = async () => {
-    if (!editorContent || editorContent.trim() === "<p><br></p>") {
+    if (
+      !editorContent ||
+      editorContent.trim() === "<p><br></p>" ||
+      editorContent.trim() === ""
+    ) {
       alert("Please write something before saving.");
       return;
     }
@@ -762,31 +790,35 @@ export default function PremiumJournaling() {
         prompt: promptType !== "none" ? prompt : null,
       });
 
-      // Save to database
-      const { data, error } = await supabase.from("journal_entries").insert({
-        user_id: user.id,
-        thread_id: threadId,
-        encrypted_content: encryptedData.encrypted_content,
-        content_iv: encryptedData.content_iv,
-        encrypted_prompt: encryptedData.encrypted_prompt,
-        prompt_iv: encryptedData.prompt_iv,
-        encrypted_data_key: encryptedData.encrypted_data_key,
-        data_key_iv: encryptedData.data_key_iv,
-        prompt_type: promptType,
-        entry_number: entryChain.length + 1,
-        word_count: contentToAnalyze.split(/\s+/).filter(Boolean).length,
-        folder_id: selectedFolder,
-        tags: tags,
-        is_starred: isStarred,
-        is_pinned: isPinned,
-        template_used: selectedTemplate?.name || null,
-        has_voice_note: false, // Will implement later
-        wellness_data: {}, // Can add wellness tracking
-      });
+      // Save to database with correct data structure
+      const { data, error } = await supabase
+        .from("journal_entries")
+        .insert({
+          user_id: user.id,
+          thread_id: threadId,
+          encrypted_content: encryptedData.encrypted_content,
+          content_iv: encryptedData.content_iv,
+          encrypted_prompt: encryptedData.encrypted_prompt || null,
+          prompt_iv: encryptedData.prompt_iv || null,
+          encrypted_data_key: encryptedData.encrypted_data_key,
+          data_key_iv: encryptedData.data_key_iv,
+          prompt_type: promptType,
+          entry_number: entryChain.length + 1,
+          word_count: contentToAnalyze.split(/\s+/).filter(Boolean).length,
+          folder_id: selectedFolder || null,
+          tags: tags.length > 0 ? tags : null,
+          starred: isStarred || false,
+          pinned: isPinned || false,
+          parent_entry_id: null, // For main entries
+        })
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Database error:", error);
+        throw error;
+      }
 
-      setLastSavedEntry(data);
+      setLastSavedEntry(data[0]);
       setCurrentThreadId(threadId);
       setEntryChain([...entryChain, cleanContent]);
       setSaveConfirmation(true);
@@ -864,8 +896,8 @@ export default function PremiumJournaling() {
   // Access denied screen
   if (!hasAccess("premium_journaling")) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 max-w-md text-center">
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 max-w-md text-center border border-white/20">
           <Crown className="w-16 h-16 text-purple-400 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-white mb-4">
             Premium Feature
@@ -888,7 +920,7 @@ export default function PremiumJournaling() {
   // Locked state
   if (isLocked) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center">
           <div className="text-6xl mb-4">🔒</div>
           <p className="text-xl text-gray-300">
@@ -900,7 +932,7 @@ export default function PremiumJournaling() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 -m-8">
+    <div className="min-h-screen text-white">
       <div className="px-6 py-6 max-w-full">
         {/* Premium Header */}
         <div className="mb-8">
@@ -940,7 +972,7 @@ export default function PremiumJournaling() {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setShowTemplates(!showTemplates)}
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg hover:bg-white/20 text-white text-sm transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg hover:bg-white/20 text-white text-sm transition-colors"
             >
               <FileText size={16} />
               Templates
@@ -949,7 +981,7 @@ export default function PremiumJournaling() {
             <button
               onClick={generateSubjectPrompt}
               disabled={!subject.trim() || isLoadingSubject}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-400 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 text-sm transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-400 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 text-sm transition-colors disabled:opacity-50"
             >
               {isLoadingSubject ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
@@ -985,7 +1017,7 @@ export default function PremiumJournaling() {
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${
                 isRecording
                   ? "bg-red-600 text-white hover:bg-red-700"
-                  : "bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20"
+                  : "bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20"
               }`}
             >
               {isRecording ? <MicOff size={16} /> : <Mic size={16} />}
@@ -994,7 +1026,7 @@ export default function PremiumJournaling() {
 
             <button
               onClick={() => setAudioPlayback(!audioPlayback)}
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg hover:bg-white/20 text-white text-sm transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg hover:bg-white/20 text-white text-sm transition-colors"
             >
               {audioPlayback ? <Volume2 size={16} /> : <VolumeX size={16} />}
               Read Aloud
@@ -1036,7 +1068,7 @@ export default function PremiumJournaling() {
 
         {/* Templates Section */}
         {showTemplates && (
-          <div className="mb-6 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+          <div className="mb-6 p-4 bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
             <h3 className="text-lg font-semibold text-white mb-3">
               Choose a Template
             </h3>
@@ -1079,7 +1111,7 @@ export default function PremiumJournaling() {
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="Enter a subject for a specific prompt..."
-            className="w-full px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
             onKeyPress={(e) => {
               if (e.key === "Enter" && subject.trim()) {
                 generateSubjectPrompt();
@@ -1088,7 +1120,7 @@ export default function PremiumJournaling() {
           />
         </div>
 
-        {/* FIXED: Reorganized Tags, Star, Pin, Folder - All on one line */}
+        {/* Tags, Star, Pin, Folder - All on one line */}
         <div className="mb-6">
           <div className="flex items-center gap-4 flex-wrap">
             {/* Tags Section */}
@@ -1121,7 +1153,7 @@ export default function PremiumJournaling() {
                     }
                   }}
                   placeholder="Add tag..."
-                  className="px-3 py-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-20"
+                  className="px-3 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-20"
                 />
               </div>
             </div>
@@ -1166,7 +1198,7 @@ export default function PremiumJournaling() {
               <select
                 value={selectedFolder || ""}
                 onChange={(e) => setSelectedFolder(e.target.value || null)}
-                className="px-3 py-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="px-3 py-1 bg-slate-700 border border-white/20 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
                 <option value="">No folder</option>
                 {folders.map((folder) => (
@@ -1196,7 +1228,7 @@ export default function PremiumJournaling() {
 
         {/* Current Prompt Display */}
         {prompt && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-lg border border-purple-400/30">
+          <div className="mb-6 p-4 bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-md rounded-lg border border-purple-400/30">
             <p className="text-sm text-purple-300 mb-1">
               {promptType === "followup"
                 ? "Follow-up prompt:"
@@ -1249,6 +1281,7 @@ export default function PremiumJournaling() {
             disabled={
               !isEditorReady ||
               !editorContent.trim() ||
+              editorContent.trim() === "<p><br></p>" ||
               saveLabel === "Saving..."
             }
           >
