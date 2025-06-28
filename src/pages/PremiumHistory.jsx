@@ -28,6 +28,11 @@ import {
   ArrowUp,
   ArrowDown,
   Minus,
+  Target,
+  Edit3,
+  Hash,
+  Feather,
+  Activity,
 } from "lucide-react";
 
 // Import separate tab components
@@ -36,10 +41,11 @@ import CalendarViewTab from "../components/history/tabs/CalendarViewTab";
 import SearchFilterTab from "../components/history/tabs/SearchFilterTab";
 import FoldersTab from "../components/history/tabs/FoldersTab";
 import StarredPinnedTab from "../components/history/tabs/StarredPinnedTab";
-import TimelineViewTab from "../components/history/tabs/TimelineViewTab";
-import MoodThemeAnalysisTab from "../components/history/tabs/MoodThemeAnalysisTab";
+import WritingPatternsTab from "../components/history/tabs/WritingPatternsTab";
+import ContentAnalysisTab from "../components/history/tabs/ContentAnalysisTab";
 import GoalConnectionsTab from "../components/history/tabs/GoalConnectionsTab";
-import DataExportTab from "../components/history/tabs/DataExportTab";
+import WritingStyleEvolutionTab from "../components/history/tabs/WritingStyleEvolutionTab";
+import JournalHealthMetricsTab from "../components/history/tabs/JournalHealthMetricsTab";
 
 const AdvancedHistory = () => {
   const { user } = useAuth();
@@ -67,6 +73,11 @@ const AdvancedHistory = () => {
     moodDistribution: [],
     themeFrequency: [],
     entryTrends: [],
+    // Add new analytics properties for the new tabs
+    writingPatterns: null,
+    contentAnalysis: null,
+    styleEvolution: null,
+    journalHealth: null,
   });
 
   // Advanced color palette matching other Advanced pages
@@ -91,52 +102,67 @@ const AdvancedHistory = () => {
     ],
   };
 
-  // Advanced tabs structure - 10 tabs in two rows
+  // Updated tabs structure - 10 tabs in two rows matching your exact requirements
   const advancedTabs = [
     {
       id: "overview",
       label: "Intelligence Overview",
       icon: TrendingUp,
+      component: OverviewTab,
     },
     {
       id: "calendar",
       label: "Calendar View",
       icon: Calendar,
+      component: CalendarViewTab,
     },
     {
       id: "search-filter",
       label: "Advanced Search",
       icon: Search,
+      component: SearchFilterTab,
     },
     {
       id: "folders",
       label: "Folders & Organization",
       icon: FolderOpen,
+      component: FoldersTab,
     },
     {
       id: "starred-pinned",
       label: "Starred & Pinned",
       icon: Star,
+      component: StarredPinnedTab,
     },
     {
-      id: "timeline",
-      label: "Timeline Analysis",
-      icon: Clock,
+      id: "writing-patterns",
+      label: "Writing Patterns",
+      icon: Edit3,
+      component: WritingPatternsTab,
     },
     {
-      id: "mood-theme",
-      label: "Mood & Theme Insights",
-      icon: Heart,
+      id: "content-analysis",
+      label: "Content Analysis",
+      icon: Hash,
+      component: ContentAnalysisTab,
     },
     {
       id: "goal-connections",
-      label: "Goal Connections",
-      icon: Brain,
+      label: "Goal Progress Tracking",
+      icon: Target,
+      component: GoalConnectionsTab,
     },
     {
-      id: "data-export",
-      label: "Export & Reports",
-      icon: Download,
+      id: "style-evolution",
+      label: "Writing Style Evolution",
+      icon: Feather,
+      component: WritingStyleEvolutionTab,
+    },
+    {
+      id: "health-metrics",
+      label: "Journal Health Metrics",
+      icon: Heart,
+      component: JournalHealthMetricsTab,
     },
   ];
 
@@ -478,6 +504,11 @@ const AdvancedHistory = () => {
       pinnedCount: entriesData.filter((e) => e.pinned).length,
       foldersUsed: new Set(entriesData.map((e) => e.folder_id).filter(Boolean))
         .size,
+      // These would be populated by batch AI analysis in production
+      writingPatterns: null,
+      contentAnalysis: null,
+      styleEvolution: null,
+      journalHealth: null,
     });
   };
 
@@ -580,196 +611,206 @@ const AdvancedHistory = () => {
   );
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Advanced Journal History
-            </h1>
-            <p className="text-gray-600">
-              Explore patterns, insights, and connections in your journaling
-              journey
-            </p>
-          </div>
+    <div className="min-h-screen bg-gray-900 text-white">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">
+                Advanced Journal History
+              </h1>
+              <p className="text-gray-400">
+                Explore patterns, insights, and connections in your journaling
+                journey
+              </p>
+            </div>
 
-          {/* Privacy Toggle */}
-          <div className="relative">
-            <button
-              onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 transition"
-            >
-              <Shield className="h-4 w-4" />
-              Privacy Info
-              <Info className="h-4 w-4" />
-            </button>
+            {/* Privacy Toggle */}
+            <div className="relative">
+              <button
+                onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:text-white transition bg-white/10 rounded-lg"
+              >
+                <Shield className="h-4 w-4" />
+                Privacy Info
+                <Info className="h-4 w-4" />
+              </button>
 
-            {showPrivacyInfo && (
-              <div className="absolute right-0 top-12 w-80 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-10">
-                <p className="text-sm text-gray-700">
-                  All analysis is performed on your encrypted data locally. Your
-                  journal content remains end-to-end encrypted. This data is
-                  visible only to you and never shared.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Date Range & Controls */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <label className="text-sm font-medium text-gray-700">
-              Analysis Period:
-            </label>
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              <option value="1month">Last Month</option>
-              <option value="3months">Last 3 Months</option>
-              <option value="6months">Last 6 Months</option>
-              <option value="1year">Last Year</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2 text-sm text-green-600">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            AI History Analysis Active
-          </div>
-        </div>
-      </div>
-
-      {entries.length === 0 ? (
-        <EmptyHistoryState />
-      ) : (
-        <>
-          {/* Advanced Tab Navigation - Two Row Layout */}
-          <div className="mb-8">
-            <div className="bg-gray-50 p-3 rounded-lg">
-              {/* First Row - 5 tabs */}
-              <div className="flex flex-wrap gap-2 mb-2">
-                {advancedTabs.slice(0, 5).map((tab) => {
-                  const IconComponent = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors flex-1 min-w-0 ${
-                        activeTab === tab.id
-                          ? "bg-white text-purple-700 shadow-sm border border-purple-200"
-                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                      }`}
-                    >
-                      <IconComponent className="h-4 w-4 flex-shrink-0" />
-                      <span className="truncate">{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Second Row - 5 tabs */}
-              <div className="flex flex-wrap gap-2">
-                {advancedTabs.slice(5, 10).map((tab) => {
-                  const IconComponent = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors flex-1 min-w-0 ${
-                        activeTab === tab.id
-                          ? "bg-white text-purple-700 shadow-sm border border-purple-200"
-                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                      }`}
-                    >
-                      <IconComponent className="h-4 w-4 flex-shrink-0" />
-                      <span className="truncate">{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              {showPrivacyInfo && (
+                <div className="absolute right-0 top-12 w-80 bg-slate-800 border border-white/20 rounded-lg shadow-lg p-4 z-10">
+                  <p className="text-sm text-gray-300">
+                    All analysis is performed on your encrypted data locally.
+                    Your journal content remains end-to-end encrypted. This data
+                    is visible only to you and never shared.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Tab Content */}
-          <div className="space-y-6">
-            {activeTab === "overview" && (
-              <OverviewTab
-                entries={entries}
-                analytics={analytics}
-                folders={folders}
-                goals={goals}
-                colors={colors}
-              />
-            )}
-            {activeTab === "calendar" && (
-              <CalendarViewTab
-                entries={entries}
-                colors={colors}
-                onEntrySelect={(entry) => console.log("Selected entry:", entry)}
-              />
-            )}
-            {activeTab === "search-filter" && (
-              <SearchFilterTab
-                entries={entries}
-                folders={folders}
-                goals={goals}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                filters={filters}
-                setFilters={setFilters}
-                colors={colors}
-              />
-            )}
-            {activeTab === "folders" && (
-              <FoldersTab
-                entries={entries}
-                folders={folders}
-                colors={colors}
-                onRefresh={loadHistoryData}
-              />
-            )}
-            {activeTab === "starred-pinned" && (
-              <StarredPinnedTab
-                entries={entries}
-                colors={colors}
-                onRefresh={loadHistoryData}
-              />
-            )}
-            {activeTab === "timeline" && (
-              <TimelineViewTab
-                entries={entries}
-                analytics={analytics}
-                colors={colors}
-              />
-            )}
-            {activeTab === "mood-theme" && (
-              <MoodThemeAnalysisTab
-                entries={entries}
-                analytics={analytics}
-                colors={colors}
-              />
-            )}
-            {activeTab === "goal-connections" && (
-              <GoalConnectionsTab
-                entries={entries}
-                goals={goals}
-                colors={colors}
-              />
-            )}
-            {activeTab === "data-export" && (
-              <DataExportTab
-                entries={entries}
-                analytics={analytics}
-                folders={folders}
-                colors={colors}
-              />
-            )}
+          {/* Date Range & Controls */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <label className="text-sm font-medium text-gray-300">
+                Analysis Period:
+              </label>
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="1month">Last Month</option>
+                <option value="3months">Last 3 Months</option>
+                <option value="6months">Last 6 Months</option>
+                <option value="1year">Last Year</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 text-sm text-emerald-400">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+              AI History Analysis Active
+            </div>
           </div>
-        </>
-      )}
+        </div>
+
+        {entries.length === 0 ? (
+          <EmptyHistoryState />
+        ) : (
+          <>
+            {/* Advanced Tab Navigation - Two Row Layout */}
+            <div className="mb-8">
+              <div className="bg-white/10 backdrop-blur-sm p-3 rounded-lg border border-white/20">
+                {/* First Row - 5 tabs */}
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {advancedTabs.slice(0, 5).map((tab) => {
+                    const IconComponent = tab.icon;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors flex-1 min-w-0 ${
+                          activeTab === tab.id
+                            ? "bg-purple-600 text-white shadow-sm"
+                            : "text-gray-300 hover:text-white hover:bg-white/10"
+                        }`}
+                      >
+                        <IconComponent className="h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Second Row - 5 tabs */}
+                <div className="flex flex-wrap gap-2">
+                  {advancedTabs.slice(5, 10).map((tab) => {
+                    const IconComponent = tab.icon;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors flex-1 min-w-0 ${
+                          activeTab === tab.id
+                            ? "bg-purple-600 text-white shadow-sm"
+                            : "text-gray-300 hover:text-white hover:bg-white/10"
+                        }`}
+                      >
+                        <IconComponent className="h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Tab Content */}
+            <div className="space-y-6">
+              {activeTab === "overview" && (
+                <OverviewTab
+                  entries={entries}
+                  analytics={analytics}
+                  folders={folders}
+                  goals={goals}
+                  colors={colors}
+                />
+              )}
+              {activeTab === "calendar" && (
+                <CalendarViewTab
+                  entries={entries}
+                  colors={colors}
+                  onEntrySelect={(entry) =>
+                    console.log("Selected entry:", entry)
+                  }
+                />
+              )}
+              {activeTab === "search-filter" && (
+                <SearchFilterTab
+                  entries={entries}
+                  folders={folders}
+                  goals={goals}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  filters={filters}
+                  setFilters={setFilters}
+                  colors={colors}
+                />
+              )}
+              {activeTab === "folders" && (
+                <FoldersTab
+                  entries={entries}
+                  folders={folders}
+                  colors={colors}
+                  onRefresh={loadHistoryData}
+                />
+              )}
+              {activeTab === "starred-pinned" && (
+                <StarredPinnedTab
+                  entries={entries}
+                  colors={colors}
+                  onRefresh={loadHistoryData}
+                />
+              )}
+              {activeTab === "writing-patterns" && (
+                <WritingPatternsTab
+                  entries={entries}
+                  analytics={analytics}
+                  colors={colors}
+                />
+              )}
+              {activeTab === "content-analysis" && (
+                <ContentAnalysisTab
+                  entries={entries}
+                  analytics={analytics}
+                  colors={colors}
+                />
+              )}
+              {activeTab === "goal-connections" && (
+                <GoalConnectionsTab
+                  entries={entries}
+                  goals={goals}
+                  colors={colors}
+                />
+              )}
+              {activeTab === "style-evolution" && (
+                <WritingStyleEvolutionTab
+                  entries={entries}
+                  analytics={analytics}
+                  colors={colors}
+                />
+              )}
+              {activeTab === "health-metrics" && (
+                <JournalHealthMetricsTab
+                  entries={entries}
+                  analytics={analytics}
+                  colors={colors}
+                />
+              )}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 };
