@@ -185,13 +185,6 @@ const StarredPinnedTab = ({ entries, colors, onRefresh }) => {
           </button>
         </div>
       </div>
-      {audioEntry && (
-        <AudioPlayer
-          entry={audioEntry}
-          onClose={() => setAudioEntry(null)}
-          position="bottom-right"
-        />
-      )}
     </div>
   );
 
@@ -436,6 +429,14 @@ const StarredPinnedTab = ({ entries, colors, onRefresh }) => {
 
       {/* Entry Modal */}
       {showEntryModal && <EntryModal />}
+
+      {audioEntry && (
+        <AudioPlayer
+          entry={audioEntry}
+          onClose={() => setAudioEntry(null)}
+          position="bottom-right"
+        />
+      )}
     </div>
   );
 };

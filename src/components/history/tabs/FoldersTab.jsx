@@ -320,13 +320,6 @@ const FoldersTab = ({ entries, folders, colors, onRefresh }) => {
                   </button>
                 </div>
               </div>
-              audioEntry && (
-              <AudioPlayer
-                entry={audioEntry}
-                onClose={() => setAudioEntry(null)}
-                position="bottom-right"
-              />
-              );
             </div>
           ))}
         </div>
@@ -540,6 +533,13 @@ const FoldersTab = ({ entries, folders, colors, onRefresh }) => {
       {showCreateModal && <CreateFolderModal />}
       {showEditModal && <EditFolderModal />}
     </div>
+  );
+  audioEntry && (
+    <AudioPlayer
+      entry={audioEntry}
+      onClose={() => setAudioEntry(null)}
+      position="bottom-right"
+    />
   );
 };
 
