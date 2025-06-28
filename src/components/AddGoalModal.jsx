@@ -1,552 +1,369 @@
 // src/components/AddGoalModal.jsx
 import React, { useState } from "react";
-import { X } from "lucide-react";
+import {
+  X,
+  Target,
+  Calendar,
+  Folder,
+  Tag,
+  AlertCircle,
+  CheckCircle2,
+  Info,
+} from "lucide-react";
 
-// MVP: List of predefined Reflectionary goals (expand as needed)
-const PREDEFINED_GOALS = [
-  {
-    emoji: "🏅",
-    title: "Build Confidence",
-    description: "Feel more self-assured at work and in social situations.",
-    priority: 4,
-    tiers: {
-      Beginner: [
-        "Speak up once in a meeting or group",
-        "Share my opinion with a friend or colleague",
-        "Set one healthy boundary",
-      ],
-      Intermediate: [
-        "Initiate a new project or idea",
-        "Ask for feedback at work",
-        "Assert myself in a group discussion",
-      ],
-      Advanced: [
-        "Lead a team meeting or presentation",
-        "Coach or mentor someone else",
-        "Tackle a major fear (public speaking, etc.)",
-      ],
-    },
-  },
-  {
-    emoji: "🌿",
-    title: "Manage Anxiety",
-    description: "Reduce anxiety and increase calm through small steps.",
-    priority: 5,
-    tiers: {
-      Beginner: [
-        "Try a 5-minute breathing exercise",
-        "Journal my anxious thoughts",
-        "Limit caffeine for a day",
-      ],
-      Intermediate: [
-        "Practice mindfulness twice in a week",
-        "Challenge an anxious thought pattern",
-        "Share my anxiety with someone I trust",
-      ],
-      Advanced: [
-        "Attend a group or therapy session",
-        "Guide a friend through a calming technique",
-        "Go a full day using new coping skills",
-      ],
-    },
-  },
-  {
-    emoji: "💤",
-    title: "Improve Sleep",
-    description: "Create habits that support restful sleep and better energy.",
-    priority: 3,
-    tiers: {
-      Beginner: [
-        "Stick to a consistent bedtime for 3 days",
-        "Avoid screens for 30 minutes before bed",
-        "Write down worries before sleeping",
-      ],
-      Intermediate: [
-        "Establish a calming bedtime routine",
-        "Track sleep for a full week",
-        "Limit caffeine after noon",
-      ],
-      Advanced: [
-        "Go a week with no late-night work or TV",
-        "Try meditation or gentle yoga before bed",
-        "Wake up feeling refreshed three days in a row",
-      ],
-    },
-  },
-  {
-    emoji: "🏃‍♀️",
-    title: "Boost Physical Activity",
-    description: "Move more often to increase energy and mood.",
-    priority: 4,
-    tiers: {
-      Beginner: [
-        "Take a 10-minute walk three times this week",
-        "Stretch for five minutes daily",
-        "Try a new physical activity",
-      ],
-      Intermediate: [
-        "Meet a step or movement goal for a full week",
-        "Exercise with a friend or group",
-        "Track your progress in your journal",
-      ],
-      Advanced: [
-        "Complete a new personal best (distance/time)",
-        "Incorporate strength training",
-        "Teach someone else a favorite activity",
-      ],
-    },
-  },
-  {
-    emoji: "🤝",
-    title: "Strengthen Relationships",
-    description: "Build deeper connections with friends and family.",
-    priority: 3,
-    tiers: {
-      Beginner: [
-        "Reach out to someone you haven’t talked to in a while",
-        "Share appreciation with a friend",
-        "Schedule a check-in call",
-      ],
-      Intermediate: [
-        "Have a meaningful one-on-one conversation",
-        "Resolve a small conflict with kindness",
-        "Support someone in need",
-      ],
-      Advanced: [
-        "Organize a get-together or group event",
-        "Initiate a vulnerable conversation",
-        "Offer mentorship or guidance to someone",
-      ],
-    },
-  },
-  // ...add more as you wish!
-];
+const AddGoalModal = ({ isOpen, onClose, onAdd }) => {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("personal_growth");
+  const [priority, setPriority] = useState("medium");
+  const [dueDate, setDueDate] = useState("");
+  const [milestones, setMilestones] = useState([]);
+  const [currentMilestone, setCurrentMilestone] = useState("");
+  const [tags, setTags] = useState([]);
+  const [currentTag, setCurrentTag] = useState("");
+  const [errors, setErrors] = useState({});
 
-const TABS = ["Predefined Goals", "Custom Goal"];
+  const categories = [
+    { value: "health_fitness", label: "Health & Fitness", icon: "🏃" },
+    { value: "career_skills", label: "Career & Skills", icon: "💼" },
+    { value: "personal_growth", label: "Personal Growth", icon: "🌱" },
+    { value: "financial", label: "Financial", icon: "💰" },
+    { value: "relationships", label: "Relationships", icon: "❤️" },
+    { value: "learning", label: "Learning", icon: "📚" },
+    { value: "other", label: "Other", icon: "✨" },
+  ];
 
-export default function AddGoalModal({ onClose, onSave }) {
-  const [activeTab, setActiveTab] = useState("Predefined Goals");
-  const [selectedPredefinedIdx, setSelectedPredefinedIdx] = useState(null);
+  const priorities = [
+    { value: "low", label: "Low", color: "text-green-400" },
+    { value: "medium", label: "Medium", color: "text-yellow-400" },
+    { value: "high", label: "High", color: "text-orange-400" },
+    { value: "critical", label: "Critical", color: "text-red-400" },
+  ];
 
-  // Custom goal state
-  const [customTitle, setCustomTitle] = useState("");
-  const [customDescription, setCustomDescription] = useState("");
-  const [customPriority, setCustomPriority] = useState(1);
-  const [customTiers, setCustomTiers] = useState(false);
-  const [customMilestones, setCustomMilestones] = useState([""]);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const handleSubmit = (e) => {
+    e.preventDefault();
 
-  // Predefined editing state
-  const selectedPre =
-    selectedPredefinedIdx !== null
-      ? { ...PREDEFINED_GOALS[selectedPredefinedIdx] }
-      : null;
-  const [preTierEdits, setPreTierEdits] = useState({});
-  const [activeTierTab, setActiveTierTab] = useState("Beginner");
+    // Validation
+    const newErrors = {};
+    if (!title.trim()) newErrors.title = "Goal title is required";
+    if (title.length > 100)
+      newErrors.title = "Title must be less than 100 characters";
 
-  // Handle milestone editing for predefined
-  const editableTiers = selectedPre
-    ? preTierEdits[selectedPredefinedIdx] || selectedPre.tiers
-    : {};
-
-  function handleEditPreMilestone(tier, idx, value) {
-    setPreTierEdits((prev) => {
-      const all = { ...prev };
-      const tiers = { ...(all[selectedPredefinedIdx] || selectedPre.tiers) };
-      const arr = [...tiers[tier]];
-      arr[idx] = value;
-      tiers[tier] = arr;
-      all[selectedPredefinedIdx] = tiers;
-      return all;
-    });
-  }
-
-  function handleAddPreMilestone(tier) {
-    setPreTierEdits((prev) => {
-      const all = { ...prev };
-      const tiers = { ...(all[selectedPredefinedIdx] || selectedPre.tiers) };
-      tiers[tier] = [...tiers[tier], ""];
-      all[selectedPredefinedIdx] = tiers;
-      return all;
-    });
-  }
-
-  function handleRemovePreMilestone(tier, idx) {
-    setPreTierEdits((prev) => {
-      const all = { ...prev };
-      const tiers = { ...(all[selectedPredefinedIdx] || selectedPre.tiers) };
-      tiers[tier] = tiers[tier].filter((_, i) => i !== idx);
-      all[selectedPredefinedIdx] = tiers;
-      return all;
-    });
-  }
-
-  // Always return { label, completed: false }
-  function normalizeMilestone(m) {
-    if (typeof m === "string") return { label: m, completed: false };
-    if (m && typeof m === "object") {
-      return {
-        label: m.label || "",
-        completed: !!m.completed,
-      };
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
     }
-    return { label: "", completed: false };
-  }
 
-  async function handleSave() {
-    setSaving(true);
-    setError("");
-    try {
-      if (activeTab === "Predefined Goals") {
-        if (selectedPre === null) throw new Error("Select a goal.");
-        const tiersToSave = {};
-        Object.entries(editableTiers).forEach(([tier, arr]) => {
-          tiersToSave[tier] = arr.filter(Boolean).map(normalizeMilestone);
-        });
-        await onSave({
-          title: selectedPre.title,
-          description: selectedPre.description,
-          priority: selectedPre.priority,
-          tiers: tiersToSave,
-        });
-      } else {
-        if (!customTitle.trim()) throw new Error("Title required.");
-        const goalObj = {
-          title: customTitle,
-          description: customDescription,
-          priority: customPriority,
-        };
-        if (customTiers) {
-          goalObj.tiers = {
-            Beginner: customMilestones.filter(Boolean).map(normalizeMilestone),
-          };
-        } else {
-          goalObj.milestones = customMilestones
-            .filter(Boolean)
-            .map(normalizeMilestone);
-        }
-        await onSave(goalObj);
-      }
-      setSaving(false);
-      onClose();
-    } catch (err) {
-      setError(err.message || "Error saving goal.");
-      setSaving(false);
+    const newGoal = {
+      title: title.trim(),
+      description: description.trim(),
+      category,
+      priority,
+      dueDate: dueDate || null,
+      milestones: milestones.map((m, index) => ({
+        title: m,
+        order_index: index,
+        status: "pending",
+      })),
+      tags,
+      status: "active",
+      progress: 0,
+    };
+
+    onAdd(newGoal);
+    resetForm();
+    onClose();
+  };
+
+  const resetForm = () => {
+    setTitle("");
+    setDescription("");
+    setCategory("personal_growth");
+    setPriority("medium");
+    setDueDate("");
+    setMilestones([]);
+    setCurrentMilestone("");
+    setTags([]);
+    setCurrentTag("");
+    setErrors({});
+  };
+
+  const addMilestone = () => {
+    if (currentMilestone.trim() && milestones.length < 10) {
+      setMilestones([...milestones, currentMilestone.trim()]);
+      setCurrentMilestone("");
     }
-  }
+  };
 
-  function handleMilestoneChange(idx, value) {
-    setCustomMilestones((milestones) => {
-      const arr = [...milestones];
-      arr[idx] = value;
-      return arr;
-    });
-  }
-  function addMilestone() {
-    setCustomMilestones((milestones) => [...milestones, ""]);
-  }
-  function removeMilestone(idx) {
-    setCustomMilestones((milestones) => milestones.filter((_, i) => i !== idx));
-  }
+  const removeMilestone = (index) => {
+    setMilestones(milestones.filter((_, i) => i !== index));
+  };
+
+  const addTag = () => {
+    if (
+      currentTag.trim() &&
+      tags.length < 5 &&
+      !tags.includes(currentTag.trim())
+    ) {
+      setTags([...tags, currentTag.trim()]);
+      setCurrentTag("");
+    }
+  };
+
+  const removeTag = (tag) => {
+    setTags(tags.filter((t) => t !== tag));
+  };
+
+  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div
-        className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6 relative
-                      max-h-[95vh] overflow-y-auto"
-      >
-        <button
-          onClick={onClose}
-          className="absolute top-2 right-2 p-1 text-gray-500 hover:text-purple-600"
-          title="Close"
-        >
-          <X size={20} />
-        </button>
-        {/* Tabs for Predefined/Custom */}
-        <div className="flex gap-2 mb-4">
-          {TABS.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-t-lg font-semibold transition-colors ${
-                activeTab === tab
-                  ? "bg-purple-100 text-purple-900 shadow"
-                  : "bg-gray-50 text-gray-400 hover:text-purple-700"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-white/20">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-white/10">
+          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+            <Target className="h-5 w-5 text-purple-400" />
+            Create New Goal
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
-        {activeTab === "Predefined Goals" && (
-          <div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              {PREDEFINED_GOALS.map((g, idx) => (
-                <button
-                  key={g.title}
-                  onClick={() => setSelectedPredefinedIdx(idx)}
-                  className={`border rounded-xl p-4 flex flex-col items-start transition-all ${
-                    selectedPredefinedIdx === idx
-                      ? "border-purple-500 shadow bg-purple-50"
-                      : "border-gray-200 hover:border-purple-300"
-                  }`}
-                >
-                  <span className="text-2xl mb-1">{g.emoji}</span>
-                  <span className="font-semibold text-lg mb-1">{g.title}</span>
-                  <span className="text-sm text-gray-600">{g.description}</span>
-                </button>
-              ))}
-            </div>
-            {selectedPre && (
-              <div className="bg-gray-50 rounded-xl p-4 mt-4 border max-h-[60vh] overflow-y-auto">
-                <h3 className="font-bold mb-1">Preview and Edit</h3>
-                <div className="mb-2">
-                  <label className="block text-xs font-medium text-gray-500">
-                    Title
-                  </label>
-                  <input
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-400"
-                    value={selectedPre.title}
-                    disabled
-                  />
-                </div>
-                <div className="mb-2">
-                  <label className="block text-xs font-medium text-gray-500">
-                    Description
-                  </label>
-                  <textarea
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-400"
-                    value={selectedPre.description}
-                    disabled
-                  />
-                </div>
-                {/* --- Horizontal Tabs for Tier Selection --- */}
-                <div className="flex gap-2 mb-2 mt-4">
-                  {["Beginner", "Intermediate", "Advanced"].map((tier) => (
-                    <button
-                      key={tier}
-                      onClick={() => setActiveTierTab(tier)}
-                      className={`px-3 py-1 rounded font-bold ${
-                        activeTierTab === tier
-                          ? "bg-purple-600 text-white shadow"
-                          : "bg-purple-100 text-purple-700"
-                      }`}
-                    >
-                      {tier}
-                    </button>
-                  ))}
-                </div>
-                {/* Show milestones only for active tier */}
-                <div>
-                  {editableTiers[activeTierTab].map((milestone, idx) => (
-                    <div className="flex items-center gap-1 my-1" key={idx}>
-                      <input
-                        type="text"
-                        value={
-                          typeof milestone === "string"
-                            ? milestone
-                            : milestone.label
-                        }
-                        onChange={(e) =>
-                          handleEditPreMilestone(
-                            activeTierTab,
-                            idx,
-                            e.target.value
-                          )
-                        }
-                        className="flex-1 px-2 py-1 border rounded"
-                      />
-                      <button
-                        type="button"
-                        className="text-gray-400 hover:text-red-500"
-                        onClick={() =>
-                          handleRemovePreMilestone(activeTierTab, idx)
-                        }
-                        title="Remove"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    className="mt-1 text-xs text-purple-600 hover:underline"
-                    onClick={() => handleAddPreMilestone(activeTierTab)}
-                  >
-                    + Add {activeTierTab} Milestone
-                  </button>
-                </div>
-                <div className="mt-4 flex justify-end gap-3">
-                  <button
-                    onClick={handleSave}
-                    className="px-4 py-2 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700"
-                    disabled={saving}
-                  >
-                    {saving ? "Saving..." : "Save Goal"}
-                  </button>
-                </div>
-                {error && <div className="text-red-600 mt-2">{error}</div>}
-              </div>
+        {/* Form */}
+        <form
+          onSubmit={handleSubmit}
+          className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]"
+        >
+          {/* Title */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Goal Title *
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                if (errors.title) setErrors({ ...errors, title: null });
+              }}
+              placeholder="e.g., Run a marathon, Learn Spanish, Save $10,000"
+              className={`w-full px-4 py-2 bg-white/10 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                errors.title ? "border-red-400" : "border-white/20"
+              }`}
+              maxLength={100}
+            />
+            {errors.title && (
+              <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {errors.title}
+              </p>
             )}
+            <p className="mt-1 text-xs text-gray-400">
+              {title.length}/100 characters
+            </p>
           </div>
-        )}
 
-        {/* --- Custom Goal tab below (unchanged) --- */}
-        {activeTab === "Custom Goal" && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSave();
-            }}
-          >
-            <div className="mb-2">
-              <label className="block text-xs font-medium text-gray-500">
-                Title<span className="text-red-500">*</span>
-              </label>
-              <input
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-400"
-                value={customTitle}
-                onChange={(e) => setCustomTitle(e.target.value)}
-                required
-                maxLength={100}
-              />
-            </div>
-            <div className="mb-2">
-              <label className="block text-xs font-medium text-gray-500">
-                Description
-              </label>
-              <textarea
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-400"
-                value={customDescription}
-                onChange={(e) => setCustomDescription(e.target.value)}
-                rows={3}
-                maxLength={300}
-              />
-            </div>
-            <div className="mb-2">
-              <label className="block text-xs font-medium text-gray-500">
-                Priority
+          {/* Description */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe your goal and why it matters to you..."
+              rows={3}
+              className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+            />
+          </div>
+
+          {/* Category and Priority */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Category
               </label>
               <select
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-400"
-                value={customPriority}
-                onChange={(e) => setCustomPriority(Number(e.target.value))}
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full px-4 py-2 bg-slate-600 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
-                {[1, 2, 3, 4, 5].map((num) => (
-                  <option key={num} value={num}>
-                    {num}{" "}
-                    {num === 1 ? "(Lowest)" : num === 5 ? "(Highest)" : ""}
+                {categories.map((cat) => (
+                  <option
+                    key={cat.value}
+                    value={cat.value}
+                    className="bg-slate-700"
+                  >
+                    {cat.icon} {cat.label}
                   </option>
                 ))}
               </select>
             </div>
-            <div className="mb-2 flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="tiers"
-                checked={customTiers}
-                onChange={(e) => setCustomTiers(e.target.checked)}
-              />
-              <label htmlFor="tiers" className="text-sm text-gray-600">
-                Advanced: Use beginner/intermediate/advanced tiers
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Priority
               </label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                className="w-full px-4 py-2 bg-slate-600 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                {priorities.map((pri) => (
+                  <option
+                    key={pri.value}
+                    value={pri.value}
+                    className="bg-slate-700"
+                  >
+                    {pri.label}
+                  </option>
+                ))}
+              </select>
             </div>
-            {customTiers ? (
-              <div className="mb-4">
-                <label className="block text-xs font-medium text-gray-500">
-                  Beginner Milestones
-                </label>
-                {customMilestones.map((milestone, idx) => (
-                  <div key={idx} className="flex items-center gap-1 my-1">
-                    <input
-                      className="flex-1 px-2 py-1 border rounded"
-                      value={
-                        typeof milestone === "string"
-                          ? milestone
-                          : milestone.label
-                      }
-                      onChange={(e) =>
-                        handleMilestoneChange(idx, e.target.value)
-                      }
-                    />
-                    <button
-                      type="button"
-                      className="text-gray-400 hover:text-red-500"
-                      onClick={() => removeMilestone(idx)}
-                      title="Remove"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  className="mt-1 text-xs text-purple-600 hover:underline"
-                  onClick={addMilestone}
-                >
-                  + Add Beginner Milestone
-                </button>
-              </div>
-            ) : (
-              <div className="mb-4">
-                <label className="block text-xs font-medium text-gray-500">
-                  Milestones (optional)
-                </label>
-                {customMilestones.map((milestone, idx) => (
-                  <div key={idx} className="flex items-center gap-1 my-1">
-                    <input
-                      className="flex-1 px-2 py-1 border rounded"
-                      value={
-                        typeof milestone === "string"
-                          ? milestone
-                          : milestone.label
-                      }
-                      onChange={(e) =>
-                        handleMilestoneChange(idx, e.target.value)
-                      }
-                    />
-                    <button
-                      type="button"
-                      className="text-gray-400 hover:text-red-500"
-                      onClick={() => removeMilestone(idx)}
-                      title="Remove"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  className="mt-1 text-xs text-purple-600 hover:underline"
-                  onClick={addMilestone}
-                >
-                  + Add Milestone
-                </button>
-              </div>
-            )}
-            <div className="flex justify-end gap-3">
+          </div>
+
+          {/* Due Date */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Due Date (Optional)
+            </label>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              min={new Date().toISOString().split("T")[0]}
+              className="w-full px-4 py-2 bg-slate-600 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          {/* Milestones */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Milestones
+            </label>
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                value={currentMilestone}
+                onChange={(e) => setCurrentMilestone(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addMilestone();
+                  }
+                }}
+                placeholder="Add a milestone..."
+                className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
               <button
                 type="button"
-                onClick={onClose}
-                className="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-100"
-                disabled={saving}
+                onClick={addMilestone}
+                disabled={!currentMilestone.trim() || milestones.length >= 10}
+                className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700"
-                disabled={saving}
-              >
-                {saving ? "Saving..." : "Save Goal"}
+                Add
               </button>
             </div>
-            {error && <div className="text-red-600 mt-2">{error}</div>}
-          </form>
-        )}
+            <div className="space-y-2">
+              {milestones.map((milestone, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 p-2 bg-white/5 rounded-lg"
+                >
+                  <CheckCircle2 className="h-4 w-4 text-purple-400" />
+                  <span className="flex-1 text-sm text-gray-300">
+                    {milestone}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeMilestone(index)}
+                    className="text-gray-400 hover:text-red-400 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            {milestones.length === 0 && (
+              <p className="text-xs text-gray-400 mt-1">
+                <Info className="inline h-3 w-3 mr-1" />
+                Break down your goal into smaller, achievable milestones
+              </p>
+            )}
+          </div>
+
+          {/* Tags */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Tags
+            </label>
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                value={currentTag}
+                onChange={(e) => setCurrentTag(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addTag();
+                  }
+                }}
+                placeholder="Add a tag..."
+                className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              <button
+                type="button"
+                onClick={addTag}
+                disabled={!currentTag.trim() || tags.length >= 5}
+                className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Add
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm flex items-center gap-1"
+                >
+                  <Tag className="h-3 w-3" />
+                  {tag}
+                  <button
+                    type="button"
+                    onClick={() => removeTag(tag)}
+                    className="hover:text-purple-100"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        </form>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-white/10">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-6 py-2 bg-white/10 text-gray-300 rounded-lg hover:bg-white/20 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all"
+          >
+            Create Goal
+          </button>
+        </div>
       </div>
     </div>
   );
-}
+};
+
+export default AddGoalModal;

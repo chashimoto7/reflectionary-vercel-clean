@@ -65,7 +65,6 @@ import GoalHealthScoreTab from "../components/goals/tabs/GoalHealthScoreTab";
 import ProgressVelocityTab from "../components/goals/tabs/ProgressVelocityTab";
 
 import {
-  LineChart,
   Line,
   AreaChart,
   Area,
