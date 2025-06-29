@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import {
   Sparkles,
-  Flask,
+  Beaker,
   Target,
   Clock,
   Calendar,
@@ -633,9 +633,9 @@ const WellnessExperimentsTab = ({ colors, user }) => {
       productivity: Target,
       social: Users,
       general: BarChart3,
-      custom: Flask,
+      custom: Beaker,
     };
-    return icons[category] || Flask;
+    return icons[category] || Beaker;
   };
 
   const getDifficultyColor = (difficulty) => {
@@ -662,7 +662,7 @@ const WellnessExperimentsTab = ({ colors, user }) => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">
-              <Flask className="w-8 h-8 text-purple-400" />
+              <Beaker className="w-8 h-8 text-purple-400" />
               Wellness Experiments
             </h3>
             <p className="text-purple-200">
@@ -835,7 +835,7 @@ const WellnessExperimentsTab = ({ colors, user }) => {
             })
           ) : (
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20 text-center">
-              <Flask className="w-16 h-16 text-purple-400 mx-auto mb-4" />
+              <Beaker className="w-16 h-16 text-purple-400 mx-auto mb-4" />
               <h4 className="text-xl font-semibold text-white mb-2">
                 No Active Experiments
               </h4>
@@ -866,7 +866,7 @@ const WellnessExperimentsTab = ({ colors, user }) => {
           </div>
 
           {experiments.suggested.map((experiment) => {
-            const Icon = experiment.icon || Flask;
+            const Icon = experiment.icon || Beaker;
             return (
               <div
                 key={experiment.id}
@@ -1190,7 +1190,7 @@ const WellnessExperimentsTab = ({ colors, user }) => {
 
           {/* Community Experiments List */}
           {experiments.community.map((experiment) => {
-            const Icon = experiment.icon || Flask;
+            const Icon = experiment.icon || Beaker;
             return (
               <div
                 key={experiment.id}
