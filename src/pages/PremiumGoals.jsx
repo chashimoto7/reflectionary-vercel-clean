@@ -424,7 +424,7 @@ const PremiumGoals = () => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-white mb-2">
-                Premium Goals Analytics
+                Premium Goals
               </h1>
               <p className="text-gray-400">
                 AI-powered insights to achieve your dreams

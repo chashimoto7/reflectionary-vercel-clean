@@ -336,24 +336,22 @@ const PremiumWomensHealth = () => {
         )}
 
         {/* Tab Navigation - Grid Layout */}
-        <div className="mb-6 bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20">
-          <div className="grid grid-cols-4 gap-3">
+        <div className="mb-6 bg-white/10 backdrop-blur-md p-3 rounded-lg border border-white/20">
+          <div className="grid grid-cols-4 gap-2">
             {availableTabs.map((tab) => {
               const IconComponent = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`p-4 rounded-lg transition-all flex flex-col items-center gap-2 ${
+                  className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                     activeTab === tab.id
-                      ? "bg-white text-purple-600 shadow-sm"
-                      : "text-purple-200 hover:text-white hover:bg-white/10"
+                      ? "bg-purple-600 text-white shadow-sm"
+                      : "text-gray-300 hover:text-white hover:bg-white/10"
                   }`}
                 >
-                  <IconComponent className="w-6 h-6" />
-                  <span className="text-sm font-medium text-center">
-                    {tab.label}
-                  </span>
+                  <IconComponent className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">{tab.label}</span>
                 </button>
               );
             })}
