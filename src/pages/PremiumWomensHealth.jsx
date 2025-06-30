@@ -1,26 +1,4 @@
-{
-  /* Privacy Info Modal */
-}
-{
-  showPrivacyInfo && (
-    <div className="mb-6 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-      <div className="flex items-start gap-3">
-        <Shield className="w-5 h-5 text-purple-300 flex-shrink-0 mt-0.5" />
-        <div>
-          <h4 className="text-white font-medium mb-2">
-            Your Privacy is Protected
-          </h4>
-          <p className="text-sm text-purple-200">
-            Your information is personal - and we treat it that way. All health
-            data is end-to-end encrypted so no one else can read it. Not our
-            team. Not our servers. Only you. Your information is never shared
-            and remains completely private.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-} // src/pages/PremiumWomensHealth.jsx
+// src/pages/PremiumWomensHealth.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMembership } from "../hooks/useMembership";
@@ -272,6 +250,26 @@ const PremiumWomensHealth = () => {
             </div>
           </div>
         </div>
+
+        {/* Privacy Info Modal */}
+        {showPrivacyInfo && (
+          <div className="mb-6 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+            <div className="flex items-start gap-3">
+              <Shield className="w-5 h-5 text-purple-300 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-white font-medium mb-2">
+                  Your Privacy is Protected
+                </h4>
+                <p className="text-sm text-purple-200">
+                  Your information is personal - and we treat it that way. All
+                  health data is end-to-end encrypted so no one else can read
+                  it. Not our team. Not our servers. Only you. Your information
+                  is never shared and remains completely private.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Life Stage Selector Modal */}
         {showStageSelector && (
