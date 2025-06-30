@@ -67,13 +67,12 @@ const PremiumWomensHealth = () => {
   const { tier } = useMembership();
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
+  const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
 
   // Life stage management
   const [lifeStage, setLifeStage] = useState("menstrual"); // menstrual, perimenopause, menopause
   const [showStageSelector, setShowStageSelector] = useState(false);
   const [showEntryModal, setShowEntryModal] = useState(false);
-
-  const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
 
   // Data states
   const [healthData, setHealthData] = useState(null);
