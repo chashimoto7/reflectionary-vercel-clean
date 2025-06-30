@@ -11,7 +11,6 @@ import {
   Heart,
   Pill,
   ThermometerSun,
-  Bone,
   Shield,
   AlertCircle,
   Clock,
