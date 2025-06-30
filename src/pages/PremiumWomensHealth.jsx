@@ -1,4 +1,26 @@
-// src/pages/PremiumWomensHealth.jsx
+{
+  /* Privacy Info Modal */
+}
+{
+  showPrivacyInfo && (
+    <div className="mb-6 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+      <div className="flex items-start gap-3">
+        <Shield className="w-5 h-5 text-purple-300 flex-shrink-0 mt-0.5" />
+        <div>
+          <h4 className="text-white font-medium mb-2">
+            Your Privacy is Protected
+          </h4>
+          <p className="text-sm text-purple-200">
+            Your information is personal - and we treat it that way. All health
+            data is end-to-end encrypted so no one else can read it. Not our
+            team. Not our servers. Only you. Your information is never shared
+            and remains completely private.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+} // src/pages/PremiumWomensHealth.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMembership } from "../hooks/useMembership";
@@ -15,8 +37,6 @@ import {
   Sun,
   Thermometer,
   Crown,
-  ChevronLeft,
-  ChevronRight,
   Settings,
   Info,
   Shield,
@@ -47,13 +67,13 @@ const PremiumWomensHealth = () => {
   const { tier } = useMembership();
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
-  const [showLeftArrow, setShowLeftArrow] = useState(false);
-  const [showRightArrow, setShowRightArrow] = useState(true);
 
   // Life stage management
   const [lifeStage, setLifeStage] = useState("menstrual"); // menstrual, perimenopause, menopause
   const [showStageSelector, setShowStageSelector] = useState(false);
   const [showEntryModal, setShowEntryModal] = useState(false);
+
+  const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
 
   // Data states
   const [healthData, setHealthData] = useState(null);
@@ -170,26 +190,6 @@ const PremiumWomensHealth = () => {
     setActiveTab("overview");
   };
 
-  // Handle tab scroll visibility
-  const handleTabScroll = (e) => {
-    const container = e.target;
-    setShowLeftArrow(container.scrollLeft > 0);
-    setShowRightArrow(
-      container.scrollLeft < container.scrollWidth - container.clientWidth - 10
-    );
-  };
-
-  const scrollTabs = (direction) => {
-    const container = document.getElementById("womens-health-tab-container");
-    const scrollAmount = 200;
-    if (container) {
-      container.scrollBy({
-        left: direction === "left" ? -scrollAmount : scrollAmount,
-        behavior: "smooth",
-      });
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-pink-900 flex items-center justify-center">
@@ -218,44 +218,47 @@ const PremiumWomensHealth = () => {
     }
   };
 
-  const getStageLabel = () => {
-    switch (lifeStage) {
-      case "menstrual":
-        return "Menstrual Tracking";
-      case "perimenopause":
-        return "Perimenopause Tracking";
-      case "menopause":
-        return "Menopause Tracking";
-      default:
-        return "Women's Health";
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-pink-900">
       <div className="p-6">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
-                <Heart className="w-10 h-10 text-pink-300" />
-                Premium Women's Health
-                <Crown className="w-8 h-8 text-yellow-400" />
-              </h1>
-              <p className="text-purple-200 text-lg">
-                Comprehensive health tracking and insights tailored to your life
-                stage
-              </p>
+            <div className="flex items-start gap-4">
+              <div>
+                <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
+                  <Heart className="w-10 h-10 text-pink-300" />
+                  Premium Women's Health
+                  <Crown className="w-8 h-8 text-yellow-400" />
+                </h1>
+                <p className="text-purple-200 text-lg">
+                  Comprehensive health tracking and insights tailored to your
+                  life stage
+                </p>
+              </div>
+              <div className="bg-purple-600/30 backdrop-blur-sm border border-purple-400/50 px-3 py-1.5 rounded-full">
+                <span className="text-purple-100 text-sm font-medium">
+                  Premium
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-4">
+              {/* Privacy Info Button */}
+              <button
+                onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
+                className="text-purple-300 hover:text-white transition-colors"
+                title="Privacy Information"
+              >
+                <Shield className="w-6 h-6" />
+              </button>
+
               {/* Life Stage Selector Button */}
               <button
                 onClick={() => setShowStageSelector(!showStageSelector)}
                 className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-4 py-2 rounded-lg hover:bg-white/20 transition-all flex items-center gap-2"
               >
                 {getStageIcon()}
-                <span>{getStageLabel()}</span>
+                <span>Select Your Life Stage</span>
                 <Settings className="w-4 h-4" />
               </button>
 
@@ -335,54 +338,28 @@ const PremiumWomensHealth = () => {
           </div>
         )}
 
-        {/* Tab Navigation */}
-        <div className="mb-6 bg-white/10 backdrop-blur-md rounded-xl p-1 border border-white/20">
-          <div className="relative">
-            {/* Left Arrow */}
-            {showLeftArrow && (
-              <button
-                onClick={() => scrollTabs("left")}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-purple-800/80 text-white p-1.5 rounded-full shadow-lg hover:bg-purple-700/80 transition-all"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-            )}
-
-            {/* Right Arrow */}
-            {showRightArrow && (
-              <button
-                onClick={() => scrollTabs("right")}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-purple-800/80 text-white p-1.5 rounded-full shadow-lg hover:bg-purple-700/80 transition-all"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            )}
-
-            {/* Tabs */}
-            <div
-              id="womens-health-tab-container"
-              className="flex gap-1 overflow-x-auto scrollbar-hide px-8"
-              onScroll={handleTabScroll}
-              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-            >
-              {availableTabs.map((tab) => {
-                const IconComponent = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-3 rounded-lg transition-all whitespace-nowrap ${
-                      activeTab === tab.id
-                        ? "bg-white text-purple-600 shadow-sm"
-                        : "text-purple-200 hover:text-white hover:bg-white/10"
-                    }`}
-                  >
-                    <IconComponent className="w-5 h-5" />
-                    <span className="font-medium">{tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+        {/* Tab Navigation - Grid Layout */}
+        <div className="mb-6 bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20">
+          <div className="grid grid-cols-4 gap-3">
+            {availableTabs.map((tab) => {
+              const IconComponent = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`p-4 rounded-lg transition-all flex flex-col items-center gap-2 ${
+                    activeTab === tab.id
+                      ? "bg-white text-purple-600 shadow-sm"
+                      : "text-purple-200 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  <IconComponent className="w-6 h-6" />
+                  <span className="text-sm font-medium text-center">
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -400,21 +377,6 @@ const PremiumWomensHealth = () => {
               onOpenEntry={() => setShowEntryModal(true)}
             />
           )}
-        </div>
-
-        {/* Privacy Notice */}
-        <div className="mt-6 p-4 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
-          <div className="flex items-start gap-3">
-            <Shield className="w-5 h-5 text-purple-300 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-purple-200">
-              <p className="font-medium mb-1">Your Privacy is Protected</p>
-              <p className="opacity-80">
-                All health data is encrypted end-to-end. Your sensitive health
-                information is never shared and remains completely private. Only
-                you have access to your data.
-              </p>
-            </div>
-          </div>
         </div>
       </div>
 
