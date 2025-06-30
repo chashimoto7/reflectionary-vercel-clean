@@ -1,786 +1,724 @@
 // src/components/womenshealth/tabs/WellnessCorrelationsTab.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  Target,
-  Heart,
-  Zap,
-  Moon,
-  Brain,
   Activity,
+  Brain,
+  Heart,
+  Moon,
+  Coffee,
+  Droplets,
   TrendingUp,
-  BarChart3,
-  Clock,
-  Calendar,
-  Thermometer,
-  Sun,
-  AlertTriangle,
-  CheckCircle,
+  AlertCircle,
   Info,
+  Calendar,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  Zap,
+  CloudRain,
+  Sun,
+  Wind,
+  Pizza,
+  Apple,
+  Dumbbell,
+  Users,
+  MessageSquare,
+  Target,
+  BarChart3,
   ArrowUpRight,
   ArrowDownRight,
   Minus,
-  Eye,
-  EyeOff,
+  Sparkles,
 } from "lucide-react";
+import { format, subDays } from "date-fns";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
   ScatterChart,
   Scatter,
+  LineChart,
+  Line,
   AreaChart,
   Area,
-  ComposedChart,
-  Bar,
   BarChart,
+  Bar,
   RadarChart,
   PolarGrid,
   PolarAngleAxis,
   PolarRadiusAxis,
   Radar,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  CartesianGrid,
   Cell,
-  PieChart,
-  Pie,
+  Legend,
+  ReferenceLine,
 } from "recharts";
 
-const WellnessCorrelationsTab = ({ data, lifeStage, colors }) => {
-  const [selectedCorrelation, setSelectedCorrelation] = useState("mood-cycle");
-  const [selectedTimeframe, setSelectedTimeframe] = useState("3months");
-  const [showStatistics, setShowStatistics] = useState(false);
+const WellnessCorrelationsTab = ({ colors, user, lifeStage }) => {
+  const [loading, setLoading] = useState(true);
+  const [selectedMetric, setSelectedMetric] = useState("sleep");
+  const [selectedTimeRange, setSelectedTimeRange] = useState("month");
+  const [expandedCorrelation, setExpandedCorrelation] = useState(null);
 
-  // Process wellness correlation data
-  const correlationData = data || {
-    moodCycle: { correlation: 0.7 },
-    energyPatterns: { correlation: 0.6 },
-    sleepCycle: { correlation: 0.5 },
-  };
+  // Correlation data
+  const [correlationData, setCorrelationData] = useState({
+    sleep: {},
+    exercise: {},
+    nutrition: {},
+    stress: {},
+    social: {},
+    environment: {},
+  });
 
-  // Mock correlation data for visualization
-  const moodCycleData = [
-    { day: 1, cycleDay: 1, mood: 5.2, journalMood: 5.1, phase: "Menstrual" },
-    { day: 2, cycleDay: 5, mood: 6.1, journalMood: 6.3, phase: "Menstrual" },
-    { day: 3, cycleDay: 8, mood: 7.8, journalMood: 7.6, phase: "Follicular" },
-    { day: 4, cycleDay: 12, mood: 8.2, journalMood: 8.1, phase: "Follicular" },
-    { day: 5, cycleDay: 14, mood: 8.9, journalMood: 9.0, phase: "Ovulatory" },
-    { day: 6, cycleDay: 16, mood: 8.7, journalMood: 8.5, phase: "Ovulatory" },
-    { day: 7, cycleDay: 20, mood: 6.8, journalMood: 6.9, phase: "Luteal" },
-    { day: 8, cycleDay: 25, mood: 5.5, journalMood: 5.8, phase: "Luteal" },
-    { day: 9, cycleDay: 28, mood: 5.0, journalMood: 4.9, phase: "Luteal" },
-  ];
+  const [insights, setInsights] = useState([]);
+  const [strongestCorrelations, setStrongestCorrelations] = useState([]);
 
-  const energyCorrelationData = [
-    { day: 1, cycleEnergy: 4.1, journalEnergy: 4.3, sleep: 6.2 },
-    { day: 2, cycleEnergy: 5.5, journalEnergy: 5.8, sleep: 7.1 },
-    { day: 3, cycleEnergy: 8.2, journalEnergy: 8.0, sleep: 8.0 },
-    { day: 4, cycleEnergy: 9.1, journalEnergy: 8.9, sleep: 8.2 },
-    { day: 5, cycleEnergy: 9.0, journalEnergy: 9.2, sleep: 7.9 },
-    { day: 6, cycleEnergy: 7.8, journalEnergy: 7.5, sleep: 7.3 },
-    { day: 7, cycleEnergy: 5.8, journalEnergy: 6.1, sleep: 6.8 },
-    { day: 8, cycleEnergy: 4.2, journalEnergy: 4.5, sleep: 6.0 },
-  ];
-
-  const sleepCycleData = [
-    {
-      phase: "Menstrual",
-      sleepQuality: 6.3,
-      sleepDuration: 7.8,
-      symptoms: 7.2,
-    },
-    {
-      phase: "Follicular",
-      sleepQuality: 7.9,
-      sleepDuration: 7.5,
-      symptoms: 2.1,
-    },
-    {
-      phase: "Ovulatory",
-      sleepQuality: 8.1,
-      sleepDuration: 7.2,
-      symptoms: 1.5,
-    },
-    { phase: "Luteal", sleepQuality: 6.8, sleepDuration: 7.6, symptoms: 5.8 },
-  ];
-
-  // Correlation strength indicators
-  const correlationStrengths = [
-    {
-      name: "Mood ↔ Cycle Phase",
-      value: 0.84,
-      significance: "high",
-      description: "Strong correlation between cycle phase and mood ratings",
-      icon: Heart,
-      color: colors.primary,
-    },
-    {
-      name: "Energy ↔ Hormones",
-      value: 0.76,
-      significance: "high",
-      description: "Energy levels closely follow hormonal fluctuations",
-      icon: Zap,
-      color: colors.accent,
-    },
-    {
-      name: "Sleep ↔ Cycle",
-      value: 0.68,
-      significance: "medium",
-      description: "Sleep quality varies predictably with cycle phases",
+  // Metric definitions
+  const metricDefinitions = {
+    sleep: {
+      name: "Sleep Quality",
       icon: Moon,
-      color: colors.secondary,
+      color: colors.primary,
+      unit: "hours",
+      description: "How sleep patterns affect your symptoms",
     },
-    {
-      name: "Journal Frequency ↔ Mood",
-      value: 0.62,
-      significance: "medium",
-      description: "Lower moods correlate with more frequent journaling",
+    exercise: {
+      name: "Physical Activity",
+      icon: Activity,
+      color: colors.secondary,
+      unit: "minutes",
+      description: "Exercise impact on hormonal balance",
+    },
+    nutrition: {
+      name: "Nutrition",
+      icon: Apple,
+      color: colors.emerald,
+      unit: "quality score",
+      description: "Diet and symptom relationships",
+    },
+    stress: {
+      name: "Stress Levels",
       icon: Brain,
       color: colors.warning,
+      unit: "level",
+      description: "Stress impact on women's health",
     },
-    {
-      name: "Symptoms ↔ Journal Tone",
-      value: 0.58,
-      significance: "medium",
-      description: "Physical symptoms reflected in journal emotional tone",
-      icon: Activity,
-      color: colors.danger,
+    social: {
+      name: "Social Connection",
+      icon: Users,
+      color: colors.accent,
+      unit: "interactions",
+      description: "Social support and well-being",
     },
-  ];
+    environment: {
+      name: "Environmental",
+      icon: Sun,
+      color: colors.amber,
+      unit: "index",
+      description: "Weather and environmental factors",
+    },
+  };
 
-  // Phase-specific wellness patterns
-  const phaseWellnessData = [
-    {
-      phase: "Menstrual",
-      mood: 5.2,
-      energy: 4.1,
-      sleep: 6.3,
-      journaling: 8.5,
-      selfCare: 7.8,
-      socialConnection: 4.2,
-    },
-    {
-      phase: "Follicular",
-      mood: 7.8,
-      energy: 8.2,
-      sleep: 7.9,
-      journaling: 6.1,
-      selfCare: 6.5,
-      socialConnection: 8.9,
-    },
-    {
-      phase: "Ovulatory",
-      mood: 8.9,
-      energy: 9.1,
-      sleep: 8.1,
-      journaling: 5.2,
-      selfCare: 5.8,
-      socialConnection: 9.5,
-    },
-    {
-      phase: "Luteal",
-      mood: 6.1,
-      energy: 5.8,
-      sleep: 6.8,
-      journaling: 7.9,
-      selfCare: 8.2,
-      socialConnection: 6.1,
-    },
-  ];
+  useEffect(() => {
+    loadCorrelationData();
+    setTimeout(() => setLoading(false), 1000);
+  }, [selectedTimeRange, lifeStage]);
 
-  // Journaling pattern insights
-  const journalingInsights = [
-    {
-      pattern: "Increased frequency during luteal phase",
-      strength: "Strong",
-      insight:
-        "You journal 40% more during PMS, using it as emotional processing",
-    },
-    {
-      pattern: "Longer entries when mood is low",
-      strength: "Moderate",
-      insight: "Low mood days average 350+ words vs 180 words on good days",
-    },
-    {
-      pattern: "More gratitude mentions in follicular phase",
-      strength: "Moderate",
-      insight: "Gratitude language peaks during rising estrogen phase",
-    },
-  ];
+  const loadCorrelationData = () => {
+    // Mock data - will be replaced with database calls
+    setCorrelationData({
+      sleep: generateSleepCorrelations(),
+      exercise: generateExerciseCorrelations(),
+      nutrition: generateNutritionCorrelations(),
+      stress: generateStressCorrelations(),
+      social: generateSocialCorrelations(),
+      environment: generateEnvironmentCorrelations(),
+    });
+
+    generateInsights();
+    findStrongestCorrelations();
+  };
+
+  const generateSleepCorrelations = () => {
+    const data = [];
+    for (let i = 30; i >= 0; i--) {
+      data.push({
+        date: format(subDays(new Date(), i), "MMM d"),
+        sleepHours: 5 + Math.random() * 4,
+        sleepQuality: Math.floor(Math.random() * 5) + 1,
+        hotFlashes: Math.floor(Math.random() * 8),
+        moodScore: Math.floor(Math.random() * 5) + 1,
+        energyLevel: Math.floor(Math.random() * 5) + 1,
+        symptoms: Math.floor(Math.random() * 6),
+      });
+    }
+
+    return {
+      correlation: -0.72,
+      data: data,
+      insights: [
+        "7+ hours of sleep reduces hot flash frequency by 45%",
+        "Poor sleep quality increases mood swings by 60%",
+        "Consistent sleep schedule improves energy levels",
+      ],
+    };
+  };
+
+  const generateExerciseCorrelations = () => {
+    const data = [];
+    for (let i = 30; i >= 0; i--) {
+      data.push({
+        date: format(subDays(new Date(), i), "MMM d"),
+        exerciseMinutes: Math.floor(Math.random() * 60),
+        intensity: ["Low", "Moderate", "High"][Math.floor(Math.random() * 3)],
+        symptoms: Math.floor(Math.random() * 5) + 1,
+        mood: Math.floor(Math.random() * 5) + 1,
+        energy: Math.floor(Math.random() * 5) + 1,
+      });
+    }
+
+    return {
+      correlation: -0.65,
+      data: data,
+      insights: [
+        "30+ minutes of moderate exercise reduces symptoms by 40%",
+        "Morning exercise correlates with better mood throughout the day",
+        "Strength training shows strongest correlation with symptom relief",
+      ],
+    };
+  };
+
+  const generateNutritionCorrelations = () => {
+    return {
+      correlation: -0.58,
+      data: generateMockData(30),
+      insights: [
+        "High caffeine intake correlates with increased hot flashes",
+        "Mediterranean diet pattern shows 35% symptom reduction",
+        "Regular meal timing improves energy stability",
+      ],
+    };
+  };
+
+  const generateStressCorrelations = () => {
+    return {
+      correlation: 0.82,
+      data: generateMockData(30),
+      insights: [
+        "High stress days show 85% increase in symptom severity",
+        "Stress management techniques reduce hot flashes by 50%",
+        "Work stress particularly impacts sleep quality",
+      ],
+    };
+  };
+
+  const generateSocialCorrelations = () => {
+    return {
+      correlation: -0.45,
+      data: generateMockData(30),
+      insights: [
+        "Social support correlates with 30% better symptom management",
+        "Isolation increases mood symptom severity",
+        "Group activities show positive impact on well-being",
+      ],
+    };
+  };
+
+  const generateEnvironmentCorrelations = () => {
+    return {
+      correlation: 0.35,
+      data: generateMockData(30),
+      insights: [
+        "High humidity increases hot flash frequency by 25%",
+        "Temperature changes trigger symptoms in 60% of tracking",
+        "Seasonal patterns evident in mood and energy levels",
+      ],
+    };
+  };
+
+  const generateMockData = (days) => {
+    const data = [];
+    for (let i = days - 1; i >= 0; i--) {
+      data.push({
+        date: format(subDays(new Date(), i), "MMM d"),
+        value: Math.random() * 100,
+        symptoms: Math.floor(Math.random() * 5) + 1,
+      });
+    }
+    return data;
+  };
+
+  const generateInsights = () => {
+    const insights = [
+      {
+        type: "strong",
+        title: "Sleep is Your Superpower",
+        description:
+          "Your data shows the strongest correlation between sleep quality and symptom severity",
+        metric: "sleep",
+        impact: -72,
+      },
+      {
+        type: "warning",
+        title: "Stress Alert",
+        description:
+          "Stress levels show the highest positive correlation with symptom flare-ups",
+        metric: "stress",
+        impact: 82,
+      },
+      {
+        type: "opportunity",
+        title: "Exercise Opportunity",
+        description:
+          "Increasing exercise by just 15 minutes could reduce symptoms by 20%",
+        metric: "exercise",
+        impact: -65,
+      },
+    ];
+
+    setInsights(insights);
+  };
+
+  const findStrongestCorrelations = () => {
+    const correlations = [
+      { name: "Stress → Symptoms", value: 0.82, negative: false },
+      { name: "Sleep → Well-being", value: 0.72, negative: true },
+      { name: "Exercise → Mood", value: 0.65, negative: true },
+      { name: "Nutrition → Energy", value: 0.58, negative: true },
+      { name: "Social → Mood", value: 0.45, negative: true },
+    ];
+
+    setStrongestCorrelations(correlations);
+  };
 
   const getCorrelationStrength = (value) => {
-    if (value >= 0.7)
-      return { label: "Strong", color: "text-green-600", bg: "bg-green-50" };
-    if (value >= 0.4)
-      return { label: "Moderate", color: "text-amber-600", bg: "bg-amber-50" };
-    return { label: "Weak", color: "text-red-600", bg: "bg-red-50" };
+    const absValue = Math.abs(value);
+    if (absValue >= 0.7) return { label: "Strong", color: "text-green-400" };
+    if (absValue >= 0.5) return { label: "Moderate", color: "text-yellow-400" };
+    if (absValue >= 0.3) return { label: "Weak", color: "text-orange-400" };
+    return { label: "Very Weak", color: "text-red-400" };
   };
 
-  const getSignificanceIcon = (significance) => {
-    switch (significance) {
-      case "high":
-        return CheckCircle;
-      case "medium":
-        return Info;
-      case "low":
-        return AlertTriangle;
-      default:
-        return Info;
-    }
+  const getCorrelationIcon = (value) => {
+    if (value > 0.3) return <ArrowUpRight className="w-4 h-4 text-red-400" />;
+    if (value < -0.3)
+      return <ArrowDownRight className="w-4 h-4 text-green-400" />;
+    return <Minus className="w-4 h-4 text-yellow-400" />;
   };
+
+  if (loading) {
+    return (
+      <div className="p-8 text-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-400 mx-auto mb-4"></div>
+        <p className="text-purple-200">Analyzing wellness correlations...</p>
+      </div>
+    );
+  }
+
+  const selectedMetricData = correlationData[selectedMetric];
+  const MetricIcon = metricDefinitions[selectedMetric].icon;
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl p-6 border border-teal-200">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <Target className="w-8 h-8 text-teal-600" />
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">
-                Wellness Correlations
-              </h2>
-              <p className="text-gray-600">
-                Discover connections between your cycle and well-being
-              </p>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-teal-600">
-              {
-                correlationStrengths.filter((c) => c.significance === "high")
-                  .length
-              }
-            </div>
-            <div className="text-sm text-gray-600">Strong Correlations</div>
-          </div>
-        </div>
-
-        {/* Quick Correlation Overview */}
-        <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
-          {correlationStrengths.map((corr, index) => {
-            const strength = getCorrelationStrength(corr.value);
-            return (
-              <div
-                key={index}
-                className="bg-white/70 rounded-lg p-3 text-center"
-              >
-                <div className="text-lg font-semibold text-gray-900">
-                  {corr.value.toFixed(2)}
-                </div>
-                <div className={`text-xs ${strength.color}`}>
-                  {strength.label}
-                </div>
-              </div>
-            );
-          })}
+      <div className="flex items-center justify-between">
+        <h3 className="text-xl font-semibold text-white">
+          Wellness Correlations
+        </h3>
+        <div className="flex gap-2">
+          {["week", "month", "3months"].map((range) => (
+            <button
+              key={range}
+              onClick={() => setSelectedTimeRange(range)}
+              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                selectedTimeRange === range
+                  ? "bg-purple-600 text-white"
+                  : "bg-white/10 text-purple-200 hover:bg-white/20"
+              }`}
+            >
+              {range === "3months"
+                ? "3 Months"
+                : range.charAt(0).toUpperCase() + range.slice(1)}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Correlation Selector */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
-          {[
-            { id: "mood-cycle", label: "Mood & Cycle", icon: Heart },
-            { id: "energy-patterns", label: "Energy Patterns", icon: Zap },
-            { id: "sleep-cycle", label: "Sleep & Cycle", icon: Moon },
-            { id: "journaling", label: "Journaling Patterns", icon: Brain },
-          ].map((view) => {
-            const IconComponent = view.icon;
+      {/* Key Insights */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {insights.map((insight, index) => (
+          <div
+            key={index}
+            className={`
+              bg-gradient-to-br rounded-xl p-6 border
+              ${
+                insight.type === "strong"
+                  ? "from-green-600/20 to-emerald-600/20 border-green-500/30"
+                  : insight.type === "warning"
+                  ? "from-red-600/20 to-orange-600/20 border-red-500/30"
+                  : "from-blue-600/20 to-purple-600/20 border-blue-500/30"
+              }
+            `}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div
+                className={`
+                p-2 rounded-lg
+                ${
+                  insight.type === "strong"
+                    ? "bg-green-600/30"
+                    : insight.type === "warning"
+                    ? "bg-red-600/30"
+                    : "bg-blue-600/30"
+                }
+              `}
+              >
+                {React.createElement(metricDefinitions[insight.metric].icon, {
+                  className: "w-5 h-5 text-white",
+                })}
+              </div>
+              <span className={`text-2xl font-bold text-white`}>
+                {Math.abs(insight.impact)}%
+              </span>
+            </div>
+            <h4 className="text-white font-semibold mb-1">{insight.title}</h4>
+            <p className="text-purple-200 text-sm">{insight.description}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Metric Selector */}
+      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {Object.entries(metricDefinitions).map(([key, metric]) => {
+            const Icon = metric.icon;
+            const isSelected = selectedMetric === key;
+
             return (
               <button
-                key={view.id}
-                onClick={() => setSelectedCorrelation(view.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  selectedCorrelation === view.id
-                    ? "bg-white text-teal-600 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
+                key={key}
+                onClick={() => setSelectedMetric(key)}
+                className={`
+                  p-4 rounded-lg transition-all flex flex-col items-center gap-2
+                  ${
+                    isSelected
+                      ? "bg-purple-600/30 border-2 border-purple-400"
+                      : "bg-white/10 border-2 border-transparent hover:bg-white/20"
+                  }
+                `}
               >
-                <IconComponent className="w-4 h-4" />
-                {view.label}
+                <Icon
+                  className={`w-6 h-6 ${
+                    isSelected ? "text-white" : "text-purple-300"
+                  }`}
+                />
+                <span
+                  className={`text-sm font-medium ${
+                    isSelected ? "text-white" : "text-purple-200"
+                  }`}
+                >
+                  {metric.name}
+                </span>
               </button>
             );
           })}
         </div>
-
-        <div className="flex items-center gap-4">
-          <select
-            value={selectedTimeframe}
-            onChange={(e) => setSelectedTimeframe(e.target.value)}
-            className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-          >
-            <option value="1month">Last Month</option>
-            <option value="3months">Last 3 Months</option>
-            <option value="6months">Last 6 Months</option>
-          </select>
-          <button
-            onClick={() => setShowStatistics(!showStatistics)}
-            className="flex items-center gap-2 text-teal-600 hover:text-teal-700 text-sm"
-          >
-            {showStatistics ? <EyeOff size={16} /> : <Eye size={16} />}
-            Statistics
-          </button>
-        </div>
       </div>
 
-      {/* Mood & Cycle Correlation */}
-      {selectedCorrelation === "mood-cycle" && (
-        <div className="space-y-6">
-          {/* Mood Correlation Chart */}
-          <div className="bg-white p-6 rounded-xl border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">
-              Mood-Cycle Correlation Analysis
+      {/* Correlation Analysis */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Chart */}
+        <div className="lg:col-span-2 bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <MetricIcon className="w-5 h-5 text-purple-300" />
+              {metricDefinitions[selectedMetric].name} vs Symptoms
             </h3>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div>
-                <ResponsiveContainer width="100%" height={300}>
-                  <ComposedChart data={moodCycleData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                    <XAxis dataKey="cycleDay" stroke="#6b7280" fontSize={12} />
-                    <YAxis stroke="#6b7280" fontSize={12} domain={[0, 10]} />
-                    <Tooltip />
-                    <Area
-                      type="monotone"
-                      dataKey="mood"
-                      fill={colors.primary}
-                      fillOpacity={0.3}
-                      stroke={colors.primary}
-                      strokeWidth={2}
-                      name="Health App Mood"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="journalMood"
-                      stroke={colors.secondary}
-                      strokeWidth={2}
-                      strokeDasharray="5 5"
-                      name="Journal Mood"
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div>
-                <h4 className="font-medium text-gray-900 mb-4">
-                  Correlation Insights
-                </h4>
-                <div className="space-y-3">
-                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-center gap-2 mb-1">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span className="text-sm font-medium text-green-900">
-                        Strong Correlation (r = 0.84)
-                      </span>
-                    </div>
-                    <div className="text-xs text-green-700">
-                      Your mood ratings in health tracking align closely with
-                      journal mood analysis
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center gap-2 mb-1">
-                      <TrendingUp className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-900">
-                        Predictable Patterns
-                      </span>
-                    </div>
-                    <div className="text-xs text-blue-700">
-                      Mood peaks during ovulation (days 12-16) and dips during
-                      menstruation
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Brain className="w-4 h-4 text-purple-600" />
-                      <span className="text-sm font-medium text-purple-900">
-                        Journal Validation
-                      </span>
-                    </div>
-                    <div className="text-xs text-purple-700">
-                      Your written reflections consistently validate tracked
-                      mood scores
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Phase-by-Phase Mood Analysis */}
-          <div className="bg-white p-6 rounded-xl border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">
-              Mood Patterns by Cycle Phase
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {["Menstrual", "Follicular", "Ovulatory", "Luteal"].map(
-                (phase, index) => {
-                  const phaseData = moodCycleData.filter(
-                    (d) => d.phase === phase
-                  );
-                  const avgMood =
-                    phaseData.reduce((sum, d) => sum + d.mood, 0) /
-                    phaseData.length;
-                  const phaseColors = [
-                    colors.danger,
-                    colors.accent,
-                    colors.warning,
-                    colors.secondary,
-                  ];
-
-                  return (
-                    <div
-                      key={index}
-                      className="border border-gray-200 rounded-lg p-4"
-                    >
-                      <div className="flex items-center gap-2 mb-3">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: phaseColors[index] }}
-                        ></div>
-                        <h4 className="font-medium text-gray-900">{phase}</h4>
-                      </div>
-
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-gray-900 mb-1">
-                          {avgMood.toFixed(1)}
-                        </div>
-                        <div className="text-xs text-gray-600">
-                          Average Mood
-                        </div>
-
-                        <div className="mt-3">
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className="h-2 rounded-full"
-                              style={{
-                                width: `${(avgMood / 10) * 100}%`,
-                                backgroundColor: phaseColors[index],
-                              }}
-                            ></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Energy Patterns */}
-      {selectedCorrelation === "energy-patterns" && (
-        <div className="space-y-6">
-          <div className="bg-white p-6 rounded-xl border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">
-              Energy Pattern Correlations
-            </h3>
-
-            <ResponsiveContainer width="100%" height={350}>
-              <ComposedChart data={energyCorrelationData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                <XAxis dataKey="day" stroke="#6b7280" fontSize={12} />
-                <YAxis stroke="#6b7280" fontSize={12} domain={[0, 10]} />
-                <Tooltip />
-                <Bar
-                  dataKey="sleep"
-                  fill={colors.secondary}
-                  fillOpacity={0.6}
-                  name="Sleep Quality"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="cycleEnergy"
-                  stroke={colors.primary}
-                  strokeWidth={3}
-                  name="Cycle Energy"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="journalEnergy"
-                  stroke={colors.accent}
-                  strokeWidth={2}
-                  strokeDasharray="5 5"
-                  name="Journal Energy"
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-
-            <div className="mt-6 grid grid-cols-3 gap-4 text-center">
-              <div className="p-3 bg-green-50 rounded-lg">
-                <div className="text-lg font-bold text-green-600">r = 0.76</div>
-                <div className="text-xs text-green-700">Cycle ↔ Energy</div>
-              </div>
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <div className="text-lg font-bold text-blue-600">r = 0.68</div>
-                <div className="text-xs text-blue-700">Sleep ↔ Energy</div>
-              </div>
-              <div className="p-3 bg-purple-50 rounded-lg">
-                <div className="text-lg font-bold text-purple-600">
-                  r = 0.71
-                </div>
-                <div className="text-xs text-purple-700">Journal ↔ Tracked</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sleep & Cycle */}
-      {selectedCorrelation === "sleep-cycle" && (
-        <div className="space-y-6">
-          <div className="bg-white p-6 rounded-xl border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">
-              Sleep Quality by Cycle Phase
-            </h3>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ResponsiveContainer width="100%" height={300}>
-                <RadarChart data={sleepCycleData}>
-                  <PolarGrid stroke="#e5e7eb" />
-                  <PolarAngleAxis
-                    dataKey="phase"
-                    tick={{ fontSize: 11, fill: "#6b7280" }}
-                  />
-                  <PolarRadiusAxis
-                    angle={0}
-                    domain={[0, 10]}
-                    tick={{ fontSize: 10, fill: "#6b7280" }}
-                  />
-                  <Radar
-                    name="Sleep Quality"
-                    dataKey="sleepQuality"
-                    stroke={colors.secondary}
-                    fill={colors.secondary}
-                    fillOpacity={0.2}
-                    strokeWidth={2}
-                  />
-                  <Radar
-                    name="Sleep Duration"
-                    dataKey="sleepDuration"
-                    stroke={colors.primary}
-                    fill={colors.primary}
-                    fillOpacity={0.1}
-                    strokeWidth={2}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
-
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-900">Sleep Insights</h4>
-                <div className="space-y-3">
-                  {sleepCycleData.map((phase, index) => (
-                    <div key={index} className="p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-gray-900">
-                          {phase.phase}
-                        </span>
-                        <span className="text-sm text-gray-600">
-                          {phase.sleepQuality.toFixed(1)}/10
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        Duration: {phase.sleepDuration.toFixed(1)}h | Symptoms:{" "}
-                        {phase.symptoms.toFixed(1)}/10
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Journaling Patterns */}
-      {selectedCorrelation === "journaling" && (
-        <div className="space-y-6">
-          <div className="bg-white p-6 rounded-xl border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">
-              Journaling Pattern Analysis
-            </h3>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={phaseWellnessData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                    <XAxis dataKey="phase" stroke="#6b7280" fontSize={11} />
-                    <YAxis stroke="#6b7280" fontSize={12} domain={[0, 10]} />
-                    <Tooltip />
-                    <Bar
-                      dataKey="journaling"
-                      fill={colors.primary}
-                      name="Journaling Frequency"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div>
-                <h4 className="font-medium text-gray-900 mb-4">
-                  Pattern Insights
-                </h4>
-                <div className="space-y-3">
-                  {journalingInsights.map((insight, index) => (
-                    <div
-                      key={index}
-                      className="p-3 bg-blue-50 rounded-lg border border-blue-200"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium text-blue-900">
-                          {insight.pattern}
-                        </span>
-                        <span className="text-xs text-blue-600">
-                          {insight.strength}
-                        </span>
-                      </div>
-                      <div className="text-xs text-blue-700">
-                        {insight.insight}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Correlation Strength Summary */}
-      <div className="bg-white p-6 rounded-xl border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6">
-          Correlation Strength Overview
-        </h3>
-
-        <div className="space-y-4">
-          {correlationStrengths.map((corr, index) => {
-            const IconComponent = corr.icon;
-            const SignificanceIcon = getSignificanceIcon(corr.significance);
-            const strength = getCorrelationStrength(corr.value);
-
-            return (
-              <div
-                key={index}
-                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-purple-200">Correlation:</span>
+              <span
+                className={`text-lg font-bold ${
+                  selectedMetricData.correlation > 0
+                    ? "text-red-400"
+                    : "text-green-400"
+                }`}
               >
-                <div className="flex items-center gap-4">
-                  <div
-                    className="p-2 rounded-lg"
-                    style={{ backgroundColor: `${corr.color}20` }}
-                  >
-                    <IconComponent
-                      className="w-5 h-5"
-                      style={{ color: corr.color }}
-                    />
-                  </div>
-                  <div>
-                    <div className="font-medium text-gray-900">{corr.name}</div>
-                    <div className="text-sm text-gray-600">
-                      {corr.description}
-                    </div>
-                  </div>
-                </div>
+                {(selectedMetricData.correlation * 100).toFixed(0)}%
+              </span>
+              {getCorrelationIcon(selectedMetricData.correlation)}
+            </div>
+          </div>
 
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <div className={`text-lg font-bold ${strength.color}`}>
-                      {corr.value.toFixed(2)}
-                    </div>
-                    <div className={`text-xs ${strength.color}`}>
-                      {strength.label}
-                    </div>
-                  </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <ScatterChart>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255,255,255,0.1)"
+                />
+                <XAxis
+                  dataKey="value"
+                  name={metricDefinitions[selectedMetric].name}
+                  stroke="#fff"
+                  opacity={0.6}
+                />
+                <YAxis
+                  dataKey="symptoms"
+                  name="Symptom Severity"
+                  stroke="#fff"
+                  opacity={0.6}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "rgba(139, 92, 246, 0.9)",
+                    border: "none",
+                    borderRadius: "8px",
+                    color: "#fff",
+                  }}
+                />
+                <Scatter
+                  name="Data Points"
+                  data={selectedMetricData.data}
+                  fill={metricDefinitions[selectedMetric].color}
+                />
+                <ReferenceLine
+                  stroke="#fff"
+                  strokeDasharray="5 5"
+                  opacity={0.3}
+                  segment={[
+                    { x: 0, y: 5 },
+                    { x: 100, y: selectedMetricData.correlation > 0 ? 1 : 5 },
+                  ]}
+                />
+              </ScatterChart>
+            </ResponsiveContainer>
+          </div>
 
-                  <SignificanceIcon
-                    className={`w-5 h-5 ${
-                      corr.significance === "high"
-                        ? "text-green-600"
-                        : corr.significance === "medium"
-                        ? "text-amber-600"
-                        : "text-red-600"
-                    }`}
-                  />
-                </div>
-              </div>
-            );
-          })}
+          <div className="mt-4 p-3 bg-white/10 rounded-lg">
+            <p className="text-sm text-purple-200">
+              <Info className="w-4 h-4 inline mr-1" />
+              {metricDefinitions[selectedMetric].description}
+            </p>
+          </div>
         </div>
 
-        {showStatistics && (
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <h4 className="font-medium text-gray-900 mb-3">
-              Statistical Details
+        {/* Correlation Insights */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+          <h3 className="text-lg font-semibold text-white mb-4">
+            Key Findings
+          </h3>
+
+          <div className="space-y-3">
+            {selectedMetricData.insights.map((insight, index) => (
+              <div key={index} className="flex items-start gap-3">
+                <Sparkles className="w-4 h-4 text-purple-300 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-purple-200">{insight}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 p-4 bg-purple-600/20 rounded-lg">
+            <h4 className="text-white font-medium mb-2">
+              Correlation Strength
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
-              <div>
-                <div className="font-medium">Correlation Range</div>
-                <div>-1.00 to +1.00</div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-purple-200 text-sm">This metric</span>
+                <span
+                  className={`font-medium ${
+                    getCorrelationStrength(selectedMetricData.correlation).color
+                  }`}
+                >
+                  {getCorrelationStrength(selectedMetricData.correlation).label}
+                </span>
               </div>
-              <div>
-                <div className="font-medium">Sample Size</div>
-                <div>90+ data points</div>
-              </div>
-              <div>
-                <div className="font-medium">Confidence Level</div>
-                <div>95% (p &lt; 0.05)</div>
+              <div className="w-full bg-white/20 rounded-full h-2">
+                <div
+                  className={`h-full rounded-full ${
+                    selectedMetricData.correlation > 0
+                      ? "bg-red-500"
+                      : "bg-green-500"
+                  }`}
+                  style={{
+                    width: `${Math.abs(selectedMetricData.correlation) * 100}%`,
+                  }}
+                />
               </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Actionable Insights */}
-      <div className="bg-white p-6 rounded-xl border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6">
-          Actionable Insights
+      {/* Strongest Correlations */}
+      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+        <h3 className="text-lg font-semibold text-white mb-4">
+          Strongest Correlations Found
         </h3>
 
-        <div className="space-y-4">
-          <div className="flex items-start gap-4 p-4 bg-green-50 rounded-lg border border-green-200">
-            <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <div className="font-medium text-green-900 mb-1">
-                Leverage Your Patterns
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {strongestCorrelations.map((corr, index) => (
+            <div key={index} className="text-center">
+              <div className="mb-2">
+                <div className="text-3xl font-bold text-white">
+                  {(corr.value * 100).toFixed(0)}%
+                </div>
+                <div
+                  className={`text-sm ${
+                    corr.negative ? "text-green-400" : "text-red-400"
+                  }`}
+                >
+                  {corr.negative ? "Reduces symptoms" : "Increases symptoms"}
+                </div>
               </div>
-              <div className="text-sm text-green-700">
-                Your strong correlations show predictable patterns. Use
-                ovulation energy peaks for important tasks and prepare self-care
-                for luteal phase mood dips.
+              <p className="text-sm text-purple-200">{corr.name}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Multi-Factor Analysis */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Combined Impact */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+          <h3 className="text-lg font-semibold text-white mb-4">
+            Combined Factor Impact
+          </h3>
+
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart
+                data={[
+                  { factor: "Sleep", impact: 72 },
+                  { factor: "Exercise", impact: 65 },
+                  { factor: "Nutrition", impact: 58 },
+                  { factor: "Stress", impact: 82 },
+                  { factor: "Social", impact: 45 },
+                  { factor: "Environment", impact: 35 },
+                ]}
+              >
+                <PolarGrid stroke="rgba(255,255,255,0.2)" />
+                <PolarAngleAxis
+                  dataKey="factor"
+                  stroke="#fff"
+                  tick={{ fill: "#fff" }}
+                />
+                <PolarRadiusAxis
+                  domain={[0, 100]}
+                  stroke="#fff"
+                  tick={{ fill: "#fff" }}
+                />
+                <Radar
+                  name="Impact"
+                  dataKey="impact"
+                  stroke={colors.primary}
+                  fill={colors.primary}
+                  fillOpacity={0.6}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "rgba(139, 92, 246, 0.9)",
+                    border: "none",
+                    borderRadius: "8px",
+                    color: "#fff",
+                  }}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Recommendations */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+          <h3 className="text-lg font-semibold text-white mb-4">
+            Personalized Recommendations
+          </h3>
+
+          <div className="space-y-3">
+            <div className="bg-green-600/20 rounded-lg p-4 border border-green-500/30">
+              <div className="flex items-start gap-3">
+                <Target className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-white font-medium mb-1">
+                    Priority: Improve Sleep
+                  </h4>
+                  <p className="text-sm text-green-200">
+                    Focus on getting 7-9 hours of quality sleep. This alone
+                    could reduce symptoms by up to 45%.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-yellow-600/20 rounded-lg p-4 border border-yellow-500/30">
+              <div className="flex items-start gap-3">
+                <Zap className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-white font-medium mb-1">
+                    Quick Win: Daily Walk
+                  </h4>
+                  <p className="text-sm text-yellow-200">
+                    Add a 20-minute walk to see immediate mood and energy
+                    improvements.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-purple-600/20 rounded-lg p-4 border border-purple-500/30">
+              <div className="flex items-start gap-3">
+                <Brain className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-white font-medium mb-1">Manage Stress</h4>
+                  <p className="text-sm text-purple-200">
+                    Try meditation or deep breathing. Stress shows the highest
+                    correlation with symptoms.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          <div className="flex items-start gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <Brain className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <div className="font-medium text-blue-900 mb-1">
-                Journaling as Early Warning
-              </div>
-              <div className="text-sm text-blue-700">
-                Your increased journaling during difficult phases serves as an
-                early indicator. Consider this a cue to implement extra support
-                strategies.
-              </div>
-            </div>
+      {/* Action Plan */}
+      <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+        <div className="flex items-start gap-4">
+          <div className="bg-purple-600/30 rounded-full p-3">
+            <BarChart3 className="w-6 h-6 text-purple-300" />
           </div>
-
-          <div className="flex items-start gap-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
-            <Target className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <div className="font-medium text-purple-900 mb-1">
-                Sleep Optimization Strategy
+          <div className="flex-1">
+            <h4 className="text-lg font-semibold text-white mb-2">
+              Your Wellness Action Plan
+            </h4>
+            <p className="text-purple-200 mb-4">
+              Based on your correlation analysis, here's your personalized
+              action plan:
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white/10 rounded-lg p-4">
+                <h5 className="text-white font-medium mb-2">This Week</h5>
+                <ul className="space-y-1 text-sm text-purple-200">
+                  <li>• Track sleep consistently</li>
+                  <li>• Add 10 min meditation</li>
+                  <li>• Monitor trigger foods</li>
+                </ul>
               </div>
-              <div className="text-sm text-purple-700">
-                Focus sleep hygiene efforts during luteal phase when quality
-                naturally dips. This can help minimize mood and energy impacts.
+              <div className="bg-white/10 rounded-lg p-4">
+                <h5 className="text-white font-medium mb-2">Next Month</h5>
+                <ul className="space-y-1 text-sm text-purple-200">
+                  <li>• Establish exercise routine</li>
+                  <li>• Optimize sleep schedule</li>
+                  <li>• Join support group</li>
+                </ul>
+              </div>
+              <div className="bg-white/10 rounded-lg p-4">
+                <h5 className="text-white font-medium mb-2">Long Term</h5>
+                <ul className="space-y-1 text-sm text-purple-200">
+                  <li>• Maintain healthy habits</li>
+                  <li>• Regular health checks</li>
+                  <li>• Adapt as needed</li>
+                </ul>
               </div>
             </div>
           </div>

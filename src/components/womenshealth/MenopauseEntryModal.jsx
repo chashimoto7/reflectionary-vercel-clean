@@ -1,1174 +1,1290 @@
 // src/components/womenshealth/MenopauseEntryModal.jsx
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../../contexts/AuthContext";
-import { useMembership } from "../../hooks/useMembership";
-import { supabase } from "../../lib/supabase";
 import {
   X,
   Calendar,
-  Heart,
-  Sun,
-  Activity,
+  Flower2,
+  Flame,
   Brain,
-  Clock,
-  Zap,
-  AlertCircle,
-  CheckCircle,
-  Info,
-  Star,
-  Save,
-  Sparkles,
-  HelpCircle,
-  Crown,
-  Sunrise,
+  Activity,
+  Moon,
+  Heart,
+  Pill,
+  ThermometerSun,
+  Bone,
   Shield,
-  Target,
-  Award,
-  BookOpen,
+  AlertCircle,
+  Clock,
+  TrendingUp,
+  Zap,
+  Save,
+  Info,
+  CheckCircle,
+  Sparkles,
+  Plus,
+  Minus,
+  Coffee,
+  Users,
+  Dumbbell,
+  Droplets,
+  Sun,
 } from "lucide-react";
+import { format } from "date-fns";
 
-const MenopauseEntryModal = ({
-  isOpen,
-  onClose,
-  onDataSaved,
-  initialData = null,
-}) => {
-  const { user } = useAuth();
-  const { hasAccess } = useMembership();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+const MenopauseEntryModal = ({ isOpen, onClose, colors, user, onSave }) => {
+  if (!isOpen) return null;
 
-  // Core data state
-  const [entryDate, setEntryDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  const [monthsSinceMenopause, setMonthsSinceMenopause] = useState("");
-  const [onHRT, setOnHRT] = useState(false);
-  const [hrtType, setHrtType] = useState("");
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [activeSection, setActiveSection] = useState("symptoms");
+  const [saving, setSaving] = useState(false);
+  const [savedSections, setSavedSections] = useState([]);
 
-  // Menopause-specific symptoms and wellness tracking
-  const [selectedSymptoms, setSelectedSymptoms] = useState([]);
-  const [customSymptom, setCustomSymptom] = useState("");
-  const [overallWellbeing, setOverallWellbeing] = useState(5);
-  const [symptomNotes, setSymptomNotes] = useState("");
+  // Form data specific to menopause
+  const [formData, setFormData] = useState({
+    // Core symptoms
+    hotFlashCount: 0,
+    hotFlashSeverity: [],
+    nightSweatSeverity: 0,
+    nightsWithSweats: 0,
 
-  // Wellness and vitality tracking
-  const [moodRating, setMoodRating] = useState(5);
-  const [energyLevel, setEnergyLevel] = useState(5);
-  const [sleepQuality, setSleepQuality] = useState(5);
-  const [stressLevel, setStressLevel] = useState(5);
-  const [vitalityScore, setVitalityScore] = useState(5);
-  const [selfConfidence, setSelfConfidence] = useState(5);
+    // Physical symptoms
+    jointPain: 0,
+    muscleAches: 0,
+    headaches: 0,
+    fatigue: 0,
+    weightChanges: "",
+    bodyComposition: "",
 
-  // Menopause-specific advanced tracking
-  const [hotFlashFrequency, setHotFlashFrequency] = useState("");
-  const [vaginalHealth, setVaginalHealth] = useState("");
-  const [boneHealthConcerns, setBoneHealthConcerns] = useState(false);
-  const [heartHealthFocus, setHeartHealthFocus] = useState("");
-  const [sexualWellness, setSexualWellness] = useState("");
-  const [cognitiveWellness, setCognitiveWellness] = useState(5);
-  const [lifeGoals, setLifeGoals] = useState("");
-  const [newIdentity, setNewIdentity] = useState("");
+    // Cardiovascular
+    palpitations: false,
+    bloodPressure: "",
+    chestDiscomfort: false,
 
-  // UI state
-  const [activeSection, setActiveSection] = useState("basics");
+    // Bone health
+    boneHealthConcerns: false,
+    calciumIntake: false,
+    vitaminD: false,
+    weightBearing: false,
 
-  const isAdvancedUser = hasAccess("advanced_womens_health");
+    // Genitourinary
+    vaginalDryness: 0,
+    painDuringIntercourse: false,
+    libido: 3,
+    urinaryFrequency: false,
+    urinaryIncontinence: false,
+    utis: false,
 
-  // Menopause-specific symptoms with empowering context
-  const menopauseSymptoms = [
-    {
-      id: "hot_flashes",
-      label: "Hot Flashes",
-      icon: "🔥",
-      category: "thermal",
-      info: "Often decrease in frequency and intensity over time. Track patterns to discuss management options with your healthcare provider.",
-    },
-    {
-      id: "night_sweats",
-      label: "Night Sweats",
-      icon: "🌙",
-      category: "thermal",
-      info: "Can improve with lifestyle changes and treatment options. Quality sleep is essential for your overall wellness.",
-    },
-    {
-      id: "vaginal_dryness",
-      label: "Vaginal Dryness",
-      icon: "🌸",
-      category: "sexual",
-      info: "Very common and treatable. Don't suffer in silence - many effective treatments are available.",
-    },
-    {
-      id: "mood_changes",
-      label: "Mood Fluctuations",
-      icon: "🎭",
-      category: "emotional",
-      info: "Often stabilize after the transition period. Your emotional wisdom is valuable - honor your feelings.",
-    },
-    {
-      id: "anxiety",
-      label: "Anxiety",
-      icon: "😰",
-      category: "emotional",
-      info: "Can be managed with various approaches. Your life experience gives you tools to cope.",
-    },
-    {
-      id: "brain_fog",
-      label: "Memory/Focus Issues",
-      icon: "🌫️",
-      category: "cognitive",
-      info: "Often improves post-menopause. Your accumulated knowledge and wisdom are invaluable assets.",
-    },
-    {
-      id: "fatigue",
-      label: "Fatigue",
-      icon: "😴",
-      category: "physical",
-      info: "Listen to your body's needs. Rest is productive and necessary for optimal health.",
-    },
-    {
-      id: "joint_stiffness",
-      label: "Joint Stiffness",
-      icon: "🦴",
-      category: "physical",
-      info: "Stay active with appropriate exercise. Movement is medicine for joint health.",
-    },
-    {
-      id: "weight_changes",
-      label: "Body Changes",
-      icon: "⚖️",
-      category: "physical",
-      info: "Your body has served you well. Focus on health and strength rather than just weight.",
-    },
-    {
-      id: "skin_changes",
-      label: "Skin Changes",
-      icon: "✨",
-      category: "physical",
-      info: "Each line tells a story of your experiences. Embrace your natural beauty and wisdom.",
-    },
-    {
-      id: "hair_changes",
-      label: "Hair Changes",
-      icon: "💇‍♀️",
-      category: "physical",
-      info: "Explore new styles that reflect this exciting life phase. Change can be liberating.",
-    },
-    {
-      id: "libido_changes",
-      label: "Sexual Changes",
-      icon: "💕",
-      category: "sexual",
-      info: "Sexuality can evolve beautifully. Communicate openly and explore what brings you joy.",
-    },
-    {
-      id: "sleep_changes",
-      label: "Sleep Changes",
-      icon: "🛌",
-      category: "physical",
-      info: "Prioritize sleep hygiene. Quality rest supports every aspect of your health and vitality.",
-    },
-    {
-      id: "energy_shifts",
-      label: "Energy Patterns",
-      icon: "⚡",
-      category: "physical",
-      info: "Your energy may be different but can be powerful. Align activities with your natural rhythms.",
-    },
-    {
-      id: "digestive_changes",
-      label: "Digestive Changes",
-      icon: "🌱",
-      category: "physical",
-      info: "Your body's needs may change. Listen to what nourishes you best at this stage.",
-    },
+    // Cognitive & mood
+    memoryIssues: 0,
+    concentrationDifficulty: 0,
+    moodChanges: 0,
+    anxiety: 0,
+    depression: 0,
+    brainFog: 0,
+
+    // Sleep
+    sleepQuality: 3,
+    sleepHours: 7,
+    nightWakings: 0,
+    insomnia: false,
+    restlessLegs: false,
+    sleepApnea: false,
+
+    // Skin, hair, nails
+    skinDryness: 0,
+    skinElasticity: "normal",
+    hairThinning: false,
+    nailChanges: false,
+
+    // Energy & wellbeing
+    energy: 3,
+    overallWellbeing: 3,
+    qualityOfLife: 3,
+
+    // Lifestyle
+    exercise: "",
+    exerciseMinutes: 0,
+    strengthTraining: false,
+    flexibility: false,
+    balance: false,
+
+    // Nutrition
+    proteinIntake: "moderate",
+    calciumFoods: [],
+    hydration: 0,
+    alcoholIntake: 0,
+    caffeineIntake: 0,
+
+    // Medical management
+    hrt: false,
+    hrtType: "",
+    otherMedications: [],
+    supplements: [],
+
+    // Social & emotional
+    socialSupport: 3,
+    stressLevel: 3,
+    copingStrategies: [],
+
+    // Health monitoring
+    lastMammogram: "",
+    lastBoneDensity: "",
+    lastCheckup: "",
+
+    // Notes
+    notes: "",
+    positiveChanges: "",
+    concerns: "",
+  });
+
+  // Menopause-specific options
+  const calciumFoods = [
+    "Dairy",
+    "Leafy greens",
+    "Fortified foods",
+    "Almonds",
+    "Sardines",
+    "Tofu",
+    "Yogurt",
+    "Cheese",
   ];
 
-  // Menopause empowerment themes
-  const empowermentThemes = [
-    {
-      title: "Freedom & Liberation",
-      emoji: "🕊️",
-      description:
-        "Embrace the freedom from monthly cycles and reproductive concerns",
-    },
-    {
-      title: "Wisdom & Experience",
-      emoji: "🌟",
-      description:
-        "Your accumulated knowledge and life experience are invaluable assets",
-    },
-    {
-      title: "New Possibilities",
-      emoji: "🌈",
-      description:
-        "This life stage opens doors to new adventures and self-discovery",
-    },
-    {
-      title: "Authentic Self",
-      emoji: "👑",
-      description:
-        "Time to live authentically and prioritize what truly matters to you",
-    },
+  const otherMedications = [
+    "Blood pressure",
+    "Cholesterol",
+    "Osteoporosis",
+    "Antidepressants",
+    "Sleep aids",
+    "Pain relief",
   ];
 
-  // Initialize form with existing data if editing
-  useEffect(() => {
-    if (initialData) {
-      setEntryDate(initialData.date || new Date().toISOString().split("T")[0]);
-      setMonthsSinceMenopause(
-        initialData.months_since_menopause?.toString() || ""
-      );
-      setOnHRT(initialData.on_hrt || false);
-      setHrtType(initialData.hrt_type || "");
-      setSelectedSymptoms(
-        initialData.symptoms ? initialData.symptoms.split(",") : []
-      );
-      setOverallWellbeing(initialData.overall_wellbeing || 5);
-      setMoodRating(initialData.mood_rating || 5);
-      setEnergyLevel(initialData.energy_level || 5);
-      setSleepQuality(initialData.sleep_quality || 5);
-      setStressLevel(initialData.stress_level || 5);
-      setVitalityScore(initialData.vitality_score || 5);
-      setSelfConfidence(initialData.self_confidence || 5);
-      setSymptomNotes(initialData.notes || "");
+  const supplementOptions = [
+    "Calcium",
+    "Vitamin D",
+    "Magnesium",
+    "B vitamins",
+    "Omega-3",
+    "Black cohosh",
+    "Evening primrose",
+    "Probiotics",
+    "Collagen",
+    "Vitamin E",
+    "Multivitamin",
+    "Iron",
+  ];
 
-      // Advanced fields
-      if (isAdvancedUser) {
-        setHotFlashFrequency(initialData.hot_flash_frequency || "");
-        setVaginalHealth(initialData.vaginal_health || "");
-        setBoneHealthConcerns(initialData.bone_health_concerns || false);
-        setHeartHealthFocus(initialData.heart_health_focus || "");
-        setSexualWellness(initialData.sexual_wellness || "");
-        setCognitiveWellness(initialData.cognitive_wellness || 5);
-        setLifeGoals(initialData.life_goals || "");
-        setNewIdentity(initialData.new_identity || "");
-      }
-    }
-  }, [initialData, isAdvancedUser]);
+  const copingStrategies = [
+    "Meditation",
+    "Yoga",
+    "Walking",
+    "Swimming",
+    "Support group",
+    "Therapy",
+    "Hobbies",
+    "Volunteering",
+    "Mindfulness",
+    "Journaling",
+    "Social activities",
+    "Creative pursuits",
+  ];
 
-  const handleSymptomToggle = (symptomId) => {
-    setSelectedSymptoms((prev) =>
-      prev.includes(symptomId)
-        ? prev.filter((id) => id !== symptomId)
-        : [...prev, symptomId]
-    );
+  const exerciseTypes = [
+    { value: "none", label: "Rest day", icon: Moon },
+    { value: "light", label: "Light", icon: Activity },
+    { value: "moderate", label: "Moderate", icon: Activity },
+    { value: "vigorous", label: "Vigorous", icon: Activity },
+  ];
+
+  // Section definitions
+  const sections = [
+    { id: "symptoms", label: "Symptoms", icon: Flame },
+    { id: "physical", label: "Physical Health", icon: Activity },
+    { id: "emotional", label: "Mental Health", icon: Brain },
+    { id: "lifestyle", label: "Lifestyle", icon: Heart },
+    { id: "medical", label: "Medical", icon: Pill },
+    { id: "monitoring", label: "Health Monitoring", icon: Shield },
+  ];
+
+  const handleInputChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const addCustomSymptom = () => {
-    if (
-      customSymptom.trim() &&
-      !selectedSymptoms.includes(customSymptom.trim())
-    ) {
-      setSelectedSymptoms((prev) => [...prev, customSymptom.trim()]);
-      setCustomSymptom("");
+  const handleArrayToggle = (field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: prev[field].includes(value)
+        ? prev[field].filter((item) => item !== value)
+        : [...prev[field], value],
+    }));
+  };
+
+  const addHotFlash = () => {
+    const severity = prompt("Rate severity 1-5:");
+    if (severity) {
+      setFormData((prev) => ({
+        ...prev,
+        hotFlashCount: prev.hotFlashCount + 1,
+        hotFlashSeverity: [...prev.hotFlashSeverity, parseInt(severity)],
+      }));
     }
   };
 
   const handleSave = async () => {
+    setSaving(true);
     try {
-      setLoading(true);
-      setError("");
-      setSuccess("");
-
-      if (!entryDate) {
-        setError("Please select a date for this entry");
-        return;
-      }
-
-      // Prepare data for saving
-      const healthData = {
-        user_id: user.id,
-        date: entryDate,
-        life_stage: "menopause",
-        months_since_menopause: monthsSinceMenopause
-          ? parseInt(monthsSinceMenopause)
-          : null,
-        on_hrt: onHRT,
-        hrt_type: hrtType || null,
-        symptoms: selectedSymptoms.join(","),
-        overall_wellbeing: overallWellbeing,
-        mood_rating: moodRating,
-        energy_level: energyLevel,
-        sleep_quality: sleepQuality,
-        stress_level: stressLevel,
-        vitality_score: vitalityScore,
-        self_confidence: selfConfidence,
-        notes: symptomNotes,
+      const dataToSave = {
+        ...formData,
+        date: selectedDate,
+        userId: user.id,
+        timestamp: new Date(),
+        lifeStage: "menopause",
       };
 
-      // Add advanced fields for premium users
-      if (isAdvancedUser) {
-        healthData.hot_flash_frequency = hotFlashFrequency || null;
-        healthData.vaginal_health = vaginalHealth || null;
-        healthData.bone_health_concerns = boneHealthConcerns;
-        healthData.heart_health_focus = heartHealthFocus || null;
-        healthData.sexual_wellness = sexualWellness || null;
-        healthData.cognitive_wellness = cognitiveWellness;
-        healthData.life_goals = lifeGoals || null;
-        healthData.new_identity = newIdentity || null;
-      }
+      await onSave(dataToSave);
 
-      // Save to database
-      let result;
-      if (initialData?.id) {
-        result = await supabase
-          .from("womens_health_data")
-          .update(healthData)
-          .eq("id", initialData.id)
-          .eq("user_id", user.id);
-      } else {
-        result = await supabase.from("womens_health_data").insert([healthData]);
-      }
-
-      if (result.error) {
-        throw result.error;
-      }
-
-      setSuccess(
-        initialData
-          ? "Entry updated successfully!"
-          : "Entry saved successfully!"
-      );
-
-      if (onDataSaved) {
-        onDataSaved();
-      }
-
+      setSavedSections([activeSection]);
       setTimeout(() => {
-        onClose();
-      }, 1500);
-    } catch (err) {
-      console.error("Error saving menopause data:", err);
-      setError(err.message || "Failed to save entry. Please try again.");
+        setSavedSections([]);
+      }, 2000);
+    } catch (error) {
+      console.error("Error saving data:", error);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const sections = [
-    { id: "basics", label: "Basics", icon: Calendar },
-    { id: "symptoms", label: "Wellness Check", icon: Activity },
-    { id: "vitality", label: "Vitality & Mood", icon: Heart },
-    ...(isAdvancedUser
-      ? [{ id: "advanced", label: "Advanced", icon: Sparkles }]
-      : []),
-  ];
-
-  const getRatingColor = (rating) => {
-    if (rating <= 3) return "text-red-600 bg-red-50";
-    if (rating <= 6) return "text-amber-600 bg-amber-50";
-    return "text-green-600 bg-green-50";
+  const getSeverityColor = (value) => {
+    if (value === 0) return "bg-gray-400";
+    if (value <= 2) return "bg-green-400";
+    if (value <= 3) return "bg-yellow-400";
+    if (value <= 4) return "bg-orange-400";
+    return "bg-red-400";
   };
 
-  const getRatingLabel = (rating, type) => {
-    const labels = {
-      mood: [
-        "Terrible",
-        "Poor",
-        "Low",
-        "Fair",
-        "Okay",
-        "Good",
-        "Great",
-        "Excellent",
-        "Amazing",
-        "Perfect",
-      ],
-      energy: [
-        "Exhausted",
-        "Drained",
-        "Low",
-        "Tired",
-        "Okay",
-        "Good",
-        "Energetic",
-        "High",
-        "Vibrant",
-        "Peak",
-      ],
-      sleep: [
-        "Terrible",
-        "Poor",
-        "Bad",
-        "Fair",
-        "Okay",
-        "Good",
-        "Great",
-        "Excellent",
-        "Perfect",
-        "Amazing",
-      ],
-      stress: [
-        "Calm",
-        "Relaxed",
-        "Low",
-        "Mild",
-        "Moderate",
-        "Elevated",
-        "High",
-        "Very High",
-        "Intense",
-        "Overwhelming",
-      ],
-      vitality: [
-        "Depleted",
-        "Low",
-        "Struggling",
-        "Fair",
-        "Okay",
-        "Good",
-        "Strong",
-        "Vibrant",
-        "Thriving",
-        "Radiant",
-      ],
-      confidence: [
-        "Very Low",
-        "Low",
-        "Uncertain",
-        "Fair",
-        "Okay",
-        "Good",
-        "Strong",
-        "Very Strong",
-        "Empowered",
-        "Unstoppable",
-      ],
-      wellbeing: [
-        "Poor",
-        "Low",
-        "Struggling",
-        "Fair",
-        "Okay",
-        "Good",
-        "Very Good",
-        "Excellent",
-        "Thriving",
-        "Radiant",
-      ],
-      cognitive: [
-        "Very Foggy",
-        "Foggy",
-        "Unclear",
-        "Fair",
-        "Okay",
-        "Good",
-        "Sharp",
-        "Very Sharp",
-        "Brilliant",
-        "Crystal Clear",
-      ],
-    };
-    return labels[type]?.[rating - 1] || rating.toString();
-  };
-
-  const Tooltip = ({ content, children }) => (
-    <div className="relative group">
-      {children}
-      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 w-64">
-        {content}
-        <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+  const renderSeveritySelector = (field, label) => (
+    <div className="space-y-2">
+      <label className="text-sm text-purple-200">{label}</label>
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-purple-300">None</span>
+        <div className="flex gap-1">
+          {[0, 1, 2, 3, 4, 5].map((value) => (
+            <button
+              key={value}
+              onClick={() => handleInputChange(field, value)}
+              className={`w-8 h-8 rounded-lg transition-all ${
+                formData[field] === value
+                  ? getSeverityColor(value)
+                  : "bg-white/10 hover:bg-white/20"
+              }`}
+            >
+              <span className="text-xs text-white">{value}</span>
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-purple-300">Severe</span>
       </div>
     </div>
   );
 
-  if (!isOpen) return null;
+  const renderSection = () => {
+    switch (activeSection) {
+      case "symptoms":
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Flame className="w-5 h-5 text-orange-400" />
+              Common Symptoms
+            </h3>
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-r from-amber-100 to-orange-100 rounded-lg">
-              <Sun className="w-6 h-6 text-amber-600" />
+            {/* Vasomotor symptoms info */}
+            <div className="bg-pink-500/20 rounded-lg p-4 border border-pink-500/30">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-pink-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-pink-100 font-medium mb-1">
+                    Post-Menopausal Symptoms
+                  </p>
+                  <p className="text-xs text-pink-200">
+                    Many women continue to experience symptoms after menopause.
+                    Tracking helps identify patterns and effective management
+                    strategies.
+                  </p>
+                </div>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">
-                {initialData ? "Edit Wellness Entry" : "Add Wellness Entry"}
-              </h2>
-              <p className="text-sm text-gray-600">
-                Celebrate your wisdom years with comprehensive wellness tracking
-                {isAdvancedUser && (
-                  <span className="text-amber-600 font-medium">
-                    {" "}
-                    • Advanced Features Enabled
-                  </span>
-                )}
+
+            {/* Hot flashes */}
+            <div className="bg-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-purple-200">Hot Flashes Today</span>
+                <button
+                  onClick={addHotFlash}
+                  className="bg-orange-600/30 hover:bg-orange-600/40 text-white px-3 py-1 rounded-lg flex items-center gap-2 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Hot Flash
+                </button>
+              </div>
+              <div className="text-3xl font-bold text-white mb-2">
+                {formData.hotFlashCount}
+              </div>
+              {formData.hotFlashSeverity.length > 0 && (
+                <div className="flex gap-2 flex-wrap">
+                  {formData.hotFlashSeverity.map((severity, index) => (
+                    <div
+                      key={index}
+                      className={`px-3 py-1 rounded-full text-sm ${getSeverityColor(
+                        severity
+                      )} text-white`}
+                    >
+                      #{index + 1}: {severity}/5
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Night sweats */}
+            {renderSeveritySelector(
+              "nightSweatSeverity",
+              "Night Sweat Severity"
+            )}
+
+            {/* Physical symptoms */}
+            <div className="space-y-4 mt-6">
+              <h4 className="text-white font-medium">Physical Symptoms</h4>
+              {renderSeveritySelector("jointPain", "Joint Pain")}
+              {renderSeveritySelector("muscleAches", "Muscle Aches")}
+              {renderSeveritySelector("headaches", "Headaches")}
+              {renderSeveritySelector("fatigue", "Fatigue")}
+            </div>
+
+            {/* Weight changes */}
+            <div className="space-y-3">
+              <label className="text-sm text-purple-200">Body Changes</label>
+              <select
+                value={formData.weightChanges}
+                onChange={(e) =>
+                  handleInputChange("weightChanges", e.target.value)
+                }
+                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white"
+              >
+                <option value="">Select weight changes...</option>
+                <option value="stable">Weight stable</option>
+                <option value="gaining">Gaining weight</option>
+                <option value="losing">Losing weight</option>
+                <option value="redistributing">Weight redistributing</option>
+              </select>
+            </div>
+
+            {/* Positive note */}
+            <div className="bg-green-600/20 rounded-lg p-4">
+              <p className="text-sm text-green-200">
+                <Sparkles className="w-4 h-4 inline mr-1" />
+                Many symptoms improve over time. Focus on what makes you feel
+                better!
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+        );
 
-        {/* Empowerment Banner */}
-        <div className="p-4 bg-gradient-to-r from-amber-50 via-orange-50 to-yellow-50 border-b border-amber-200">
-          <div className="flex items-center gap-2 mb-2">
-            <Crown className="w-5 h-5 text-amber-600" />
-            <span className="font-medium text-amber-900">
-              Your Wisdom Years: A Time of Freedom & Possibility
-            </span>
-            <Tooltip content="Menopause marks the beginning of a powerful life phase. You're free from monthly cycles and empowered by your accumulated wisdom and experience.">
-              <HelpCircle className="w-4 h-4 text-amber-600 cursor-help" />
-            </Tooltip>
-          </div>
-          <p className="text-sm text-amber-700">
-            This is your time to thrive, explore new possibilities, and embrace
-            the wisdom that comes with experience. Track your wellness journey
-            with pride.
-          </p>
-        </div>
+      case "physical":
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-green-400" />
+              Physical Health
+            </h3>
 
-        {/* Section Navigation */}
-        <div className="flex border-b border-gray-200 px-6">
-          {sections.map((section) => {
-            const IconComponent = section.icon;
-            return (
-              <button
-                key={section.id}
-                onClick={() => setActiveSection(section.id)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                  activeSection === section.id
-                    ? "border-amber-500 text-amber-600"
-                    : "border-transparent text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <IconComponent className="w-4 h-4" />
-                {section.label}
-              </button>
-            );
-          })}
-        </div>
+            {/* Bone health */}
+            <div className="space-y-4">
+              <h4 className="text-white font-medium flex items-center gap-2">
+                <Bone className="w-4 h-4 text-purple-300" />
+                Bone Health
+              </h4>
 
-        {/* Content Area */}
-        <div className="p-6 flex-1 overflow-y-auto">
-          {/* Error/Success Messages */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-              <span className="text-red-700">{error}</span>
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-              <span className="text-green-700">{success}</span>
-            </div>
-          )}
-
-          {/* Basics Section */}
-          {activeSection === "basics" && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Date *
-                  </label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 cursor-pointer">
                   <input
-                    type="date"
-                    value={entryDate}
-                    onChange={(e) => setEntryDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    type="checkbox"
+                    checked={formData.boneHealthConcerns}
+                    onChange={(e) =>
+                      handleInputChange("boneHealthConcerns", e.target.checked)
+                    }
+                    className="w-5 h-5 rounded bg-white/20 border-white/40 text-purple-600"
                   />
-                </div>
+                  <span className="text-white">Bone health concerns</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.weightBearing}
+                    onChange={(e) =>
+                      handleInputChange("weightBearing", e.target.checked)
+                    }
+                    className="w-5 h-5 rounded bg-white/20 border-white/40 text-purple-600"
+                  />
+                  <span className="text-white">
+                    Did weight-bearing exercise today
+                  </span>
+                </label>
+              </div>
+            </div>
 
+            {/* Cardiovascular */}
+            <div className="space-y-4">
+              <h4 className="text-white font-medium flex items-center gap-2">
+                <Heart className="w-4 h-4 text-red-400" />
+                Heart Health
+              </h4>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.palpitations}
+                    onChange={(e) =>
+                      handleInputChange("palpitations", e.target.checked)
+                    }
+                    className="w-5 h-5 rounded bg-white/20 border-white/40 text-purple-600"
+                  />
+                  <span className="text-white">Heart palpitations</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.chestDiscomfort}
+                    onChange={(e) =>
+                      handleInputChange("chestDiscomfort", e.target.checked)
+                    }
+                    className="w-5 h-5 rounded bg-white/20 border-white/40 text-purple-600"
+                  />
+                  <span className="text-white">Chest discomfort</span>
+                </label>
+              </div>
+
+              <div>
+                <label className="text-sm text-purple-200 mb-2 block">
+                  Blood Pressure (if measured)
+                </label>
+                <input
+                  type="text"
+                  placeholder="120/80"
+                  value={formData.bloodPressure}
+                  onChange={(e) =>
+                    handleInputChange("bloodPressure", e.target.value)
+                  }
+                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white"
+                />
+              </div>
+            </div>
+
+            {/* Genitourinary health */}
+            <div className="space-y-4">
+              <h4 className="text-white font-medium">
+                Vaginal & Urinary Health
+              </h4>
+              {renderSeveritySelector("vaginalDryness", "Vaginal Dryness")}
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.painDuringIntercourse}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "painDuringIntercourse",
+                        e.target.checked
+                      )
+                    }
+                    className="w-5 h-5 rounded bg-white/20 border-white/40 text-purple-600"
+                  />
+                  <span className="text-white">Pain during intercourse</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.urinaryFrequency}
+                    onChange={(e) =>
+                      handleInputChange("urinaryFrequency", e.target.checked)
+                    }
+                    className="w-5 h-5 rounded bg-white/20 border-white/40 text-purple-600"
+                  />
+                  <span className="text-white">Frequent urination</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.urinaryIncontinence}
+                    onChange={(e) =>
+                      handleInputChange("urinaryIncontinence", e.target.checked)
+                    }
+                    className="w-5 h-5 rounded bg-white/20 border-white/40 text-purple-600"
+                  />
+                  <span className="text-white">Urinary leakage</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.utis}
+                    onChange={(e) =>
+                      handleInputChange("utis", e.target.checked)
+                    }
+                    className="w-5 h-5 rounded bg-white/20 border-white/40 text-purple-600"
+                  />
+                  <span className="text-white">UTI symptoms</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Skin & hair */}
+            <div className="space-y-4">
+              <h4 className="text-white font-medium">Skin, Hair & Nails</h4>
+              {renderSeveritySelector("skinDryness", "Skin Dryness")}
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.hairThinning}
+                    onChange={(e) =>
+                      handleInputChange("hairThinning", e.target.checked)
+                    }
+                    className="w-5 h-5 rounded bg-white/20 border-white/40 text-purple-600"
+                  />
+                  <span className="text-white">Hair thinning</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.nailChanges}
+                    onChange={(e) =>
+                      handleInputChange("nailChanges", e.target.checked)
+                    }
+                    className="w-5 h-5 rounded bg-white/20 border-white/40 text-purple-600"
+                  />
+                  <span className="text-white">
+                    Nail changes (brittle, ridged)
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+        );
+
+      case "emotional":
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Brain className="w-5 h-5 text-purple-400" />
+              Mental & Emotional Health
+            </h3>
+
+            {/* Mood tracking */}
+            <div className="space-y-4">
+              {renderSeveritySelector("moodChanges", "Mood Changes")}
+              {renderSeveritySelector("anxiety", "Anxiety")}
+              {renderSeveritySelector("depression", "Depression")}
+            </div>
+
+            {/* Cognitive function */}
+            <div className="space-y-4 mt-6">
+              <h4 className="text-white font-medium">Cognitive Function</h4>
+              {renderSeveritySelector("memoryIssues", "Memory Issues")}
+              {renderSeveritySelector(
+                "concentrationDifficulty",
+                "Concentration Difficulty"
+              )}
+              {renderSeveritySelector("brainFog", "Brain Fog")}
+            </div>
+
+            {/* Sleep quality */}
+            <div className="space-y-4 mt-6">
+              <h4 className="text-white font-medium flex items-center gap-2">
+                <Moon className="w-4 h-4 text-indigo-400" />
+                Sleep Quality
+              </h4>
+
+              <div className="space-y-3">
+                <label className="text-sm text-purple-200">
+                  Overall Sleep Quality
+                </label>
+                <div className="flex justify-between items-center bg-white/10 rounded-lg p-4">
+                  {["😴", "😪", "😐", "😊", "🤗"].map((emoji, index) => (
+                    <button
+                      key={index}
+                      onClick={() =>
+                        handleInputChange("sleepQuality", index + 1)
+                      }
+                      className={`text-3xl p-2 rounded-lg transition-all ${
+                        formData.sleepQuality === index + 1
+                          ? "bg-indigo-600/50 scale-110"
+                          : "hover:bg-white/20"
+                      }`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Months Since Menopause
-                    <Tooltip content="Knowing how long you've been post-menopausal helps track how your body is adapting to this new phase. Most symptoms stabilize over time.">
-                      <HelpCircle className="w-4 h-4 text-gray-400 cursor-help inline ml-1" />
-                    </Tooltip>
+                  <label className="text-sm text-purple-200 mb-2 block">
+                    Hours slept
                   </label>
                   <input
                     type="number"
                     min="0"
-                    max="600"
-                    value={monthsSinceMenopause}
-                    onChange={(e) => setMonthsSinceMenopause(e.target.value)}
-                    placeholder="Months (optional)"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    max="24"
+                    step="0.5"
+                    value={formData.sleepHours}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "sleepHours",
+                        parseFloat(e.target.value)
+                      )
+                    }
+                    className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white"
                   />
                 </div>
-              </div>
 
-              {/* HRT Information */}
-              <div className="space-y-4">
                 <div>
-                  <label className="flex items-center gap-2 p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={onHRT}
-                      onChange={(e) => setOnHRT(e.target.checked)}
-                      className="rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-                    />
-                    <Heart className="w-5 h-5 text-pink-500" />
-                    <span className="font-medium text-gray-900">
-                      Currently on Hormone Replacement Therapy (HRT)
-                    </span>
-                    <Tooltip content="HRT can help manage menopause symptoms. Track your experience to discuss effectiveness with your healthcare provider.">
-                      <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
-                    </Tooltip>
+                  <label className="text-sm text-purple-200 mb-2 block">
+                    Night wakings
                   </label>
-                </div>
-
-                {onHRT && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      HRT Type
-                    </label>
-                    <select
-                      value={hrtType}
-                      onChange={(e) => setHrtType(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    >
-                      <option value="">Select type...</option>
-                      <option value="estrogen_only">Estrogen Only</option>
-                      <option value="combined_hrt">
-                        Combined HRT (Estrogen + Progesterone)
-                      </option>
-                      <option value="bioidentical">
-                        Bioidentical Hormones
-                      </option>
-                      <option value="patch">Hormone Patch</option>
-                      <option value="gel_cream">Gel/Cream</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              {/* Empowerment Themes */}
-              <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-lg border border-amber-200">
-                <h4 className="font-medium text-amber-900 mb-3">
-                  Celebrating Your Menopause Journey
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {empowermentThemes.map((theme, index) => (
-                    <div
-                      key={index}
-                      className="p-3 bg-white rounded-lg border border-amber-200"
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-lg">{theme.emoji}</span>
-                        <span className="font-medium text-sm text-amber-900">
-                          {theme.title}
-                        </span>
-                      </div>
-                      <p className="text-xs text-amber-700">
-                        {theme.description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Wellness Check Section */}
-          {activeSection === "symptoms" && (
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  How Are You Feeling Today? (Select all that apply)
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {menopauseSymptoms.map((symptom) => (
-                    <Tooltip key={symptom.id} content={symptom.info}>
+                  <div className="flex items-center gap-2">
+                    {[0, 1, 2, 3, "4+"].map((num) => (
                       <button
-                        type="button"
-                        onClick={() => handleSymptomToggle(symptom.id)}
-                        className={`flex items-center gap-2 p-3 rounded-lg border text-sm font-medium transition-colors text-left ${
-                          selectedSymptoms.includes(symptom.id)
-                            ? "border-amber-500 bg-amber-50 text-amber-700"
-                            : "border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50"
+                        key={num}
+                        onClick={() =>
+                          handleInputChange(
+                            "nightWakings",
+                            typeof num === "number" ? num : 4
+                          )
+                        }
+                        className={`w-10 h-10 rounded-lg transition-all ${
+                          formData.nightWakings ===
+                          (typeof num === "number" ? num : 4)
+                            ? "bg-indigo-500 text-white"
+                            : "bg-white/10 text-purple-200 hover:bg-white/20"
                         }`}
                       >
-                        <span className="text-lg">{symptom.icon}</span>
-                        <span className="flex-1">{symptom.label}</span>
-                        <HelpCircle className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        {num}
                       </button>
-                    </Tooltip>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.insomnia}
+                    onChange={(e) =>
+                      handleInputChange("insomnia", e.target.checked)
+                    }
+                    className="w-5 h-5 rounded bg-white/20 border-white/40 text-purple-600"
+                  />
+                  <span className="text-white">Insomnia</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.restlessLegs}
+                    onChange={(e) =>
+                      handleInputChange("restlessLegs", e.target.checked)
+                    }
+                    className="w-5 h-5 rounded bg-white/20 border-white/40 text-purple-600"
+                  />
+                  <span className="text-white">Restless legs</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.sleepApnea}
+                    onChange={(e) =>
+                      handleInputChange("sleepApnea", e.target.checked)
+                    }
+                    className="w-5 h-5 rounded bg-white/20 border-white/40 text-purple-600"
+                  />
+                  <span className="text-white">Sleep apnea symptoms</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Overall wellbeing */}
+            <div className="space-y-3">
+              <label className="text-sm text-purple-200">
+                Overall Wellbeing
+              </label>
+              <div className="flex items-center gap-3">
+                <Sparkles className="w-5 h-5 text-yellow-400" />
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={formData.overallWellbeing}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "overallWellbeing",
+                      parseInt(e.target.value)
+                    )
+                  }
+                  className="flex-1"
+                />
+                <span className="text-white font-medium">
+                  {formData.overallWellbeing}/5
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+
+      case "lifestyle":
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Heart className="w-5 h-5 text-red-400" />
+              Lifestyle & Wellness
+            </h3>
+
+            {/* Exercise */}
+            <div className="space-y-3">
+              <label className="text-sm text-purple-200">Exercise Today</label>
+              <div className="grid grid-cols-4 gap-2">
+                {exerciseTypes.map((option) => {
+                  const Icon = option.icon;
+                  return (
+                    <button
+                      key={option.value}
+                      onClick={() =>
+                        handleInputChange("exercise", option.value)
+                      }
+                      className={`p-3 rounded-lg border-2 transition-all ${
+                        formData.exercise === option.value
+                          ? "border-purple-400 bg-purple-600/30"
+                          : "border-white/20 bg-white/10 hover:bg-white/20"
+                      }`}
+                    >
+                      <Icon className="w-5 h-5 text-white mx-auto mb-1" />
+                      <span className="text-xs text-white">{option.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {formData.exercise !== "none" && (
+                <>
+                  <div>
+                    <label className="text-xs text-purple-200">Minutes</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.exerciseMinutes}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "exerciseMinutes",
+                          parseInt(e.target.value)
+                        )
+                      }
+                      className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white mt-1"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.strengthTraining}
+                        onChange={(e) =>
+                          handleInputChange(
+                            "strengthTraining",
+                            e.target.checked
+                          )
+                        }
+                        className="w-5 h-5 rounded bg-white/20 border-white/40 text-purple-600"
+                      />
+                      <span className="text-white">
+                        Included strength training
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.flexibility}
+                        onChange={(e) =>
+                          handleInputChange("flexibility", e.target.checked)
+                        }
+                        className="w-5 h-5 rounded bg-white/20 border-white/40 text-purple-600"
+                      />
+                      <span className="text-white">Flexibility/stretching</span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.balance}
+                        onChange={(e) =>
+                          handleInputChange("balance", e.target.checked)
+                        }
+                        className="w-5 h-5 rounded bg-white/20 border-white/40 text-purple-600"
+                      />
+                      <span className="text-white">Balance exercises</span>
+                    </label>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Nutrition */}
+            <div className="space-y-4">
+              <h4 className="text-white font-medium">Nutrition</h4>
+
+              <div className="space-y-3">
+                <label className="text-sm text-purple-200">
+                  Protein Intake
+                </label>
+                <select
+                  value={formData.proteinIntake}
+                  onChange={(e) =>
+                    handleInputChange("proteinIntake", e.target.value)
+                  }
+                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white"
+                >
+                  <option value="low">Low</option>
+                  <option value="moderate">Moderate</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-sm text-purple-200">
+                  Calcium-Rich Foods
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {calciumFoods.map((food) => (
+                    <button
+                      key={food}
+                      onClick={() => handleArrayToggle("calciumFoods", food)}
+                      className={`p-2 rounded-lg text-sm transition-all ${
+                        formData.calciumFoods.includes(food)
+                          ? "bg-green-600/30 border-2 border-green-400 text-white"
+                          : "bg-white/10 border-2 border-white/20 text-purple-200 hover:bg-white/20"
+                      }`}
+                    >
+                      {food}
+                    </button>
                   ))}
                 </div>
               </div>
 
-              {/* Custom Symptom */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Add Custom Experience
+              {/* Hydration */}
+              <div className="space-y-3">
+                <label className="text-sm text-purple-200">
+                  Water intake (glasses)
                 </label>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-3">
+                  <Droplets className="w-5 h-5 text-blue-400" />
+                  <div className="flex gap-1">
+                    {[...Array(10)].map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleInputChange("hydration", i + 1)}
+                        className={`w-8 h-8 rounded transition-all ${
+                          formData.hydration >= i + 1
+                            ? "bg-blue-500"
+                            : "bg-white/10 hover:bg-white/20"
+                        }`}
+                      >
+                        <span className="text-xs text-white">{i + 1}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Social & Support */}
+            <div className="space-y-3">
+              <label className="text-sm text-purple-200">Social Support</label>
+              <div className="flex items-center gap-3">
+                <Users className="w-5 h-5 text-purple-400" />
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={formData.socialSupport}
+                  onChange={(e) =>
+                    handleInputChange("socialSupport", parseInt(e.target.value))
+                  }
+                  className="flex-1"
+                />
+                <span className="text-white font-medium">
+                  {formData.socialSupport}/5
+                </span>
+              </div>
+            </div>
+
+            {/* Coping strategies */}
+            <div className="space-y-3">
+              <label className="text-sm text-purple-200">
+                Activities That Help
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {copingStrategies.map((strategy) => (
+                  <button
+                    key={strategy}
+                    onClick={() =>
+                      handleArrayToggle("copingStrategies", strategy)
+                    }
+                    className={`p-2 rounded-lg text-sm transition-all ${
+                      formData.copingStrategies.includes(strategy)
+                        ? "bg-purple-600/30 border-2 border-purple-400 text-white"
+                        : "bg-white/10 border-2 border-white/20 text-purple-200 hover:bg-white/20"
+                    }`}
+                  >
+                    {strategy}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case "medical":
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Pill className="w-5 h-5 text-green-400" />
+              Medical Management
+            </h3>
+
+            {/* HRT */}
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.hrt}
+                  onChange={(e) => handleInputChange("hrt", e.target.checked)}
+                  className="w-5 h-5 rounded bg-white/20 border-white/40 text-purple-600"
+                />
+                <span className="text-white">
+                  Using Hormone Therapy (HT/HRT)
+                </span>
+              </label>
+
+              {formData.hrt && (
+                <div className="ml-8">
                   <input
                     type="text"
-                    value={customSymptom}
-                    onChange={(e) => setCustomSymptom(e.target.value)}
-                    placeholder="Describe something not listed..."
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    onKeyPress={(e) => e.key === "Enter" && addCustomSymptom()}
+                    placeholder="Type of HRT..."
+                    value={formData.hrtType}
+                    onChange={(e) =>
+                      handleInputChange("hrtType", e.target.value)
+                    }
+                    className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white"
                   />
+                </div>
+              )}
+            </div>
+
+            {/* Other medications */}
+            <div className="space-y-3">
+              <label className="text-sm text-purple-200">
+                Other Medications
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {otherMedications.map((med) => (
                   <button
-                    type="button"
-                    onClick={addCustomSymptom}
-                    className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+                    key={med}
+                    onClick={() => handleArrayToggle("otherMedications", med)}
+                    className={`p-2 rounded-lg text-sm transition-all ${
+                      formData.otherMedications.includes(med)
+                        ? "bg-blue-600/30 border-2 border-blue-400 text-white"
+                        : "bg-white/10 border-2 border-white/20 text-purple-200 hover:bg-white/20"
+                    }`}
                   >
-                    Add
+                    {med}
                   </button>
-                </div>
-              </div>
-
-              {/* Overall Wellbeing */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Overall Wellbeing Today: {overallWellbeing} (
-                  {getRatingLabel(overallWellbeing, "wellbeing")})
-                </label>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-gray-500">Poor</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={overallWellbeing}
-                    onChange={(e) =>
-                      setOverallWellbeing(parseInt(e.target.value))
-                    }
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-sm text-gray-500">Radiant</span>
-                </div>
-                <div
-                  className={`mt-2 px-3 py-1 rounded-full text-sm font-medium w-fit ${getRatingColor(
-                    overallWellbeing
-                  )}`}
-                >
-                  {getRatingLabel(overallWellbeing, "wellbeing")}
-                </div>
-              </div>
-
-              {/* Wellness Notes */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Wellness Reflections (optional)
-                </label>
-                <textarea
-                  value={symptomNotes}
-                  onChange={(e) => setSymptomNotes(e.target.value)}
-                  placeholder="How are you honoring your body today? Any insights about your wellness journey..."
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
+                ))}
               </div>
             </div>
-          )}
 
-          {/* Vitality & Mood Section */}
-          {activeSection === "vitality" && (
-            <div className="space-y-6">
-              {/* Mood Rating */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Emotional Wellbeing: {moodRating} (
-                  {getRatingLabel(moodRating, "mood")})
-                </label>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-gray-500">Low</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={moodRating}
-                    onChange={(e) => setMoodRating(parseInt(e.target.value))}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-sm text-gray-500">Excellent</span>
-                </div>
-                <div
-                  className={`mt-2 px-3 py-1 rounded-full text-sm font-medium w-fit ${getRatingColor(
-                    moodRating
-                  )}`}
-                >
-                  {getRatingLabel(moodRating, "mood")}
-                </div>
-              </div>
-
-              {/* Energy Level */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Energy Level: {energyLevel} (
-                  {getRatingLabel(energyLevel, "energy")})
-                </label>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-gray-500">Depleted</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={energyLevel}
-                    onChange={(e) => setEnergyLevel(parseInt(e.target.value))}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-sm text-gray-500">Vibrant</span>
-                </div>
-                <div
-                  className={`mt-2 px-3 py-1 rounded-full text-sm font-medium w-fit ${getRatingColor(
-                    energyLevel
-                  )}`}
-                >
-                  {getRatingLabel(energyLevel, "energy")}
-                </div>
-              </div>
-
-              {/* Sleep Quality */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Sleep Quality: {sleepQuality} (
-                  {getRatingLabel(sleepQuality, "sleep")})
-                </label>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-gray-500">Poor</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={sleepQuality}
-                    onChange={(e) => setSleepQuality(parseInt(e.target.value))}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-sm text-gray-500">Restorative</span>
-                </div>
-                <div
-                  className={`mt-2 px-3 py-1 rounded-full text-sm font-medium w-fit ${getRatingColor(
-                    sleepQuality
-                  )}`}
-                >
-                  {getRatingLabel(sleepQuality, "sleep")}
-                </div>
-              </div>
-
-              {/* Stress Level */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Stress Level: {stressLevel} (
-                  {getRatingLabel(stressLevel, "stress")})
-                </label>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-gray-500">Calm</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={stressLevel}
-                    onChange={(e) => setStressLevel(parseInt(e.target.value))}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-sm text-gray-500">Overwhelming</span>
-                </div>
-                <div
-                  className={`mt-2 px-3 py-1 rounded-full text-sm font-medium w-fit ${getRatingColor(
-                    10 - stressLevel + 1
-                  )}`}
-                >
-                  {getRatingLabel(stressLevel, "stress")}
-                </div>
-              </div>
-
-              {/* Vitality Score */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Life Vitality: {vitalityScore} (
-                  {getRatingLabel(vitalityScore, "vitality")})
-                  <Tooltip content="How alive, energetic, and engaged do you feel in your life right now? Your vitality can be powerful at any age.">
-                    <HelpCircle className="w-4 h-4 text-gray-400 cursor-help inline ml-1" />
-                  </Tooltip>
-                </label>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-gray-500">Depleted</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={vitalityScore}
-                    onChange={(e) => setVitalityScore(parseInt(e.target.value))}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-sm text-gray-500">Radiant</span>
-                </div>
-                <div
-                  className={`mt-2 px-3 py-1 rounded-full text-sm font-medium w-fit ${getRatingColor(
-                    vitalityScore
-                  )}`}
-                >
-                  {getRatingLabel(vitalityScore, "vitality")}
-                </div>
-              </div>
-
-              {/* Self Confidence */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Self-Confidence: {selfConfidence} (
-                  {getRatingLabel(selfConfidence, "confidence")})
-                  <Tooltip content="How confident and empowered do you feel? Your accumulated wisdom and experience are sources of strength.">
-                    <HelpCircle className="w-4 h-4 text-gray-400 cursor-help inline ml-1" />
-                  </Tooltip>
-                </label>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-gray-500">Low</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={selfConfidence}
-                    onChange={(e) =>
-                      setSelfConfidence(parseInt(e.target.value))
-                    }
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-sm text-gray-500">Unstoppable</span>
-                </div>
-                <div
-                  className={`mt-2 px-3 py-1 rounded-full text-sm font-medium w-fit ${getRatingColor(
-                    selfConfidence
-                  )}`}
-                >
-                  {getRatingLabel(selfConfidence, "confidence")}
-                </div>
+            {/* Supplements */}
+            <div className="space-y-3">
+              <label className="text-sm text-purple-200">Supplements</label>
+              <div className="grid grid-cols-2 gap-2">
+                {supplementOptions.map((supplement) => (
+                  <button
+                    key={supplement}
+                    onClick={() => handleArrayToggle("supplements", supplement)}
+                    className={`p-2 rounded-lg text-sm transition-all ${
+                      formData.supplements.includes(supplement)
+                        ? "bg-green-600/30 border-2 border-green-400 text-white"
+                        : "bg-white/10 border-2 border-white/20 text-purple-200 hover:bg-white/20"
+                    }`}
+                  >
+                    {supplement}
+                  </button>
+                ))}
               </div>
             </div>
-          )}
 
-          {/* Advanced Section (Premium Users Only) */}
-          {activeSection === "advanced" && isAdvancedUser && (
-            <div className="space-y-6">
-              <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="w-5 h-5 text-purple-600" />
-                  <span className="font-medium text-purple-900">
-                    Advanced Menopause Wellness Tracking
-                  </span>
-                </div>
-                <p className="text-sm text-purple-700">
-                  Comprehensive tracking supports optimal health management and
-                  meaningful healthcare conversations.
-                </p>
-              </div>
+            {/* Medical reminders */}
+            <div className="bg-purple-600/20 rounded-lg p-4">
+              <h4 className="text-white font-medium mb-2">
+                Important Nutrients
+              </h4>
+              <ul className="space-y-1 text-sm text-purple-200">
+                <li>• Calcium: 1,200mg daily</li>
+                <li>• Vitamin D: 800-1,000 IU daily</li>
+                <li>• Protein: 1-1.2g per kg body weight</li>
+                <li>• B vitamins for energy and mood</li>
+              </ul>
+            </div>
+          </div>
+        );
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Hot Flash Tracking */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Hot Flash Frequency (if any)
-                  </label>
-                  <select
-                    value={hotFlashFrequency}
-                    onChange={(e) => setHotFlashFrequency(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  >
-                    <option value="">Select frequency...</option>
-                    <option value="none">None today</option>
-                    <option value="rare">Rare/Occasional</option>
-                    <option value="1-2">1-2 times</option>
-                    <option value="3-5">3-5 times</option>
-                    <option value="frequent">Frequent (6+)</option>
-                  </select>
-                </div>
+      case "monitoring":
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-blue-400" />
+              Health Monitoring
+            </h3>
 
-                {/* Vaginal Health */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Vaginal/Sexual Health
-                  </label>
-                  <select
-                    value={vaginalHealth}
-                    onChange={(e) => setVaginalHealth(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  >
-                    <option value="">Select status...</option>
-                    <option value="comfortable">Comfortable</option>
-                    <option value="mild_dryness">Mild dryness</option>
-                    <option value="moderate_dryness">Moderate dryness</option>
-                    <option value="discomfort">Discomfort</option>
-                    <option value="using_treatment">Using treatment</option>
-                  </select>
-                </div>
-
-                {/* Heart Health Focus */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Heart Health Focus
-                  </label>
-                  <select
-                    value={heartHealthFocus}
-                    onChange={(e) => setHeartHealthFocus(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  >
-                    <option value="">Select focus...</option>
-                    <option value="excellent">Excellent</option>
-                    <option value="good">Good</option>
-                    <option value="monitoring">Monitoring</option>
-                    <option value="concerns">Have concerns</option>
-                    <option value="medical_care">Under medical care</option>
-                  </select>
-                </div>
-
-                {/* Sexual Wellness */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Sexual Wellness
-                  </label>
-                  <select
-                    value={sexualWellness}
-                    onChange={(e) => setSexualWellness(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  >
-                    <option value="">Select status...</option>
-                    <option value="thriving">Thriving</option>
-                    <option value="satisfying">Satisfying</option>
-                    <option value="changing">Evolving/Changing</option>
-                    <option value="challenges">Facing challenges</option>
-                    <option value="not_applicable">Not applicable</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Bone Health */}
+            {/* Screening dates */}
+            <div className="space-y-4">
               <div>
-                <label className="flex items-center gap-2 p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={boneHealthConcerns}
-                    onChange={(e) => setBoneHealthConcerns(e.target.checked)}
-                    className="rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-                  />
-                  <Shield className="w-5 h-5 text-green-500" />
-                  <span className="font-medium text-gray-900">
-                    Actively focusing on bone health
-                  </span>
-                  <Tooltip content="Post-menopause bone health is crucial. Weight-bearing exercise, calcium, vitamin D, and regular screening support strong bones.">
-                    <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
-                  </Tooltip>
+                <label className="text-sm text-purple-200 mb-2 block">
+                  Last Mammogram
                 </label>
-              </div>
-
-              {/* Cognitive Wellness */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Cognitive Wellness: {cognitiveWellness} (
-                  {getRatingLabel(cognitiveWellness, "cognitive")})
-                </label>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-gray-500">Foggy</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={cognitiveWellness}
-                    onChange={(e) =>
-                      setCognitiveWellness(parseInt(e.target.value))
-                    }
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-sm text-gray-500">Crystal Clear</span>
-                </div>
-              </div>
-
-              {/* Life Goals */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Current Life Goals & Aspirations
-                </label>
-                <textarea
-                  value={lifeGoals}
-                  onChange={(e) => setLifeGoals(e.target.value)}
-                  placeholder="What are you excited to pursue in this life phase? Travel, hobbies, career changes, relationships..."
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                <input
+                  type="date"
+                  value={formData.lastMammogram}
+                  onChange={(e) =>
+                    handleInputChange("lastMammogram", e.target.value)
+                  }
+                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white"
                 />
               </div>
 
-              {/* New Identity */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Evolving Identity & Self-Discovery
+                <label className="text-sm text-purple-200 mb-2 block">
+                  Last Bone Density Scan
                 </label>
-                <textarea
-                  value={newIdentity}
-                  onChange={(e) => setNewIdentity(e.target.value)}
-                  placeholder="How are you growing and changing? What new aspects of yourself are you discovering..."
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                <input
+                  type="date"
+                  value={formData.lastBoneDensity}
+                  onChange={(e) =>
+                    handleInputChange("lastBoneDensity", e.target.value)
+                  }
+                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-purple-200 mb-2 block">
+                  Last General Check-up
+                </label>
+                <input
+                  type="date"
+                  value={formData.lastCheckup}
+                  onChange={(e) =>
+                    handleInputChange("lastCheckup", e.target.value)
+                  }
+                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white"
                 />
               </div>
             </div>
-          )}
+
+            {/* Health concerns */}
+            <div>
+              <label className="text-sm text-purple-200 mb-2 block">
+                Current Health Concerns
+              </label>
+              <textarea
+                value={formData.concerns}
+                onChange={(e) => handleInputChange("concerns", e.target.value)}
+                placeholder="Note any concerns to discuss with your healthcare provider..."
+                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-purple-400 resize-none"
+                rows="3"
+              />
+            </div>
+
+            {/* Positive changes */}
+            <div>
+              <label className="text-sm text-purple-200 mb-2 block">
+                Positive Changes You've Noticed
+              </label>
+              <textarea
+                value={formData.positiveChanges}
+                onChange={(e) =>
+                  handleInputChange("positiveChanges", e.target.value)
+                }
+                placeholder="Celebrate your wins..."
+                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-purple-400 resize-none"
+                rows="3"
+              />
+            </div>
+
+            {/* General notes */}
+            <div>
+              <label className="text-sm text-purple-200 mb-2 block">
+                Additional Notes
+              </label>
+              <textarea
+                value={formData.notes}
+                onChange={(e) => handleInputChange("notes", e.target.value)}
+                placeholder="Any other observations..."
+                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-purple-400 resize-none"
+                rows="3"
+              />
+            </div>
+
+            {/* Health reminders */}
+            <div className="bg-blue-600/20 rounded-lg p-4">
+              <h4 className="text-white font-medium mb-2">
+                Screening Reminders
+              </h4>
+              <ul className="space-y-1 text-sm text-blue-200">
+                <li>• Mammogram: Every 1-2 years</li>
+                <li>• Bone density: Every 2 years</li>
+                <li>• Colonoscopy: Every 10 years</li>
+                <li>• Annual wellness exam</li>
+              </ul>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-gradient-to-br from-purple-800 to-pink-800 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="p-6 border-b border-white/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-white">
+                Menopause Wellness Check-In
+              </h2>
+              <p className="text-purple-200 mt-1">
+                {format(selectedDate, "EEEE, MMMM d, yyyy")}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <X className="w-6 h-6 text-white" />
+            </button>
+          </div>
+
+          {/* Menopause indicator */}
+          <div className="mt-3 flex items-center gap-2 text-sm text-pink-200">
+            <Flower2 className="w-4 h-4" />
+            <span>Embracing this new chapter with grace and strength</span>
+          </div>
+        </div>
+
+        {/* Section tabs */}
+        <div className="px-6 pt-4">
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {sections.map((section) => {
+              const Icon = section.icon;
+              const isSaved = savedSections.includes(section.id);
+
+              return (
+                <button
+                  key={section.id}
+                  onClick={() => setActiveSection(section.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap ${
+                    activeSection === section.id
+                      ? "bg-white text-pink-600"
+                      : "bg-white/10 text-pink-200 hover:bg-white/20"
+                  }`}
+                >
+                  {isSaved ? (
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Icon className="w-4 h-4" />
+                  )}
+                  <span className="text-sm font-medium">{section.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div
+          className="p-6 overflow-y-auto"
+          style={{ maxHeight: "calc(90vh - 200px)" }}
+        >
+          {renderSection()}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Info className="w-4 h-4" />
-            All data is encrypted and stored securely
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={loading}
-              className="px-6 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  {initialData ? "Update Entry" : "Save Entry"}
-                </>
-              )}
-            </button>
+        <div className="p-6 border-t border-white/20 bg-purple-900/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-purple-200">
+              <Clock className="w-4 h-4" />
+              <span>Auto-saved</span>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="px-6 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                {saving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Save Entry
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Custom CSS for sliders */}
-      <style jsx>{`
-        .slider::-webkit-slider-thumb {
-          appearance: none;
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: #d97706;
-          cursor: pointer;
-          border: 2px solid #fff;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        .slider::-moz-range-thumb {
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: #d97706;
-          cursor: pointer;
-          border: 2px solid #fff;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-      `}</style>
     </div>
   );
 };
+
+// Add Bone icon component if not already available
+const Bone = (props) => (
+  <svg
+    {...props}
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M17 10c.7-.7 1.69 0 2.5 0a2.5 2.5 0 1 0 0-5 .5.5 0 0 1-.5-.5 2.5 2.5 0 1 0-5 0c0 .81.7 1.8 0 2.5l-7 7c-.7.7-1.69 0-2.5 0a2.5 2.5 0 0 0 0 5c.28 0 .5.22.5.5a2.5 2.5 0 1 0 5 0c0-.81-.7-1.8 0-2.5Z" />
+  </svg>
+);
 
 export default MenopauseEntryModal;
