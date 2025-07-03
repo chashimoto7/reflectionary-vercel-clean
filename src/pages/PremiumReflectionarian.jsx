@@ -31,6 +31,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useMembership } from "../hooks/useMembership";
 import { supabase } from "../lib/supabase";
 import ReflectionarianAudioService from "../services/ReflectionarianAudioService";
+import encryptionService from "../services/encryptionService";
 
 const PremiumReflectionarian = () => {
   const { user } = useAuth();
@@ -250,6 +251,111 @@ const PremiumReflectionarian = () => {
     }
   };
 
+  // Fetch relevant journal entries for context
+  const fetchRelevantJournalEntries = async (theme, mood) => {
+    try {
+      const { data, error } = await supabase
+        .from("journal_entries")
+        .select("*")
+        .eq("user_id", user.id)
+        .or(`theme.ilike.%${theme}%,mood.eq.${mood}`)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+
+      // Decrypt entries
+      const decryptedEntries = await Promise.all(
+        data.map(async (entry) => {
+          const decrypted = await encryptionService.decryptEntry(entry);
+          return {
+            date: entry.created_at,
+            theme: decrypted.theme,
+            mood: decrypted.mood,
+            content: decrypted.content.substring(0, 200) + "...", // Preview only
+          };
+        })
+      );
+
+      return decryptedEntries;
+    } catch (error) {
+      console.error("Error fetching journal entries:", error);
+      return [];
+    }
+  };
+
+  // Generate session-end suggestions
+  const generateSessionSuggestions = async () => {
+    if (messages.length < 3) return null;
+
+    try {
+      // Get conversation summary
+      const conversationText = messages
+        .map((m) => `${m.role}: ${m.content}`)
+        .join("\n");
+
+      const response = await fetch("/api/reflectionarian/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversation: conversationText,
+          therapyApproach: preferences.therapy_approach,
+        }),
+      });
+
+      const data = await response.json();
+
+      return {
+        journalPrompts: data.journalPrompts || [],
+        goalSuggestions: data.goalSuggestions || [],
+        nextSessionFocus: data.nextSessionFocus || "",
+      };
+    } catch (error) {
+      console.error("Error generating suggestions:", error);
+      return null;
+    }
+  };
+
+  // Save journal prompt to Premium Journaling
+  const saveJournalPrompt = async (prompt) => {
+    try {
+      const { error } = await supabase.from("custom_prompts").insert({
+        user_id: user.id,
+        prompt_text: prompt,
+        source: "reflectionarian",
+        category: "reflection",
+        created_at: new Date().toISOString(),
+      });
+
+      if (!error) {
+        alert("Prompt saved to your journaling prompts!");
+      }
+    } catch (error) {
+      console.error("Error saving prompt:", error);
+    }
+  };
+
+  // Save goal suggestion to Premium Goals
+  const saveGoalSuggestion = async (goal) => {
+    try {
+      const { error } = await supabase.from("goals").insert({
+        user_id: user.id,
+        title: goal.title,
+        description: goal.description,
+        category: goal.category || "personal_growth",
+        source: "reflectionarian",
+        status: "not_started",
+        created_at: new Date().toISOString(),
+      });
+
+      if (!error) {
+        alert("Goal saved to your goals page!");
+      }
+    } catch (error) {
+      console.error("Error saving goal:", error);
+    }
+  };
+
   // ====================================================================
   // SESSION MANAGEMENT
   // ====================================================================
@@ -370,6 +476,11 @@ const PremiumReflectionarian = () => {
       }
 
       // Call your API for the actual response
+
+      const relevantEntries = await fetchRelevantJournalEntries(
+        currentMessage, // Use message as theme search
+        "neutral" // Or extract mood from conversation
+      );
       const response = await fetch("/api/reflectionarian/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -378,6 +489,7 @@ const PremiumReflectionarian = () => {
           sessionId,
           userId: user.id,
           therapyApproach: preferences.therapy_approach,
+          journalContext: relevantEntries,
         }),
       });
 
