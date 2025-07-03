@@ -32,6 +32,11 @@ import { useMembership } from "../hooks/useMembership";
 import { supabase } from "../lib/supabase";
 import ReflectionarianAudioService from "../services/ReflectionarianAudioService";
 import encryptionService from "../services/encryptionService";
+import SessionPromptsTab from "../components/reflectionarian/tabs/SessionPromptsTab";
+import GoalTrackingTab from "../components/reflectionarian/tabs/GoalTrackingTab";
+import WeeklyReportTab from "../components/reflectionarian/tabs/WeeklyReportTab";
+import GrowthTimelineTab from "../components/reflectionarian/tabs/GrowthTimelineTab";
+import ExportSessionsTab from "../components/reflectionarian/tabs/ExportSessionsTab";
 
 const PremiumReflectionarian = () => {
   const { user } = useAuth();
@@ -994,18 +999,38 @@ const PremiumReflectionarian = () => {
             </div>
           </div>
         ) : (
-          // Other tabs content (placeholder for now)
+          // Other tabs content
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <Sparkles className="w-16 h-16 text-purple-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">
-                {activeProTab === "prompts" && "Session Prompts"}
-                {activeProTab === "goals" && "Goal Tracking"}
-                {activeProTab === "report" && "Weekly Reports"}
-                {activeProTab === "timeline" && "Growth Timeline"}
-                {activeProTab === "export" && "Export Sessions"}
-              </h3>
-              <p className="text-gray-300">This feature is coming soon...</p>
+              {activeProTab === "prompts" && (
+                <SessionPromptsTab
+                  sessionId={sessionId}
+                  userId={user.id}
+                  preferences={preferences}
+                  messages={messages}
+                />
+              )}
+              {activeProTab === "goals" && (
+                <GoalTrackingTab
+                  sessionId={sessionId}
+                  userId={user.id}
+                  preferences={preferences}
+                  messages={messages}
+                />
+              )}
+              {activeProTab === "report" && (
+                <WeeklyReportTab userId={user.id} preferences={preferences} />
+              )}
+              {activeProTab === "timeline" && (
+                <GrowthTimelineTab userId={user.id} preferences={preferences} />
+              )}
+              {activeProTab === "export" && (
+                <ExportSessionsTab
+                  userId={user.id}
+                  currentSessionId={sessionId}
+                />
+              )}
             </div>
           </div>
         )}
