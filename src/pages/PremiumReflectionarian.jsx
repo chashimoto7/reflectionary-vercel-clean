@@ -1,4 +1,4 @@
-//src/pages/PremiumReflectionarian
+// src/pages/PremiumReflectionarian.jsx
 import React, { useState, useEffect, useRef } from "react";
 import {
   MessageCircle,
@@ -21,13 +21,17 @@ import {
   TrendingUp,
   FileText,
   Clock,
+  Mic,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 
 import { useAuth } from "../contexts/AuthContext";
 import { useMembership } from "../hooks/useMembership";
 import { supabase } from "../lib/supabase";
+import ReflectionarianAudioService from "../services/ReflectionarianAudioService";
 
-const ProReflectionarian = () => {
+const PremiumReflectionarian = () => {
   const { user } = useAuth();
   const { hasAccess, tier } = useMembership();
 
@@ -60,6 +64,14 @@ const ProReflectionarian = () => {
   const chatEndRef = useRef(null);
   const messageInputRef = useRef(null);
 
+  // Audio State
+  const [audioService] = useState(() => ReflectionarianAudioService);
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
+  const [currentTranscript, setCurrentTranscript] = useState("");
+  const [isProcessingResponse, setIsProcessingResponse] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+
   // ====================================================================
   // ONBOARDING QUESTIONS & THERAPY MATCHING (PRO TIER)
   // ====================================================================
@@ -68,138 +80,60 @@ const ProReflectionarian = () => {
     {
       id: "session_goals",
       question: "What do you hope to get out of your sessions?",
-      icon: Target,
       options: [
         {
-          value: "calm_control",
-          label: "Feel more calm and in control",
-          color: "bg-blue-100 text-blue-800",
-        },
-        {
           value: "self_understanding",
-          label: "Understand myself better",
-          color: "bg-purple-100 text-purple-800",
+          label: "Better understand myself and my patterns",
         },
-        {
-          value: "challenge_thoughts",
-          label: "Challenge unhelpful thoughts",
-          color: "bg-yellow-100 text-yellow-800",
-        },
-        {
-          value: "heal_wounds",
-          label: "Heal inner wounds",
-          color: "bg-green-100 text-green-800",
-        },
+        { value: "calm_control", label: "Feel calmer and more in control" },
+        { value: "heal_wounds", label: "Heal from difficult experiences" },
         {
           value: "structure_focus",
-          label: "Create structure and focus",
-          color: "bg-red-100 text-red-800",
+          label: "Create structure and clear next steps",
         },
       ],
     },
     {
       id: "preferred_tone",
-      question: "What tone do you respond best to?",
-      icon: Heart,
+      question: "What tone resonates most with you?",
       options: [
-        {
-          value: "gentle",
-          label: "Gentle and supportive",
-          color: "bg-pink-100 text-pink-800",
-        },
-        {
-          value: "direct",
-          label: "Direct and honest",
-          color: "bg-orange-100 text-orange-800",
-        },
-        {
-          value: "curious",
-          label: "Curious and insightful",
-          color: "bg-indigo-100 text-indigo-800",
-        },
-        {
-          value: "playful",
-          label: "Playful and light",
-          color: "bg-yellow-100 text-yellow-800",
-        },
-        {
-          value: "philosophical",
-          label: "Philosophical and deep",
-          color: "bg-purple-100 text-purple-800",
-        },
+        { value: "gentle", label: "Gentle and nurturing" },
+        { value: "direct", label: "Direct and practical" },
+        { value: "curious", label: "Curious and exploratory" },
+        { value: "philosophical", label: "Philosophical and deep" },
       ],
     },
     {
       id: "tips_vs_reflection",
-      question: "Do you prefer practical tips or deeper reflection?",
-      icon: Lightbulb,
+      question: "Do you prefer tips or reflection?",
       options: [
-        {
-          value: "tips",
-          label: "Tips & tools",
-          color: "bg-green-100 text-green-800",
-        },
-        {
-          value: "reflection",
-          label: "Reflection & meaning",
-          color: "bg-blue-100 text-blue-800",
-        },
-        {
-          value: "mixed",
-          label: "A mix of both",
-          color: "bg-purple-100 text-purple-800",
-        },
+        { value: "tips", label: "Give me strategies and techniques" },
+        { value: "reflection", label: "Help me explore and understand" },
+        { value: "mixed", label: "A balance of both" },
       ],
     },
     {
       id: "struggle_support",
-      question: "When you're struggling, you want someone to...",
-      icon: Brain,
+      question: "How do you want support when struggling?",
       options: [
-        {
-          value: "calm",
-          label: "Calm me down",
-          color: "bg-blue-100 text-blue-800",
-        },
-        {
-          value: "analyze",
-          label: "Help me analyze it",
-          color: "bg-yellow-100 text-yellow-800",
-        },
-        {
-          value: "reframe",
-          label: "Reframe my thoughts",
-          color: "bg-green-100 text-green-800",
-        },
-        {
-          value: "listen",
-          label: "Hear me without fixing it",
-          color: "bg-pink-100 text-pink-800",
-        },
-        {
-          value: "connect",
-          label: "Help me connect the dots",
-          color: "bg-purple-100 text-purple-800",
-        },
+        { value: "listen", label: "Just listen and validate" },
+        { value: "reframe", label: "Help me see things differently" },
+        { value: "plan", label: "Help me make an action plan" },
+        { value: "calm", label: "Ground me in the present moment" },
+        { value: "connect", label: "Remind me of my values and strengths" },
       ],
     },
   ];
 
+  // Therapy style mapping based on responses
   const therapyStyleMapping = {
-    // CBT mapping
-    "challenge_thoughts-direct-tips-analyze": "CBT",
-    "challenge_thoughts-direct-tips-reframe": "CBT",
-    "structure_focus-direct-tips-analyze": "CBT",
-
-    // Mindfulness/DBT mapping
+    "calm_control-direct-tips-reframe": "CBT/Solution-Focused",
+    "self_understanding-direct-tips-plan": "CBT/Solution-Focused",
+    "structure_focus-direct-mixed-plan": "CBT/Solution-Focused",
     "calm_control-gentle-mixed-calm": "Mindfulness/DBT",
     "calm_control-curious-reflection-calm": "Mindfulness/DBT",
-
-    // ACT/Positive Psychology mapping
     "self_understanding-curious-mixed-connect": "ACT/Positive Psychology",
     "structure_focus-curious-mixed-connect": "ACT/Positive Psychology",
-
-    // Narrative/Humanistic mapping (default for most combinations)
     "heal_wounds-gentle-reflection-listen": "Narrative/Humanistic",
     "self_understanding-gentle-reflection-listen": "Narrative/Humanistic",
     "heal_wounds-philosophical-reflection-listen": "Narrative/Humanistic",
@@ -207,7 +141,7 @@ const ProReflectionarian = () => {
 
   const getTherapyApproach = (responses) => {
     const key = `${responses.session_goals}-${responses.preferred_tone}-${responses.tips_vs_reflection}-${responses.struggle_support}`;
-    return therapyStyleMapping[key] || "Narrative/Humanistic"; // Default to humanistic
+    return therapyStyleMapping[key] || "Narrative/Humanistic";
   };
 
   // ====================================================================
@@ -237,74 +171,100 @@ const ProReflectionarian = () => {
         setShowOnboarding(true);
       }
     } catch (error) {
-      console.error("Error loading preferences:", error);
-      setShowOnboarding(true);
+      console.error("Error in loadUserPreferences:", error);
     } finally {
       setIsLoadingPreferences(false);
     }
   };
 
-  const savePreferences = async (responses) => {
+  const saveUserPreferences = async (responses) => {
     if (!user?.id) return;
 
     const therapyApproach = getTherapyApproach(responses);
-
     const preferenceData = {
       user_id: user.id,
-      therapy_approach: therapyApproach,
+      onboarding_completed: true,
+      session_goals: responses.session_goals,
       preferred_tone: responses.preferred_tone,
-      session_goals: [responses.session_goals],
       tips_vs_reflection: responses.tips_vs_reflection,
       struggle_support: responses.struggle_support,
-      onboarding_completed: true,
-      onboarding_completed_at: new Date().toISOString(),
+      therapy_approach: therapyApproach,
+      voice_preference: "nova", // Default voice
       updated_at: new Date().toISOString(),
     };
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("reflectionarian_preferences")
-        .upsert(preferenceData)
+        .upsert(preferenceData, { onConflict: "user_id" });
+
+      if (error) throw error;
+
+      setPreferences(preferenceData);
+      setShowOnboarding(false);
+    } catch (error) {
+      console.error("Error saving preferences:", error);
+    }
+  };
+
+  // ====================================================================
+  // SESSION MANAGEMENT
+  // ====================================================================
+
+  const startNewSession = async () => {
+    if (!user?.id || !preferences) return;
+
+    try {
+      const sessionData = {
+        user_id: user.id,
+        session_title: `Session - ${new Date().toLocaleDateString()}`,
+        approach_used: preferences.therapy_approach,
+        conversation_type: "premium_therapy",
+        session_start: new Date().toISOString(),
+        status: "active",
+      };
+
+      const { data, error } = await supabase
+        .from("therapy_sessions")
+        .insert(sessionData)
         .select()
         .single();
 
       if (error) throw error;
 
-      setPreferences(data);
-      setShowOnboarding(false);
+      setSessionId(data.id);
+      setMessages([]);
 
-      // Welcome message based on therapy approach
-      const welcomeMessage = getWelcomeMessage(
-        therapyApproach,
-        responses.preferred_tone
-      );
-      setMessages([
-        {
-          id: Date.now(),
-          role: "assistant",
-          content: welcomeMessage,
-          timestamp: new Date(),
-        },
-      ]);
+      // Add welcome message based on therapy approach
+      const welcomeMessage = {
+        id: Date.now(),
+        role: "assistant",
+        content: getWelcomeMessage(
+          preferences.therapy_approach,
+          preferences.preferred_tone
+        ),
+        timestamp: new Date(),
+      };
+
+      setMessages([welcomeMessage]);
     } catch (error) {
-      console.error("Error saving preferences:", error);
-      alert("Failed to save preferences. Please try again.");
+      console.error("Error starting new session:", error);
     }
   };
 
   const getWelcomeMessage = (approach, tone) => {
     const messages = {
-      CBT: {
+      "CBT/Solution-Focused": {
         direct:
-          "Great! I'm here to help you examine your thoughts and build practical strategies. What's on your mind today?",
+          "Let's focus on what's happening right now and work together on practical solutions. What specific challenge would you like to address today?",
         gentle:
-          "I'm excited to work with you on identifying patterns and building helpful tools. How are you feeling right now?",
+          "I'm here to help you work through challenges with practical strategies. What's on your mind today?",
         default:
-          "Let's work together to understand your thought patterns and develop practical approaches. What would you like to explore?",
+          "I'm here to help you identify patterns and develop practical solutions. What would you like to work on today?",
       },
       "Mindfulness/DBT": {
         gentle:
-          "Welcome! Let's create a space for mindful awareness and emotional balance. What are you noticing right now?",
+          "Welcome. Let's take a moment to ground ourselves in the present. How are you feeling in this moment?",
         curious:
           "I'm here to help you explore present-moment awareness. What's alive for you in this moment?",
         default:
@@ -336,199 +296,7 @@ const ProReflectionarian = () => {
   };
 
   // ====================================================================
-  // PRO FEATURES: WEEKLY REPORTS, GROWTH TIMELINE, EXPORT
-  // ====================================================================
-
-  const generateWeeklyReport = async () => {
-    // Mock weekly report generation
-    return {
-      weekOf: new Date().toLocaleDateString(),
-      totalSessions: 7,
-      mainThemes: ["Self-compassion", "Work stress", "Relationships"],
-      insights: [
-        "You've shown increased awareness of your inner dialogue this week",
-        "Your approach to work challenges has become more strategic",
-        "You're developing stronger boundaries in relationships",
-      ],
-      recommendedActions: [
-        "Continue practicing the mindfulness techniques we discussed",
-        "Consider scheduling regular check-ins with yourself",
-        "Explore the connection between your values and daily choices",
-      ],
-    };
-  };
-
-  const generateGrowthTimeline = async () => {
-    // Mock growth timeline data
-    return [
-      {
-        date: "2025-06-01",
-        milestone: "Started Pro Reflectionarian",
-        insight: "Began exploring CBT-style approaches to thought patterns",
-      },
-      {
-        date: "2025-06-08",
-        milestone: "Self-Compassion Breakthrough",
-        insight:
-          "Recognized tendency toward self-criticism and developed counter-strategies",
-      },
-      {
-        date: "2025-06-15",
-        milestone: "Values Clarification",
-        insight:
-          "Identified core values and began aligning daily actions with them",
-      },
-    ];
-  };
-
-  const exportSessionLogs = async (format = "json") => {
-    // Mock export functionality
-    const exportData = {
-      user_id: user.id,
-      export_date: new Date().toISOString(),
-      total_sessions: sessionHistory.length,
-      sessions: sessionHistory,
-      preferences: preferences,
-    };
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `reflectionarian-sessions-${
-      new Date().toISOString().split("T")[0]
-    }.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  // ====================================================================
-  // ONBOARDING COMPONENT
-  // ====================================================================
-
-  const OnboardingFlow = () => {
-    const [responses, setResponses] = useState({});
-    const currentQ = onboardingQuestions[onboardingStep];
-    const Icon = currentQ?.icon;
-
-    const handleOptionSelect = (value) => {
-      const newResponses = { ...responses, [currentQ.id]: value };
-      setResponses(newResponses);
-
-      if (onboardingStep < onboardingQuestions.length - 1) {
-        setTimeout(() => setOnboardingStep(onboardingStep + 1), 300);
-      } else {
-        setTimeout(() => savePreferences(newResponses), 300);
-      }
-    };
-
-    const goBack = () => {
-      if (onboardingStep > 0) {
-        setOnboardingStep(onboardingStep - 1);
-      }
-    };
-
-    return (
-      <div className="max-w-2xl mx-auto p-6 space-y-6">
-        {/* Progress Bar */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm text-gray-600">
-            <span>Personalizing Your Pro Experience</span>
-            <span>
-              {onboardingStep + 1} of {onboardingQuestions.length}
-            </span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-500"
-              style={{
-                width: `${
-                  ((onboardingStep + 1) / onboardingQuestions.length) * 100
-                }%`,
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Question Card */}
-        <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-100">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-              <Icon className="w-8 h-8 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {currentQ?.question}
-            </h2>
-            <p className="text-gray-600">
-              Choose the option that resonates most with you
-            </p>
-          </div>
-
-          {/* Options */}
-          <div className="space-y-3">
-            {currentQ?.options.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => handleOptionSelect(option.value)}
-                className={`w-full p-4 text-left rounded-lg border-2 transition-all duration-200 hover:shadow-md hover:scale-[1.02] ${
-                  responses[currentQ.id] === option.value
-                    ? "border-purple-500 bg-purple-50"
-                    : "border-gray-200 hover:border-purple-300"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-gray-900">
-                    {option.label}
-                  </span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-medium ${option.color}`}
-                  >
-                    {option.value.replace("_", " ")}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {/* Navigation */}
-          <div className="flex justify-between mt-8">
-            <button
-              onClick={goBack}
-              disabled={onboardingStep === 0}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              ← Back
-            </button>
-            <div className="text-sm text-gray-500">
-              {responses[currentQ?.id]
-                ? "Great choice! Moving on..."
-                : "Select an option to continue"}
-            </div>
-          </div>
-        </div>
-
-        {/* Therapy Approach Preview */}
-        {Object.keys(responses).length === onboardingQuestions.length && (
-          <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-6 text-white text-center">
-            <Sparkles className="w-8 h-8 mx-auto mb-3" />
-            <h3 className="text-xl font-bold mb-2">
-              Your Personalized Approach: {getTherapyApproach(responses)}
-            </h3>
-            <p className="opacity-90">
-              Initializing your Pro Reflectionarian experience...
-            </p>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // ====================================================================
-  // CHAT INTERFACE
+  // MESSAGE HANDLING
   // ====================================================================
 
   const sendMessage = async () => {
@@ -544,422 +312,131 @@ const ProReflectionarian = () => {
     setMessages((prev) => [...prev, userMessage]);
     setCurrentMessage("");
     setIsLoading(true);
+    setIsProcessingResponse(true);
 
     try {
-      // Real API call to Pro Reflectionarian endpoint
-      const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/openai/chat-pro",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userId: user.id,
-            message: currentMessage.trim(),
-            sessionId: sessionId,
-            preferences: preferences,
-            conversationHistory: messages,
-          }),
-        }
-      );
-      console.log("Response status:", response.status);
-      console.log("Response headers:", response.headers);
-
-      if (!response.ok) {
-        console.error("Response not OK:", response.status, response.statusText);
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      // Play transitional response if audio is enabled
+      let transitionalText = null;
+      if (audioEnabled) {
+        const category = audioService.analyzeResponseCategory(
+          userMessage.content
+        );
+        transitionalText = await audioService.playTransitionalResponse(
+          category
+        );
       }
+
+      // Call your API for the actual response
+      const response = await fetch("/api/reflectionarian/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: userMessage.content,
+          sessionId,
+          userId: user.id,
+          therapyApproach: preferences.therapy_approach,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to get response");
 
       const data = await response.json();
 
-      if (!data.success) {
-        throw new Error(data.response || "Failed to get response");
-      }
-
+      // Add the AI response
       const assistantMessage = {
         id: Date.now() + 1,
         role: "assistant",
         content: data.response,
         timestamp: new Date(),
-        sessionPrompts: data.sessionPrompts || [],
-        goalSuggestion: data.goalSuggestion || null,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // Handle session prompts
-      if (data.sessionPrompts && data.sessionPrompts.length > 0) {
-        setSessionPrompts(data.sessionPrompts);
-      }
+      // Play the full response audio if enabled
+      if (audioEnabled && data.response) {
+        // Stop any transitional audio
+        audioService.stopAudio();
 
-      // Handle goal suggestions
-      if (data.goalSuggestion) {
-        setCurrentGoalSuggestion(data.goalSuggestion);
-        setShowGoalSuggestions(true);
-      }
-
-      // Set session ID from response
-      if (data.sessionId && !sessionId) {
-        setSessionId(data.sessionId);
+        // Stream the actual response
+        await audioService.streamAudioResponse(
+          data.response,
+          preferences.voice_preference
+        );
       }
     } catch (error) {
       console.error("Error sending message:", error);
+
+      // Add error message
       const errorMessage = {
         id: Date.now() + 1,
         role: "assistant",
         content:
-          "I'm having trouble responding right now. Please try again in a moment! 🔧",
+          "I apologize, but I'm having trouble responding right now. Please try again in a moment.",
         timestamp: new Date(),
-        isError: true,
       };
       setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  // ====================================================================
-  // SESSION MANAGEMENT
-  // ====================================================================
-
-  const startNewSession = async () => {
-    try {
-      setIsLoading(true);
-
-      // Generate a simple session ID for now
-      const newSessionId = `session_${Date.now()}_${user.id}`;
-      setSessionId(newSessionId);
-
-      // Add welcome message if no preferences set yet
-      if (!messages.length && preferences) {
-        const welcomeMessage = getWelcomeMessage(
-          preferences.therapy_approach,
-          preferences.preferred_tone
-        );
-        setMessages([
-          {
-            id: Date.now(),
-            role: "assistant",
-            content: welcomeMessage,
-            timestamp: new Date(),
-          },
-        ]);
+      // Stop any playing audio
+      if (audioEnabled) {
+        audioService.stopAudio();
       }
-    } catch (error) {
-      console.error("Error starting session:", error);
     } finally {
       setIsLoading(false);
+      setIsProcessingResponse(false);
     }
   };
 
-  // ====================================================================
-  // END CONVERSATION & PROMPT GENERATION
-  // ====================================================================
+  // Handle voice input
+  const handleVoiceInput = () => {
+    if (!audioEnabled) return;
 
-  const handleEndConversation = async (generatePrompts = false) => {
-    if (!sessionId || messages.length === 0) return;
+    if (isListening) {
+      // Stop listening
+      audioService.stopListening();
+      setIsListening(false);
 
-    setIsLoading(true);
-
-    try {
-      if (generatePrompts) {
-        // Generate prompts based on the conversation
-        const conversationHistory = messages.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        }));
-
-        const response = await fetch(
-          "https://reflectionary-api.vercel.app/api/openai/chat-pro",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              userId: user.id,
-              message:
-                "Please generate journaling prompts based on our conversation.",
-              conversationHistory,
-              requestType: "end_session_prompts",
-              preferences,
-            }),
-          }
-        );
-
-        if (!response.ok) throw new Error("Failed to generate prompts");
-
-        const data = await response.json();
-
-        if (data.sessionPrompts && data.sessionPrompts.length > 0) {
-          // Create dynamic message based on what we're returning
-          let content =
-            "Here are some journaling prompts to help you reflect further on our conversation:";
-
-          if (data.goalSuggestion) {
-            const goalText = data.goalSuggestion.length > 1 ? "goals" : "goal";
-            content += ` I've also included ${
-              data.goalSuggestion.length === 1 ? "a" : "some"
-            } ${goalText} you might want to add to your Goals page.`;
-          }
-
-          const promptMessage = {
-            id: Date.now(),
-            role: "assistant",
-            content: content,
-            sessionPrompts: data.sessionPrompts,
-            goalSuggestion: data.goalSuggestion || null,
-            timestamp: new Date().toISOString(),
-            isEndSessionMessage: true,
-          };
-          setMessages((prev) => [...prev, promptMessage]);
-        }
+      // Send the message if we have a transcript
+      if (currentTranscript.trim()) {
+        setCurrentMessage(currentTranscript);
+        sendMessage();
+        setCurrentTranscript("");
       }
-
-      // Clear session to prevent further messages
-      setSessionId(null);
-
-      // Show a completion message
-      const endMessage = {
-        id: Date.now() + 1,
-        role: "assistant",
-        content: generatePrompts
-          ? "Our conversation has ended. Feel free to use any of the prompts above for deeper journaling, or start a new conversation anytime!"
-          : "Our conversation has ended. Thank you for sharing with me today. Feel free to start a new conversation anytime!",
-        timestamp: new Date().toISOString(),
-        isEndSessionMessage: true,
-      };
-      setMessages((prev) => [...prev, endMessage]);
-    } catch (error) {
-      console.error("Error ending conversation:", error);
-      // Still end the session even if prompt generation fails
-      setSessionId(null);
-
-      const errorMessage = {
-        id: Date.now(),
-        role: "assistant",
-        content:
-          "Our conversation has ended. I had trouble generating prompts, but you can start a new conversation anytime!",
-        timestamp: new Date().toISOString(),
-        isError: true,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
-
-  // ====================================================================
-  // SESSION PROMPTS & GOAL SUGGESTIONS - REAL IMPLEMENTATION
-  // ====================================================================
-
-  const savePromptToJournal = async (prompt) => {
-    try {
-      console.log("💾 Saving prompt to journal recommendations:", prompt);
-
-      // Prepare the data to send to our API
-      const promptData = {
-        user_id: user?.id,
-        session_id: sessionId,
-        prompt_text: prompt,
-        context: {
-          conversation_type: "pro",
-          generated_at: new Date().toISOString(),
-          therapy_approach:
-            preferences?.therapy_approach || "Narrative/Humanistic",
+    } else {
+      // Start listening
+      setIsListening(true);
+      audioService.startListening(
+        (result) => {
+          setCurrentTranscript(result.transcript);
+          if (!result.isFinal) {
+            // Update the input field with interim results
+            setCurrentMessage(result.transcript);
+          }
         },
-        suggestion_type: "reflective",
-        confidence_score: 0.85, // High confidence for Pro tier prompts
-      };
-
-      const response = await fetch(
-        "https://reflectionary.ca/api/reflectionarian/save-prompt-suggestion",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(promptData),
+        (error) => {
+          console.error("Speech recognition error:", error);
+          setIsListening(false);
+          alert("Voice input error. Please try again or type your message.");
         }
       );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to save prompt");
-      }
-
-      console.log("✅ Prompt saved successfully:", result.suggestion_id);
-
-      // Show success feedback
-      // You could add a toast notification system here if you have one
-      alert("✨ Prompt saved to your Advanced Journaling recommendations!");
-    } catch (error) {
-      console.error("❌ Error saving prompt:", error);
-      alert("Sorry, there was an issue saving the prompt. Please try again.");
     }
   };
 
-  const handleGoalSuggestion = async (action, goalText = null) => {
-    try {
-      console.log("🎯 Handling goal suggestion:", action, goalText);
+  // Toggle audio on/off
+  const toggleAudio = () => {
+    setAudioEnabled(!audioEnabled);
 
-      if (action === "accept" && goalText) {
-        // Prepare the data to send to our API
-        const goalData = {
-          user_id: user?.id,
-          session_id: sessionId,
-          goal_text: goalText,
-          rationale:
-            "Generated during Pro Reflectionarian conversation based on therapeutic insights",
-          context: {
-            conversation_type: "pro",
-            generated_at: new Date().toISOString(),
-            therapy_approach:
-              preferences?.therapy_approach || "Narrative/Humanistic",
-            user_preferences: {
-              session_goals: preferences?.session_goals,
-              preferred_tone: preferences?.preferred_tone,
-              focus: preferences?.tips_vs_reflection,
-            },
-          },
-          suggestion_type: "behavioral",
-          confidence_score: 0.9, // Very high confidence for Pro tier goals
-          priority: "high", // Pro tier gets high priority suggestions
-        };
-
-        const response = await fetch(
-          "https://reflectionary.ca/api/reflectionarian/save-goal-suggestion",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(goalData),
-          }
-        );
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.error || "Failed to save goal");
-        }
-
-        console.log("✅ Goal saved successfully:", result.suggestion_id);
-
-        // Show success feedback
-        alert("🎯 Goal added to your Advanced Goals recommendations!");
-      } else if (action === "dismiss") {
-        console.log("👋 Goal suggestion dismissed by user");
-        // Could track dismissals for improving future suggestions
-      }
-
-      // Clear the current goal suggestion from the UI
-      setCurrentGoalSuggestion(null);
-      setShowGoalSuggestions(false);
-    } catch (error) {
-      console.error("❌ Error handling goal suggestion:", error);
-      if (action === "accept") {
-        alert("Sorry, there was an issue saving the goal. Please try again.");
+    if (!audioEnabled) {
+      // If turning on, preload responses
+      audioService.preloadCommonResponses();
+    } else {
+      // If turning off, stop any playing audio
+      audioService.stopAudio();
+      if (isListening) {
+        audioService.stopListening();
+        setIsListening(false);
       }
     }
   };
-
-  // ====================================================================
-  // PRO FEATURES COMPONENTS
-  // ====================================================================
-
-  const WeeklyReportView = ({ report }) => (
-    <div className="bg-white rounded-xl shadow-lg p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-xl font-bold text-gray-900">
-          Weekly Reflection Report
-        </h3>
-        <span className="text-sm text-gray-500">Week of {report.weekOf}</span>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-purple-50 p-4 rounded-lg">
-          <h4 className="font-semibold text-purple-800">Sessions</h4>
-          <p className="text-2xl font-bold text-purple-600">
-            {report.totalSessions}
-          </p>
-        </div>
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <h4 className="font-semibold text-blue-800">Main Themes</h4>
-          <p className="text-sm text-blue-600">
-            {report.mainThemes.join(", ")}
-          </p>
-        </div>
-        <div className="bg-green-50 p-4 rounded-lg">
-          <h4 className="font-semibold text-green-800">Growth Areas</h4>
-          <p className="text-sm text-green-600">
-            {report.insights.length} insights
-          </p>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <div>
-          <h4 className="font-semibold text-gray-900 mb-2">Key Insights</h4>
-          <ul className="space-y-2">
-            {report.insights.map((insight, idx) => (
-              <li key={idx} className="flex items-start space-x-2">
-                <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                <span className="text-gray-700">{insight}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <h4 className="font-semibold text-gray-900 mb-2">
-            Recommended Actions
-          </h4>
-          <ul className="space-y-2">
-            {report.recommendedActions.map((action, idx) => (
-              <li key={idx} className="flex items-start space-x-2">
-                <Target className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                <span className="text-gray-700">{action}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </div>
-  );
-
-  const GrowthTimelineView = ({ timeline }) => (
-    <div className="bg-white rounded-xl shadow-lg p-6">
-      <h3 className="text-xl font-bold text-gray-900 mb-6">Growth Timeline</h3>
-      <div className="space-y-6">
-        {timeline.map((milestone, idx) => (
-          <div key={idx} className="flex items-start space-x-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
-              <TrendingUp className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center justify-between">
-                <h4 className="font-semibold text-gray-900">
-                  {milestone.milestone}
-                </h4>
-                <span className="text-sm text-gray-500">{milestone.date}</span>
-              </div>
-              <p className="text-gray-700 mt-1">{milestone.insight}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 
   // ====================================================================
   // EFFECTS
@@ -970,7 +447,6 @@ const ProReflectionarian = () => {
   }, [user]);
 
   useEffect(() => {
-    // Start a new session when preferences are loaded and we don't have one
     if (preferences && !sessionId && !showOnboarding) {
       startNewSession();
     }
@@ -980,17 +456,42 @@ const ProReflectionarian = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    if (preferences && audioEnabled) {
+      // Set voice preferences
+      audioService.setVoicePreferences(
+        preferences.voice_preference || "nova",
+        1.0, // playback speed
+        1.0 // volume
+      );
+
+      // Cleanup audio on unmount
+      useEffect(() => {
+        return () => {
+          if (audioService) {
+            audioService.stopAudio();
+            audioService.stopListening();
+            audioService.clearCache();
+          }
+        };
+      }, [audioService]);
+
+      // Preload common responses
+      audioService.preloadCommonResponses();
+    }
+  }, [preferences, audioEnabled, audioService]);
+
   // ====================================================================
   // LOADING & ACCESS CONTROL
   // ====================================================================
 
   if (isLoadingPreferences) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-purple-500 mx-auto mb-4" />
-          <p className="text-gray-600">
-            Loading your personalized Pro experience...
+          <Loader2 className="w-8 h-8 animate-spin text-purple-400 mx-auto mb-4" />
+          <p className="text-gray-300">
+            Loading your personalized experience...
           </p>
         </div>
       </div>
@@ -999,470 +500,348 @@ const ProReflectionarian = () => {
 
   if (!hasAccess("reflectionarian") || tier !== "premium") {
     return (
-      <div className="text-center py-12">
-        <Brain className="w-16 h-16 text-gray-400 mx-auto mb-6" />
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">
-          Pro Reflectionarian
-        </h2>
-        <p className="text-gray-600 mb-8 max-w-md mx-auto">
-          Unlock the most sophisticated AI companion with therapy-style
-          structured sessions, weekly reports, growth timeline reviews, and
-          exportable session logs.
-        </p>
-        <button className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition-all">
-          Upgrade to Premium
-        </button>
-      </div>
-    );
-  }
-
-  // ====================================================================
-  // MAIN RENDER
-  // ====================================================================
-
-  if (showOnboarding) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 py-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
-              Welcome to Pro Reflectionarian
-            </h1>
-            <p className="text-xl text-gray-600">
-              Let's personalize your AI companion for the deepest growth and
-              insight
-            </p>
-          </div>
-          <OnboardingFlow />
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center py-12 bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-8 max-w-md">
+          <Brain className="w-16 h-16 text-purple-400 mx-auto mb-6" />
+          <h2 className="text-2xl font-bold text-white mb-4">
+            Premium Reflectionarian
+          </h2>
+          <p className="text-gray-300 mb-8">
+            Unlock the most sophisticated AI companion with therapy-style
+            structured sessions, voice interactions, and personalized growth
+            tracking.
+          </p>
+          <button className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+            Upgrade to Premium
+          </button>
         </div>
       </div>
     );
   }
 
+  // ====================================================================
+  // ONBOARDING COMPONENT
+  // ====================================================================
+
+  if (showOnboarding) {
+    const currentQuestion = onboardingQuestions[onboardingStep];
+    const responses = {};
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+        <div className="w-full max-w-2xl">
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl p-8">
+            {/* Progress Bar */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-white">
+                  Personalize Your Experience
+                </h2>
+                <span className="text-sm text-gray-300">
+                  {onboardingStep + 1} of {onboardingQuestions.length}
+                </span>
+              </div>
+              <div className="w-full bg-white/10 rounded-full h-2">
+                <div
+                  className="bg-gradient-to-r from-purple-500 to-purple-400 h-2 rounded-full transition-all duration-300"
+                  style={{
+                    width: `${
+                      ((onboardingStep + 1) / onboardingQuestions.length) * 100
+                    }%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Question */}
+            <div className="mb-8">
+              <h3 className="text-xl font-semibold text-white mb-6">
+                {currentQuestion.question}
+              </h3>
+              <div className="space-y-3">
+                {currentQuestion.options.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      responses[currentQuestion.id] = option.value;
+
+                      if (onboardingStep < onboardingQuestions.length - 1) {
+                        setOnboardingStep(onboardingStep + 1);
+                      } else {
+                        // Save preferences and complete onboarding
+                        onboardingQuestions.forEach((q, idx) => {
+                          if (idx < onboardingStep) {
+                            responses[q.id] = q.options[0].value; // Default values for previous
+                          }
+                        });
+                        saveUserPreferences(responses);
+                      }
+                    }}
+                    className="w-full text-left p-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-purple-400 rounded-lg transition-all duration-200 group"
+                  >
+                    <span className="text-white group-hover:text-purple-300 transition-colors">
+                      {option.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Skip Button */}
+            {onboardingStep > 0 && (
+              <button
+                onClick={() => setOnboardingStep(onboardingStep - 1)}
+                className="text-gray-400 hover:text-white text-sm transition-colors"
+              >
+                ← Back
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ====================================================================
+  // MAIN CHAT INTERFACE
+  // ====================================================================
+
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="flex flex-col h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      {/* Animated Background Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-600/20 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-pink-600/20 rounded-full blur-3xl animate-pulse delay-1000" />
+      </div>
+
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="relative z-10 bg-white/10 backdrop-blur-xl border-b border-white/20 px-6 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-              <Brain className="w-6 h-6 text-white" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center shadow-lg">
+              <MessageCircle className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">
-                Pro Reflectionarian
+              <h1 className="text-xl font-bold text-white">
+                Premium Reflectionarian
               </h1>
-              <p className="text-sm text-gray-600">
-                {preferences?.therapy_approach} approach •{" "}
-                {preferences?.preferred_tone} tone
+              <p className="text-sm text-gray-300">
+                {preferences?.therapy_approach || "Your AI Therapy Companion"}
               </p>
             </div>
           </div>
 
-          {/* Pro Feature Tabs */}
-          <div className="flex items-center space-x-4">
-            <nav className="flex space-x-1 bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => setActiveProTab("chat")}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                  activeProTab === "chat"
-                    ? "bg-white text-purple-600 shadow-sm"
-                    : "text-gray-600 hover:text-purple-600"
-                }`}
-              >
-                <MessageCircle className="w-4 h-4 inline mr-1" />
-                Chat
-              </button>
-              <button
-                onClick={() => setActiveProTab("reports")}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                  activeProTab === "reports"
-                    ? "bg-white text-purple-600 shadow-sm"
-                    : "text-gray-600 hover:text-purple-600"
-                }`}
-              >
-                <FileText className="w-4 h-4 inline mr-1" />
-                Reports
-              </button>
-              <button
-                onClick={() => setActiveProTab("timeline")}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                  activeProTab === "timeline"
-                    ? "bg-white text-purple-600 shadow-sm"
-                    : "text-gray-600 hover:text-purple-600"
-                }`}
-              >
-                <TrendingUp className="w-4 h-4 inline mr-1" />
-                Timeline
-              </button>
-              <button
-                onClick={() => setActiveProTab("export")}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                  activeProTab === "export"
-                    ? "bg-white text-purple-600 shadow-sm"
-                    : "text-gray-600 hover:text-purple-600"
-                }`}
-              >
-                <Download className="w-4 h-4 inline mr-1" />
-                Export
-              </button>
-            </nav>
+          <div className="flex items-center gap-3">
+            {/* Premium Badge */}
+            <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-1.5 rounded-full text-sm font-medium shadow-lg">
+              Premium
+            </div>
 
+            {/* Audio Toggle */}
+            <button
+              onClick={toggleAudio}
+              className={`p-2 rounded-lg transition-colors ${
+                audioEnabled
+                  ? "bg-purple-600 text-white"
+                  : "bg-white/10 hover:bg-white/20 text-white"
+              }`}
+              title={audioEnabled ? "Disable voice" : "Enable voice"}
+            >
+              {audioEnabled ? (
+                <Volume2 className="w-5 h-5" />
+              ) : (
+                <VolumeX className="w-5 h-5" />
+              )}
+            </button>
+
+            {/* Settings */}
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
             >
-              <Settings className="w-5 h-5 text-gray-600" />
+              <Settings className="w-5 h-5" />
+            </button>
+
+            {/* New Session */}
+            <button
+              onClick={startNewSession}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors shadow-lg"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>New Session</span>
             </button>
           </div>
         </div>
+
+        {/* Pro Features Tabs */}
+        <div className="flex gap-2 mt-4 pb-2 overflow-x-auto">
+          {[
+            { id: "chat", label: "Conversation", icon: MessageCircle },
+            { id: "prompts", label: "Session Prompts", icon: Lightbulb },
+            { id: "goals", label: "Goal Tracking", icon: Target },
+            { id: "report", label: "Weekly Report", icon: FileText },
+            { id: "timeline", label: "Growth Timeline", icon: TrendingUp },
+            { id: "export", label: "Export Sessions", icon: Download },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveProTab(tab.id)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+                activeProTab === tab.id
+                  ? "bg-purple-600 text-white shadow-lg"
+                  : "bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              <span className="text-sm">{tab.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Content Area */}
-      <div className="flex-1 overflow-hidden flex">
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col">
-          {activeProTab === "chat" && (
-            <>
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {messages.map((message) => (
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-hidden relative z-10">
+        {activeProTab === "chat" ? (
+          <div className="flex flex-col h-full">
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {messages.length === 0 && (
+                <div className="text-center py-12">
+                  <Brain className="w-16 h-16 text-purple-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-white mb-2">
+                    Welcome to Your Therapy Session
+                  </h3>
+                  <p className="text-gray-300">
+                    Share what's on your mind. This is your safe space.
+                  </p>
+                </div>
+              )}
+
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${
+                    message.role === "user" ? "justify-end" : "justify-start"
+                  }`}
+                >
                   <div
-                    key={message.id}
-                    className={`flex ${
-                      message.role === "user" ? "justify-end" : "justify-start"
+                    className={`max-w-3xl p-4 rounded-2xl ${
+                      message.role === "user"
+                        ? "bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg"
+                        : "bg-white/10 backdrop-blur-md text-white border border-white/20"
                     }`}
                   >
-                    <div
-                      className={`max-w-3xl px-6 py-4 rounded-2xl ${
-                        message.role === "user"
-                          ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white"
-                          : message.isError
-                          ? "bg-red-50 border border-red-200 text-red-800"
-                          : "bg-white border border-gray-200 text-gray-900"
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                    <div className="mt-2 text-xs opacity-70">
+                      {message.timestamp.toLocaleTimeString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" />
+                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-100" />
+                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-200" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Input Area */}
+            <div className="p-6 bg-white/5 backdrop-blur-md border-t border-white/20">
+              <div className="flex gap-3">
+                {/* Voice Input Button */}
+                {audioEnabled && (
+                  <button
+                    onClick={handleVoiceInput}
+                    disabled={isProcessingResponse}
+                    className={`p-3 rounded-lg transition-all ${
+                      isListening
+                        ? "bg-red-600 hover:bg-red-700 animate-pulse"
+                        : "bg-white/10 hover:bg-white/20"
+                    } text-white disabled:opacity-50`}
+                    title={isListening ? "Stop recording" : "Start recording"}
+                  >
+                    <Mic
+                      className={`w-5 h-5 ${
+                        isListening ? "animate-pulse" : ""
                       }`}
-                    >
-                      <p className="whitespace-pre-wrap">{message.content}</p>
+                    />
+                  </button>
+                )}
 
-                      {/* Session Prompts */}
-                      {message.sessionPrompts?.length > 0 && (
-                        <div className="mt-4 pt-4 border-t border-gray-200">
-                          <p className="text-sm font-medium text-gray-700 mb-3">
-                            ✨ Journal prompts for deeper reflection:
-                          </p>
-                          <div className="space-y-2">
-                            {message.sessionPrompts.map((prompt, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => savePromptToJournal(prompt)}
-                                className="w-full text-left p-3 bg-purple-50 hover:bg-purple-100 rounded-lg text-sm text-purple-800 transition-colors flex items-center justify-between"
-                              >
-                                <span>"{prompt}"</span>
-                                <BookOpen className="w-4 h-4" />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Goal Suggestion */}
-                      {message.goalSuggestion && (
-                        <div className="mt-4 pt-4 border-t border-gray-200">
-                          <p className="text-sm font-medium text-gray-700 mb-2">
-                            🎯 Goal suggestion:
-                          </p>
-                          <div className="bg-blue-50 p-3 rounded-lg">
-                            <p className="text-sm text-blue-800 mb-3">
-                              "{message.goalSuggestion}"
-                            </p>
-                            <div className="flex space-x-2">
-                              <button
-                                onClick={() =>
-                                  handleGoalSuggestion(
-                                    "accept",
-                                    message.goalSuggestion
-                                  )
-                                }
-                                className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
-                              >
-                                Add to Goals
-                              </button>
-                              <button
-                                onClick={() => handleGoalSuggestion("dismiss")}
-                                className="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400 transition-colors"
-                              >
-                                Not now
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                {isLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-white border border-gray-200 px-6 py-4 rounded-2xl">
-                      <div className="flex items-center space-x-2">
-                        <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
-                        <span className="text-gray-600">
-                          Reflecting deeply...
-                        </span>
-                      </div>
-                    </div>
+                {/* Show current transcript while speaking */}
+                {isListening && currentTranscript && (
+                  <div className="absolute -top-12 left-0 right-0 bg-purple-600/90 backdrop-blur-sm rounded-lg px-3 py-1 text-sm text-white">
+                    {currentTranscript}
                   </div>
                 )}
 
-                <div ref={chatEndRef} />
-              </div>
-
-              {/* Message Input */}
-              <div className="border-t border-gray-200 p-6">
-                {/* End Conversation Buttons - Only show if there are messages */}
-                {messages.length > 0 && (
-                  <div className="flex justify-center space-x-4 mb-4">
-                    <button
-                      onClick={() => handleEndConversation(true)}
-                      disabled={isLoading}
-                      className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                    >
-                      <BookOpen className="w-4 h-4" />
-                      <span>End & Get Journaling Prompts</span>
-                    </button>
-                    <button
-                      onClick={() => handleEndConversation(false)}
-                      disabled={isLoading}
-                      className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      <span>End Conversation</span>
-                    </button>
-                  </div>
-                )}
-
-                <div className="flex space-x-4">
+                {/* Text Input */}
+                <div className="flex-1 relative">
                   <textarea
                     ref={messageInputRef}
                     value={currentMessage}
                     onChange={(e) => setCurrentMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Share what's on your mind for deep exploration..."
-                    className="flex-1 resize-none border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                      }
+                    }}
+                    placeholder="Share what's on your mind..."
+                    className="w-full p-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg text-white placeholder-gray-400 resize-none focus:outline-none focus:border-purple-400 transition-colors"
                     rows="3"
-                    disabled={isLoading}
                   />
-                  <button
-                    onClick={sendMessage}
-                    disabled={!currentMessage.trim() || isLoading}
-                    className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                  >
-                    <Send className="w-5 h-5" />
-                  </button>
                 </div>
+
+                {/* Send Button */}
+                <button
+                  onClick={sendMessage}
+                  disabled={!currentMessage.trim() || isLoading}
+                  className="p-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:opacity-50 text-white rounded-lg transition-all shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none"
+                >
+                  <Send className="w-5 h-5" />
+                </button>
               </div>
-            </>
-          )}
 
-          {activeProTab === "reports" && (
-            <div className="flex-1 overflow-y-auto p-6">
-              <WeeklyReportView
-                report={{
-                  weekOf: new Date().toLocaleDateString(),
-                  totalSessions: 7,
-                  mainThemes: [
-                    "Self-compassion",
-                    "Work stress",
-                    "Relationships",
-                  ],
-                  insights: [
-                    "You've shown increased awareness of your inner dialogue this week",
-                    "Your approach to work challenges has become more strategic",
-                    "You're developing stronger boundaries in relationships",
-                  ],
-                  recommendedActions: [
-                    "Continue practicing the mindfulness techniques we discussed",
-                    "Consider scheduling regular check-ins with yourself",
-                    "Explore the connection between your values and daily choices",
-                  ],
-                }}
-              />
-            </div>
-          )}
-
-          {activeProTab === "timeline" && (
-            <div className="flex-1 overflow-y-auto p-6">
-              <GrowthTimelineView
-                timeline={[
-                  {
-                    date: "2025-06-01",
-                    milestone: "Started Pro Reflectionarian",
-                    insight:
-                      "Began exploring CBT-style approaches to thought patterns",
-                  },
-                  {
-                    date: "2025-06-08",
-                    milestone: "Self-Compassion Breakthrough",
-                    insight:
-                      "Recognized tendency toward self-criticism and developed counter-strategies",
-                  },
-                  {
-                    date: "2025-06-15",
-                    milestone: "Values Clarification",
-                    insight:
-                      "Identified core values and began aligning daily actions with them",
-                  },
-                ]}
-              />
-            </div>
-          )}
-
-          {activeProTab === "export" && (
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="bg-white rounded-xl shadow-lg p-6 max-w-2xl mx-auto">
-                <h3 className="text-xl font-bold text-gray-900 mb-6">
-                  Export Session Logs
-                </h3>
-
-                <div className="space-y-4">
-                  <p className="text-gray-600">
-                    Export your complete Reflectionarian conversation history
-                    and insights for personal records or sharing with your
-                    healthcare provider.
-                  </p>
-
-                  <div className="border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-900 mb-2">
-                      Export Includes:
-                    </h4>
-                    <ul className="space-y-1 text-gray-600">
-                      <li className="flex items-center space-x-2">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>Complete conversation history</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>Session summaries and insights</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>Therapy approach preferences</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>Goal suggestions and actions taken</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>Weekly reports and growth timeline</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="flex space-x-3">
+              {/* Session Prompts (if any) */}
+              {sessionPrompts.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="text-sm text-gray-400">Suggested:</span>
+                  {sessionPrompts.map((prompt, idx) => (
                     <button
-                      onClick={() => exportSessionLogs("json")}
-                      className="flex-1 bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors flex items-center justify-center space-x-2"
+                      key={idx}
+                      onClick={() => setCurrentMessage(prompt)}
+                      className="text-sm px-3 py-1 bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white rounded-full transition-colors"
                     >
-                      <Download className="w-4 h-4" />
-                      <span>Export as JSON</span>
+                      {prompt}
                     </button>
-                    <button
-                      onClick={() => exportSessionLogs("csv")}
-                      className="flex-1 bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>Export as CSV</span>
-                    </button>
-                  </div>
-
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <p className="text-sm text-yellow-800">
-                      <strong>Privacy Note:</strong> Exported data contains your
-                      personal conversations. Please handle with care and store
-                      securely.
-                    </p>
-                  </div>
+                  ))}
                 </div>
-              </div>
+              )}
             </div>
-          )}
-        </div>
-
-        {/* Settings Sidebar */}
-        {showSettings && (
-          <div className="w-80 bg-white border-l border-gray-200 p-6">
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Your Pro Preferences
-                </h3>
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <span className="font-medium text-gray-700">
-                      Therapy Approach:
-                    </span>
-                    <span className="ml-2 text-gray-600">
-                      {preferences?.therapy_approach}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-700">
-                      Preferred Tone:
-                    </span>
-                    <span className="ml-2 text-gray-600">
-                      {preferences?.preferred_tone}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-700">Focus:</span>
-                    <span className="ml-2 text-gray-600">
-                      {preferences?.tips_vs_reflection}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-700">
-                      Support Style:
-                    </span>
-                    <span className="ml-2 text-gray-600">
-                      {preferences?.struggle_support}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowOnboarding(true)}
-                className="w-full px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
-              >
-                Update Preferences
-              </button>
-
-              <div className="pt-4 border-t border-gray-200">
-                <h4 className="font-medium text-gray-900 mb-2">Pro Features</h4>
-                <div className="space-y-2 text-sm text-gray-600">
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span>Therapy-style structured sessions</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span>Weekly reflection reports</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span>Growth timeline review</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span>Exportable session logs</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span>Full preference management</span>
-                  </div>
-                </div>
-              </div>
+          </div>
+        ) : (
+          // Other tabs content (placeholder for now)
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <Sparkles className="w-16 h-16 text-purple-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-white mb-2">
+                {activeProTab === "prompts" && "Session Prompts"}
+                {activeProTab === "goals" && "Goal Tracking"}
+                {activeProTab === "report" && "Weekly Reports"}
+                {activeProTab === "timeline" && "Growth Timeline"}
+                {activeProTab === "export" && "Export Sessions"}
+              </h3>
+              <p className="text-gray-300">This feature is coming soon...</p>
             </div>
           </div>
         )}
@@ -1471,4 +850,4 @@ const ProReflectionarian = () => {
   );
 };
 
-export default ProReflectionarian;
+export default PremiumReflectionarian;
