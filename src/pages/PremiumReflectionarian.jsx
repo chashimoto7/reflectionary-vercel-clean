@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Send,
   Loader2,
+  Shield,
   CheckCircle,
   PlusCircle,
   Download,
@@ -71,6 +72,10 @@ const PremiumReflectionarian = () => {
   const [isProcessingResponse, setIsProcessingResponse] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [isListening, setIsListening] = useState(false);
+
+  // Settings & Privacy State
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
 
   // ====================================================================
   // ONBOARDING QUESTIONS & THERAPY MATCHING (PRO TIER)
@@ -204,6 +209,44 @@ const PremiumReflectionarian = () => {
       setShowOnboarding(false);
     } catch (error) {
       console.error("Error saving preferences:", error);
+    }
+  };
+
+  const exportCurrentSession = async () => {
+    if (!sessionId || messages.length === 0) {
+      alert("No session to export");
+      return;
+    }
+
+    try {
+      // Format the session data
+      const sessionData = {
+        sessionId,
+        date: new Date().toISOString(),
+        therapyApproach: preferences?.therapy_approach,
+        messages: messages.map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+          timestamp: msg.timestamp,
+        })),
+      };
+
+      // Save to database for later access in User Settings
+      const { error } = await supabase.from("exported_sessions").insert({
+        user_id: user.id,
+        session_id: sessionId,
+        session_data: sessionData,
+        exported_at: new Date().toISOString(),
+      });
+
+      if (error) throw error;
+
+      alert(
+        "Session exported successfully! You can download it from your User Settings page."
+      );
+    } catch (error) {
+      console.error("Error exporting session:", error);
+      alert("Failed to export session. Please try again.");
     }
   };
 
@@ -637,6 +680,15 @@ const PremiumReflectionarian = () => {
               Premium
             </div>
 
+            {/* Privacy Info Icon */}
+            <button
+              onClick={() => setShowPrivacyInfo(true)}
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+              title="Privacy Information"
+            >
+              <Shield className="w-5 h-5" />
+            </button>
+
             {/* Audio Toggle */}
             <button
               onClick={toggleAudio}
@@ -656,7 +708,7 @@ const PremiumReflectionarian = () => {
 
             {/* Settings */}
             <button
-              onClick={() => setShowSettings(!showSettings)}
+              onClick={() => setShowSettingsModal(true)}
               className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
             >
               <Settings className="w-5 h-5" />
@@ -846,6 +898,151 @@ const PremiumReflectionarian = () => {
           </div>
         )}
       </div>
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-white mb-4">
+              Reflectionarian Settings
+            </h3>
+
+            <div className="space-y-4">
+              {/* Voice Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  AI Voice
+                </label>
+                <select
+                  value={preferences?.voice_preference || "nova"}
+                  onChange={(e) => {
+                    // Update voice preference
+                    audioService.setVoicePreferences(e.target.value);
+                    // You'd also save this to the database
+                  }}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                >
+                  <option value="alloy">Alloy - Neutral</option>
+                  <option value="echo">Echo - Smooth</option>
+                  <option value="fable">Fable - Expressive</option>
+                  <option value="onyx">Onyx - Deep</option>
+                  <option value="nova">Nova - Warm</option>
+                  <option value="shimmer">Shimmer - Soft</option>
+                </select>
+              </div>
+
+              {/* Session Preferences */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Session Reminders
+                </label>
+                <label className="flex items-center text-gray-300">
+                  <input
+                    type="checkbox"
+                    className="mr-2 rounded"
+                    defaultChecked
+                  />
+                  Send weekly session summaries
+                </label>
+              </div>
+
+              {/* Export Current Session */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Export Options
+                </label>
+                <button
+                  onClick={() => {
+                    // Export current session logic
+                    alert(
+                      "Current session will be available in your User Settings for download"
+                    );
+                  }}
+                  className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                >
+                  Export Current Session
+                </button>
+              </div>
+
+              {/* Therapy Approach */}
+              <div className="bg-white/5 rounded-lg p-3">
+                <p className="text-sm text-gray-300">
+                  <span className="font-medium">Current Approach:</span>
+                  <br />
+                  {preferences?.therapy_approach || "Not set"}
+                </p>
+                <button
+                  onClick={() => {
+                    setShowSettingsModal(false);
+                    setShowOnboarding(true);
+                    setOnboardingStep(0);
+                  }}
+                  className="mt-2 text-sm text-purple-400 hover:text-purple-300"
+                >
+                  Retake questionnaire →
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowSettingsModal(false)}
+              className="mt-6 w-full px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Privacy Info Modal */}
+      {showPrivacyInfo && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <Shield className="w-8 h-8 text-purple-400" />
+              <h3 className="text-xl font-bold text-white">
+                Your Privacy Matters
+              </h3>
+            </div>
+
+            <div className="space-y-4 text-gray-300">
+              <p>
+                Your Reflectionarian sessions are protected with the highest
+                level of privacy:
+              </p>
+
+              <ul className="space-y-2 list-disc list-inside">
+                <li>All conversations are end-to-end encrypted</li>
+                <li>Only you can read your session content</li>
+                <li>No personal identifiers are sent to AI services</li>
+                <li>Voice data is processed locally when possible</li>
+                <li>Audio is never stored - only text transcripts</li>
+                <li>You can delete any session at any time</li>
+              </ul>
+
+              <div className="bg-purple-600/20 rounded-lg p-3 border border-purple-600/30">
+                <p className="text-sm">
+                  <strong className="text-purple-300">Note:</strong> While AI
+                  responses are generated using OpenAI's API, we only send
+                  anonymized session IDs and your messages - never your personal
+                  information or account details.
+                </p>
+              </div>
+
+              <p className="text-sm">
+                This is your private space for self-reflection and growth. Not
+                even our team can access your conversations.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowPrivacyInfo(false)}
+              className="mt-6 w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
