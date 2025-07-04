@@ -21,6 +21,16 @@ import {
   Zap,
 } from "lucide-react";
 
+import logo from "../assets/BrightReflectionarySquare.svg";
+
+const ReflectionaryLogo = ({ className }) => (
+  <img
+    src={logo}
+    alt="Reflectionary"
+    className={`object-contain ${className}`}
+  />
+);
+
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -177,7 +187,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Brain className="h-8 w-8 text-purple-400" />
+              <ReflectionaryLogo className="h-10 w-10" />
               <span className="ml-2 text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                 Reflectionary
               </span>
@@ -285,9 +295,9 @@ export default function LandingPage() {
               {/* Main Logo */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="relative">
-                  <Brain className="w-32 h-32 text-purple-400" />
-                  <div className="absolute inset-0 animate-pulse">
-                    <Brain className="w-32 h-32 text-purple-300 opacity-50" />
+                  <ReflectionaryLogo className="w-48 h-48 drop-shadow-2xl" />
+                  <div className="absolute inset-0 flex items-center justify-center animate-pulse">
+                    <ReflectionaryLogo className="w-48 h-48 opacity-50 blur-sm" />
                   </div>
                 </div>
               </div>
@@ -295,7 +305,7 @@ export default function LandingPage() {
               {/* Water Reflection */}
               <div className="absolute top-full left-0 right-0 h-32 overflow-hidden opacity-30">
                 <div className="relative transform scale-y-[-1]">
-                  <Brain className="w-32 h-32 text-purple-400 mx-auto" />
+                  <ReflectionaryLogo className="w-48 h-48 mx-auto" />
                   {/* Ripple Effect */}
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent via-purple-900/50 to-purple-900"></div>
                   <div
@@ -536,7 +546,7 @@ export default function LandingPage() {
       <footer className="py-12 px-4 sm:px-6 lg:px-8 border-t border-white/10">
         <div className="max-w-7xl mx-auto text-center">
           <div className="flex items-center justify-center mb-4">
-            <Brain className="h-8 w-8 text-purple-400" />
+            <ReflectionaryLogo className="h-10 w-10" />
             <span className="ml-2 text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
               Reflectionary
             </span>
