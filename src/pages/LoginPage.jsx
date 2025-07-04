@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
 import { Eye, EyeOff, Lock, ChevronLeft, Sparkles } from "lucide-react";
-import logo from "../assets/BrightReflectionarySquare.svg";
+import logo from "../assets/BrightReflectionaryHorizontal.svg";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -66,7 +66,7 @@ export default function LoginPage() {
               className="mx-auto mb-4 max-w-xs w-full h-auto"
             />
             <p className="text-gray-300">
-              Welcome back to your private journal
+              Welcome back to your personal journaling and wellness app
             </p>
           </div>
 

@@ -12,7 +12,7 @@ import {
   Crown,
   Sparkles,
 } from "lucide-react";
-import logo from "../assets/BrightReflectionarySquare.svg";
+import logo from "../assets/BrightReflectionaryHorizontal.svg";
 
 // Define subscription plans
 const SUBSCRIPTION_PLANS = {
@@ -20,82 +20,83 @@ const SUBSCRIPTION_PLANS = {
     name: "Free",
     price: 0,
     billing: "forever",
-    features: [
-      "Daily journaling",
-      "Basic prompts",
-      "7-day history",
-      "End-to-end encryption",
-    ],
+    features: ["Basic Journaling", "Basic History", "Crisis detection"],
     description: "Start your journey",
     icon: "✨",
     popular: false,
   },
   basic: {
     name: "Basic",
-    price: 4.99,
+    price: 8,
     billing: "month",
     features: [
-      "Unlimited journaling",
-      "AI-powered prompts",
-      "Full history access",
-      "Export entries",
-      "Follow-up questions",
+      "Basic Journaling",
+      "Basic History",
+      "Basic Analytics",
+      "Basic Women's Health",
+      "Crisis Detection",
     ],
-    description: "For regular journalers",
+    description: "Essential features",
     icon: "📝",
     popular: false,
-    yearlyPrice: 49,
+    yearlyPrice: 80, // Pay for 10 months
   },
   standard: {
     name: "Standard",
-    price: 9.99,
+    price: 18,
     billing: "month",
     features: [
-      "Everything in Basic",
-      "Advanced analytics",
-      "Goal tracking",
-      "Mood tracking",
-      "Priority support",
+      "Standard Journaling",
+      "Standard History",
+      "Standard Analytics",
+      "Standard Goals",
+      "Standard Wellness",
+      "Standard Women's Health",
+      "Standard Reflectionarian",
+      "Crisis Detection",
     ],
     description: "Most popular choice",
     icon: "⭐",
     popular: true,
-    yearlyPrice: 99,
+    yearlyPrice: 180, // Pay for 10 months
+  },
+  advanced: {
+    name: "Advanced",
+    price: 28,
+    billing: "month",
+    features: [
+      "Advanced Journaling",
+      "Advanced History",
+      "Advanced Analytics",
+      "Advanced Goals",
+      "Advanced Wellness",
+      "Advanced Women's Health",
+      "Advanced Reflectionarian",
+      "Crisis Detection",
+    ],
+    description: "Power user features",
+    icon: "🚀",
+    popular: false,
+    yearlyPrice: 280, // Pay for 10 months
   },
   premium: {
     name: "Premium",
-    price: 19.99,
+    price: 38,
     billing: "month",
     features: [
-      "Everything in Standard",
-      "The Reflectionarian AI",
-      "Women's health tracking",
-      "Voice journaling",
-      "Wellness insights",
-      "1-on-1 support",
+      "Premium Journaling",
+      "Premium History",
+      "Premium Analytics",
+      "Premium Goals",
+      "Premium Wellness",
+      "Premium Women's Health",
+      "Premium Reflectionarian",
+      "Crisis Detection",
     ],
     description: "Complete wellness suite",
     icon: "👑",
     popular: false,
-    yearlyPrice: 199,
-  },
-  vip: {
-    name: "VIP",
-    price: 39.99,
-    billing: "month",
-    features: [
-      "Everything in Premium",
-      "White-glove onboarding",
-      "Custom AI training",
-      "Growth timeline reviews",
-      "Personalized content recommendations",
-      "Priority feature requests",
-      "1-on-1 setup consultation",
-    ],
-    description: "Superfans & Deep Growers",
-    icon: "🏆",
-    popular: false,
-    yearlyPrice: 350,
+    yearlyPrice: 380, // Pay for 10 months
   },
 };
 
@@ -305,16 +306,11 @@ export default function SignupPage() {
 
             {/* Plan Cards - Properly Centered */}
             <div className="flex justify-center">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 max-w-7xl">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 max-w-6xl">
                 {Object.entries(SUBSCRIPTION_PLANS).map(([key, plan]) => {
-                  const price =
-                    isAnnual && plan.yearlyPrice
-                      ? Math.floor(plan.yearlyPrice / 12)
-                      : plan.price;
-                  const savings =
-                    isAnnual && plan.yearlyPrice
-                      ? plan.price * 12 - plan.yearlyPrice
-                      : 0;
+                  const monthlyTotal = plan.price * 12;
+                  const yearlyPrice = plan.yearlyPrice || 0;
+                  const savings = monthlyTotal - yearlyPrice;
 
                   return (
                     <div
@@ -352,22 +348,22 @@ export default function SignupPage() {
                               $
                             </span>
                             <span className="text-4xl font-bold text-white">
-                              {price}
+                              {isAnnual && plan.yearlyPrice
+                                ? Math.floor(plan.yearlyPrice / 12)
+                                : plan.price}
                             </span>
                             {key !== "free" && (
-                              <span className="text-gray-300 ml-1">
-                                /{isAnnual ? "mo" : plan.billing}
-                              </span>
+                              <span className="text-gray-300 ml-1">/mo</span>
                             )}
                           </div>
-                          {isAnnual && key !== "free" && (
+                          {isAnnual && key !== "free" && plan.yearlyPrice && (
                             <div className="text-sm text-gray-300 mt-1">
                               ${plan.yearlyPrice}/year
                             </div>
                           )}
-                          {savings > 0 && (
+                          {isAnnual && savings > 0 && (
                             <div className="text-xs text-green-400 font-medium mt-1">
-                              Save ${savings}!
+                              Save ${savings} (2 months free!)
                             </div>
                           )}
                           <p className="text-xs text-gray-400 mt-2">
