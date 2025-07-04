@@ -62,7 +62,7 @@ const PredictiveAnalyticsTab = ({ data, colors }) => {
           <select
             value={selectedPrediction}
             onChange={(e) => setSelectedPrediction(e.target.value)}
-            className="px-4 py-2 backdrop-blur-xl bg-white/10 border border-white/20 rounded-lg text-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="px-4 py-2 backdrop-blur-xl bg-white/10 border border-white/20 rounded-lg text-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-300"
           >
             <option value="7days">Next 7 Days</option>
             <option value="30days">Next 30 Days</option>
@@ -86,7 +86,7 @@ const PredictiveAnalyticsTab = ({ data, colors }) => {
       {/* Primary Predictions Chart */}
       <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-6">
         <h4 className="text-lg font-semibold text-purple-100 mb-4 flex items-center gap-2">
-          <Telescope className="w-5 h-5 text-purple-400" />
+          <Telescope className="w-5 h-5 text-purple-300" />
           Multi-Feature Predictions
         </h4>
         <ResponsiveContainer width="100%" height={400}>

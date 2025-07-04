@@ -62,7 +62,7 @@ const EmotionalIntelligenceTab = ({ data, colors }) => {
           <h3 className="text-xl font-semibold text-purple-100 mb-1">
             Emotional Intelligence Dashboard
           </h3>
-          <p className="text-sm text-purple-300">
+          <p className="text-sm text-purple-250">
             Deep insights into your emotional patterns and growth
           </p>
         </div>
@@ -98,7 +98,7 @@ const EmotionalIntelligenceTab = ({ data, colors }) => {
                   cx="64"
                   cy="64"
                   r="56"
-                  stroke={colors.purple}
+                  stroke="DDD6FE"
                   strokeWidth="12"
                   fill="none"
                   strokeDasharray={`${2 * Math.PI * 56 * 0.85} ${
@@ -110,20 +110,16 @@ const EmotionalIntelligenceTab = ({ data, colors }) => {
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-3xl font-bold text-purple-100">85</span>
-                <span className="text-xs text-purple-300">EQ Score</span>
+                <span className="text-xs text-purple-200">EQ Score</span>
               </div>
             </div>
-            <p className="mt-3 text-sm text-purple-200">
+            <p className="mt-3 text-sm text-purple-150">
               Overall Emotional Intelligence
             </p>
           </div>
 
           <div className="md:col-span-2 space-y-3">
-            <ScoreItem
-              label="Self-Awareness"
-              score={88}
-              color={colors.purple}
-            />
+            <ScoreItem label="Self-Awareness" score={88} color="DDD6FE" />
             <ScoreItem label="Self-Regulation" score={82} color={colors.pink} />
             <ScoreItem
               label="Emotional Expression"
@@ -148,25 +144,19 @@ const EmotionalIntelligenceTab = ({ data, colors }) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-6">
           <h4 className="text-lg font-semibold text-purple-100 mb-4 flex items-center gap-2">
-            <Brain className="w-5 h-5 text-purple-400" />
+            <Brain className="w-5 h-5 text-purple-300" />
             Emotional Components Analysis
           </h4>
           <ResponsiveContainer width="100%" height={300}>
             <RadarChart data={emotionalProfile}>
-              <PolarGrid stroke="rgba(255,255,255,0.1)" />
-              <PolarAngleAxis
-                dataKey="component"
-                tick={{ fill: colors.purple, fontSize: 12 }}
-              />
-              <PolarRadiusAxis
-                domain={[0, 100]}
-                tick={{ fill: colors.purple }}
-              />
+              <PolarGrid stroke="rgba(255,255,255,0.2)" />
+              dataKey="component" tick={{ fill: "#FFFFFF", fontSize: 12 }}
+              <PolarRadiusAxis domain={[0, 100]} tick={{ fill: "FFFFFF" }} />
               <Radar
                 name="Current"
                 dataKey="current"
-                stroke={colors.purple}
-                fill={colors.purple}
+                stroke="#E9D5FF"
+                fill="#DDD6FE"
                 fillOpacity={0.3}
                 strokeWidth={2}
               />
@@ -186,7 +176,7 @@ const EmotionalIntelligenceTab = ({ data, colors }) => {
         {/* Emotion Distribution */}
         <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-6">
           <h4 className="text-lg font-semibold text-purple-100 mb-4 flex items-center gap-2">
-            <Heart className="w-5 h-5 text-purple-400" />
+            <Heart className="w-5 h-5 text-purple-300" />
             Emotion Distribution
           </h4>
           <ResponsiveContainer width="100%" height={300}>
@@ -232,7 +222,7 @@ const EmotionalIntelligenceTab = ({ data, colors }) => {
       {/* Emotion Trends Over Time */}
       <div className="backdrop-blur-xl bg-white/5 rounded-xl border border-white/10 p-6">
         <h4 className="text-lg font-semibold text-purple-100 mb-4 flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-purple-400" />
+          <TrendingUp className="w-5 h-5 text-purple-250" />
           Emotional Journey Timeline
         </h4>
         <ResponsiveContainer width="100%" height={350}>
@@ -257,14 +247,15 @@ const EmotionalIntelligenceTab = ({ data, colors }) => {
             </defs>
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke="rgba(255,255,255,0.1)"
+              stroke="rgba(255,255,255,0.2)"
             />
+
             <XAxis
               dataKey="date"
               stroke={colors.purple}
-              tick={{ fill: colors.purple }}
+              tick={{ fill: "#FFFFFF" }}
             />
-            <YAxis stroke={colors.purple} tick={{ fill: colors.purple }} />
+            <YAxis stroke={colors.purple} tick={{ fill: "#FFFFFF" }} />
             <Tooltip
               contentStyle={{
                 backgroundColor: "rgba(0,0,0,0.8)",
