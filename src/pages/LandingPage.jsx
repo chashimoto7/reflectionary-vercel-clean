@@ -21,14 +21,14 @@ import {
   Zap,
 } from "lucide-react";
 
-import logo from "../assets/BrightReflectionarySquare.svg";
-
+// Logo Component - Replace this with your actual logo when implementing
 const ReflectionaryLogo = ({ className }) => (
-  <img
-    src={logo}
-    alt="Reflectionary"
-    className={`object-contain ${className}`}
-  />
+  <div className={`relative ${className}`}>
+    <Brain className="w-full h-full text-purple-400" />
+    {/* In your actual app, replace this div with:
+        <img src={logo} alt="Reflectionary" className="w-full h-full object-contain" />
+    */}
+  </div>
 );
 
 export default function LandingPage() {
@@ -172,9 +172,24 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white overflow-hidden relative">
-      {/* Animated Background */}
-      <div className="fixed inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/30 to-pink-600/20 animate-pulse"></div>
-      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-purple-600/20 via-transparent to-transparent"></div>
+      {/* Video Background - Replace 'your-video.mp4' with your actual video file */}
+      <div className="fixed inset-0 z-0">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src="/public/preview.mp4" type="video/mp4" />
+          {/* Fallback for browsers that don't support video */}
+          Your browser does not support the video tag.
+        </video>
+      </div>
+
+      {/* Original Animated Background as Fallback */}
+      <div className="fixed inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/30 to-pink-600/20 animate-pulse -z-10"></div>
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-purple-600/20 via-transparent to-transparent -z-10"></div>
 
       {/* Navigation */}
       <nav
