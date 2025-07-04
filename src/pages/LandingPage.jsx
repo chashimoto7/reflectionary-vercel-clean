@@ -20,15 +20,16 @@ import {
   Eye,
   Zap,
 } from "lucide-react";
+import horizontalLogo from "../assets/BrightReflectionaryHorizontal.svg";
+import squareLogo from "../assets/BrightReflectionarySquare.svg";
 
 // Logo Component - Replace this with your actual logo when implementing
-const ReflectionaryLogo = ({ className }) => (
-  <div className={`relative ${className}`}>
-    <Brain className="w-full h-full text-purple-400" />
-    {/* In your actual app, replace this div with:
-        <img src={logo} alt="Reflectionary" className="w-full h-full object-contain" />
-    */}
-  </div>
+const ReflectionaryLogo = ({ className, variant = "horizontal" }) => (
+  <img
+    src={variant === "square" ? squareLogo : horizontalLogo}
+    alt="Reflectionary"
+    className={className}
+  />
 );
 
 export default function LandingPage() {
@@ -100,49 +101,71 @@ export default function LandingPage() {
     {
       name: "Free",
       price: "$0",
-      features: [
-        "3 journal entries per week",
-        "Basic mood tracking",
-        "Simple insights",
-        "Data export",
-      ],
+      features: ["Basic Journaling", "Basic History", "Crisis detection"],
       cta: "Start Free",
       popular: false,
     },
     {
       name: "Basic",
-      price: "$4.99",
+      price: "$8",
+      yearlyPrice: "$100",
       features: [
-        "Unlimited journal entries",
-        "Advanced mood tracking",
-        "Weekly AI insights",
-        "Priority support",
+        "Basic Journaling",
+        "Basic History",
+        "Basic Analytics",
+        "Basic Women's Health",
+        "Crisis Detection",
       ],
       cta: "Go Basic",
       popular: false,
     },
     {
       name: "Standard",
-      price: "$9.99",
+      price: "$18",
+      yearlyPrice: "$180",
       features: [
-        "Everything in Basic",
-        "Goal tracking system",
-        "Wellness correlations",
-        "Custom prompts",
-        "Advanced analytics",
+        "Standard Journaling",
+        "Standard History",
+        "Standard Analytics",
+        "Standard Goals",
+        "Standard Wellness",
+        "Standard Women's Health",
+        "Standard Reflectionarian",
+        "Crisis Detection",
       ],
       cta: "Go Standard",
       popular: true,
     },
     {
-      name: "Premium",
-      price: "$19.99",
+      name: "Advanced",
+      price: "$28",
+      yearlyPrice: "$280",
       features: [
-        "Everything in Standard",
-        "Women's health tracking",
-        "AI companion chat",
-        "Professional therapy tools",
-        "API access",
+        "Advanced Journaling",
+        "Advanced History",
+        "Advanced Analytics",
+        "Advanced Goals",
+        "Advanced Wellness",
+        "Advanced Women's Health",
+        "Advanced Reflectionarian",
+        "Crisis Detection",
+      ],
+      cta: "Go Advanced",
+      popular: false,
+    },
+    {
+      name: "Premium",
+      price: "$38",
+      yearlyPrice: "$380",
+      features: [
+        "Premium Journaling",
+        "Premium History",
+        "Premium Analytics",
+        "Premium Goals",
+        "Premium Wellness",
+        "Premium Women's Health",
+        "Premium Reflectionarian",
+        "Crisis Detection",
       ],
       cta: "Go Premium",
       popular: false,
@@ -151,22 +174,38 @@ export default function LandingPage() {
 
   const demoPersonas = [
     {
-      name: "Sarah Chen",
-      role: "Working Professional",
-      description: "Balancing career growth with personal wellness",
+      name: "Emma Chen",
+      age: 24,
+      role: "Young Professional",
+      description: "Balancing career growth with personal development",
+      membership: "Basic",
       color: "from-purple-600 to-pink-600",
     },
     {
-      name: "Maria Rodriguez",
-      role: "New Mother",
-      description: "Navigating postpartum wellness and self-care",
+      name: "Marcus Rodriguez",
+      age: 34,
+      role: "IT Project Manager",
+      description:
+        "Managing personal and professional responsibilities with a young family",
+      membership: "Standard",
+      color: "from-blue-600 to-purple-600",
+    },
+    {
+      name: "Priya Patel",
+      age: 30,
+      role: "Corporate Executive",
+      description: "High achiever working to manage perfectionism and anxiety",
+      membership: "Advanced",
       color: "from-pink-600 to-red-600",
     },
     {
-      name: "Alex Thompson",
-      role: "Student",
-      description: "Managing academic stress and mental health",
-      color: "from-blue-600 to-purple-600",
+      name: "Sarah Mitchell",
+      age: 42,
+      role: "Physiotherapist",
+      description:
+        "Recently divorced, navigating co-parenting with two teenagers",
+      membership: "Premium",
+      color: "from-green-600 to-blue-600",
     },
   ];
 
@@ -187,7 +226,7 @@ export default function LandingPage() {
         </video>
 
         {/* Overlay to darken/tint the video */}
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900/70 via-purple-900/70 to-slate-900/70"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-800/70 via-purple-800/70 to-slate-700/70"></div>
 
         {/* Additional gradient overlay for depth */}
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/30 to-pink-600/20"></div>
@@ -208,10 +247,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <ReflectionaryLogo className="h-10 w-10" />
-              <span className="ml-2 text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                Reflectionary
-              </span>
+              <ReflectionaryLogo className="h-12 w-auto" variant="horizontal" />
             </div>
 
             {/* Desktop Navigation */}
@@ -307,53 +343,18 @@ export default function LandingPage() {
         </div>
       )}
 
-      {/* Hero Section with Water Reflection */}
+      {/* Hero Section */}
       <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center">
-            {/* Logo with Water Reflection Effect */}
-            <div className="relative mx-auto mb-8 w-64 h-64">
-              {/* Main Logo */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="relative">
-                  <ReflectionaryLogo className="w-48 h-48 drop-shadow-2xl" />
-                  <div className="absolute inset-0 flex items-center justify-center animate-pulse">
-                    <ReflectionaryLogo className="w-48 h-48 opacity-50 blur-sm" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Water Reflection */}
-              <div className="absolute top-full left-0 right-0 h-32 overflow-hidden opacity-30">
-                <div className="relative transform scale-y-[-1]">
-                  <ReflectionaryLogo className="w-48 h-48 mx-auto" />
-                  {/* Ripple Effect */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent via-purple-900/50 to-purple-900"></div>
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      background:
-                        "repeating-linear-gradient(to right, transparent, transparent 10px, rgba(168, 85, 247, 0.2) 10px, rgba(168, 85, 247, 0.2) 20px)",
-                      animation: "ripple 3s linear infinite",
-                    }}
-                  ></div>
-                </div>
-              </div>
+            {/* Main Logo */}
+            <div className="mb-12">
+              <ReflectionaryLogo
+                className="h-32 w-auto mx-auto"
+                variant="horizontal"
+              />
             </div>
 
-            <h1
-              className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent"
-              style={{
-                backgroundSize: "200% 200%",
-                animation: "gradient 6s ease infinite",
-              }}
-            >
-              Reflectionary
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-300 mb-4">
-              Say what you feel.{" "}
-              <span className="text-pink-400">Discover what it means.</span>
-            </p>
             <p className="text-lg text-gray-400 mb-8 max-w-2xl mx-auto">
               Your private AI-powered journal for deeper self-awareness,
               emotional intelligence, and personal growth.
@@ -423,18 +424,18 @@ export default function LandingPage() {
               return (
                 <div
                   key={index}
-                  className="group relative backdrop-blur-xl bg-white/5 rounded-2xl p-8 border border-white/10 hover:border-white/20 transition-all duration-300 hover:transform hover:-translate-y-1"
+                  className="group relative backdrop-blur-xl bg-white/5 rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 hover:transform hover:-translate-y-1"
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-pink-600/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div
-                    className={`inline-flex p-3 bg-gradient-to-br ${feature.gradient} rounded-lg text-white mb-4`}
-                  >
-                    <Icon className="h-6 w-6" />
+                  <div className="flex items-center gap-3 mb-3">
+                    <div
+                      className={`inline-flex p-2 bg-gradient-to-br ${feature.gradient} rounded-lg text-white`}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <h3 className="text-lg font-semibold">{feature.title}</h3>
                   </div>
-                  <h3 className="text-xl font-semibold mb-3">
-                    {feature.title}
-                  </h3>
-                  <p className="text-gray-400">{feature.description}</p>
+                  <p className="text-gray-400 text-sm">{feature.description}</p>
                 </div>
               );
             })}
@@ -457,7 +458,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 mb-12">
+          <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-8 mb-12">
             {demoPersonas.map((persona, index) => (
               <div
                 key={index}
@@ -468,19 +469,29 @@ export default function LandingPage() {
                   className={`absolute inset-0 bg-gradient-to-br ${persona.color} rounded-2xl opacity-10 group-hover:opacity-20 transition-opacity`}
                 />
                 <div className="relative">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 mb-4 flex items-center justify-center">
-                    <span className="text-2xl font-bold">
-                      {persona.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
+                  {/* Placeholder for persona image */}
+                  <div className="w-24 h-24 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 mb-4 mx-auto flex items-center justify-center border border-purple-400/30">
+                    <span className="text-xs text-purple-400 text-center">
+                      Image
+                      <br />
+                      Placeholder
                     </span>
                   </div>
+                  {/* In your actual app, replace with:
+                      <img src={persona.image} alt={persona.name} className="w-24 h-24 rounded-xl object-cover mb-4 mx-auto" />
+                  */}
+
                   <h3 className="text-lg font-semibold mb-1">{persona.name}</h3>
-                  <p className="text-sm text-purple-400 mb-2">{persona.role}</p>
+                  <p className="text-sm text-purple-400 mb-1">
+                    Age {persona.age}
+                  </p>
+                  <p className="text-sm text-gray-300 mb-2">{persona.role}</p>
                   <p className="text-gray-400 text-sm mb-4">
                     {persona.description}
                   </p>
+                  <div className="text-xs text-purple-400 mb-4">
+                    {persona.membership} Membership
+                  </div>
                   <button className="w-full py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg group-hover:from-purple-700 group-hover:to-pink-700 transition-all">
                     Try as {persona.name.split(" ")[0]}
                   </button>
@@ -517,11 +528,11 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid md:grid-cols-3 lg:grid-cols-5 gap-6">
             {tiers.map((tier, index) => (
               <div
                 key={index}
-                className={`relative backdrop-blur-xl bg-white/5 rounded-2xl p-8 border ${
+                className={`relative backdrop-blur-xl bg-white/5 rounded-2xl p-6 border ${
                   tier.popular ? "border-purple-500" : "border-white/10"
                 } hover:border-white/20 transition-all duration-300 hover:transform hover:-translate-y-1`}
               >
@@ -532,24 +543,31 @@ export default function LandingPage() {
                     </span>
                   </div>
                 )}
-                <h3 className="text-2xl font-bold mb-2">{tier.name}</h3>
-                <div className="text-4xl font-bold mb-6 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                  {tier.price}
-                  <span className="text-lg text-gray-400 font-normal">
-                    /month
-                  </span>
+                <h3 className="text-xl font-bold mb-2">{tier.name}</h3>
+                <div className="mb-4">
+                  <div className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                    {tier.price}
+                    <span className="text-sm text-gray-400 font-normal">
+                      /month
+                    </span>
+                  </div>
+                  {tier.yearlyPrice && (
+                    <div className="text-sm text-gray-400 mt-1">
+                      {tier.yearlyPrice}/year
+                    </div>
+                  )}
                 </div>
-                <ul className="space-y-3 mb-8">
+                <ul className="space-y-2 mb-6 text-sm">
                   {tier.features.map((feature, i) => (
                     <li key={i} className="flex items-start">
-                      <Check className="h-5 w-5 text-green-400 mr-2 flex-shrink-0 mt-0.5" />
+                      <Check className="h-4 w-4 text-green-400 mr-2 flex-shrink-0 mt-0.5" />
                       <span className="text-gray-300">{feature}</span>
                     </li>
                   ))}
                 </ul>
                 <button
                   onClick={handleGetStarted}
-                  className={`w-full py-3 rounded-lg font-semibold transition-all ${
+                  className={`w-full py-2 rounded-lg font-semibold transition-all text-sm ${
                     tier.popular
                       ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
                       : "bg-white/10 text-white hover:bg-white/20"
@@ -567,10 +585,7 @@ export default function LandingPage() {
       <footer className="py-12 px-4 sm:px-6 lg:px-8 border-t border-white/10">
         <div className="max-w-7xl mx-auto text-center">
           <div className="flex items-center justify-center mb-4">
-            <ReflectionaryLogo className="h-10 w-10" />
-            <span className="ml-2 text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Reflectionary
-            </span>
+            <ReflectionaryLogo className="h-12 w-12" variant="square" />
           </div>
           <p className="text-gray-400 mb-4">
             Your journey to self-discovery starts here.
@@ -596,15 +611,6 @@ export default function LandingPage() {
       </footer>
 
       <style>{`
-        @keyframes ripple {
-          0% {
-            transform: translateX(-100%) scaleY(-1);
-          }
-          100% {
-            transform: translateX(100%) scaleY(-1);
-          }
-        }
-        
         @keyframes gradient {
           0% {
             background-position: 0% 50%;
