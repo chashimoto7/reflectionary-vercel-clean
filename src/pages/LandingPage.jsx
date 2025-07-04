@@ -20,7 +20,6 @@ import {
   Eye,
   Zap,
 } from "lucide-react";
-import video from "../../public/preview.mp4";
 
 // Logo Component - Replace this with your actual logo when implementing
 const ReflectionaryLogo = ({ className }) => (
@@ -173,7 +172,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white overflow-hidden relative">
-      {video}
+      {/* Video Background - Using public folder path */}
       <div className="fixed inset-0 z-0">
         <video
           autoPlay
@@ -182,10 +181,16 @@ export default function LandingPage() {
           playsInline
           className="absolute inset-0 w-full h-full object-cover"
         >
-          <source src="video" type="video/mp4" />
+          <source src="/preview.mp4" type="video/mp4" />
           {/* Fallback for browsers that don't support video */}
           Your browser does not support the video tag.
         </video>
+
+        {/* Overlay to darken/tint the video */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900/70 via-purple-900/70 to-slate-900/70"></div>
+
+        {/* Additional gradient overlay for depth */}
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/30 to-pink-600/20"></div>
       </div>
 
       {/* Original Animated Background as Fallback */}
