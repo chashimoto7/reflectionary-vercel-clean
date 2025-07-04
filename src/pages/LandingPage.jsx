@@ -254,19 +254,19 @@ export default function LandingPage() {
             <div className="hidden md:flex items-center space-x-8">
               <a
                 href="#features"
-                className="text-gray-300 hover:text-white transition-colors"
+                className="text-gray-100 hover:text-white transition-colors"
               >
                 Features
               </a>
               <a
                 href="#demo"
-                className="text-gray-300 hover:text-white transition-colors"
+                className="text-gray-200 hover:text-white transition-colors"
               >
                 Try Demo
               </a>
               <a
                 href="#pricing"
-                className="text-gray-300 hover:text-white transition-colors"
+                className="text-gray-100 hover:text-white transition-colors"
               >
                 Pricing
               </a>
@@ -287,7 +287,7 @@ export default function LandingPage() {
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 text-gray-300"
+              className="md:hidden p-2 text-gray-200"
             >
               {mobileMenuOpen ? (
                 <X className="h-6 w-6" />
@@ -355,9 +355,10 @@ export default function LandingPage() {
               />
             </div>
 
-            <p className="text-lg text-gray-400 mb-8 max-w-2xl mx-auto">
-              Your private AI-powered journal for deeper self-awareness,
-              emotional intelligence, and personal growth.
+            <p className="text-lg text-gray-300 mb-8 max-w-2xl mx-auto">
+              Your personalized AI-powered journaling and wellness app for
+              deeper self-awareness, emotional intelligence, and personal
+              growth.
             </p>
 
             {/* CTA Buttons */}
@@ -383,17 +384,17 @@ export default function LandingPage() {
             </div>
 
             {/* Trust indicators */}
-            <div className="flex flex-wrap justify-center gap-8 text-gray-400">
+            <div className="flex flex-wrap justify-center gap-8 text-gray-300">
               <div className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-purple-400" />
+                <Shield className="h-5 w-5 text-purple-300" />
                 <span>End-to-End Encrypted</span>
               </div>
               <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-purple-400" />
+                <Users className="h-5 w-5 text-purple-300" />
                 <span>10,000+ Active Users</span>
               </div>
               <div className="flex items-center gap-2">
-                <Star className="h-5 w-5 text-purple-400" />
+                <Star className="h-5 w-5 text-purple-300" />
                 <span>4.9/5 User Rating</span>
               </div>
             </div>
@@ -401,7 +402,7 @@ export default function LandingPage() {
 
           {/* Scroll Indicator */}
           <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
-            <ChevronDown className="h-8 w-8 text-purple-400/50" />
+            <ChevronDown className="h-8 w-8 text-purple-300/50" />
           </div>
         </div>
       </section>
@@ -413,7 +414,7 @@ export default function LandingPage() {
             <h2 className="text-4xl font-bold mb-4">
               Everything You Need for Meaningful Reflection
             </h2>
-            <p className="text-xl text-gray-400">
+            <p className="text-xl text-gray-200">
               Powerful features designed to help you understand yourself better
             </p>
           </div>
@@ -435,7 +436,7 @@ export default function LandingPage() {
                     </div>
                     <h3 className="text-lg font-semibold">{feature.title}</h3>
                   </div>
-                  <p className="text-gray-400 text-sm">{feature.description}</p>
+                  <p className="text-gray-200 text-sm">{feature.description}</p>
                 </div>
               );
             })}
@@ -453,7 +454,7 @@ export default function LandingPage() {
             <h2 className="text-4xl font-bold mb-4">
               Experience Reflectionary
             </h2>
-            <p className="text-xl text-gray-400">
+            <p className="text-xl text-gray-200">
               Choose a demo persona to explore the app's features
             </p>
           </div>
@@ -471,7 +472,7 @@ export default function LandingPage() {
                 <div className="relative">
                   {/* Placeholder for persona image */}
                   <div className="w-24 h-24 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 mb-4 mx-auto flex items-center justify-center border border-purple-400/30">
-                    <span className="text-xs text-purple-400 text-center">
+                    <span className="text-xs text-purple-200 text-center">
                       Image
                       <br />
                       Placeholder
@@ -482,14 +483,14 @@ export default function LandingPage() {
                   */}
 
                   <h3 className="text-lg font-semibold mb-1">{persona.name}</h3>
-                  <p className="text-sm text-purple-400 mb-1">
+                  <p className="text-sm text-purple-200 mb-1">
                     Age {persona.age}
                   </p>
-                  <p className="text-sm text-gray-300 mb-2">{persona.role}</p>
-                  <p className="text-gray-400 text-sm mb-4">
+                  <p className="text-sm text-gray-100 mb-2">{persona.role}</p>
+                  <p className="text-gray-200 text-sm mb-4">
                     {persona.description}
                   </p>
-                  <div className="text-xs text-purple-400 mb-4">
+                  <div className="text-xs text-purple-200 mb-4">
                     {persona.membership} Membership
                   </div>
                   <button className="w-full py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg group-hover:from-purple-700 group-hover:to-pink-700 transition-all">
@@ -502,14 +503,14 @@ export default function LandingPage() {
 
           {activeDemo && (
             <div className="backdrop-blur-xl bg-white/5 rounded-2xl p-8 border border-white/10 text-center">
-              <p className="text-gray-300">
+              <p className="text-gray-100">
                 Demo experience for{" "}
-                <span className="text-purple-400 font-semibold">
+                <span className="text-purple-200 font-semibold">
                   {activeDemo.name}
                 </span>{" "}
                 coming soon!
               </p>
-              <p className="text-gray-400 mt-2">
+              <p className="text-gray-200 mt-2">
                 This will showcase personalized journal prompts, analytics, and
                 insights tailored to {activeDemo.role.toLowerCase()} needs.
               </p>
@@ -523,7 +524,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold mb-4">Choose Your Journey</h2>
-            <p className="text-xl text-gray-400">
+            <p className="text-xl text-gray-200">
               Transparent pricing, no hidden fees
             </p>
           </div>
@@ -547,12 +548,12 @@ export default function LandingPage() {
                 <div className="mb-4">
                   <div className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                     {tier.price}
-                    <span className="text-sm text-gray-400 font-normal">
+                    <span className="text-sm text-gray-200 font-normal">
                       /month
                     </span>
                   </div>
                   {tier.yearlyPrice && (
-                    <div className="text-sm text-gray-400 mt-1">
+                    <div className="text-sm text-gray-200 mt-1">
                       {tier.yearlyPrice}/year
                     </div>
                   )}
@@ -560,8 +561,8 @@ export default function LandingPage() {
                 <ul className="space-y-2 mb-6 text-sm">
                   {tier.features.map((feature, i) => (
                     <li key={i} className="flex items-start">
-                      <Check className="h-4 w-4 text-green-400 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-300">{feature}</span>
+                      <Check className="h-4 w-4 text-green-300 mr-2 flex-shrink-0 mt-0.5" />
+                      <span className="text-gray-100">{feature}</span>
                     </li>
                   ))}
                 </ul>
@@ -587,10 +588,10 @@ export default function LandingPage() {
           <div className="flex items-center justify-center mb-4">
             <ReflectionaryLogo className="h-12 w-12" variant="square" />
           </div>
-          <p className="text-gray-400 mb-4">
+          <p className="text-gray-200 mb-4">
             Your journey to self-discovery starts here.
           </p>
-          <div className="flex justify-center space-x-6 text-sm text-gray-400">
+          <div className="flex justify-center space-x-6 text-sm text-gray-200">
             <a href="#" className="hover:text-white transition-colors">
               Privacy
             </a>
@@ -604,7 +605,7 @@ export default function LandingPage() {
               Contact
             </a>
           </div>
-          <p className="text-xs text-gray-500 mt-8">
+          <p className="text-xs text-gray-300 mt-8">
             © 2025 Reflectionary. All rights reserved.
           </p>
         </div>
