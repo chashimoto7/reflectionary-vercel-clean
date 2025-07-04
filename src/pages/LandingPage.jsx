@@ -172,7 +172,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white overflow-hidden relative">
-      {/* Video Background - Replace 'your-video.mp4' with your actual video file */}
+      {preview.mp4}
       <div className="fixed inset-0 z-0">
         <video
           autoPlay
