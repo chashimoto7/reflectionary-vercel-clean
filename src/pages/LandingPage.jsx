@@ -20,7 +20,7 @@ import {
   Eye,
   Zap,
 } from "lucide-react";
-import video from "./public/preview.mp4";
+import video from "../../public/preview.mp4";
 
 // Logo Component - Replace this with your actual logo when implementing
 const ReflectionaryLogo = ({ className }) => (
