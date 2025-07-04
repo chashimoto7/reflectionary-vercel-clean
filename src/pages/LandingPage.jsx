@@ -1,4 +1,3 @@
-//test video 10
 import React, { useState, useEffect } from "react";
 import {
   Shield,
@@ -182,7 +181,7 @@ export default function LandingPage() {
           playsInline
           className="absolute inset-0 w-full h-full object-cover"
         >
-          <source src="/preview.mp4" type="video/mp4" />
+          <source src="/PurpleWave.mp4" type="video/mp4" />
           {/* Fallback for browsers that don't support video */}
           Your browser does not support the video tag.
         </video>
