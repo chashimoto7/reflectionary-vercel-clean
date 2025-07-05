@@ -220,11 +220,11 @@ export default function Layout({ children }) {
                 {/* Action Buttons */}
                 <div className="flex flex-col gap-2">
                   <NavLink
-                    to="/security"
+                    to="/settings"
                     className="flex items-center gap-3 px-4 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-all duration-200 backdrop-blur-sm"
                   >
                     <Settings className="h-4 w-4" />
-                    <span className="text-sm">Security Settings</span>
+                    <span className="text-sm">User Settings</span>
                   </NavLink>
 
                   <button

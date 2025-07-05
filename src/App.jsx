@@ -19,7 +19,6 @@ import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import Layout from "./components/Layout";
 import Welcome from "./pages/Welcome";
-import SecuritySettingsPage from "./pages/SecuritySettingsPage";
 
 // Routers
 import AnalyticsRouter from "./pages/AnalyticsRouter";
@@ -29,6 +28,7 @@ import GoalsRouter from "./pages/GoalsRouter";
 import WellnessRouter from "./pages/WellnessRouter";
 import WomensHealthRouter from "./pages/WomensHealthRouter";
 import ReflectionarianRouter from "./pages/ReflectionarianRouter";
+import SettingsRouter from "./pages/SettingsRouter";
 
 if (typeof window !== "undefined") {
   window.supabase = supabase;
@@ -125,7 +125,7 @@ function AppContent() {
         <Route path="/wellness" element={<WellnessRouter />} />
         <Route path="/womens-health" element={<WomensHealthRouter />} />
         <Route path="/reflectionarian" element={<ReflectionarianRouter />} />
-        <Route path="/security" element={<SecuritySettingsPage />} />
+        <Route path="/settings" element={<SettingsRouter />} />
         <Route path="*" element={<Navigate to="/welcome" replace />} />
       </Routes>
     </Layout>
