@@ -179,62 +179,142 @@ export default function SignupPage() {
     }
   };
 
+  // Fixed handleStripeCheckout function for SignupPage.jsx
+  // Replace the existing handleStripeCheckout function with this version
+
   const handleStripeCheckout = async () => {
     setLoading(true);
     setError("");
 
     try {
+      console.log("🚀 Starting Stripe checkout process...");
+
       // First create the Supabase user
       const { data: authData, error: authError } = await signUp(
         email,
         password
       );
 
-      if (authError) throw authError;
+      console.log("📋 SignUp response:", { authData, authError });
+
+      if (authError) {
+        console.error("❌ Auth error:", authError);
+        throw authError;
+      }
+
+      // Add validation for authData structure
+      if (!authData) {
+        console.error("❌ No authData returned from signUp");
+        throw new Error("Authentication failed - no data returned");
+      }
+
+      // Check if user exists in the expected structure
+      const userId = authData.user?.id || authData.id;
+
+      if (!userId) {
+        console.error("❌ No user ID found in authData:", authData);
+        throw new Error("Authentication failed - no user ID found");
+      }
+
+      console.log("✅ User created successfully with ID:", userId);
 
       // Create user profile with pending status
       const { error: profileError } = await supabase
         .from("user_profiles")
         .insert({
-          user_id: authData.user.id,
+          user_id: userId,
           email: email,
           username: fullName,
           subscription_tier: "free", // Will be updated after successful payment
           created_at: new Date().toISOString(),
         });
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error("❌ Profile creation error:", profileError);
+        throw profileError;
+      }
+
+      console.log("✅ User profile created successfully");
 
       // Get the correct price ID based on billing period
       const plan = SUBSCRIPTION_PLANS[selectedPlan];
-      const priceId = isAnnual
-        ? plan.stripePriceIdYearly
-        : plan.stripePriceIdMonthly;
 
-      // Create checkout session
-      const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/stripe/create-checkout",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            priceId,
-            userId: authData.user.id,
-            email: email,
-            successUrl: `${window.location.origin}/signup/success?session_id={CHECKOUT_SESSION_ID}`,
-            cancelUrl: `${window.location.origin}/signup`,
-          }),
-        }
-      );
+      if (!plan) {
+        throw new Error(`Invalid plan selected: ${selectedPlan}`);
+      }
 
-      const { sessionUrl } = await response.json();
+      const priceId = isAnnual ? plan.stripePriceYearly : plan.stripePrice;
 
-      // Redirect to Stripe Checkout
-      window.location.href = sessionUrl;
+      if (!priceId) {
+        throw new Error(
+          `No price ID found for plan ${selectedPlan} (annual: ${isAnnual})`
+        );
+      }
+
+      console.log("💳 Creating Stripe checkout session with:", {
+        priceId,
+        userId,
+        userEmail: email,
+        planName: selectedPlan,
+      });
+
+      // Create Stripe checkout session
+      const response = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          priceId: priceId,
+          userId: userId,
+          userEmail: email,
+          planName: selectedPlan,
+        }),
+      });
+
+      const responseData = await response.json();
+      console.log("🔗 Stripe API response:", responseData);
+
+      if (!response.ok) {
+        throw new Error(
+          responseData.error || `HTTP error! status: ${response.status}`
+        );
+      }
+
+      const { sessionId, error: stripeError } = responseData;
+
+      if (stripeError) {
+        console.error("❌ Stripe error:", stripeError);
+        throw new Error(stripeError);
+      }
+
+      if (!sessionId) {
+        throw new Error("No session ID returned from Stripe");
+      }
+
+      console.log("✅ Stripe session created:", sessionId);
+
+      // Redirect to Stripe checkout
+      const stripe = window.Stripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+
+      if (!stripe) {
+        throw new Error("Stripe not loaded. Check your publishable key.");
+      }
+
+      console.log("🔄 Redirecting to Stripe checkout...");
+
+      const { error: redirectError } = await stripe.redirectToCheckout({
+        sessionId: sessionId,
+      });
+
+      if (redirectError) {
+        console.error("❌ Stripe redirect error:", redirectError);
+        throw redirectError;
+      }
     } catch (err) {
-      setError(err.message);
+      console.error("❌ Complete error in handleStripeCheckout:", err);
+      setError(err.message || "An unexpected error occurred");
+    } finally {
       setLoading(false);
     }
   };
