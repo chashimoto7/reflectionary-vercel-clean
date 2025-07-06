@@ -1,8 +1,7 @@
-//src/pages/BasicJournaling.jsx
+// BasicJournaling.jsx - Fixed to use backend encryption
 import React, { useState, useRef, useEffect } from "react";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
-import { supabase } from "../lib/supabase";
+import Quill from "quill";
+import "quill/dist/quill.snow.css";
 import { useAuth } from "../contexts/AuthContext";
 import { useCrisisIntegration } from "../hooks/useCrisisIntegration";
 import CrisisResourceModal from "../components/CrisisResourceModal";
@@ -15,6 +14,7 @@ const BasicJournaling = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // 'success', 'error', null
   const quillRef = useRef(null);
+  const editorRef = useRef(null);
 
   // Crisis detection integration
   const {
@@ -24,6 +24,32 @@ const BasicJournaling = () => {
     closeCrisisModal,
     showCrisisResources,
   } = useCrisisIntegration();
+
+  // Initialize Quill editor
+  useEffect(() => {
+    if (editorRef.current && !quillRef.current) {
+      quillRef.current = new Quill(editorRef.current, {
+        theme: "snow",
+        placeholder: "What's on your mind today?",
+        modules: {
+          toolbar: [
+            ["bold", "italic", "underline"],
+            ["blockquote", "code-block"],
+            [{ list: "ordered" }, { list: "bullet" }],
+            ["clean"],
+          ],
+        },
+      });
+
+      // Track content changes
+      quillRef.current.on("text-change", () => {
+        setContent(quillRef.current.root.innerHTML);
+      });
+
+      // Auto-focus
+      quillRef.current.focus();
+    }
+  }, []);
 
   // Clear save status after 3 seconds
   useEffect(() => {
@@ -40,7 +66,8 @@ const BasicJournaling = () => {
     }
 
     // Don't save empty entries
-    if (!content.trim() && !title.trim()) {
+    const plainText = quillRef.current?.getText()?.trim();
+    if (!plainText) {
       setSaveStatus("error");
       return;
     }
@@ -48,160 +75,123 @@ const BasicJournaling = () => {
     setIsSaving(true);
 
     try {
-      const { error } = await supabase.from("journal_entries").insert({
-        user_id: user.id,
-        title: title.trim() || `Entry from ${new Date().toLocaleDateString()}`,
-        content: content,
-        created_at: new Date().toISOString(),
-        word_count: content
-          .replace(/<[^>]*>/g, "")
-          .split(/\s+/)
-          .filter((word) => word.length > 0).length,
+      // Get the HTML content from Quill
+      const htmlContent = quillRef.current.root.innerHTML;
+
+      // Send plaintext to backend API for encryption and saving
+      const response = await fetch("/api/save-entry", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          content: htmlContent, // Send HTML content - backend will encrypt
+          title:
+            title.trim() || `Entry from ${new Date().toLocaleDateString()}`,
+          // Basic tier metadata
+          is_follow_up: false,
+          parent_entry_id: null,
+          thread_id: null,
+          prompt_used: "user-initiated", // Basic tier doesn't use prompts
+        }),
       });
 
-      if (error) {
-        console.error("Error saving entry:", error);
-        setSaveStatus("error");
-      } else {
-        setSaveStatus("success");
-        // Clear the form after successful save
-        setContent("");
-        setTitle("");
-
-        // Run crisis detection on the saved content
-        const plainTextContent = content.replace(/<[^>]*>/g, "");
-        await triggerCrisisModal(plainTextContent);
-
-        // Focus back on the editor
-        if (quillRef.current) {
-          const editor = quillRef.current.getEditor();
-          editor.focus();
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Server error: ${response.status}`);
       }
+
+      const result = await response.json();
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      // Run crisis detection if enabled and we got analysis back
+      if (result.crisis_analysis) {
+        await triggerCrisisModal(plainText, result.crisis_analysis);
+      }
+
+      // Clear the editor on successful save
+      quillRef.current.setText("");
+      setTitle("");
+      setSaveStatus("success");
     } catch (error) {
-      console.error("Unexpected error saving entry:", error);
+      console.error("Save error:", error);
       setSaveStatus("error");
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Quill editor configuration - keeping it simple
-  const modules = {
-    toolbar: [
-      [{ header: [1, 2, 3, false] }],
-      ["bold", "italic", "underline"],
-      [{ list: "ordered" }, { list: "bullet" }],
-      ["clean"],
-    ],
-  };
-
-  const formats = ["header", "bold", "italic", "underline", "list", "bullet"];
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Basic Journaling
-          </h1>
-          <p className="text-gray-600">
-            Capture your thoughts and experiences in your personal journal.
+        <h1 className="text-3xl font-bold mb-8 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+          Today's Journal Entry
+        </h1>
+
+        {/* Title Input */}
+        <div className="mb-6">
+          <input
+            type="text"
+            placeholder="Entry Title (optional)"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 transition"
+          />
+        </div>
+
+        {/* Editor Container */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden mb-6">
+          <div ref={editorRef} className="min-h-[400px]" />
+        </div>
+
+        {/* Save Button */}
+        <button
+          onClick={handleSave}
+          disabled={isSaving || !user}
+          className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${
+            isSaving
+              ? "bg-gray-600 cursor-not-allowed"
+              : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+          }`}
+        >
+          <Save className="h-5 w-5" />
+          {isSaving ? "Saving..." : "Save Entry"}
+        </button>
+
+        {/* Save Status */}
+        {saveStatus && (
+          <div
+            className={`mt-4 p-4 rounded-lg flex items-center gap-2 ${
+              saveStatus === "success"
+                ? "bg-green-500/20 border border-green-500/40 text-green-200"
+                : "bg-red-500/20 border border-red-500/40 text-red-200"
+            }`}
+          >
+            {saveStatus === "success" ? (
+              <>
+                <CheckCircle className="h-5 w-5" />
+                Entry saved successfully!
+              </>
+            ) : (
+              <>
+                <AlertCircle className="h-5 w-5" />
+                Failed to save entry. Please try again.
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Info for Basic Users */}
+        <div className="mt-8 p-4 bg-purple-500/10 backdrop-blur-sm rounded-lg border border-purple-500/20">
+          <p className="text-sm text-gray-200">
+            <strong>Basic Tier:</strong> You can write and save journal entries.
+            Upgrade to Standard or higher for AI-powered prompts, wellness
+            tracking, and advanced features.
           </p>
-        </div>
-
-        {/* Journaling Form */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          {/* Title Input */}
-          <div className="mb-4">
-            <label
-              htmlFor="title"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
-              Entry Title (Optional)
-            </label>
-            <input
-              type="text"
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Give your entry a title..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            />
-          </div>
-
-          {/* Quill Editor */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Your Journal Entry
-            </label>
-            <div className="border border-gray-300 rounded-md">
-              <ReactQuill
-                ref={quillRef}
-                theme="snow"
-                value={content}
-                onChange={setContent}
-                modules={modules}
-                formats={formats}
-                placeholder="Start writing your journal entry..."
-                style={{ minHeight: "300px" }}
-              />
-            </div>
-          </div>
-
-          {/* Save Button and Status */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              {saveStatus === "success" && (
-                <div className="flex items-center text-green-600">
-                  <CheckCircle className="w-5 h-5 mr-1" />
-                  <span className="text-sm">Entry saved successfully!</span>
-                </div>
-              )}
-              {saveStatus === "error" && (
-                <div className="flex items-center text-red-600">
-                  <AlertCircle className="w-5 h-5 mr-1" />
-                  <span className="text-sm">
-                    Error saving entry. Please try again.
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={handleSave}
-              disabled={isSaving || (!content.trim() && !title.trim())}
-              className={`
-                px-6 py-2 rounded-md font-medium flex items-center space-x-2
-                ${
-                  isSaving || (!content.trim() && !title.trim())
-                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    : "bg-purple-600 text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
-                }
-                transition-colors duration-200
-              `}
-            >
-              <Save className="w-4 h-4" />
-              <span>{isSaving ? "Saving..." : "Save Entry"}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Basic Instructions */}
-        <div className="mt-8 bg-purple-50 rounded-lg p-4">
-          <h3 className="text-lg font-semibold text-purple-900 mb-2">
-            Getting Started
-          </h3>
-          <ul className="text-purple-800 space-y-1">
-            <li>• Write freely about your day, thoughts, or feelings</li>
-            <li>• Use the formatting tools to organize your thoughts</li>
-            <li>
-              • Your entries are automatically saved when you click "Save Entry"
-            </li>
-            <li>• All entries are private and securely stored</li>
-            <li>• Crisis detection is always available for your safety</li>
-          </ul>
         </div>
       </div>
 
@@ -211,11 +201,9 @@ const BasicJournaling = () => {
           isOpen={showCrisisModal}
           onClose={closeCrisisModal}
           analysisResult={crisisAnalysisResult}
-          onShowResources={showCrisisResources}
+          showResources={showCrisisResources}
         />
       )}
     </div>
   );
 };
-
-export default BasicJournaling;

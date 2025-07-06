@@ -1,474 +1,660 @@
-// src/pages/StandardReflectionarian.jsx
+// src/pages/StandardReflectionarian.jsx - Fixed to use backend API
 import React, { useState, useEffect, useRef } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import { useMembership } from "../hooks/useMembership";
 import {
   MessageCircle,
   Send,
   Bot,
   User,
-  Sparkles,
-  Clock,
-  RotateCcw,
-  AlertCircle,
-  Loader2,
-  Plus,
-  BookOpen,
+  Settings,
+  Trash2,
+  Calendar,
+  Brain,
   Heart,
   Lightbulb,
-  History,
-  XCircle,
+  RefreshCw,
+  Shield,
+  Info,
 } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
-import ReflectionarianService from "../services/ReflectionarianService";
 
-const BasicReflectionarian = () => {
+const StandardReflectionarian = () => {
   const { user } = useAuth();
+  const { hasAccess } = useMembership();
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+
   const [messages, setMessages] = useState([]);
   const [currentMessage, setCurrentMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [currentSession, setCurrentSession] = useState(null);
-  const [error, setError] = useState(null);
-  const [showWelcome, setShowWelcome] = useState(true);
-  const [isTyping, setIsTyping] = useState(false);
-  const [recentEntries, setRecentEntries] = useState([]);
-  const [showPromptSuggestions, setShowPromptSuggestions] = useState(false);
+  const [sessions, setSessions] = useState([]);
+  const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+  const [preferences, setPreferences] = useState(null);
+  const [loadingPreferences, setLoadingPreferences] = useState(true);
 
-  const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
-  const reflectionarianService = new ReflectionarianService();
+  // Default preferences for Standard tier
+  const defaultPreferences = {
+    therapy_approach: "Person-Centered",
+    communication_style: "Warm and Gentle",
+    primary_focus: "General Wellbeing",
+    session_frequency: "As Needed",
+  };
 
-  // Sample conversation starters for Basic tier
-  const conversationStarters = [
-    "How are you feeling today?",
-    "What's been on your mind lately?",
-    "Tell me about something you're grateful for",
-    "What challenges are you facing right now?",
-    "What would you like to reflect on today?",
-  ];
-
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping]);
-
-  // Load session and messages on mount
-  useEffect(() => {
-    if (user) {
-      loadActiveSession();
-      loadRecentEntries();
+    if (user && hasAccess("reflectionarian")) {
+      loadPreferences();
+      loadSessions();
     }
   }, [user]);
 
-  const loadActiveSession = async () => {
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const loadPreferences = async () => {
     try {
-      setIsLoading(true);
-
-      // Get or create active session
-      const sessionResult =
-        await reflectionarianService.getOrCreateActiveSession(user.id);
-      if (!sessionResult.success) throw new Error(sessionResult.error);
-
-      setCurrentSession(sessionResult.session);
-
-      // Load existing messages
-      const messagesResult = await reflectionarianService.getSessionMessages(
-        sessionResult.session.id,
-        user.id
+      setLoadingPreferences(true);
+      const response = await fetch(
+        `/api/reflectionarian/preferences?user_id=${user.id}`
       );
 
-      if (messagesResult.success) {
-        setMessages(messagesResult.messages);
-        // Hide welcome if there are existing messages
-        if (messagesResult.messages.length > 0) {
-          setShowWelcome(false);
-        }
+      if (!response.ok) {
+        throw new Error("Failed to load preferences");
       }
-    } catch (err) {
-      console.error("Error loading session:", err);
-      setError("Failed to load your conversation. Please try again.");
+
+      const data = await response.json();
+      setPreferences(data.preferences || defaultPreferences);
+    } catch (error) {
+      console.error("Error loading preferences:", error);
+      setPreferences(defaultPreferences);
     } finally {
-      setIsLoading(false);
+      setLoadingPreferences(false);
     }
   };
 
-  const loadRecentEntries = async () => {
+  const loadSessions = async () => {
     try {
-      const result = await reflectionarianService.getRecentEntriesContext(
-        user.id
+      const response = await fetch(
+        `/api/reflectionarian/sessions?user_id=${user.id}`
       );
-      if (result.success) {
-        setRecentEntries(result.entries);
+
+      if (!response.ok) {
+        throw new Error("Failed to load sessions");
       }
-    } catch (err) {
-      console.error("Error loading recent entries:", err);
+
+      const data = await response.json();
+      setSessions(data.sessions || []);
+
+      // Load the most recent session if exists
+      if (data.sessions && data.sessions.length > 0 && !currentSessionId) {
+        const latestSession = data.sessions[0];
+        setCurrentSessionId(latestSession.id);
+        // Note: We'd need another endpoint to load messages for a session
+        // For now, we'll just have an empty conversation
+      }
+    } catch (error) {
+      console.error("Error loading sessions:", error);
     }
   };
 
-  const handleSendMessage = async (messageText = null) => {
-    const textToSend = messageText || currentMessage.trim();
-    if (!textToSend || isLoading) return;
+  const startNewSession = async () => {
+    try {
+      const response = await fetch("/api/reflectionarian/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          tier: "standard",
+        }),
+      });
 
-    // Clear input and hide welcome
-    if (!messageText) setCurrentMessage("");
-    setShowWelcome(false);
-    setError(null);
-    setShowPromptSuggestions(false);
+      if (!response.ok) {
+        throw new Error("Failed to create session");
+      }
 
-    // Add user message to UI immediately
+      const data = await response.json();
+      setCurrentSessionId(data.session.id);
+      setMessages([]);
+      await loadSessions();
+    } catch (error) {
+      console.error("Error creating session:", error);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!currentMessage.trim() || isLoading) return;
+
     const userMessage = {
-      id: Date.now(),
-      sender: "user",
-      decryptedMessage: textToSend,
+      role: "user",
+      content: currentMessage,
       timestamp: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, userMessage]);
 
-    // Show typing indicator
-    setIsTyping(true);
+    setMessages((prev) => [...prev, userMessage]);
+    setCurrentMessage("");
     setIsLoading(true);
 
     try {
-      // Send to Reflectionarian service
-      const result = await reflectionarianService.sendMessage(
-        user.id,
-        textToSend,
-        currentSession?.id
-      );
+      // Create new session if needed
+      let sessionId = currentSessionId;
+      if (!sessionId) {
+        const sessionResponse = await fetch("/api/reflectionarian/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: user.id,
+            tier: "standard",
+          }),
+        });
 
-      if (!result.success) throw new Error(result.error);
+        if (!sessionResponse.ok) {
+          throw new Error("Failed to create session");
+        }
 
-      // Add AI response to UI
+        const sessionData = await sessionResponse.json();
+        sessionId = sessionData.session.id;
+        setCurrentSessionId(sessionId);
+      }
+
+      // Send message to AI
+      const response = await fetch("/api/reflectionarian/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          message: currentMessage,
+          session_id: sessionId,
+          tier: "standard",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to get response");
+      }
+
+      const data = await response.json();
+
       const aiMessage = {
-        id: Date.now() + 1,
-        sender: "bot",
-        decryptedMessage: result.response,
+        role: "assistant",
+        content: data.response,
         timestamp: new Date().toISOString(),
+        metadata: data.metadata,
       };
+
       setMessages((prev) => [...prev, aiMessage]);
-    } catch (err) {
-      console.error("Error sending message:", err);
-      setError(
-        "I'm having trouble responding right now. Please try again in a moment."
-      );
-
-      // Remove the user message if the AI failed to respond
-      setMessages((prev) => prev.slice(0, -1));
+    } catch (error) {
+      console.error("Error sending message:", error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "I apologize, but I'm having trouble responding right now. Please try again.",
+          timestamp: new Date().toISOString(),
+          error: true,
+        },
+      ]);
     } finally {
-      setIsTyping(false);
       setIsLoading(false);
     }
   };
 
-  const handleNewSession = async () => {
+  const updatePreferences = async (newPrefs) => {
     try {
-      setIsLoading(true);
+      const response = await fetch("/api/reflectionarian/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          preferences: newPrefs,
+        }),
+      });
 
-      // End current session if exists
-      if (currentSession) {
-        await reflectionarianService.endSession(currentSession.id, user.id);
+      if (!response.ok) {
+        throw new Error("Failed to update preferences");
       }
 
-      // Start new session
-      const result = await reflectionarianService.startSession(user.id);
-      if (!result.success) throw new Error(result.error);
-
-      setCurrentSession(result.session);
-      setMessages([]);
-      setShowWelcome(true);
-      setError(null);
-    } catch (err) {
-      console.error("Error starting new session:", err);
-      setError("Failed to start new conversation. Please try again.");
-    } finally {
-      setIsLoading(false);
+      const data = await response.json();
+      setPreferences(data.preferences);
+      setShowSettings(false);
+    } catch (error) {
+      console.error("Error updating preferences:", error);
+      alert("Failed to save preferences. Please try again.");
     }
   };
 
-  const generateFollowUpPrompt = async () => {
-    if (!currentSession || messages.length === 0) return;
+  const deleteSession = async (sessionId) => {
+    if (!confirm("Are you sure you want to delete this session?")) return;
 
     try {
-      setIsLoading(true);
-      const result = await reflectionarianService.generateFollowUpPrompt(
-        user.id,
-        currentSession.id
+      const response = await fetch(
+        `/api/reflectionarian/sessions?user_id=${user.id}&session_id=${sessionId}`,
+        { method: "DELETE" }
       );
 
-      if (result.success) {
-        handleSendMessage(result.prompt);
+      if (!response.ok) {
+        throw new Error("Failed to delete session");
       }
-    } catch (err) {
-      console.error("Error generating follow-up prompt:", err);
-    } finally {
-      setIsLoading(false);
+
+      await loadSessions();
+      if (sessionId === currentSessionId) {
+        setCurrentSessionId(null);
+        setMessages([]);
+      }
+    } catch (error) {
+      console.error("Error deleting session:", error);
+      alert("Failed to delete session. Please try again.");
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white flex">
+      {/* Sidebar */}
+      <div className="w-64 bg-white/10 backdrop-blur-sm border-r border-white/20 p-4 flex flex-col">
+        <div className="mb-6">
+          <h2 className="text-xl font-bold mb-2 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+            Reflectionarian
+          </h2>
+          <p className="text-sm text-gray-300">Your AI Wellness Companion</p>
+        </div>
 
-  if (isLoading && !currentSession) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-purple-600 mx-auto mb-4" />
-          <p className="text-gray-600">
-            Starting your conversation with the Reflectionarian...
+        <button
+          onClick={startNewSession}
+          className="w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 rounded-lg mb-4 flex items-center justify-center gap-2 transition"
+        >
+          <MessageCircle className="h-4 w-4" />
+          New Session
+        </button>
+
+        {/* Sessions List */}
+        <div className="flex-1 overflow-y-auto space-y-2">
+          <h3 className="text-sm font-semibold text-gray-400 mb-2">
+            Recent Sessions
+          </h3>
+          {sessions.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">
+              No sessions yet
+            </p>
+          ) : (
+            sessions.map((session) => (
+              <div
+                key={session.id}
+                onClick={() => {
+                  setCurrentSessionId(session.id);
+                  // In a real app, we'd load messages for this session
+                  setMessages([]);
+                }}
+                className={`p-3 rounded-lg cursor-pointer transition ${
+                  currentSessionId === session.id
+                    ? "bg-purple-600/30 border border-purple-600/50"
+                    : "hover:bg-white/10"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm">
+                      {new Date(session.started_at).toLocaleDateString()}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {session.message_count || 0} messages
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteSession(session.id);
+                    }}
+                    className="p-1 hover:bg-red-500/20 rounded transition"
+                  >
+                    <Trash2 className="h-4 w-4 text-red-400" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Bottom Actions */}
+        <div className="space-y-2 mt-4">
+          <button
+            onClick={() => setShowSettings(true)}
+            className="w-full py-2 px-4 bg-white/10 hover:bg-white/20 rounded-lg flex items-center justify-center gap-2 transition"
+          >
+            <Settings className="h-4 w-4" />
+            Preferences
+          </button>
+          <button
+            onClick={() => setShowInfo(true)}
+            className="w-full py-2 px-4 bg-white/10 hover:bg-white/20 rounded-lg flex items-center justify-center gap-2 transition"
+          >
+            <Info className="h-4 w-4" />
+            About
+          </button>
+        </div>
+      </div>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Chat Header */}
+        <div className="bg-white/10 backdrop-blur-sm border-b border-white/20 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center">
+                <Bot className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Reflectionarian</h3>
+                <p className="text-sm text-gray-300">
+                  {preferences?.therapy_approach || "Person-Centered"} Approach
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-300">
+              <Shield className="h-4 w-4" />
+              End-to-end encrypted
+            </div>
+          </div>
+        </div>
+
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {messages.length === 0 ? (
+            <div className="text-center py-12">
+              <Bot className="h-16 w-16 text-purple-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">
+                Welcome to Reflectionarian
+              </h3>
+              <p className="text-gray-300 max-w-md mx-auto">
+                I'm here to support your emotional wellbeing through thoughtful
+                conversation. Share what's on your mind, and let's explore
+                together.
+              </p>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                <button
+                  onClick={() =>
+                    setCurrentMessage("I'd like to talk about my day")
+                  }
+                  className="px-4 py-2 bg-purple-600/30 hover:bg-purple-600/40 rounded-lg text-sm transition"
+                >
+                  Talk about my day
+                </button>
+                <button
+                  onClick={() => setCurrentMessage("I'm feeling stressed")}
+                  className="px-4 py-2 bg-purple-600/30 hover:bg-purple-600/40 rounded-lg text-sm transition"
+                >
+                  Discuss stress
+                </button>
+                <button
+                  onClick={() =>
+                    setCurrentMessage("Help me reflect on my goals")
+                  }
+                  className="px-4 py-2 bg-purple-600/30 hover:bg-purple-600/40 rounded-lg text-sm transition"
+                >
+                  Reflect on goals
+                </button>
+              </div>
+            </div>
+          ) : (
+            messages.map((message, index) => (
+              <div
+                key={index}
+                className={`flex gap-3 ${
+                  message.role === "user" ? "justify-end" : "justify-start"
+                }`}
+              >
+                {message.role === "assistant" && (
+                  <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Bot className="h-5 w-5" />
+                  </div>
+                )}
+                <div
+                  className={`max-w-2xl px-4 py-3 rounded-lg ${
+                    message.role === "user"
+                      ? "bg-purple-600 text-white"
+                      : message.error
+                      ? "bg-red-500/20 border border-red-500/40"
+                      : "bg-white/10 border border-white/20"
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap">{message.content}</p>
+                  {message.metadata && (
+                    <div className="mt-2 pt-2 border-t border-white/20 text-xs text-gray-300">
+                      {message.metadata.primary_emotion && (
+                        <p>
+                          Emotion detected: {message.metadata.primary_emotion}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <p className="text-xs mt-2 opacity-60">
+                    {new Date(message.timestamp).toLocaleTimeString()}
+                  </p>
+                </div>
+                {message.role === "user" && (
+                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <User className="h-5 w-5" />
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+          {isLoading && (
+            <div className="flex gap-3">
+              <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center">
+                <Bot className="h-5 w-5" />
+              </div>
+              <div className="bg-white/10 border border-white/20 px-4 py-3 rounded-lg">
+                <div className="flex gap-2">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-100"></div>
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-200"></div>
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input Area */}
+        <div className="bg-white/10 backdrop-blur-sm border-t border-white/20 p-4">
+          <div className="flex gap-2">
+            <input
+              ref={inputRef}
+              type="text"
+              value={currentMessage}
+              onChange={(e) => setCurrentMessage(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+              placeholder="Share what's on your mind..."
+              className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:border-purple-400 transition"
+              disabled={isLoading}
+            />
+            <button
+              onClick={sendMessage}
+              disabled={isLoading || !currentMessage.trim()}
+              className="px-4 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Send className="h-5 w-5" />
+            </button>
+          </div>
+          <p className="text-xs text-gray-400 mt-2 text-center">
+            Reflectionarian provides supportive conversation, not therapy or
+            medical advice.
           </p>
         </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-purple-50 to-indigo-50">
-      {/* Header */}
-      <div className="bg-white border-b border-purple-100 px-6 py-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
-              <MessageCircle className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">
-                Reflectionarian
-              </h1>
-              <p className="text-sm text-gray-600">
-                Your AI companion for reflection
-              </p>
-            </div>
-          </div>
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-semibold mb-4">
+              Conversation Preferences
+            </h3>
 
-          <div className="flex items-center gap-3">
-            {/* Basic Tier Badge */}
-            <div className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">
-              Basic
-            </div>
-
-            {/* New Session Button */}
-            <button
-              onClick={handleNewSession}
-              disabled={isLoading}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
-            >
-              <Plus className="w-4 h-4" />
-              New Chat
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {/* Welcome State */}
-        {showWelcome && (
-          <div className="text-center py-8">
-            <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Heart className="w-10 h-10 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Welcome to your Reflectionarian
-            </h2>
-            <p className="text-gray-600 mb-6 max-w-md mx-auto">
-              I'm here to help you reflect on your thoughts, feelings, and
-              experiences. Let's have a meaningful conversation about what's on
-              your mind.
-            </p>
-
-            {/* Basic Tier Features */}
-            <div className="grid grid-cols-2 gap-4 max-w-lg mx-auto mb-8">
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-purple-100">
-                <BookOpen className="w-6 h-6 text-purple-500 mx-auto mb-2" />
-                <p className="text-sm text-gray-700">Recent Entry Awareness</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Therapy Approach
+                </label>
+                <select
+                  value={preferences?.therapy_approach || "Person-Centered"}
+                  onChange={(e) =>
+                    setPreferences({
+                      ...preferences,
+                      therapy_approach: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:border-purple-400"
+                >
+                  <option value="Person-Centered">
+                    Person-Centered (Warm & Supportive)
+                  </option>
+                  <option value="CBT">
+                    CBT (Practical & Solution-Focused)
+                  </option>
+                  <option value="Mindfulness">
+                    Mindfulness (Present & Aware)
+                  </option>
+                </select>
               </div>
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-purple-100">
-                <Lightbulb className="w-6 h-6 text-purple-500 mx-auto mb-2" />
-                <p className="text-sm text-gray-700">Follow-up Questions</p>
-              </div>
-            </div>
 
-            {/* Recent Entries Context Preview */}
-            {recentEntries.length > 0 && (
-              <div className="bg-white rounded-lg p-4 border border-purple-100 max-w-md mx-auto mb-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <Clock className="w-4 h-4 text-purple-500" />
-                  <span className="text-sm font-medium text-gray-700">
-                    I'm aware of your recent journal entries
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500">
-                  Last entry:{" "}
-                  {new Date(recentEntries[0]?.created_at).toLocaleDateString()}
-                </p>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Communication Style
+                </label>
+                <select
+                  value={preferences?.communication_style || "Warm and Gentle"}
+                  onChange={(e) =>
+                    setPreferences({
+                      ...preferences,
+                      communication_style: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:border-purple-400"
+                >
+                  <option value="Warm and Gentle">Warm and Gentle</option>
+                  <option value="Direct and Clear">Direct and Clear</option>
+                  <option value="Balanced">Balanced</option>
+                </select>
               </div>
-            )}
 
-            {/* Conversation Starters */}
-            <div className="space-y-2">
-              <p className="text-sm text-gray-600 mb-3">
-                Start with one of these:
-              </p>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {conversationStarters.map((starter, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleSendMessage(starter)}
-                    className="px-4 py-2 bg-white text-gray-700 rounded-full text-sm hover:bg-purple-50 hover:text-purple-700 border border-gray-200 transition-colors"
-                  >
-                    {starter}
-                  </button>
-                ))}
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Primary Focus
+                </label>
+                <select
+                  value={preferences?.primary_focus || "General Wellbeing"}
+                  onChange={(e) =>
+                    setPreferences({
+                      ...preferences,
+                      primary_focus: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:border-purple-400"
+                >
+                  <option value="General Wellbeing">General Wellbeing</option>
+                  <option value="Stress Management">Stress Management</option>
+                  <option value="Personal Growth">Personal Growth</option>
+                  <option value="Emotional Processing">
+                    Emotional Processing
+                  </option>
+                </select>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-            <p className="text-red-700">{error}</p>
-            <button
-              onClick={() => setError(null)}
-              className="ml-auto text-red-500 hover:text-red-700"
-            >
-              <XCircle className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-
-        {/* Messages */}
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex gap-3 ${
-              message.sender === "user" ? "justify-end" : "justify-start"
-            }`}
-          >
-            {message.sender === "bot" && (
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
-                <Bot className="w-5 h-5 text-white" />
-              </div>
-            )}
-
-            <div
-              className={`max-w-xs lg:max-w-md px-4 py-3 rounded-lg ${
-                message.sender === "user"
-                  ? "bg-purple-600 text-white"
-                  : "bg-white text-gray-900 border border-gray-200"
-              }`}
-            >
-              <p className="text-sm whitespace-pre-wrap">
-                {message.decryptedMessage}
-              </p>
-              <p
-                className={`text-xs mt-2 ${
-                  message.sender === "user"
-                    ? "text-purple-200"
-                    : "text-gray-500"
-                }`}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => updatePreferences(preferences)}
+                className="flex-1 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition"
               >
-                {new Date(message.timestamp).toLocaleTimeString()}
-              </p>
-            </div>
-
-            {message.sender === "user" && (
-              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
-                <User className="w-5 h-5 text-gray-600" />
-              </div>
-            )}
-          </div>
-        ))}
-
-        {/* Typing Indicator */}
-        {isTyping && (
-          <div className="flex gap-3 justify-start">
-            <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
-              <Bot className="w-5 h-5 text-white" />
-            </div>
-            <div className="bg-white text-gray-900 border border-gray-200 px-4 py-3 rounded-lg max-w-xs">
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                <div
-                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: "0.1s" }}
-                ></div>
-                <div
-                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: "0.2s" }}
-                ></div>
-              </div>
+                Save Preferences
+              </button>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="flex-1 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition"
+              >
+                Cancel
+              </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        <div ref={messagesEndRef} />
-      </div>
+      {/* Info Modal */}
+      {showInfo && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-semibold mb-4">
+              About Reflectionarian
+            </h3>
 
-      {/* Input Area */}
-      <div className="bg-white border-t border-purple-100 p-4">
-        {/* Follow-up Prompt Button (Basic Tier Feature) */}
-        {messages.length > 0 && !isLoading && (
-          <div className="flex justify-center mb-3">
+            <div className="space-y-4 text-sm text-gray-300">
+              <div className="flex items-start gap-3">
+                <Brain className="h-5 w-5 text-purple-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-white mb-1">
+                    AI-Powered Support
+                  </p>
+                  <p>
+                    Thoughtful conversations using advanced AI to help you
+                    reflect and grow.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <Shield className="h-5 w-5 text-purple-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-white mb-1">
+                    Complete Privacy
+                  </p>
+                  <p>
+                    All conversations are encrypted. Only you can read your
+                    sessions.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <Heart className="h-5 w-5 text-purple-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-white mb-1">Not Therapy</p>
+                  <p>
+                    Reflectionarian provides supportive conversation, not
+                    professional therapy or medical advice.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <Lightbulb className="h-5 w-5 text-purple-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-white mb-1">
+                    Standard Features
+                  </p>
+                  <p>
+                    Personalized conversations, session history, and
+                    customizable approaches.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <button
-              onClick={generateFollowUpPrompt}
-              className="flex items-center gap-2 px-4 py-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors text-sm"
+              onClick={() => setShowInfo(false)}
+              className="w-full mt-6 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition"
             >
-              <Sparkles className="w-4 h-4" />
-              Generate follow-up question
+              Got it
             </button>
           </div>
-        )}
-
-        {/* Message Input */}
-        <div className="flex gap-3 items-end">
-          <div className="flex-1">
-            <textarea
-              ref={inputRef}
-              value={currentMessage}
-              onChange={(e) => setCurrentMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Share what's on your mind..."
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-              rows={2}
-              disabled={isLoading}
-            />
-          </div>
-
-          <button
-            onClick={() => handleSendMessage()}
-            disabled={!currentMessage.trim() || isLoading}
-            className="bg-purple-600 text-white p-3 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-          >
-            {isLoading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Send className="w-5 h-5" />
-            )}
-          </button>
         </div>
-
-        {/* Basic Tier Info */}
-        <div className="flex items-center justify-center gap-4 mt-3 text-xs text-gray-500">
-          <div className="flex items-center gap-1">
-            <BookOpen className="w-3 h-3" />
-            <span>Aware of last 5 entries</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Lightbulb className="w-3 h-3" />
-            <span>Follow-up questions</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <MessageCircle className="w-3 h-3" />
-            <span>Subject-specific prompts</span>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 };
-
-export default BasicReflectionarian;

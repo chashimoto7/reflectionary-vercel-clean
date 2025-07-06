@@ -1,270 +1,401 @@
-//src/pages/StandardHistory
+// src/pages/StandardHistory.jsx - Fixed to use backend decryption
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
-import encryptionService from "../services/encryptionService";
-import { supabase } from "../lib/supabase";
+import {
+  Calendar,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  Filter,
+  TrendingUp,
+  Activity,
+  Brain,
+  Heart,
+  BarChart,
+} from "lucide-react";
 
 export default function History() {
-  const { user, loading: authLoading } = useAuth();
-  const { isLocked, masterKey } = useSecurity();
-  const [entry, setEntry] = useState(null);
+  const { user } = useAuth();
+  const { isLocked } = useSecurity();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const page = parseInt(searchParams.get("page") || "1", 10);
+  const dateRange = searchParams.get("range") || "3months";
+
+  const [entries, setEntries] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const page = parseInt(searchParams.get("page") || "1", 10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [expandedEntries, setExpandedEntries] = useState(new Set());
+  const [showAnalytics, setShowAnalytics] = useState(true);
 
-  const decryptJournalEntry = async (entry) => {
-    try {
-      let key = masterKey;
-      if (!key) key = await encryptionService.getStaticMasterKey();
-
-      const dataKey = await encryptionService.decryptKey(
-        {
-          encryptedData: entry.encrypted_data_key,
-          iv: entry.data_key_iv,
-        },
-        key
-      );
-
-      const decryptedContent = await encryptionService.decryptText(
-        entry.encrypted_content,
-        entry.content_iv,
-        dataKey
-      );
-
-      let decryptedPrompt = null;
-      if (entry.encrypted_prompt && entry.prompt_iv) {
-        decryptedPrompt = await encryptionService.decryptText(
-          entry.encrypted_prompt,
-          entry.prompt_iv,
-          dataKey
-        );
-      }
-
-      // Fetch follow-ups using is_followup flag and parent_entry_id instead of thread_id
-      const { data: followupEntries, error: followupError } = await supabase
-        .from("journal_entries")
-        .select("*")
-        .eq("is_followup", true)
-        .eq("user_id", entry.user_id || user.id); // Get all follow-ups for this user
-
-      // Debug logging
-      console.log("Parent entry ID:", entry.id);
-      console.log("Follow-up entries found:", followupEntries);
-      console.log("Follow-up fetch error:", followupError);
-
-      const decryptFollowUps = async (entries, parentId, level = 1) => {
-        const filteredEntries = (entries || []).filter(
-          (f) => f.parent_entry_id === parentId
-        );
-        console.log(
-          `Looking for follow-ups with parent_entry_id=${parentId}, found:`,
-          filteredEntries
-        );
-
-        const results = await Promise.all(
-          filteredEntries.map(async (f) => {
-            const fDataKey = await encryptionService.decryptKey(
-              {
-                encryptedData: f.encrypted_data_key,
-                iv: f.data_key_iv,
-              },
-              key
-            );
-
-            const fContent = await encryptionService.decryptText(
-              f.encrypted_content,
-              f.content_iv,
-              fDataKey
-            );
-
-            let fPrompt = null;
-            if (f.encrypted_prompt && f.prompt_iv) {
-              fPrompt = await encryptionService.decryptText(
-                f.encrypted_prompt,
-                f.prompt_iv,
-                fDataKey
-              );
-            }
-
-            const nestedFollowUps = await decryptFollowUps(
-              entries,
-              f.id,
-              level + 1
-            );
-
-            return {
-              ...f,
-              content: fContent,
-              html_content: fContent,
-              prompt: fPrompt,
-              follow_ups: nestedFollowUps,
-            };
-          })
-        );
-        return results;
-      };
-
-      const followUps = await decryptFollowUps(followupEntries, entry.id);
-
-      return {
-        ...entry,
-        content: decryptedContent,
-        html_content: decryptedContent,
-        prompt: decryptedPrompt,
-        follow_ups: followUps,
-      };
-    } catch (error) {
-      console.error("Decryption failed for entry:", entry.id, error);
-      throw error;
+  // Redirect if locked
+  useEffect(() => {
+    if (isLocked) {
+      navigate("/dashboard");
     }
-  };
+  }, [isLocked, navigate]);
+
+  // Fetch entries when user or page changes
+  useEffect(() => {
+    if (user && !isLocked) {
+      fetchEntries();
+    }
+  }, [user, isLocked, page, dateRange]);
 
   const fetchEntries = async () => {
-    if (!user?.id || isLocked) return;
     setLoading(true);
     setError(null);
 
-    console.log("🔍 About to fetch with:");
-    console.log("🔍 User ID:", user.id);
-    console.log("🔍 Is Locked:", isLocked);
-    console.log("🔍 Page:", page);
-
     try {
-      const res = await fetch(
-        `https://reflectionary-api.vercel.app/api/history?user_id=${encodeURIComponent(
-          user.id
-        )}&page=${page}`
+      const response = await fetch(
+        `/api/history?user_id=${user.id}&page=${page}&limit=20&date_range=${dateRange}&include_analytics=true`
       );
 
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      const data = await res.json();
-      if (!Array.isArray(data)) return setError("Invalid data format");
-
-      // Use the simple approach from the working version - just take the first entry
-      const fetchedEntry = data[0] || null;
-
-      if (!fetchedEntry) {
-        return setEntry(null);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch history: ${response.status}`);
       }
 
-      const decrypted = await decryptJournalEntry(fetchedEntry);
-      setEntry(decrypted);
-    } catch (err) {
-      setError(`Failed to load journal entry: ${err.message}`);
+      const data = await response.json();
+
+      setEntries(data.entries || []);
+      setAnalytics(data.analytics || null);
+      setTotalPages(data.pagination?.totalPages || 1);
+    } catch (error) {
+      console.error("Error fetching history:", error);
+      setError("Failed to load your journal history. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (!authLoading && user?.id && !isLocked) fetchEntries();
-  }, [page, authLoading, user?.id, isLocked]);
-
-  const renderFollowUps = (followUps, level = 1) => {
-    return followUps.map((f) => (
-      <div
-        key={f.id}
-        className={`pl-${
-          level * 4
-        } mt-4 border-l-2 border-gray-200 ml-2 space-y-2`}
-      >
-        <p className="text-sm text-gray-500">
-          {new Date(f.created_at).toLocaleString()}
-        </p>
-        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-          Follow-up response
-        </p>
-        {f.prompt && (
-          <p className="text-base text-purple-600 italic mb-1">
-            Prompt: {f.prompt}
-          </p>
-        )}
-        <div
-          dangerouslySetInnerHTML={{
-            __html: f.html_content || `<p>${f.content}</p>`,
-          }}
-        />
-        {f.follow_ups?.length > 0 && renderFollowUps(f.follow_ups, level + 1)}
-      </div>
-    ));
+  const handlePageChange = (newPage) => {
+    setSearchParams({ page: newPage.toString(), range: dateRange });
   };
 
-  const navigate = useNavigate();
-  const handleNext = () => setSearchParams({ page: page + 1 });
-  const handlePrevious = () => setSearchParams({ page: Math.max(1, page - 1) });
+  const handleDateRangeChange = (newRange) => {
+    setSearchParams({ page: "1", range: newRange });
+  };
 
-  if (loading) return <div className="p-4">decrypting journal history...</div>;
+  const toggleEntryExpansion = (entryId) => {
+    const newExpanded = new Set(expandedEntries);
+    if (newExpanded.has(entryId)) {
+      newExpanded.delete(entryId);
+    } else {
+      newExpanded.add(entryId);
+    }
+    setExpandedEntries(newExpanded);
+  };
 
-  return (
-    <div className="max-w-3xl mx-auto p-4 space-y-6">
-      <div className="flex justify-between items-center mb-4">
-        <div className="text-2xl font-bold text-indigo-700 tracking-tight">
-          Reflectionary
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  const formatTime = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const getContentPreview = (content, maxLength = 200) => {
+    const div = document.createElement("div");
+    div.innerHTML = content;
+    const text = div.textContent || div.innerText || "";
+
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + "...";
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
+          <p>Loading your journal history...</p>
         </div>
       </div>
+    );
+  }
 
-      <div className="flex justify-between items-center mb-6">
-        <button
-          onClick={handlePrevious}
-          disabled={page === 1}
-          className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
-        >
-          Previous Entry
-        </button>
-
-        <div className="flex flex-col items-center">
-          <span className="text-gray-500 mb-1">Page {page}</span>
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error}</p>
           <button
-            onClick={() => setSearchParams({ page: 1 })}
-            className="text-sm text-blue-600 underline hover:text-blue-800"
+            onClick={fetchEntries}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition"
           >
-            Start Over
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+            Journal History
+          </h1>
+          <p className="text-gray-300">
+            Explore your past entries and track your journey
+          </p>
+        </div>
+
+        {/* Controls */}
+        <div className="flex flex-wrap gap-4 mb-6">
+          {/* Date Range Selector */}
+          <select
+            value={dateRange}
+            onChange={(e) => handleDateRangeChange(e.target.value)}
+            className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:border-purple-400"
+          >
+            <option value="1month">Last Month</option>
+            <option value="3months">Last 3 Months</option>
+            <option value="6months">Last 6 Months</option>
+            <option value="1year">Last Year</option>
+            <option value="all">All Time</option>
+          </select>
+
+          {/* Analytics Toggle */}
+          <button
+            onClick={() => setShowAnalytics(!showAnalytics)}
+            className="flex items-center gap-2 px-4 py-2 bg-white/10 border border-white/20 rounded-lg hover:bg-white/20 transition"
+          >
+            <BarChart className="h-5 w-5" />
+            {showAnalytics ? "Hide" : "Show"} Analytics
           </button>
         </div>
 
-        <button
-          onClick={handleNext}
-          className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
-        >
-          Next Entry
-        </button>
-      </div>
+        {/* Analytics Section */}
+        {showAnalytics && analytics && (
+          <div className="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Entries */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Activity className="h-5 w-5 text-purple-400" />
+                <span className="text-2xl font-bold">
+                  {analytics.totalEntries}
+                </span>
+              </div>
+              <p className="text-sm text-gray-300">Total Entries</p>
+            </div>
 
-      {!entry ? (
-        <p>No journal entry found for this page.</p>
-      ) : (
-        <div className="border p-6 rounded-2xl shadow-md bg-white space-y-4">
-          <p className="text-sm text-gray-500">
-            {new Date(entry.created_at).toLocaleString()}
-          </p>
-          {entry.prompt && (
-            <p className="text-base text-purple-600 italic mb-1">
-              Prompt: {entry.prompt}
-            </p>
-          )}
-          <p className="font-semibold">Journal Entry:</p>
-          <div
-            className="text-base leading-relaxed"
-            dangerouslySetInnerHTML={{
-              __html: entry.html_content || `<p>${entry.content}</p>`,
-            }}
-          />
+            {/* Average Mood */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Heart className="h-5 w-5 text-pink-400" />
+                <span className="text-2xl font-bold">
+                  {analytics.averageMood}/10
+                </span>
+              </div>
+              <p className="text-sm text-gray-300">Average Mood</p>
+            </div>
 
-          {entry.follow_ups?.length > 0 && renderFollowUps(entry.follow_ups)}
+            {/* Writing Streak */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <TrendingUp className="h-5 w-5 text-green-400" />
+                <span className="text-2xl font-bold">
+                  {analytics.writingStreak}
+                </span>
+              </div>
+              <p className="text-sm text-gray-300">Day Streak</p>
+            </div>
 
-          <div className="mt-6 text-right">
+            {/* Average Words */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Brain className="h-5 w-5 text-blue-400" />
+                <span className="text-2xl font-bold">
+                  {analytics.averageWordCount}
+                </span>
+              </div>
+              <p className="text-sm text-gray-300">Avg Words/Entry</p>
+            </div>
+          </div>
+        )}
+
+        {/* Entries List */}
+        {entries.length === 0 ? (
+          <div className="text-center py-12">
+            <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-xl text-gray-400 mb-4">No entries found</p>
             <button
-              onClick={handleNext}
-              className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
+              onClick={() => navigate("/journal")}
+              className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition"
             >
-              Next Entry
+              Write Your First Entry
             </button>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="space-y-4">
+            {entries.map((entry) => (
+              <div
+                key={entry.id}
+                className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden"
+              >
+                {/* Entry Header */}
+                <div
+                  className="p-4 cursor-pointer hover:bg-white/5 transition"
+                  onClick={() => toggleEntryExpansion(entry.id)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        <span className="text-sm text-gray-300">
+                          {formatDate(entry.created_at)}
+                        </span>
+                        <Clock className="h-4 w-4 text-gray-400 ml-2" />
+                        <span className="text-sm text-gray-300">
+                          {formatTime(entry.created_at)}
+                        </span>
+                      </div>
+
+                      {/* Entry Preview */}
+                      <p className="text-gray-100">
+                        {entry.prompt && (
+                          <span className="text-purple-400 italic">
+                            Prompt: {entry.prompt} -
+                          </span>
+                        )}
+                        {getContentPreview(entry.content)}
+                      </p>
+
+                      {/* Metadata */}
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {entry.mood && (
+                          <span className="text-xs px-2 py-1 bg-purple-600/30 rounded-full">
+                            Mood: {entry.mood}/10
+                          </span>
+                        )}
+                        {entry.word_count && (
+                          <span className="text-xs px-2 py-1 bg-blue-600/30 rounded-full">
+                            {entry.word_count} words
+                          </span>
+                        )}
+                        {entry.topics && entry.topics.length > 0 && (
+                          <span className="text-xs px-2 py-1 bg-green-600/30 rounded-full">
+                            {entry.topics.length} topics
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Expand Icon */}
+                    <div className="ml-4">
+                      {expandedEntries.has(entry.id) ? (
+                        <ChevronLeft className="h-5 w-5 text-gray-400" />
+                      ) : (
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expanded Content */}
+                {expandedEntries.has(entry.id) && (
+                  <div className="px-4 pb-4 border-t border-white/10">
+                    <div
+                      className="mt-4 prose prose-invert max-w-none"
+                      dangerouslySetInnerHTML={{ __html: entry.content }}
+                    />
+
+                    {/* Follow-ups */}
+                    {entry.follow_ups && entry.follow_ups.length > 0 && (
+                      <div className="mt-6 space-y-4">
+                        <h4 className="text-sm font-semibold text-purple-300">
+                          Follow-up Reflections ({entry.follow_ups.length})
+                        </h4>
+                        {entry.follow_ups.map((followUp, index) => (
+                          <div
+                            key={followUp.id}
+                            className="ml-4 pl-4 border-l-2 border-purple-600/30"
+                          >
+                            <p className="text-sm text-purple-400 italic mb-2">
+                              {followUp.prompt || `Follow-up ${index + 1}`}
+                            </p>
+                            <div
+                              className="text-sm text-gray-300 prose prose-sm prose-invert"
+                              dangerouslySetInnerHTML={{
+                                __html: followUp.content,
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Topics & Emotions */}
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {entry.topics?.map((topic) => (
+                        <span
+                          key={topic}
+                          className="text-xs px-2 py-1 bg-purple-600/20 rounded-full"
+                        >
+                          #{topic}
+                        </span>
+                      ))}
+                      {entry.emotions?.map((emotion) => (
+                        <span
+                          key={emotion}
+                          className="text-xs px-2 py-1 bg-pink-600/20 rounded-full"
+                        >
+                          {emotion}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-8 flex items-center justify-center gap-2">
+            <button
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page === 1}
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+
+            <span className="px-4 py-2">
+              Page {page} of {totalPages}
+            </span>
+
+            <button
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page === totalPages}
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

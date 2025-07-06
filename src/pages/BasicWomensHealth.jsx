@@ -1,491 +1,459 @@
-//src/pages/BasicWomensHealth
+// src/pages/BasicWomensHealth.jsx - Fixed to use backend API
 import React, { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
-import { Calendar, Plus, TrendingUp, Heart, Activity } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-} from "recharts";
+  Heart,
+  Calendar,
+  Moon,
+  Sun,
+  Activity,
+  Info,
+  Lock,
+  ChevronRight,
+  Shield,
+} from "lucide-react";
 
 const BasicWomensHealth = () => {
   const { user } = useAuth();
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  const [cycleData, setCycleData] = useState([]);
+  const navigate = useNavigate();
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddEntry, setShowAddEntry] = useState(false);
-  const [currentEntry, setCurrentEntry] = useState({
-    cycle_day: "",
-    flow_level: "",
-    symptoms: [],
-    mood: "",
-    notes: "",
-  });
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [cycleDay, setCycleDay] = useState("");
+  const [periodFlow, setPeriodFlow] = useState("");
+  const [symptoms, setSymptoms] = useState([]);
+  const [saving, setSaving] = useState(false);
 
-  const SYMPTOMS = [
-    "cramps",
-    "bloating",
-    "headache",
-    "fatigue",
-    "nausea",
-    "breast_tenderness",
-    "mood_swings",
-    "irritability",
-    "acne",
-    "back_pain",
-    "food_cravings",
-    "insomnia",
+  // Basic symptoms list
+  const basicSymptoms = [
+    "Cramps",
+    "Headache",
+    "Mood swings",
+    "Fatigue",
+    "Bloating",
+    "Back pain",
   ];
-
-  const FLOW_LEVELS = ["none", "spotting", "light", "medium", "heavy"];
-  const MOODS = ["great", "good", "okay", "low", "irritable", "anxious"];
 
   useEffect(() => {
     if (user) {
-      fetchCycleData();
+      fetchHealthData();
     }
-  }, [user]);
+  }, [user, currentDate]);
 
-  const fetchCycleData = async () => {
+  const fetchHealthData = async () => {
     try {
-      const { data, error } = await supabase
-        .from("womens_health_tracking")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("date", { ascending: false });
+      setLoading(true);
 
-      if (error) {
-        console.error("Error fetching cycle data:", error);
-      } else {
-        setCycleData(data || []);
+      // Get first and last day of current month
+      const firstDay = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        1
+      );
+      const lastDay = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() + 1,
+        0
+      );
+
+      const response = await fetch(
+        `/api/womens-health?user_id=${user.id}&date_from=${
+          firstDay.toISOString().split("T")[0]
+        }&date_to=${lastDay.toISOString().split("T")[0]}&tier=basic`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch health data");
       }
+
+      const data = await response.json();
+      setEntries(data.entries || []);
     } catch (error) {
-      console.error("Unexpected error fetching cycle data:", error);
+      console.error("Error fetching health data:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSaveEntry = async () => {
+  const handleDateClick = (date) => {
+    setSelectedDate(date);
+
+    // Check if there's an entry for this date
+    const existingEntry = entries.find(
+      (e) => e.date === date.toISOString().split("T")[0]
+    );
+
+    if (existingEntry) {
+      setCycleDay(existingEntry.data.cycle?.day?.toString() || "");
+      setPeriodFlow(existingEntry.data.flow || "");
+      setSymptoms(existingEntry.data.symptoms || []);
+    } else {
+      setCycleDay("");
+      setPeriodFlow("");
+      setSymptoms([]);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!selectedDate || !user) return;
+
+    setSaving(true);
     try {
-      const entry = {
-        user_id: user.id,
-        date: selectedDate,
-        cycle_day: currentEntry.cycle_day
-          ? parseInt(currentEntry.cycle_day)
-          : null,
-        flow_level: currentEntry.flow_level || null,
-        symptoms: currentEntry.symptoms,
-        mood: currentEntry.mood || null,
-        notes: currentEntry.notes || null,
+      const healthData = {
+        cycle: cycleDay ? { day: parseInt(cycleDay) } : null,
+        flow: periodFlow || null,
+        symptoms: symptoms.length > 0 ? symptoms : null,
       };
 
-      const { error } = await supabase
-        .from("womens_health_tracking")
-        .upsert(entry, { onConflict: "user_id,date" });
+      const response = await fetch("/api/womens-health", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          date: selectedDate.toISOString().split("T")[0],
+          health_data: healthData,
+        }),
+      });
 
-      if (error) {
-        console.error("Error saving entry:", error);
-      } else {
-        setShowAddEntry(false);
-        setCurrentEntry({
-          cycle_day: "",
-          flow_level: "",
-          symptoms: [],
-          mood: "",
-          notes: "",
-        });
-        fetchCycleData();
+      if (!response.ok) {
+        throw new Error("Failed to save health data");
       }
+
+      // Refresh data
+      await fetchHealthData();
+
+      // Clear form
+      setSelectedDate(null);
+      setCycleDay("");
+      setPeriodFlow("");
+      setSymptoms([]);
     } catch (error) {
-      console.error("Unexpected error saving entry:", error);
+      console.error("Error saving health data:", error);
+      alert("Failed to save. Please try again.");
+    } finally {
+      setSaving(false);
     }
   };
 
   const toggleSymptom = (symptom) => {
-    const newSymptoms = currentEntry.symptoms.includes(symptom)
-      ? currentEntry.symptoms.filter((s) => s !== symptom)
-      : [...currentEntry.symptoms, symptom];
-
-    setCurrentEntry((prev) => ({ ...prev, symptoms: newSymptoms }));
-  };
-
-  const generateCycleChart = () => {
-    if (!cycleData.length) return [];
-
-    return cycleData
-      .filter((entry) => entry.cycle_day)
-      .slice(0, 30)
-      .reverse()
-      .map((entry, index) => ({
-        day: index + 1,
-        cycle_day: entry.cycle_day,
-        date: new Date(entry.date).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        }),
-      }));
-  };
-
-  const generateSymptomChart = () => {
-    const symptomCounts = {};
-    cycleData.forEach((entry) => {
-      if (entry.symptoms) {
-        entry.symptoms.forEach((symptom) => {
-          symptomCounts[symptom] = (symptomCounts[symptom] || 0) + 1;
-        });
-      }
-    });
-
-    return Object.entries(symptomCounts)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 8)
-      .map(([symptom, count]) => ({
-        symptom: symptom
-          .replace("_", " ")
-          .replace(/\b\w/g, (l) => l.toUpperCase()),
-        count,
-      }));
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-300 rounded mb-8"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[1, 2].map((i) => (
-                <div key={i} className="bg-white rounded-lg p-6">
-                  <div className="h-4 bg-gray-300 rounded mb-4"></div>
-                  <div className="h-32 bg-gray-300 rounded"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+    setSymptoms((prev) =>
+      prev.includes(symptom)
+        ? prev.filter((s) => s !== symptom)
+        : [...prev, symptom]
     );
-  }
+  };
+
+  // Calendar helpers
+  const getDaysInMonth = () => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+
+    const days = [];
+
+    // Add empty cells for days before month starts
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+
+    // Add days of month
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(new Date(year, month, i));
+    }
+
+    return days;
+  };
+
+  const getEntryForDate = (date) => {
+    if (!date) return null;
+    return entries.find((e) => e.date === date.toISOString().split("T")[0]);
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Women's Health Tracking
-          </h1>
-          <p className="text-gray-600">
-            Track your menstrual cycle, symptoms, and patterns to better
-            understand your health.
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Women's Health Tracking
+            </h1>
+            <button
+              onClick={() => setShowInfoModal(true)}
+              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition"
+            >
+              <Info className="h-5 w-5" />
+            </button>
+          </div>
+          <p className="text-gray-300">
+            Basic cycle tracking and symptom logging
           </p>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-pink-100 rounded-lg">
-                <Calendar className="w-6 h-6 text-pink-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">
-                  Total Entries
-                </p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {cycleData.length}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Activity className="w-6 h-6 text-purple-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">
-                  Days Tracked
-                </p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {cycleData.length
-                    ? Math.ceil(
-                        (new Date() -
-                          new Date(cycleData[cycleData.length - 1]?.date)) /
-                          (1000 * 60 * 60 * 24)
-                      )
-                    : 0}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <Heart className="w-6 h-6 text-red-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">
-                  Avg Cycle Length
-                </p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {cycleData.filter((e) => e.cycle_day).length
-                    ? Math.round(
-                        cycleData
-                          .filter((e) => e.cycle_day)
-                          .reduce((sum, e) => sum + e.cycle_day, 0) /
-                          cycleData.filter((e) => e.cycle_day).length
-                      )
-                    : 0}{" "}
-                  days
-                </p>
-              </div>
-            </div>
+        {/* Privacy Notice */}
+        <div className="mb-6 p-4 bg-purple-500/10 backdrop-blur-sm rounded-lg border border-purple-500/20 flex items-start gap-3">
+          <Shield className="h-5 w-5 text-purple-400 flex-shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="text-purple-200 font-semibold mb-1">
+              Your Privacy Matters
+            </p>
+            <p className="text-gray-300">
+              All health data is encrypted and visible only to you. We never
+              share your personal health information.
+            </p>
           </div>
         </div>
 
-        {/* Add Entry Button */}
-        <div className="mb-6">
-          <button
-            onClick={() => setShowAddEntry(true)}
-            className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Track Today</span>
-          </button>
+        {/* Calendar View */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={() =>
+                setCurrentDate(
+                  new Date(
+                    currentDate.getFullYear(),
+                    currentDate.getMonth() - 1
+                  )
+                )
+              }
+              className="p-2 hover:bg-white/10 rounded transition"
+            >
+              <ChevronRight className="h-5 w-5 rotate-180" />
+            </button>
+            <h3 className="text-lg font-semibold">
+              {currentDate.toLocaleDateString("en-US", {
+                month: "long",
+                year: "numeric",
+              })}
+            </h3>
+            <button
+              onClick={() =>
+                setCurrentDate(
+                  new Date(
+                    currentDate.getFullYear(),
+                    currentDate.getMonth() + 1
+                  )
+                )
+              }
+              className="p-2 hover:bg-white/10 rounded transition"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Calendar Grid */}
+          <div className="grid grid-cols-7 gap-1">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              <div key={day} className="text-center text-xs text-gray-400 p-2">
+                {day}
+              </div>
+            ))}
+            {getDaysInMonth().map((date, index) => {
+              const entry = date ? getEntryForDate(date) : null;
+              const isToday =
+                date && date.toDateString() === new Date().toDateString();
+              const isSelected =
+                date &&
+                selectedDate &&
+                date.toDateString() === selectedDate.toDateString();
+
+              return (
+                <div
+                  key={index}
+                  className={`
+                    aspect-square p-2 rounded-lg cursor-pointer transition
+                    ${!date ? "" : "hover:bg-white/10"}
+                    ${isToday ? "ring-2 ring-purple-400" : ""}
+                    ${isSelected ? "bg-purple-600/30" : ""}
+                    ${entry?.data.flow ? "bg-pink-600/20" : ""}
+                  `}
+                  onClick={() => date && handleDateClick(date)}
+                >
+                  {date && (
+                    <>
+                      <div className="text-sm">{date.getDate()}</div>
+                      {entry && (
+                        <div className="mt-1 flex gap-1 justify-center">
+                          {entry.data.flow && (
+                            <div className="w-1.5 h-1.5 bg-pink-400 rounded-full" />
+                          )}
+                          {entry.data.symptoms &&
+                            entry.data.symptoms.length > 0 && (
+                              <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full" />
+                            )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Add Entry Modal */}
-        {showAddEntry && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Add Health Entry
-                </h3>
+        {/* Entry Form */}
+        {selectedDate && (
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6 mb-6">
+            <h3 className="text-lg font-semibold mb-4">
+              {selectedDate.toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </h3>
 
-                {/* Date */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
+            {/* Cycle Day */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">
+                Cycle Day (optional)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="50"
+                value={cycleDay}
+                onChange={(e) => setCycleDay(e.target.value)}
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:border-purple-400"
+                placeholder="Enter day of cycle"
+              />
+            </div>
 
-                {/* Cycle Day */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cycle Day (Optional)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="50"
-                    value={currentEntry.cycle_day}
-                    onChange={(e) =>
-                      setCurrentEntry((prev) => ({
-                        ...prev,
-                        cycle_day: e.target.value,
-                      }))
-                    }
-                    placeholder="e.g., 1, 15, 28"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-
-                {/* Flow Level */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Flow Level
-                  </label>
-                  <select
-                    value={currentEntry.flow_level}
-                    onChange={(e) =>
-                      setCurrentEntry((prev) => ({
-                        ...prev,
-                        flow_level: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="">Select flow level</option>
-                    {FLOW_LEVELS.map((level) => (
-                      <option key={level} value={level}>
-                        {level.charAt(0).toUpperCase() + level.slice(1)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Symptoms */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Symptoms
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {SYMPTOMS.map((symptom) => (
-                      <button
-                        key={symptom}
-                        onClick={() => toggleSymptom(symptom)}
-                        className={`text-xs p-2 rounded-md transition-colors ${
-                          currentEntry.symptoms.includes(symptom)
-                            ? "bg-purple-600 text-white"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                        }`}
-                      >
-                        {symptom
-                          .replace("_", " ")
-                          .replace(/\b\w/g, (l) => l.toUpperCase())}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Mood */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Mood
-                  </label>
-                  <select
-                    value={currentEntry.mood}
-                    onChange={(e) =>
-                      setCurrentEntry((prev) => ({
-                        ...prev,
-                        mood: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="">Select mood</option>
-                    {MOODS.map((mood) => (
-                      <option key={mood} value={mood}>
-                        {mood.charAt(0).toUpperCase() + mood.slice(1)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Notes */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Notes (Optional)
-                  </label>
-                  <textarea
-                    value={currentEntry.notes}
-                    onChange={(e) =>
-                      setCurrentEntry((prev) => ({
-                        ...prev,
-                        notes: e.target.value,
-                      }))
-                    }
-                    placeholder="Any additional notes..."
-                    rows="3"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-
-                {/* Buttons */}
-                <div className="flex space-x-3">
+            {/* Period Flow */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">
+                Period Flow (if applicable)
+              </label>
+              <div className="flex gap-2">
+                {["Light", "Medium", "Heavy"].map((flow) => (
                   <button
-                    onClick={() => setShowAddEntry(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                    key={flow}
+                    onClick={() =>
+                      setPeriodFlow(periodFlow === flow ? "" : flow)
+                    }
+                    className={`px-4 py-2 rounded-lg transition ${
+                      periodFlow === flow
+                        ? "bg-pink-600 text-white"
+                        : "bg-white/10 hover:bg-white/20"
+                    }`}
                   >
-                    Cancel
+                    {flow}
                   </button>
-                  <button
-                    onClick={handleSaveEntry}
-                    className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
-                  >
-                    Save Entry
-                  </button>
-                </div>
+                ))}
               </div>
             </div>
+
+            {/* Symptoms */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Symptoms</label>
+              <div className="grid grid-cols-2 gap-2">
+                {basicSymptoms.map((symptom) => (
+                  <button
+                    key={symptom}
+                    onClick={() => toggleSymptom(symptom)}
+                    className={`px-3 py-2 rounded-lg text-sm transition ${
+                      symptoms.includes(symptom)
+                        ? "bg-purple-600 text-white"
+                        : "bg-white/10 hover:bg-white/20"
+                    }`}
+                  >
+                    {symptom}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save Entry"}
+            </button>
           </div>
         )}
 
-        {/* Charts */}
-        {cycleData.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Cycle Tracking Chart */}
-            {generateCycleChart().length > 0 && (
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Cycle Days Tracked
-                </h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={generateCycleChart()}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="cycle_day"
-                      stroke="#EC4899"
-                      strokeWidth={2}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            )}
+        {/* Upgrade Prompt */}
+        <div className="bg-gradient-to-r from-pink-600/20 to-purple-600/20 backdrop-blur-sm rounded-lg border border-pink-500/30 p-6">
+          <h3 className="text-xl font-semibold mb-2 flex items-center gap-2">
+            <Lock className="h-6 w-6" />
+            Unlock Advanced Features
+          </h3>
+          <p className="text-gray-300 mb-4">
+            Upgrade to Standard or higher for:
+          </p>
+          <ul className="space-y-2 text-sm text-gray-300 mb-4">
+            <li className="flex items-center gap-2">
+              <Moon className="h-4 w-4 text-pink-400" />
+              Cycle predictions and fertile window tracking
+            </li>
+            <li className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-pink-400" />
+              Symptom pattern analysis
+            </li>
+            <li className="flex items-center gap-2">
+              <Sun className="h-4 w-4 text-pink-400" />
+              Phase-based wellness recommendations
+            </li>
+            <li className="flex items-center gap-2">
+              <Heart className="h-4 w-4 text-pink-400" />
+              Mood and energy correlations with cycle
+            </li>
+          </ul>
+          <button
+            onClick={() => navigate("/pricing")}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition"
+          >
+            Upgrade Now
+          </button>
+        </div>
 
-            {/* Symptom Frequency Chart */}
-            {generateSymptomChart().length > 0 && (
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Common Symptoms
-                </h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={generateSymptomChart()}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="symptom" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#8B5CF6" />
-                  </BarChart>
-                </ResponsiveContainer>
+        {/* Info Modal */}
+        {showInfoModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-xl font-semibold mb-4">
+                About Women's Health Tracking
+              </h3>
+              <div className="space-y-3 text-sm text-gray-300">
+                <p>
+                  Track your menstrual cycle, symptoms, and patterns in a safe,
+                  private environment.
+                </p>
+                <p>
+                  <strong className="text-purple-300">
+                    Basic features include:
+                  </strong>
+                </p>
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li>Calendar view of your cycle</li>
+                  <li>Basic symptom tracking</li>
+                  <li>Period flow recording</li>
+                  <li>Cycle day tracking</li>
+                </ul>
+                <p>
+                  <strong className="text-purple-300">Your privacy:</strong> All
+                  data is encrypted and only you can see it. We never share your
+                  health information.
+                </p>
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-            <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              Start tracking your health
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Begin logging your cycle and symptoms to see patterns and
-              insights.
-            </p>
-            <button
-              onClick={() => setShowAddEntry(true)}
-              className="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 transition-colors"
-            >
-              Add Your First Entry
-            </button>
+              <button
+                onClick={() => setShowInfoModal(false)}
+                className="mt-6 w-full py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition"
+              >
+                Got it
+              </button>
+            </div>
           </div>
         )}
       </div>
     </div>
   );
 };
-
-export default BasicWomensHealth;

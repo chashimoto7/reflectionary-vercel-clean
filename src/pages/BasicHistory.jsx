@@ -1,42 +1,61 @@
-//src/pages/BasicHistory
+// src/pages/BasicHistory.jsx - Fixed to use backend API
 import React, { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import {
   Calendar,
   Clock,
   BookOpen,
   ChevronDown,
   ChevronUp,
+  ArrowLeft,
+  ArrowRight,
+  FileText,
 } from "lucide-react";
 
 const BasicHistory = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [expandedEntries, setExpandedEntries] = useState(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalEntries, setTotalEntries] = useState(0);
+
+  const entriesPerPage = 10;
 
   useEffect(() => {
     if (user) {
       fetchEntries();
     }
-  }, [user]);
+  }, [user, currentPage]);
 
   const fetchEntries = async () => {
     try {
-      const { data, error } = await supabase
-        .from("journal_entries")
-        .select("id, title, content, created_at, word_count")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+      setLoading(true);
+      setError(null);
 
-      if (error) {
-        console.error("Error fetching entries:", error);
-      } else {
-        setEntries(data || []);
+      // Use the backend API to get decrypted entries
+      const response = await fetch(
+        `/api/get-entries?user_id=${user.id}&limit=${entriesPerPage}&offset=${
+          (currentPage - 1) * entriesPerPage
+        }&parent_only=true`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch entries");
       }
+
+      const data = await response.json();
+
+      setEntries(data.entries || []);
+      setTotalEntries(data.total || 0);
+      setTotalPages(Math.ceil((data.total || 0) / entriesPerPage));
     } catch (error) {
-      console.error("Unexpected error fetching entries:", error);
+      console.error("Error fetching entries:", error);
+      setError("Failed to load your journal history. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -85,178 +104,216 @@ const BasicHistory = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-300 rounded mb-4"></div>
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-white rounded-lg p-6">
-                  <div className="h-4 bg-gray-300 rounded mb-2"></div>
-                  <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-                </div>
-              ))}
-            </div>
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
+          <p>Loading your journal history...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error}</p>
+          <button
+            onClick={fetchEntries}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
             Journal History
           </h1>
-          <p className="text-gray-600">
-            Browse through all your journal entries, starting with the most
-            recent.
+          <p className="text-gray-300">
+            Your journal entries ({totalEntries} total)
           </p>
         </div>
 
-        {/* Stats Overview */}
-        {entries.length > 0 && (
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-lg mx-auto mb-2">
-                  <BookOpen className="w-6 h-6 text-purple-600" />
-                </div>
-                <p className="text-2xl font-bold text-gray-900">
-                  {entries.length}
-                </p>
-                <p className="text-sm text-gray-600">Total Entries</p>
-              </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-lg mx-auto mb-2">
-                  <Calendar className="w-6 h-6 text-purple-600" />
-                </div>
-                <p className="text-2xl font-bold text-gray-900">
-                  {entries.length > 0
-                    ? Math.ceil(
-                        (new Date() -
-                          new Date(entries[entries.length - 1].created_at)) /
-                          (1000 * 60 * 60 * 24)
-                      )
-                    : 0}
-                </p>
-                <p className="text-sm text-gray-600">Days Journaling</p>
-              </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-lg mx-auto mb-2">
-                  <Clock className="w-6 h-6 text-purple-600" />
-                </div>
-                <p className="text-2xl font-bold text-gray-900">
-                  {entries.reduce(
-                    (total, entry) => total + (entry.word_count || 0),
-                    0
-                  )}
-                </p>
-                <p className="text-sm text-gray-600">Total Words</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Entries List */}
+        {/* Entry List */}
         {entries.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-            <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No entries yet
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Start your journaling journey by creating your first entry.
+          <div className="text-center py-12 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+            <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-xl text-gray-400 mb-4">No journal entries yet</p>
+            <p className="text-gray-300 mb-6">
+              Start your journaling journey today!
             </p>
             <button
-              onClick={() => (window.location.href = "/journal")}
-              className="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 transition-colors"
+              onClick={() => navigate("/journal")}
+              className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition"
             >
-              Create Your First Entry
+              Write Your First Entry
             </button>
           </div>
         ) : (
           <div className="space-y-4">
-            {entries.map((entry) => {
-              const isExpanded = expandedEntries.has(entry.id);
-              const content = stripHtml(entry.content);
-
-              return (
+            {entries.map((entry) => (
+              <div
+                key={entry.id}
+                className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden hover:border-purple-400/50 transition"
+              >
+                {/* Entry Header - Always Visible */}
                 <div
-                  key={entry.id}
-                  className="bg-white rounded-xl shadow-lg overflow-hidden"
+                  className="p-4 cursor-pointer hover:bg-white/5 transition"
+                  onClick={() => toggleEntryExpansion(entry.id)}
                 >
-                  <div className="p-6">
-                    {/* Entry Header */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                          {entry.title ||
-                            `Entry from ${formatDate(entry.created_at)}`}
-                        </h3>
-                        <div className="flex items-center space-x-4 text-sm text-gray-500">
-                          <div className="flex items-center">
-                            <Calendar className="w-4 h-4 mr-1" />
-                            {formatDate(entry.created_at)}
-                          </div>
-                          <div className="flex items-center">
-                            <Clock className="w-4 h-4 mr-1" />
-                            {formatTime(entry.created_at)}
-                          </div>
-                          {entry.word_count && (
-                            <div>{entry.word_count} words</div>
-                          )}
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      {/* Date and Time */}
+                      <div className="flex items-center gap-4 text-sm text-gray-400 mb-2">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          <span>{formatDate(entry.created_at)}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-4 w-4" />
+                          <span>{formatTime(entry.created_at)}</span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => toggleEntryExpansion(entry.id)}
-                        className="p-2 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500 rounded-md"
-                      >
-                        {isExpanded ? (
-                          <ChevronUp className="w-5 h-5" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5" />
+
+                      {/* Entry Preview */}
+                      <p className="text-gray-100">
+                        {entry.prompt && (
+                          <span className="text-purple-400 italic mr-2">
+                            Prompt: "{entry.prompt}"
+                          </span>
                         )}
-                      </button>
+                        {getPreview(entry.content)}
+                      </p>
+
+                      {/* Basic Stats */}
+                      <div className="flex items-center gap-4 mt-2 text-sm">
+                        {entry.word_count && (
+                          <span className="text-gray-400">
+                            <FileText className="h-3 w-3 inline mr-1" />
+                            {entry.word_count} words
+                          </span>
+                        )}
+                        {entry.follow_ups && entry.follow_ups.length > 0 && (
+                          <span className="text-purple-400">
+                            {entry.follow_ups.length} follow-up
+                            {entry.follow_ups.length > 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Entry Content */}
-                    <div className="text-gray-700">
-                      {isExpanded ? (
-                        <div
-                          className="prose max-w-none"
-                          dangerouslySetInnerHTML={{ __html: entry.content }}
-                        />
+                    {/* Expand/Collapse Icon */}
+                    <div className="ml-4 mt-1">
+                      {expandedEntries.has(entry.id) ? (
+                        <ChevronUp className="h-5 w-5 text-gray-400" />
                       ) : (
-                        <p className="leading-relaxed">
-                          {getPreview(entry.content)}
-                        </p>
+                        <ChevronDown className="h-5 w-5 text-gray-400" />
                       )}
                     </div>
-
-                    {/* Show More/Less Button */}
-                    {content.length > 150 && (
-                      <div className="mt-4">
-                        <button
-                          onClick={() => toggleEntryExpansion(entry.id)}
-                          className="text-purple-600 hover:text-purple-700 font-medium text-sm focus:outline-none focus:underline"
-                        >
-                          {isExpanded ? "Show Less" : "Read More"}
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
-              );
-            })}
+
+                {/* Expanded Content */}
+                {expandedEntries.has(entry.id) && (
+                  <div className="px-4 pb-4 border-t border-white/10">
+                    {/* Full Content */}
+                    <div
+                      className="mt-4 prose prose-invert max-w-none"
+                      dangerouslySetInnerHTML={{ __html: entry.content }}
+                    />
+
+                    {/* Follow-ups */}
+                    {entry.follow_ups && entry.follow_ups.length > 0 && (
+                      <div className="mt-6 space-y-3">
+                        <h4 className="text-sm font-semibold text-purple-300">
+                          Follow-up Reflections
+                        </h4>
+                        {entry.follow_ups.map((followUp, index) => (
+                          <div
+                            key={followUp.id}
+                            className="ml-4 pl-4 border-l-2 border-purple-600/30"
+                          >
+                            {followUp.prompt && (
+                              <p className="text-sm text-purple-400 italic mb-2">
+                                {followUp.prompt}
+                              </p>
+                            )}
+                            <div
+                              className="text-sm text-gray-300 prose prose-sm prose-invert"
+                              dangerouslySetInnerHTML={{
+                                __html: followUp.content,
+                              }}
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              {formatDate(followUp.created_at)} at{" "}
+                              {formatTime(followUp.created_at)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Upgrade Prompt for Basic Users */}
+                    <div className="mt-6 p-4 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                      <p className="text-sm text-purple-200">
+                        <strong>Upgrade to Standard</strong> to see mood
+                        tracking, emotions, and AI-powered insights for your
+                        entries.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-8 flex items-center justify-center gap-4">
+            <button
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Previous
+            </button>
+
+            <span className="text-sm text-gray-300">
+              Page {currentPage} of {totalPages}
+            </span>
+
+            <button
+              onClick={() =>
+                setCurrentPage(Math.min(totalPages, currentPage + 1))
+              }
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2"
+            >
+              Next
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Basic Tier Info */}
+        <div className="mt-8 text-center text-sm text-gray-400">
+          <p>
+            Basic members can view their journal entries and follow-ups.
+            <br />
+            Upgrade for advanced analytics, mood tracking, and AI insights.
+          </p>
+        </div>
       </div>
     </div>
   );
 };
-
-export default BasicHistory;

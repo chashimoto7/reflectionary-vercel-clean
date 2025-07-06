@@ -1,7 +1,18 @@
-//src/pages/Basic Analytics
+// src/pages/BasicAnalytics.jsx - Fixed to use backend API
 import React, { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import {
+  Activity,
+  TrendingUp,
+  Calendar,
+  FileText,
+  Award,
+  BarChart3,
+  ArrowUp,
+  Clock,
+  Target,
+} from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -10,412 +21,289 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
 } from "recharts";
-import { BookOpen, Calendar, Clock, TrendingUp, Hash } from "lucide-react";
 
 const BasicAnalytics = () => {
   const { user } = useAuth();
-  const [entries, setEntries] = useState([]);
+  const navigate = useNavigate();
+  const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [analytics, setAnalytics] = useState({
-    totalEntries: 0,
-    totalWords: 0,
-    averageWordsPerEntry: 0,
-    daysJournaling: 0,
-    weeklyData: [],
-    monthlyData: [],
-    themes: [],
-  });
+  const [error, setError] = useState(null);
+  const [dateRange, setDateRange] = useState("30days");
 
   useEffect(() => {
     if (user) {
-      fetchEntriesAndAnalyze();
+      fetchAnalytics();
     }
-  }, [user]);
+  }, [user, dateRange]);
 
-  const fetchEntriesAndAnalyze = async () => {
+  const fetchAnalytics = async () => {
     try {
-      const { data, error } = await supabase
-        .from("journal_entries")
-        .select("id, title, content, created_at, word_count")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: true });
+      setLoading(true);
+      setError(null);
 
-      if (error) {
-        console.error("Error fetching entries:", error);
-        return;
+      const response = await fetch(
+        `/api/analytics?user_id=${user.id}&tier=basic&date_range=${dateRange}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch analytics");
       }
 
-      setEntries(data || []);
-      analyzeData(data || []);
+      const data = await response.json();
+      setAnalytics(data.analytics);
     } catch (error) {
-      console.error("Unexpected error fetching entries:", error);
+      console.error("Error fetching analytics:", error);
+      setError("Failed to load analytics. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const analyzeData = (entries) => {
-    if (!entries.length) {
-      setAnalytics({
-        totalEntries: 0,
-        totalWords: 0,
-        averageWordsPerEntry: 0,
-        daysJournaling: 0,
-        weeklyData: [],
-        monthlyData: [],
-        themes: [],
-      });
-      return;
+  const formatDateRange = () => {
+    switch (dateRange) {
+      case "7days":
+        return "Last 7 Days";
+      case "30days":
+        return "Last 30 Days";
+      case "90days":
+        return "Last 90 Days";
+      case "all":
+        return "All Time";
+      default:
+        return "Last 30 Days";
     }
-
-    // Basic stats
-    const totalEntries = entries.length;
-    const totalWords = entries.reduce(
-      (sum, entry) => sum + (entry.word_count || 0),
-      0
-    );
-    const averageWordsPerEntry = Math.round(totalWords / totalEntries);
-
-    // Calculate days journaling
-    const firstEntry = new Date(entries[0].created_at);
-    const lastEntry = new Date(entries[entries.length - 1].created_at);
-    const daysJournaling =
-      Math.ceil((lastEntry - firstEntry) / (1000 * 60 * 60 * 24)) + 1;
-
-    // Weekly data for the last 8 weeks
-    const weeklyData = generateWeeklyData(entries);
-
-    // Monthly data for the last 6 months
-    const monthlyData = generateMonthlyData(entries);
-
-    // Basic theme extraction
-    const themes = extractThemes(entries);
-
-    setAnalytics({
-      totalEntries,
-      totalWords,
-      averageWordsPerEntry,
-      daysJournaling,
-      weeklyData,
-      monthlyData,
-      themes,
-    });
-  };
-
-  const generateWeeklyData = (entries) => {
-    const weeks = [];
-    const now = new Date();
-
-    // Generate last 8 weeks
-    for (let i = 7; i >= 0; i--) {
-      const weekStart = new Date(now);
-      weekStart.setDate(weekStart.getDate() - i * 7 - weekStart.getDay());
-      weekStart.setHours(0, 0, 0, 0);
-
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekEnd.getDate() + 6);
-      weekEnd.setHours(23, 59, 59, 999);
-
-      const weekEntries = entries.filter((entry) => {
-        const entryDate = new Date(entry.created_at);
-        return entryDate >= weekStart && entryDate <= weekEnd;
-      });
-
-      weeks.push({
-        week: `Week ${8 - i}`,
-        entries: weekEntries.length,
-        words: weekEntries.reduce(
-          (sum, entry) => sum + (entry.word_count || 0),
-          0
-        ),
-      });
-    }
-
-    return weeks;
-  };
-
-  const generateMonthlyData = (entries) => {
-    const months = [];
-    const now = new Date();
-
-    // Generate last 6 months
-    for (let i = 5; i >= 0; i--) {
-      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
-
-      const monthEntries = entries.filter((entry) => {
-        const entryDate = new Date(entry.created_at);
-        return entryDate >= monthStart && entryDate <= monthEnd;
-      });
-
-      months.push({
-        month: monthStart.toLocaleDateString("en-US", {
-          month: "short",
-          year: "numeric",
-        }),
-        entries: monthEntries.length,
-        words: monthEntries.reduce(
-          (sum, entry) => sum + (entry.word_count || 0),
-          0
-        ),
-      });
-    }
-
-    return months;
-  };
-
-  const extractThemes = (entries) => {
-    // Simple keyword extraction - looking for common themes
-    const commonThemes = [
-      "work",
-      "family",
-      "friends",
-      "health",
-      "exercise",
-      "stress",
-      "happy",
-      "sad",
-      "anxious",
-      "grateful",
-      "tired",
-      "excited",
-      "worried",
-      "love",
-      "relationship",
-      "career",
-      "money",
-      "travel",
-      "home",
-      "goals",
-      "dreams",
-      "fear",
-      "anger",
-      "peace",
-      "meditation",
-      "sleep",
-      "food",
-      "hobby",
-      "learning",
-      "growth",
-    ];
-
-    const themeCount = {};
-
-    entries.forEach((entry) => {
-      const content = (entry.content + " " + (entry.title || "")).toLowerCase();
-      const words = content.replace(/<[^>]*>/g, "").split(/\s+/);
-
-      commonThemes.forEach((theme) => {
-        const matches = words.filter(
-          (word) =>
-            word.includes(theme) || theme.includes(word.replace(/[^a-z]/g, ""))
-        ).length;
-
-        if (matches > 0) {
-          themeCount[theme] = (themeCount[theme] || 0) + matches;
-        }
-      });
-    });
-
-    // Return top 10 themes
-    return Object.entries(themeCount)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 10)
-      .map(([theme, count]) => ({ theme, count }));
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-300 rounded mb-8"></div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="bg-white rounded-lg p-6">
-                  <div className="h-4 bg-gray-300 rounded mb-2"></div>
-                  <div className="h-8 bg-gray-300 rounded"></div>
-                </div>
-              ))}
-            </div>
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
+          <p>Analyzing your journal data...</p>
         </div>
       </div>
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error}</p>
+          <button
+            onClick={fetchAnalytics}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Prepare chart data from entry frequency
+  const chartData = analytics?.entryFrequency
+    ? analytics.entryFrequency.map((count, index) => ({
+        day: `Day ${index + 1}`,
+        entries: count,
+      }))
+    : [];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Basic Analytics
+          <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+            Journal Analytics
           </h1>
-          <p className="text-gray-600">
-            Track your journaling habits and discover patterns in your writing.
+          <p className="text-gray-300">
+            Track your journaling progress and patterns
           </p>
         </div>
 
-        {analytics.totalEntries === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-            <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No data to analyze yet
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Start journaling to see your analytics and patterns.
-            </p>
-            <button
-              onClick={() => (window.location.href = "/journal")}
-              className="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 transition-colors"
-            >
-              Start Journaling
-            </button>
+        {/* Date Range Selector */}
+        <div className="mb-6">
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value)}
+            className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:border-purple-400 text-white"
+          >
+            <option value="7days">Last 7 Days</option>
+            <option value="30days">Last 30 Days</option>
+            <option value="90days">Last 90 Days</option>
+            <option value="all">All Time</option>
+          </select>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {/* Total Entries */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6">
+            <div className="flex items-center justify-between mb-2">
+              <FileText className="h-8 w-8 text-purple-400" />
+              <span className="text-3xl font-bold">
+                {analytics?.overview?.totalEntries || 0}
+              </span>
+            </div>
+            <h3 className="text-lg font-semibold mb-1">Total Entries</h3>
+            <p className="text-sm text-gray-300">{formatDateRange()}</p>
           </div>
-        ) : (
-          <>
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <BookOpen className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">
-                      Total Entries
-                    </p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {analytics.totalEntries}
-                    </p>
-                  </div>
-                </div>
-              </div>
 
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Hash className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">
-                      Total Words
-                    </p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {analytics.totalWords.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <TrendingUp className="w-6 h-6 text-green-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">
-                      Avg Words/Entry
-                    </p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {analytics.averageWordsPerEntry}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-orange-100 rounded-lg">
-                    <Calendar className="w-6 h-6 text-orange-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">
-                      Days Journaling
-                    </p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {analytics.daysJournaling}
-                    </p>
-                  </div>
-                </div>
-              </div>
+          {/* Current Streak */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6">
+            <div className="flex items-center justify-between mb-2">
+              <Award className="h-8 w-8 text-yellow-400" />
+              <span className="text-3xl font-bold">
+                {analytics?.overview?.currentStreak || 0}
+              </span>
             </div>
+            <h3 className="text-lg font-semibold mb-1">Day Streak</h3>
+            <p className="text-sm text-gray-300">Keep it going!</p>
+          </div>
 
-            {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-              {/* Weekly Entries Chart */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Weekly Entries
-                </h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={analytics.weeklyData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="week" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="entries" fill="#8B5CF6" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Monthly Word Count Chart */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Monthly Word Count
-                </h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={analytics.monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="words"
-                      stroke="#3B82F6"
-                      strokeWidth={2}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+          {/* Total Words */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6">
+            <div className="flex items-center justify-between mb-2">
+              <Activity className="h-8 w-8 text-green-400" />
+              <span className="text-3xl font-bold">
+                {analytics?.overview?.totalWords?.toLocaleString() || 0}
+              </span>
             </div>
+            <h3 className="text-lg font-semibold mb-1">Total Words</h3>
+            <p className="text-sm text-gray-300">Keep writing!</p>
+          </div>
 
-            {/* Common Themes */}
-            {analytics.themes.length > 0 && (
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Common Themes
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  Most frequently mentioned topics in your journal entries:
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {analytics.themes.map((theme, index) => (
-                    <div
-                      key={theme.theme}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                    >
-                      <span className="font-medium text-gray-900 capitalize">
-                        {theme.theme}
-                      </span>
-                      <span className="text-sm text-gray-600 bg-white px-2 py-1 rounded">
-                        {theme.count} mentions
-                      </span>
-                    </div>
-                  ))}
+          {/* Average Words */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6">
+            <div className="flex items-center justify-between mb-2">
+              <TrendingUp className="h-8 w-8 text-blue-400" />
+              <span className="text-3xl font-bold">
+                {analytics?.overview?.averageWordsPerEntry || 0}
+              </span>
+            </div>
+            <h3 className="text-lg font-semibold mb-1">Avg Words/Entry</h3>
+            <p className="text-sm text-gray-300">Per journal entry</p>
+          </div>
+        </div>
+
+        {/* Entry Frequency Chart */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6 mb-8">
+          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <BarChart3 className="h-6 w-6 text-purple-400" />
+            Recent Activity
+          </h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255,255,255,0.1)"
+                />
+                <XAxis
+                  dataKey="day"
+                  stroke="rgba(255,255,255,0.5)"
+                  tick={{ fill: "rgba(255,255,255,0.7)" }}
+                />
+                <YAxis
+                  stroke="rgba(255,255,255,0.5)"
+                  tick={{ fill: "rgba(255,255,255,0.7)" }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "rgba(0,0,0,0.8)",
+                    border: "1px solid rgba(139,92,246,0.5)",
+                    borderRadius: "8px",
+                  }}
+                />
+                <Bar dataKey="entries" fill="#8B5CF6" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Recent Activity List */}
+        {analytics?.recentActivity && analytics.recentActivity.length > 0 && (
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6 mb-8">
+            <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Clock className="h-6 w-6 text-purple-400" />
+              Recent Entries
+            </h3>
+            <div className="space-y-3">
+              {analytics.recentActivity.map((activity, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 bg-white/5 rounded-lg"
+                >
+                  <div>
+                    <p className="text-sm text-gray-300">
+                      {new Date(activity.date).toLocaleDateString("en-US", {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </p>
+                  </div>
+                  <div className="text-sm text-purple-300">
+                    {activity.wordCount} words
+                  </div>
                 </div>
-              </div>
-            )}
-          </>
+              ))}
+            </div>
+          </div>
         )}
+
+        {/* Upgrade Prompt */}
+        <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-sm rounded-lg border border-purple-500/30 p-6">
+          <div className="flex items-start gap-4">
+            <Target className="h-8 w-8 text-purple-400 flex-shrink-0 mt-1" />
+            <div className="flex-1">
+              <h3 className="text-xl font-semibold mb-2">
+                Unlock Advanced Analytics
+              </h3>
+              <p className="text-gray-300 mb-4">
+                Upgrade to Standard or higher to access:
+              </p>
+              <ul className="space-y-2 text-sm text-gray-300 mb-4">
+                <li className="flex items-center gap-2">
+                  <ArrowUp className="h-4 w-4 text-green-400" />
+                  Mood and energy tracking with trends
+                </li>
+                <li className="flex items-center gap-2">
+                  <ArrowUp className="h-4 w-4 text-green-400" />
+                  Emotion and topic analysis
+                </li>
+                <li className="flex items-center gap-2">
+                  <ArrowUp className="h-4 w-4 text-green-400" />
+                  Writing pattern insights
+                </li>
+                <li className="flex items-center gap-2">
+                  <ArrowUp className="h-4 w-4 text-green-400" />
+                  AI-powered recommendations
+                </li>
+              </ul>
+              <button
+                onClick={() => navigate("/pricing")}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition"
+              >
+                Upgrade Now
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Basic Tier Info */}
+        <div className="mt-8 text-center text-sm text-gray-400">
+          <p>
+            Basic analytics show your journaling consistency and writing volume.
+            <br />
+            Upgrade for deeper insights into your emotional patterns and
+            personal growth.
+          </p>
+        </div>
       </div>
     </div>
   );
 };
-
-export default BasicAnalytics;
