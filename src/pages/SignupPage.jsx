@@ -190,22 +190,30 @@ export default function SignupPage() {
       const authData = await signUp(email, password);
 
       console.log("📋 SignUp response:", { authData });
+      console.log("📋 AuthData user:", authData?.user);
 
-      // Add validation for authData structure
-      if (!authData) {
-        console.error("❌ No authData returned from signUp");
-        throw new Error("Authentication failed - no data returned");
+      // Handle email confirmation case - Supabase returns user but with email_confirmed_at: null
+      const user = authData?.user;
+
+      if (!user) {
+        console.error("❌ No user returned from signUp");
+        throw new Error("Authentication failed - no user returned");
       }
 
-      // Check if user exists in the expected structure
-      const userId = authData.user?.id;
+      // Get user ID (works whether email confirmation is required or not)
+      const userId = user.id;
 
       if (!userId) {
-        console.error("❌ No user ID found in authData:", authData);
+        console.error("❌ No user ID found. User object:", user);
+        console.error(
+          "❌ Full authData structure:",
+          JSON.stringify(authData, null, 2)
+        );
         throw new Error("Authentication failed - no user ID found");
       }
 
       console.log("✅ User created successfully with ID:", userId);
+      console.log("📧 Email confirmation required:", !user.email_confirmed_at);
 
       // Create user profile with pending status
       const { error: profileError } = await supabase
