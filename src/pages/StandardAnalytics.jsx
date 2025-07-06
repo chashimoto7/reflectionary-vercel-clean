@@ -468,3 +468,5 @@ const StandardAnalytics = () => {
     </div>
   );
 };
+
+export default StandardAnalytics;
