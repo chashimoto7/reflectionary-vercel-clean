@@ -663,3 +663,5 @@ const StandardWellness = () => {
     </div>
   );
 };
+
+export default StandardWellness;

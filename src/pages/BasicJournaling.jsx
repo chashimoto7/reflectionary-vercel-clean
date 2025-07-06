@@ -207,3 +207,5 @@ const BasicJournaling = () => {
     </div>
   );
 };
+
+export default BasicJournaling;

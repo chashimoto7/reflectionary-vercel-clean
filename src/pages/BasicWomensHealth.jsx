@@ -457,3 +457,5 @@ const BasicWomensHealth = () => {
     </div>
   );
 };
+
+export default BasicWomensHealth;

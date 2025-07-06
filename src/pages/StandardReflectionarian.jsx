@@ -658,3 +658,5 @@ const StandardReflectionarian = () => {
     </div>
   );
 };
+
+export default StandardReflectionarian;

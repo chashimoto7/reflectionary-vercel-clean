@@ -307,3 +307,5 @@ const BasicAnalytics = () => {
     </div>
   );
 };
+
+export default BasicAnalytics;

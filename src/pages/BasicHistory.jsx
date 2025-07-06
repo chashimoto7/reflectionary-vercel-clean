@@ -317,3 +317,5 @@ const BasicHistory = () => {
     </div>
   );
 };
+
+export default BasicHistory;
