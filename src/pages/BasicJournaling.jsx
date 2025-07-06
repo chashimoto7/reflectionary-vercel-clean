@@ -1,6 +1,7 @@
+//src/pages/BasicJournaling.jsx
 import React, { useState, useRef, useEffect } from "react";
-import Quill from "quill";
-import "quill/dist/quill.snow.css";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { useCrisisIntegration } from "../hooks/useCrisisIntegration";
@@ -23,14 +24,6 @@ const BasicJournaling = () => {
     closeCrisisModal,
     showCrisisResources,
   } = useCrisisIntegration();
-
-  // Auto-focus on the editor when component mounts
-  useEffect(() => {
-    if (quillRef.current) {
-      const editor = quillRef.current.getEditor();
-      editor.focus();
-    }
-  }, []);
 
   // Clear save status after 3 seconds
   useEffect(() => {
@@ -211,6 +204,16 @@ const BasicJournaling = () => {
           </ul>
         </div>
       </div>
+
+      {/* Crisis Resource Modal */}
+      {showCrisisModal && (
+        <CrisisResourceModal
+          isOpen={showCrisisModal}
+          onClose={closeCrisisModal}
+          analysisResult={crisisAnalysisResult}
+          onShowResources={showCrisisResources}
+        />
+      )}
     </div>
   );
 };

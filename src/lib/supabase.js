@@ -1,3 +1,4 @@
+// src/lib/supabase.js
 import { createClient } from "@supabase/supabase-js";
 
 // Determine which database to use based on demo mode
@@ -14,8 +15,18 @@ const supabaseAnonKey = isDemoMode
 // Log which database we're using (helpful for debugging)
 if (isDemoMode) {
   console.log("🎭 DEMO MODE: Using demo database");
+  console.log("Demo URL:", supabaseUrl);
 } else {
   console.log("🏠 Using production database");
+}
+
+// Validate that we have the required environment variables
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Missing Supabase configuration:", {
+    isDemoMode,
+    hasUrl: !!supabaseUrl,
+    hasKey: !!supabaseAnonKey,
+  });
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
