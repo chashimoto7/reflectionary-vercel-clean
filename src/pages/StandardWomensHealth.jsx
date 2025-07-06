@@ -688,3 +688,5 @@ const StandardWomensHealth = () => {
     </div>
   );
 };
+
+export default StandardWomensHealth;
