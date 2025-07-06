@@ -42,7 +42,7 @@ import MenopauseEntryModal from "../components/womenshealth/MenopauseEntryModal"
 
 const PremiumWomensHealth = () => {
   const { user } = useAuth();
-  const { tier } = useMembership();
+  const { tier, hasAccess, loading: membershipLoading } = useMembership();
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
@@ -57,6 +57,7 @@ const PremiumWomensHealth = () => {
   const [cycleData, setCycleData] = useState(null);
   const [symptomData, setSymptomData] = useState(null);
   const [insights, setInsights] = useState(null);
+  const [profile, setProfile] = useState(null);
 
   // Color palette matching the premium theme
   const colors = {
@@ -139,40 +140,175 @@ const PremiumWomensHealth = () => {
   );
 
   useEffect(() => {
-    // Load user's saved life stage preference
-    loadUserPreferences();
-    // Simulate loading
-    const timer = setTimeout(() => {
+    if (user && hasAccess("womens_health")) {
+      loadUserData();
+    }
+  }, [user]);
+
+  const loadUserData = async () => {
+    try {
+      setLoading(true);
+
+      // Load user profile and preferences
+      await loadUserProfile();
+
+      // Load health data
+      await loadHealthData();
+    } catch (error) {
+      console.error("Error loading user data:", error);
+    } finally {
       setLoading(false);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  const loadUserPreferences = async () => {
-    // In the future, this will load from database
-    // For now, we'll use localStorage
-    const savedStage = localStorage.getItem("womensHealthLifeStage");
-    if (savedStage) {
-      setLifeStage(savedStage);
     }
   };
 
-  const handleStageChange = (newStage) => {
-    setLifeStage(newStage);
-    localStorage.setItem("womensHealthLifeStage", newStage);
-    setShowStageSelector(false);
+  const loadUserProfile = async () => {
+    try {
+      const response = await fetch(
+        `/api/womens-health/profile?user_id=${user.id}`
+      );
 
-    // Reset to overview tab when changing stages
-    setActiveTab("overview");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.profile) {
+          setProfile(data.profile);
+          setLifeStage(data.profile.life_stage || "menstrual");
+        }
+      }
+    } catch (error) {
+      console.error("Error loading profile:", error);
+    }
   };
 
-  if (loading) {
+  const loadHealthData = async () => {
+    try {
+      // Calculate date range for Premium (last 6 months)
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setMonth(startDate.getMonth() - 6);
+
+      const response = await fetch(
+        `/api/womens-health?user_id=${user.id}&date_from=${
+          startDate.toISOString().split("T")[0]
+        }&date_to=${
+          endDate.toISOString().split("T")[0]
+        }&include_cycle_analysis=true&include_predictions=true&tier=premium`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setHealthData(data.entries || []);
+        setCycleData(data.cycle_analysis || null);
+        setInsights(data.insights || null);
+
+        // Extract symptom data from entries
+        const symptoms = extractSymptomData(data.entries || []);
+        setSymptomData(symptoms);
+      }
+    } catch (error) {
+      console.error("Error loading health data:", error);
+    }
+  };
+
+  const extractSymptomData = (entries) => {
+    // Process entries to extract symptom patterns
+    const symptomMap = new Map();
+
+    entries.forEach((entry) => {
+      if (entry.data?.symptoms) {
+        entry.data.symptoms.forEach((symptom) => {
+          if (!symptomMap.has(symptom)) {
+            symptomMap.set(symptom, { count: 0, dates: [] });
+          }
+          const data = symptomMap.get(symptom);
+          data.count++;
+          data.dates.push(entry.date);
+        });
+      }
+    });
+
+    return Array.from(symptomMap.entries()).map(([symptom, data]) => ({
+      symptom,
+      ...data,
+    }));
+  };
+
+  const handleStageChange = async (newStage) => {
+    setLifeStage(newStage);
+    setShowStageSelector(false);
+
+    // Save to backend
+    try {
+      const response = await fetch("/api/womens-health/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          life_stage: newStage,
+        }),
+      });
+
+      if (response.ok) {
+        // Reset to overview tab when changing stages
+        setActiveTab("overview");
+        // Reload data for new stage
+        await loadHealthData();
+      }
+    } catch (error) {
+      console.error("Error updating life stage:", error);
+    }
+  };
+
+  const handleSaveHealthData = async (data) => {
+    try {
+      const response = await fetch("/api/womens-health", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          date: new Date().toISOString().split("T")[0],
+          health_data: data,
+        }),
+      });
+
+      if (response.ok) {
+        setShowEntryModal(false);
+        // Reload data to reflect changes
+        await loadHealthData();
+      } else {
+        throw new Error("Failed to save health data");
+      }
+    } catch (error) {
+      console.error("Error saving health data:", error);
+      alert("Failed to save health data. Please try again.");
+    }
+  };
+
+  if (loading || membershipLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-pink-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-300 mx-auto mb-4"></div>
           <p className="text-purple-200">Loading your health insights...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasAccess("womens_health")) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-pink-900 flex items-center justify-center p-6">
+        <div className="text-center max-w-md">
+          <Shield className="h-16 w-16 text-purple-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-2">
+            Premium Women's Health Access Required
+          </h2>
+          <p className="text-purple-200 mb-6">
+            Upgrade to unlock comprehensive women's health tracking with cycle
+            intelligence, symptom analytics, and predictive insights.
+          </p>
+          <button className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+            Upgrade to Premium
+          </button>
         </div>
       </div>
     );
@@ -222,115 +358,149 @@ const PremiumWomensHealth = () => {
             <div className="flex items-center gap-4">
               {/* Privacy Info Button */}
               <button
-                onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
-                className="text-purple-300 hover:text-white transition-colors"
+                onClick={() => setShowPrivacyInfo(true)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors text-purple-200"
                 title="Privacy Information"
               >
-                <Shield className="w-6 h-6" />
+                <Shield className="w-5 h-5" />
               </button>
 
-              {/* Life Stage Selector Button */}
+              {/* Settings Button */}
               <button
-                onClick={() => setShowStageSelector(!showStageSelector)}
-                className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-4 py-2 rounded-lg hover:bg-white/20 transition-all flex items-center gap-2"
+                onClick={() => setShowStageSelector(true)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors text-purple-200"
+                title="Change Life Stage"
               >
-                {getStageIcon()}
-                <span>Select Your Life Stage</span>
-                <Settings className="w-4 h-4" />
-              </button>
-
-              {/* Quick Entry Button */}
-              <button
-                onClick={() => setShowEntryModal(true)}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-2.5 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all flex items-center gap-2 shadow-lg"
-              >
-                <Clock className="w-5 h-5" />
-                Track Today
+                <Settings className="w-5 h-5" />
               </button>
             </div>
+          </div>
+
+          {/* Current Life Stage Display */}
+          <div className="mt-4 flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full">
+              {getStageIcon()}
+              <span className="text-white font-medium capitalize">
+                {lifeStage.replace("menopause", "Menopause")}
+              </span>
+            </div>
+            <button
+              onClick={() => setShowStageSelector(true)}
+              className="text-purple-200 hover:text-white text-sm underline"
+            >
+              Change life stage
+            </button>
           </div>
         </div>
 
         {/* Privacy Info Modal */}
         {showPrivacyInfo && (
-          <div className="mb-6 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
-            <div className="flex items-start gap-3">
-              <Shield className="w-5 h-5 text-purple-300 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-white font-medium mb-2">
-                  Your Privacy is Protected
-                </h4>
-                <p className="text-sm text-purple-200">
-                  Your information is personal - and we treat it that way. All
-                  health data is end-to-end encrypted so no one else can read
-                  it. Not our team. Not our servers. Only you. Your information
-                  is never shared and remains completely private.
-                </p>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 max-w-md w-full p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <Shield className="w-8 h-8 text-purple-400" />
+                <h3 className="text-xl font-bold text-white">
+                  Your Health Data is Private
+                </h3>
               </div>
+              <div className="space-y-4 text-gray-300">
+                <p>
+                  Your women's health data is protected with the highest level
+                  of privacy:
+                </p>
+                <ul className="space-y-2 list-disc list-inside">
+                  <li>All health data is end-to-end encrypted</li>
+                  <li>Only you can access your health records</li>
+                  <li>No data is shared with third parties</li>
+                  <li>Predictions are generated locally when possible</li>
+                  <li>You can export or delete your data anytime</li>
+                </ul>
+                <div className="bg-purple-600/20 rounded-lg p-3 border border-purple-600/30">
+                  <p className="text-sm">
+                    <strong className="text-purple-300">Note:</strong> All
+                    encryption and decryption happens on our secure servers.
+                    Your health data is never exposed in plain text.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPrivacyInfo(false)}
+                className="mt-6 w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+              >
+                Got it
+              </button>
             </div>
           </div>
         )}
 
         {/* Life Stage Selector Modal */}
         {showStageSelector && (
-          <div className="mb-6 bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-            <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-              <Flower2 className="w-6 h-6 text-pink-300" />
-              Select Your Life Stage
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button
-                onClick={() => handleStageChange("menstrual")}
-                className={`p-6 rounded-lg border-2 transition-all ${
-                  lifeStage === "menstrual"
-                    ? "bg-purple-600/30 border-purple-400 text-white"
-                    : "bg-white/5 border-white/20 text-purple-200 hover:bg-white/10"
-                }`}
-              >
-                <Moon className="w-8 h-8 mx-auto mb-3" />
-                <h4 className="font-semibold mb-2">Menstrual</h4>
-                <p className="text-sm opacity-80">
-                  Regular or irregular cycles, fertility tracking, PMS symptoms
-                </p>
-              </button>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 max-w-2xl w-full p-6">
+              <h3 className="text-2xl font-bold text-white mb-6">
+                Select Your Life Stage
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button
+                  onClick={() => handleStageChange("menstrual")}
+                  className={`p-6 rounded-lg border-2 transition-all ${
+                    lifeStage === "menstrual"
+                      ? "bg-purple-600/30 border-purple-400 text-white"
+                      : "bg-white/5 border-white/20 text-purple-200 hover:bg-white/10"
+                  }`}
+                >
+                  <Moon className="w-8 h-8 mx-auto mb-3" />
+                  <h4 className="font-semibold mb-2">Menstrual</h4>
+                  <p className="text-sm opacity-80">
+                    Regular or irregular cycles, fertility tracking, PMS
+                    symptoms
+                  </p>
+                </button>
 
-              <button
-                onClick={() => handleStageChange("perimenopause")}
-                className={`p-6 rounded-lg border-2 transition-all ${
-                  lifeStage === "perimenopause"
-                    ? "bg-purple-600/30 border-purple-400 text-white"
-                    : "bg-white/5 border-white/20 text-purple-200 hover:bg-white/10"
-                }`}
-              >
-                <Sun className="w-8 h-8 mx-auto mb-3" />
-                <h4 className="font-semibold mb-2">Perimenopause</h4>
-                <p className="text-sm opacity-80">
-                  Irregular cycles, hormonal changes, transition symptoms
-                </p>
-              </button>
+                <button
+                  onClick={() => handleStageChange("perimenopause")}
+                  className={`p-6 rounded-lg border-2 transition-all ${
+                    lifeStage === "perimenopause"
+                      ? "bg-purple-600/30 border-purple-400 text-white"
+                      : "bg-white/5 border-white/20 text-purple-200 hover:bg-white/10"
+                  }`}
+                >
+                  <Sun className="w-8 h-8 mx-auto mb-3" />
+                  <h4 className="font-semibold mb-2">Perimenopause</h4>
+                  <p className="text-sm opacity-80">
+                    Irregular cycles, hormonal changes, transition symptoms
+                  </p>
+                </button>
 
-              <button
-                onClick={() => handleStageChange("menopause")}
-                className={`p-6 rounded-lg border-2 transition-all ${
-                  lifeStage === "menopause"
-                    ? "bg-purple-600/30 border-purple-400 text-white"
-                    : "bg-white/5 border-white/20 text-purple-200 hover:bg-white/10"
-                }`}
-              >
-                <Flower2 className="w-8 h-8 mx-auto mb-3" />
-                <h4 className="font-semibold mb-2">Menopause</h4>
-                <p className="text-sm opacity-80">
-                  Post-menopausal tracking, symptom management, wellness focus
+                <button
+                  onClick={() => handleStageChange("menopause")}
+                  className={`p-6 rounded-lg border-2 transition-all ${
+                    lifeStage === "menopause"
+                      ? "bg-purple-600/30 border-purple-400 text-white"
+                      : "bg-white/5 border-white/20 text-purple-200 hover:bg-white/10"
+                  }`}
+                >
+                  <Flower2 className="w-8 h-8 mx-auto mb-3" />
+                  <h4 className="font-semibold mb-2">Menopause</h4>
+                  <p className="text-sm opacity-80">
+                    Post-menopausal tracking, symptom management, wellness focus
+                  </p>
+                </button>
+              </div>
+              <div className="mt-4 p-4 bg-white/5 rounded-lg">
+                <p className="text-sm text-purple-200 flex items-start gap-2">
+                  <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  You can change your life stage at any time without losing your
+                  historical data. Your tracking options will adjust to match
+                  your current stage.
                 </p>
+              </div>
+              <button
+                onClick={() => setShowStageSelector(false)}
+                className="mt-6 w-full px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+              >
+                Cancel
               </button>
-            </div>
-            <div className="mt-4 p-4 bg-white/5 rounded-lg">
-              <p className="text-sm text-purple-200 flex items-start gap-2">
-                <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                You can change your life stage at any time without losing your
-                historical data. Your tracking options will adjust to match your
-                current stage.
-              </p>
             </div>
           </div>
         )}
@@ -369,7 +539,9 @@ const PremiumWomensHealth = () => {
               cycleData={cycleData}
               symptomData={symptomData}
               insights={insights}
+              profile={profile}
               onOpenEntry={() => setShowEntryModal(true)}
+              onRefreshData={loadHealthData}
             />
           )}
         </div>
@@ -382,10 +554,7 @@ const PremiumWomensHealth = () => {
           onClose={() => setShowEntryModal(false)}
           colors={colors}
           user={user}
-          onSave={(data) => {
-            console.log("Saving menstrual data:", data);
-            setShowEntryModal(false);
-          }}
+          onSave={handleSaveHealthData}
         />
       )}
 
@@ -395,10 +564,7 @@ const PremiumWomensHealth = () => {
           onClose={() => setShowEntryModal(false)}
           colors={colors}
           user={user}
-          onSave={(data) => {
-            console.log("Saving perimenopause data:", data);
-            setShowEntryModal(false);
-          }}
+          onSave={handleSaveHealthData}
         />
       )}
 
@@ -408,10 +574,7 @@ const PremiumWomensHealth = () => {
           onClose={() => setShowEntryModal(false)}
           colors={colors}
           user={user}
-          onSave={(data) => {
-            console.log("Saving menopause data:", data);
-            setShowEntryModal(false);
-          }}
+          onSave={handleSaveHealthData}
         />
       )}
     </div>

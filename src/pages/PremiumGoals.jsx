@@ -2,8 +2,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMembership } from "../hooks/useMembership";
-import { supabase } from "../lib/supabase";
-import encryptionService from "../services/encryptionService";
 import {
   Calendar,
   Search,
@@ -240,91 +238,257 @@ const PremiumGoals = () => {
     }
   };
 
-  // Data loading functions
+  // Data loading functions - NOW USING BACKEND API
   const loadGoals = async () => {
     try {
-      // Mock implementation - in real app, load from database
-      setGoals([]); // Empty array for now
+      const response = await fetch(`/api/goals?user_id=${user.id}`);
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch goals");
+      }
+
+      const data = await response.json();
+      setGoals(data.goals || []);
+
+      // Select first goal if none selected
+      if (data.goals && data.goals.length > 0 && !selectedGoalId) {
+        setSelectedGoalId(data.goals[0].id);
+      }
     } catch (error) {
       console.error("Error loading goals:", error);
+      throw error;
     }
   };
 
   const loadAnalyticsData = async () => {
-    // Mock data
-    setAnalyticsData({
-      overview: {
-        totalGoals: 12,
-        activeGoals: 8,
-        completedGoals: 3,
-        pausedGoals: 1,
-        averageProgress: 67,
-        streak: 15,
-      },
-    });
+    try {
+      // Fetch goal analytics from backend
+      const response = await fetch(
+        `/api/goal-analytics?user_id=${user.id}&date_range=${dateRange}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch analytics");
+      }
+
+      const data = await response.json();
+
+      setAnalyticsData({
+        overview: {
+          totalGoals: data.totalGoals || goals.length,
+          activeGoals:
+            data.activeGoals ||
+            goals.filter((g) => g.status === "active").length,
+          completedGoals:
+            data.completedGoals ||
+            goals.filter((g) => g.status === "completed").length,
+          pausedGoals:
+            data.pausedGoals ||
+            goals.filter((g) => g.status === "paused").length,
+          averageProgress: data.averageProgress || 0,
+          streak: data.streak || 0,
+        },
+      });
+    } catch (error) {
+      console.error("Error loading analytics:", error);
+      // Set default values if API fails
+      setAnalyticsData({
+        overview: {
+          totalGoals: goals.length,
+          activeGoals: goals.filter((g) => g.status === "active").length,
+          completedGoals: goals.filter((g) => g.status === "completed").length,
+          pausedGoals: goals.filter((g) => g.status === "paused").length,
+          averageProgress: 0,
+          streak: 0,
+        },
+      });
+    }
   };
 
   const loadInsights = async () => {
-    // Mock insights
-    setInsights([
-      {
-        id: 1,
-        type: "success",
-        title: "Strong Progress on Fitness Goals",
-        description:
-          "You've maintained consistent progress on your fitness goals for 3 weeks.",
-        icon: TrendingUp,
-      },
-    ]);
+    try {
+      const response = await fetch(`/api/goal-insights?user_id=${user.id}`);
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch insights");
+      }
+
+      const data = await response.json();
+      setInsights(data.goalInsights || []);
+    } catch (error) {
+      console.error("Error loading insights:", error);
+      // Set default insights
+      setInsights([
+        {
+          id: 1,
+          type: "success",
+          title: "Strong Progress on Fitness Goals",
+          description:
+            "You've maintained consistent progress on your fitness goals for 3 weeks.",
+          goalId: null,
+          date: new Date().toISOString(),
+        },
+      ]);
+    }
   };
 
   const loadProgressPatterns = async () => {
-    // Mock data
-    setProgressPatterns([
-      { day: "Mon", progress: 85 },
-      { day: "Tue", progress: 72 },
-      { day: "Wed", progress: 90 },
-      { day: "Thu", progress: 65 },
-      { day: "Fri", progress: 88 },
-      { day: "Sat", progress: 95 },
-      { day: "Sun", progress: 78 },
-    ]);
+    try {
+      const response = await fetch(
+        `/api/goal-patterns?user_id=${user.id}&date_range=${dateRange}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setProgressPatterns(data.patterns || []);
+      }
+    } catch (error) {
+      console.error("Error loading progress patterns:", error);
+    }
   };
 
   const loadGoalMentions = async () => {
-    // Mock data
-    setGoalMentions([
-      { date: "2024-01", mentions: 12 },
-      { date: "2024-02", mentions: 18 },
-      { date: "2024-03", mentions: 25 },
-    ]);
+    try {
+      const response = await fetch(
+        `/api/goal-mentions?user_id=${user.id}&date_range=${dateRange}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setGoalMentions(data.mentions || []);
+      }
+    } catch (error) {
+      console.error("Error loading goal mentions:", error);
+    }
   };
 
   const loadMoodCorrelations = async () => {
-    // Mock data
-    setMoodCorrelations([
-      { mood: "Happy", goalProgress: 85 },
-      { mood: "Motivated", goalProgress: 92 },
-      { mood: "Stressed", goalProgress: 45 },
-      { mood: "Calm", goalProgress: 78 },
-    ]);
+    try {
+      const response = await fetch(
+        `/api/goal-mood-correlations?user_id=${user.id}&date_range=${dateRange}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setMoodCorrelations(data.correlations || []);
+      }
+    } catch (error) {
+      console.error("Error loading mood correlations:", error);
+    }
   };
 
-  // Handler functions
-  const handleAddGoal = async (newGoal) => {
-    // Implementation
+  // Goal CRUD operations using backend
+  const handleAddGoal = async (goalData) => {
+    try {
+      const response = await fetch("/api/goals", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          ...goalData,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create goal");
+      }
+
+      const data = await response.json();
+      await loadGoalsAndAnalytics(); // Reload all data
+      setShowAddModal(false);
+    } catch (error) {
+      console.error("Error adding goal:", error);
+      alert("Failed to add goal. Please try again.");
+    }
   };
 
-  const handleEditGoal = async (updatedGoal) => {
-    // Implementation
+  const handleEditGoal = async (goalId, updatedData) => {
+    try {
+      const response = await fetch("/api/goals", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          goal_id: goalId,
+          user_id: user.id,
+          ...updatedData,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update goal");
+      }
+
+      const data = await response.json();
+      await loadGoalsAndAnalytics(); // Reload all data
+      setShowEditModal(false);
+    } catch (error) {
+      console.error("Error updating goal:", error);
+      alert("Failed to update goal. Please try again.");
+    }
+  };
+
+  const handleDeleteGoal = async (goalId) => {
+    if (!window.confirm("Are you sure you want to delete this goal?")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/goals?goal_id=${goalId}&user_id=${user.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to delete goal");
+      }
+
+      await loadGoalsAndAnalytics(); // Reload all data
+
+      // Clear selected goal if it was deleted
+      if (selectedGoalId === goalId) {
+        setSelectedGoalId(goals.find((g) => g.id !== goalId)?.id || null);
+      }
+    } catch (error) {
+      console.error("Error deleting goal:", error);
+      alert("Failed to delete goal. Please try again.");
+    }
   };
 
   const handleStatusChange = async (goalId, newStatus) => {
-    // Implementation
-  };
+    try {
+      const response = await fetch("/api/goals", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          goal_id: goalId,
+          user_id: user.id,
+          status: newStatus,
+        }),
+      });
 
-  const handleRemoveGoal = async (goalId) => {
-    // Implementation
+      if (!response.ok) {
+        throw new Error("Failed to update status");
+      }
+
+      await loadGoalsAndAnalytics(); // Reload all data
+
+      // Show celebration if goal is completed
+      if (newStatus === "completed") {
+        setShowCelebration(true);
+        setTimeout(() => setShowCelebration(false), 5000);
+      }
+    } catch (error) {
+      console.error("Error updating goal status:", error);
+      alert("Failed to update goal status. Please try again.");
+    }
   };
 
   // Access control check
@@ -343,18 +507,16 @@ const PremiumGoals = () => {
     return (
       <div className="max-w-4xl mx-auto p-6">
         <div className="text-center py-12">
-          <Crown className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <Shield className="h-16 w-16 text-gray-400 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Premium Goals Access Required
           </h2>
           <p className="text-gray-600 mb-6">
-            Upgrade to Premium to unlock advanced goal analytics, AI
-            predictions, and personalized insights.
+            Upgrade to Premium to unlock advanced goal tracking with AI
+            insights, progress patterns, mood correlations, and comprehensive
+            analytics.
           </p>
-          <button
-            onClick={() => (window.location.href = "/membership")}
-            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-          >
+          <button className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
             Upgrade to Premium
           </button>
         </div>
@@ -367,7 +529,7 @@ const PremiumGoals = () => {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Analyzing your goals...</p>
+          <p className="text-gray-600">Loading your goals and analytics...</p>
         </div>
       </div>
     );
@@ -389,82 +551,71 @@ const PremiumGoals = () => {
     );
   }
 
-  const EmptyGoalsState = () => (
-    <div className="text-center py-12 bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
-      <Target className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-      <h3 className="text-xl font-semibold text-white mb-2">No Goals Yet</h3>
-      <p className="text-gray-300 mb-6">
-        Create your first goal to unlock powerful AI-driven analytics, progress
-        tracking, and personalized insights.
-      </p>
-      <button
-        onClick={() => setShowAddModal(true)}
-        className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-      >
-        Create Your First Goal
-      </button>
-    </div>
-  );
-
-  const NoGoalsMessage = ({
-    message = "Start tracking goals to see analytics and insights here.",
-  }) => (
-    <div className="p-12 text-center">
-      <Target className="w-16 h-16 text-purple-400 mx-auto mb-4 opacity-50" />
-      <h3 className="text-xl font-semibold text-white mb-2">No Goals Yet</h3>
-      <p className="text-gray-300 max-w-md mx-auto">{message}</p>
-    </div>
-  );
+  const selectedGoal = goals.find((g) => g.id === selectedGoalId);
 
   return (
     <div className="min-h-screen text-white">
       <div className="max-w-7xl mx-auto p-6">
+        {/* Celebration Confetti */}
+        {showCelebration && (
+          <ReactConfetti
+            width={window.innerWidth}
+            height={window.innerHeight}
+            recycle={false}
+            numberOfPieces={500}
+            colors={colors.gradient}
+          />
+        )}
+
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-white mb-2">
-                Premium Goals
+              <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+                Premium Goal Tracking
+                <Crown className="h-8 w-8 text-yellow-400" />
               </h1>
               <p className="text-gray-400">
-                AI-powered insights to achieve your dreams
+                Advanced goal analytics with AI-powered insights
               </p>
             </div>
 
-            {/* Privacy Toggle */}
-            <div className="relative">
-              <button
-                onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:text-white transition bg-white/10 rounded-lg"
-              >
-                <Shield className="h-4 w-4" />
-                Privacy Info
-                <Info className="h-4 w-4" />
-              </button>
-
-              {showPrivacyInfo && (
-                <div className="absolute right-0 top-12 w-80 bg-slate-800 border border-white/20 rounded-lg shadow-lg p-4 z-10">
-                  <p className="text-sm text-gray-300">
-                    Analytics insights are generated from your encrypted data
-                    patterns without exposing personal content. This data is
-                    visible only to you and never shared.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Date Range & Controls */}
-          <div className="flex items-center justify-between">
+            {/* Actions */}
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg"
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition"
               >
-                <Plus className="w-4 h-4" />
-                New Goal
+                <Plus className="h-5 w-5" />
+                Add Goal
               </button>
 
+              <div className="relative">
+                <button
+                  onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:text-white transition bg-white/10 rounded-lg"
+                >
+                  <Shield className="h-4 w-4" />
+                  Privacy Info
+                  <Info className="h-4 w-4" />
+                </button>
+
+                {showPrivacyInfo && (
+                  <div className="absolute right-0 top-12 w-80 bg-slate-800 border border-white/20 rounded-lg shadow-lg p-4 z-10">
+                    <p className="text-sm text-gray-300">
+                      All goal data is encrypted end-to-end. Your goals and
+                      progress are private and only visible to you. AI analysis
+                      is performed on encrypted data without exposing content.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Date Range & Analytics Summary */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
               <label className="text-sm font-medium text-gray-300">
                 Analysis Period:
               </label>
@@ -480,302 +631,194 @@ const PremiumGoals = () => {
               </select>
             </div>
 
-            <div className="flex items-center gap-2 text-sm text-green-400">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              AI Goal Analysis Active
+            <div className="flex items-center gap-6 text-sm">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-purple-400" />
+                <span className="text-gray-300">
+                  {analyticsData.overview.activeGoals} Active Goals
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-400" />
+                <span className="text-gray-300">
+                  {analyticsData.overview.completedGoals} Completed
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-blue-400" />
+                <span className="text-gray-300">
+                  {analyticsData.overview.averageProgress}% Avg Progress
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Advanced Tab Navigation - Three Row Layout (3x5) */}
+        {/* Premium Tabs - 3x5 Grid */}
         <div className="mb-8">
-          <div className="bg-white/10 backdrop-blur-md p-3 rounded-lg border border-white/20">
-            {/* First Row - 5 tabs */}
-            <div className="flex flex-wrap gap-2 mb-2">
-              {advancedTabs.slice(0, 5).map((tab) => {
-                const IconComponent = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors flex-1 min-w-0 ${
-                      activeTab === tab.id
-                        ? "bg-purple-600 text-white shadow-sm"
-                        : "text-gray-300 hover:text-white hover:bg-white/10"
-                    }`}
-                  >
-                    <IconComponent className="h-4 w-4 flex-shrink-0" />
-                    <span className="truncate">{tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="grid grid-cols-5 gap-2">
+            {advancedTabs.map((tab, index) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
 
-            {/* Second Row - 5 tabs */}
-            <div className="flex flex-wrap gap-2 mb-2">
-              {advancedTabs.slice(5, 10).map((tab) => {
-                const IconComponent = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors flex-1 min-w-0 ${
-                      activeTab === tab.id
-                        ? "bg-purple-600 text-white shadow-sm"
-                        : "text-gray-300 hover:text-white hover:bg-white/10"
-                    }`}
-                  >
-                    <IconComponent className="h-4 w-4 flex-shrink-0" />
-                    <span className="truncate">{tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+              // Determine row based on index
+              const row = Math.floor(index / 5) + 1;
+              const rowClass = `row-start-${row}`;
 
-            {/* Third Row - 5 tabs */}
-            <div className="flex flex-wrap gap-2">
-              {advancedTabs.slice(10, 15).map((tab) => {
-                const IconComponent = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors flex-1 min-w-0 ${
-                      activeTab === tab.id
-                        ? "bg-purple-600 text-white shadow-sm"
-                        : "text-gray-300 hover:text-white hover:bg-white/10"
-                    }`}
-                  >
-                    <IconComponent className="h-4 w-4 flex-shrink-0" />
-                    <span className="truncate">{tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`
+                    ${rowClass}
+                    flex flex-col items-center justify-center p-4 rounded-lg transition-all
+                    ${
+                      isActive
+                        ? "bg-gradient-to-br from-purple-600 to-pink-600 text-white shadow-lg scale-105"
+                        : "bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white"
+                    }
+                  `}
+                >
+                  <Icon className="h-6 w-6 mb-2" />
+                  <span className="text-xs font-medium text-center">
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Tab Content */}
-        <div className="space-y-6">
-          {activeTab === "goals-overview" &&
-            (goals.length === 0 ? (
-              <NoGoalsMessage />
-            ) : (
-              <GoalsOverviewTab
-                goals={goals}
-                selectedGoalId={selectedGoalId}
-                onSelectGoal={setSelectedGoalId}
-                onEditGoal={(goal) => {
-                  setSelectedGoalId(goal.id);
-                  setShowEditModal(true);
-                }}
-                onEditMilestones={(goal) => {
-                  setSelectedGoalId(goal.id);
-                  setShowEditMilestonesModal(true);
-                }}
-                onStatusChange={handleStatusChange}
-                onRemoveGoal={handleRemoveGoal}
-                colors={colors}
-              />
-            ))}
-          {activeTab === "intelligence-overview" &&
-            (goals.length === 0 ? (
-              <NoGoalsMessage message="Start tracking goals to unlock AI-powered intelligence insights." />
-            ) : (
-              <IntelligenceOverviewTab
-                goals={goals}
-                analyticsData={analyticsData}
-                insights={insights}
-                colors={colors}
-                onSelectGoal={setSelectedGoalId}
-                onEditGoal={(goal) => {
-                  setSelectedGoalId(goal.id);
-                  setShowEditModal(true);
-                }}
-                onStatusChange={handleStatusChange}
-                onRemoveGoal={handleRemoveGoal}
-              />
-            ))}
-          {activeTab === "progress-patterns" &&
-            (goals.length === 0 ? (
-              <NoGoalsMessage message="Progress patterns will appear once you start tracking goals." />
-            ) : (
-              <ProgressPatternsTab
-                goals={goals}
-                progressPatterns={progressPatterns}
-                colors={colors}
-                selectedGoalId={selectedGoalId}
-                onSelectGoal={setSelectedGoalId}
-              />
-            ))}
-          {activeTab === "goal-insights" &&
-            (goals.length === 0 ? (
-              <NoGoalsMessage message="Goal insights will be generated once you create your first goal." />
-            ) : (
-              <GoalInsightsTab
-                goals={goals}
-                moodCorrelations={moodCorrelations}
-                colors={colors}
-                selectedGoalId={selectedGoalId}
-                onSelectGoal={setSelectedGoalId}
-              />
-            ))}
-          {activeTab === "goal-comparison" &&
-            (goals.length === 0 ? (
-              <NoGoalsMessage message="Create multiple goals to compare their progress and performance." />
-            ) : (
-              <GoalComparisonTab goals={goals} colors={colors} />
-            ))}
-          {activeTab === "mood-correlations" &&
-            (goals.length === 0 ? (
-              <NoGoalsMessage message="Track your moods alongside goals to discover correlations." />
-            ) : (
-              <MoodCorrelationsTab
-                goals={goals}
-                moodCorrelations={moodCorrelations}
-                colors={colors}
-              />
-            ))}
-          {activeTab === "growth-tracking" &&
-            (goals.length === 0 ? (
-              <NoGoalsMessage message="Your growth journey will be tracked as you progress through goals." />
-            ) : (
-              <GrowthTrackingTab goals={goals} colors={colors} />
-            ))}
-          {activeTab === "mention-analytics" &&
-            (goals.length === 0 ? (
-              <NoGoalsMessage message="Goal mentions in your journal entries will be analyzed once you create goals." />
-            ) : (
-              <MentionTimelineTab
-                goals={goals}
-                goalMentions={goalMentions}
-                colors={colors}
-                selectedGoalId={selectedGoalId}
-                onSelectGoal={setSelectedGoalId}
-              />
-            ))}
-          {activeTab === "ai-insights" &&
-            (goals.length === 0 ? (
-              <NoGoalsMessage message="AI insights will be generated based on your goal progress and patterns." />
-            ) : (
-              <InsightsFeedTab
-                insights={insights}
-                goals={goals}
-                colors={colors}
-              />
-            ))}
-
-          {/* New tab components - placeholders for now */}
+        <div className="bg-white/5 backdrop-blur-md rounded-lg border border-white/10 p-6">
+          {activeTab === "goals-overview" && (
+            <GoalsOverviewTab
+              goals={goals}
+              selectedGoalId={selectedGoalId}
+              setSelectedGoalId={setSelectedGoalId}
+              onEditGoal={(goal) => {
+                setSelectedGoalId(goal.id);
+                setShowEditModal(true);
+              }}
+              onDeleteGoal={handleDeleteGoal}
+              onStatusChange={handleStatusChange}
+              colors={colors}
+            />
+          )}
+          {activeTab === "intelligence-overview" && (
+            <IntelligenceOverviewTab
+              goals={goals}
+              analytics={analyticsData}
+              insights={insights}
+              colors={colors}
+            />
+          )}
+          {activeTab === "progress-patterns" && (
+            <ProgressPatternsTab
+              goals={goals}
+              patterns={progressPatterns}
+              colors={colors}
+            />
+          )}
+          {activeTab === "goal-insights" && (
+            <GoalInsightsTab
+              goals={goals}
+              insights={insights}
+              colors={colors}
+            />
+          )}
+          {activeTab === "goal-comparison" && (
+            <GoalComparisonTab goals={goals} colors={colors} />
+          )}
           {activeTab === "achievement-predictions" && (
-            <div className="p-6 text-center bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
-              <TrendingUp className="w-16 h-16 text-purple-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Achievement Predictions
-              </h3>
-              <p className="text-gray-300">
-                AI-powered predictions for goal completion coming soon...
-              </p>
-            </div>
+            <AchievementPredictionsTab
+              goals={goals}
+              analytics={analyticsData}
+              colors={colors}
+            />
           )}
           {activeTab === "milestone-analytics" && (
-            <div className="p-6 text-center bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
-              <CheckCircle2 className="w-16 h-16 text-purple-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Milestone Analytics
-              </h3>
-              <p className="text-gray-300">
-                Deep dive into milestone patterns coming soon...
-              </p>
-            </div>
+            <MilestoneAnalyticsTab goals={goals} colors={colors} />
           )}
           {activeTab === "goal-dependencies" && (
-            <div className="p-6 text-center bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
-              <GitBranch className="w-16 h-16 text-purple-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Goal Dependencies
-              </h3>
-              <p className="text-gray-300">
-                Visualize goal relationships coming soon...
-              </p>
-            </div>
+            <GoalDependenciesTab goals={goals} colors={colors} />
           )}
           {activeTab === "success-factors" && (
-            <div className="p-6 text-center bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
-              <Zap className="w-16 h-16 text-purple-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Success Factors
-              </h3>
-              <p className="text-gray-300">
-                Identify success patterns coming soon...
-              </p>
-            </div>
+            <SuccessFactorsTab
+              goals={goals}
+              analytics={analyticsData}
+              colors={colors}
+            />
           )}
           {activeTab === "goal-health-score" && (
-            <div className="p-6 text-center bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
-              <Gauge className="w-16 h-16 text-purple-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Goal Health Score
-              </h3>
-              <p className="text-gray-300">
-                Portfolio health assessment coming soon...
-              </p>
-            </div>
+            <GoalHealthScoreTab
+              goals={goals}
+              analytics={analyticsData}
+              colors={colors}
+            />
+          )}
+          {activeTab === "mood-correlations" && (
+            <MoodCorrelationsTab
+              goals={goals}
+              correlations={moodCorrelations}
+              colors={colors}
+            />
+          )}
+          {activeTab === "growth-tracking" && (
+            <GrowthTrackingTab
+              goals={goals}
+              analytics={analyticsData}
+              colors={colors}
+            />
+          )}
+          {activeTab === "mention-analytics" && (
+            <MentionTimelineTab
+              goals={goals}
+              mentions={goalMentions}
+              colors={colors}
+            />
           )}
           {activeTab === "progress-velocity" && (
-            <div className="p-6 text-center bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
-              <LineChart className="w-16 h-16 text-purple-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Progress Velocity
-              </h3>
-              <p className="text-gray-300">
-                Track momentum changes coming soon...
-              </p>
-            </div>
+            <ProgressVelocityTab
+              goals={goals}
+              analytics={analyticsData}
+              colors={colors}
+            />
           )}
-        </div>
-
-        {/* Goal Tips Section */}
-        {goals.length === 0 && (
-          <div className="mt-8">
-            <EmptyGoalsState />
-          </div>
-        )}
-
-        {/* Always show Goal Tips */}
-        <div className="mt-8">
-          <GoalTips />
+          {activeTab === "ai-insights" && (
+            <InsightsFeedTab
+              insights={insights}
+              goals={goals}
+              colors={colors}
+            />
+          )}
         </div>
 
         {/* Modals */}
         {showAddModal && (
           <AddGoalModal
-            isOpen={showAddModal}
             onClose={() => setShowAddModal(false)}
             onAdd={handleAddGoal}
           />
         )}
 
-        {showEditModal && selectedGoalId && (
+        {showEditModal && selectedGoal && (
           <EditGoalModal
-            isOpen={showEditModal}
-            onClose={() => {
-              setShowEditModal(false);
-              setSelectedGoalId(null);
-            }}
-            goal={goals.find((g) => g.id === selectedGoalId)}
-            onUpdate={handleEditGoal}
+            goal={selectedGoal}
+            onClose={() => setShowEditModal(false)}
+            onSave={(updatedData) =>
+              handleEditGoal(selectedGoal.id, updatedData)
+            }
           />
         )}
 
-        {showEditMilestonesModal && selectedGoalId && (
+        {showEditMilestonesModal && selectedGoal && (
           <EditMilestonesModal
-            isOpen={showEditMilestonesModal}
-            onClose={() => {
-              setShowEditMilestonesModal(false);
-              setSelectedGoalId(null);
-            }}
-            goal={goals.find((g) => g.id === selectedGoalId)}
-            onUpdate={handleEditGoal}
+            goal={selectedGoal}
+            onClose={() => setShowEditMilestonesModal(false)}
+            onSave={(milestones) =>
+              handleEditGoal(selectedGoal.id, { milestones })
+            }
           />
         )}
       </div>

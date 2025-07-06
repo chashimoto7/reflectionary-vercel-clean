@@ -25,13 +25,14 @@ import {
   Mic,
   Volume2,
   VolumeX,
+  Info,
+  Crown,
+  X,
 } from "lucide-react";
 
 import { useAuth } from "../contexts/AuthContext";
 import { useMembership } from "../hooks/useMembership";
 import { supabase } from "../lib/supabase";
-import ReflectionarianAudioService from "../services/ReflectionarianAudioService";
-import encryptionService from "../services/encryptionService";
 import SessionPromptsTab from "../components/reflectionarian/tabs/SessionPromptsTab";
 import GoalTrackingTab from "../components/reflectionarian/tabs/GoalTrackingTab";
 import WeeklyReportTab from "../components/reflectionarian/tabs/WeeklyReportTab";
@@ -64,1122 +65,831 @@ const PremiumReflectionarian = () => {
   const [showGrowthTimeline, setShowGrowthTimeline] = useState(false);
   const [showExportOptions, setShowExportOptions] = useState(false);
   const [sessionHistory, setSessionHistory] = useState([]);
-
-  // UI State
-  const [showSettings, setShowSettings] = useState(false);
-  const [activeProTab, setActiveProTab] = useState("chat");
-  const chatEndRef = useRef(null);
-  const messageInputRef = useRef(null);
+  const [weeklyReportData, setWeeklyReportData] = useState(null);
 
   // Audio State
-  const [audioService] = useState(() => ReflectionarianAudioService);
-  const [isAudioLoading, setIsAudioLoading] = useState(false);
-  const [currentTranscript, setCurrentTranscript] = useState("");
-  const [isProcessingResponse, setIsProcessingResponse] = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(false);
 
-  // Settings & Privacy State
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  // UI State
+  const [activeTab, setActiveTab] = useState("chat");
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
+  const [showEndSessionModal, setShowEndSessionModal] = useState(false);
 
-  // ====================================================================
-  // ONBOARDING QUESTIONS & THERAPY MATCHING (PRO TIER)
-  // ====================================================================
+  const messagesEndRef = useRef(null);
+  const chatInputRef = useRef(null);
 
-  const onboardingQuestions = [
-    {
-      id: "session_goals",
-      question: "What do you hope to get out of your sessions?",
-      options: [
-        {
-          value: "self_understanding",
-          label: "Better understand myself and my patterns",
-        },
-        { value: "calm_control", label: "Feel calmer and more in control" },
-        { value: "heal_wounds", label: "Heal from difficult experiences" },
-        {
-          value: "structure_focus",
-          label: "Create structure and clear next steps",
-        },
-      ],
-    },
-    {
-      id: "preferred_tone",
-      question: "What tone resonates most with you?",
-      options: [
-        { value: "gentle", label: "Gentle and nurturing" },
-        { value: "direct", label: "Direct and practical" },
-        { value: "curious", label: "Curious and exploratory" },
-        { value: "philosophical", label: "Philosophical and deep" },
-      ],
-    },
-    {
-      id: "tips_vs_reflection",
-      question: "Do you prefer tips or reflection?",
-      options: [
-        { value: "tips", label: "Give me strategies and techniques" },
-        { value: "reflection", label: "Help me explore and understand" },
-        { value: "mixed", label: "A balance of both" },
-      ],
-    },
-    {
-      id: "struggle_support",
-      question: "How do you want support when struggling?",
-      options: [
-        { value: "listen", label: "Just listen and validate" },
-        { value: "reframe", label: "Help me see things differently" },
-        { value: "plan", label: "Help me make an action plan" },
-        { value: "calm", label: "Ground me in the present moment" },
-        { value: "connect", label: "Remind me of my values and strengths" },
-      ],
-    },
+  // Premium color scheme
+  const colors = {
+    primary: "#8B5CF6",
+    secondary: "#EC4899",
+    accent: "#06B6D4",
+    success: "#10B981",
+    warning: "#F59E0B",
+  };
+
+  // Pro Features Tabs
+  const proTabs = [
+    { id: "chat", label: "Chat", icon: MessageCircle },
+    { id: "prompts", label: "Session Prompts", icon: BookOpen },
+    { id: "goals", label: "Goal Tracking", icon: Target },
+    { id: "report", label: "Weekly Report", icon: FileText },
+    { id: "timeline", label: "Growth Timeline", icon: TrendingUp },
+    { id: "export", label: "Export Sessions", icon: Download },
   ];
 
-  // Therapy style mapping based on responses
-  const therapyStyleMapping = {
-    "calm_control-direct-tips-reframe": "CBT/Solution-Focused",
-    "self_understanding-direct-tips-plan": "CBT/Solution-Focused",
-    "structure_focus-direct-mixed-plan": "CBT/Solution-Focused",
-    "calm_control-gentle-mixed-calm": "Mindfulness/DBT",
-    "calm_control-curious-reflection-calm": "Mindfulness/DBT",
-    "self_understanding-curious-mixed-connect": "ACT/Positive Psychology",
-    "structure_focus-curious-mixed-connect": "ACT/Positive Psychology",
-    "heal_wounds-gentle-reflection-listen": "Narrative/Humanistic",
-    "self_understanding-gentle-reflection-listen": "Narrative/Humanistic",
-    "heal_wounds-philosophical-reflection-listen": "Narrative/Humanistic",
+  // Default preferences for Premium tier
+  const defaultPreferences = {
+    tier: "premium",
+    therapy_approach: "Integrative",
+    communication_style: "Warm and Insightful",
+    primary_focus: "Holistic Growth",
+    session_structure: "Structured",
+    voice_enabled: true,
+    weekly_reports: true,
   };
 
-  const getTherapyApproach = (responses) => {
-    const key = `${responses.session_goals}-${responses.preferred_tone}-${responses.tips_vs_reflection}-${responses.struggle_support}`;
-    return therapyStyleMapping[key] || "Narrative/Humanistic";
+  // Load preferences and sessions on mount
+  useEffect(() => {
+    if (user && hasAccess("premium_reflectionarian")) {
+      loadPreferences();
+      loadSessions();
+    }
+  }, [user]);
+
+  // Scroll to bottom when messages update
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // ====================================================================
-  // PREFERENCE MANAGEMENT
-  // ====================================================================
-
-  const loadUserPreferences = async () => {
-    if (!user?.id) return;
-
-    setIsLoadingPreferences(true);
+  // Load user preferences from backend
+  const loadPreferences = async () => {
     try {
-      const { data, error } = await supabase
-        .from("reflectionarian_preferences")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
+      setIsLoadingPreferences(true);
+      const response = await fetch(
+        `/api/reflectionarian/preferences?user_id=${user.id}`
+      );
 
-      if (error && error.code !== "PGRST116") {
-        console.error("Error loading preferences:", error);
-        return;
-      }
-
-      if (data && data.onboarding_completed) {
-        setPreferences(data);
-        setShowOnboarding(false);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.preferences) {
+          setPreferences({ ...defaultPreferences, ...data.preferences });
+        } else {
+          // First time user - show onboarding
+          setShowOnboarding(true);
+          setPreferences(defaultPreferences);
+        }
       } else {
+        // No preferences found - show onboarding
         setShowOnboarding(true);
+        setPreferences(defaultPreferences);
       }
     } catch (error) {
-      console.error("Error in loadUserPreferences:", error);
+      console.error("Error loading preferences:", error);
+      setPreferences(defaultPreferences);
     } finally {
       setIsLoadingPreferences(false);
     }
   };
 
-  const saveUserPreferences = async (responses) => {
-    if (!user?.id) return;
-
-    const therapyApproach = getTherapyApproach(responses);
-    const preferenceData = {
-      user_id: user.id,
-      onboarding_completed: true,
-      session_goals: responses.session_goals,
-      preferred_tone: responses.preferred_tone,
-      tips_vs_reflection: responses.tips_vs_reflection,
-      struggle_support: responses.struggle_support,
-      therapy_approach: therapyApproach,
-      voice_preference: "nova", // Default voice
-      updated_at: new Date().toISOString(),
-    };
-
+  // Save preferences to backend
+  const savePreferences = async (newPrefs) => {
     try {
-      const { error } = await supabase
-        .from("reflectionarian_preferences")
-        .upsert(preferenceData, { onConflict: "user_id" });
+      const response = await fetch("/api/reflectionarian/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          preferences: newPrefs,
+        }),
+      });
 
-      if (error) throw error;
-
-      setPreferences(preferenceData);
-      setShowOnboarding(false);
+      if (response.ok) {
+        setPreferences(newPrefs);
+        return true;
+      }
+      return false;
     } catch (error) {
       console.error("Error saving preferences:", error);
+      return false;
     }
   };
 
-  const exportCurrentSession = async () => {
-    if (!sessionId || messages.length === 0) {
-      alert("No session to export");
-      return;
-    }
-
+  // Load sessions from backend
+  const loadSessions = async () => {
     try {
-      // Format the session data
-      const sessionData = {
-        sessionId,
-        date: new Date().toISOString(),
-        therapyApproach: preferences?.therapy_approach,
-        messages: messages.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-          timestamp: msg.timestamp,
-        })),
-      };
+      const response = await fetch(
+        `/api/reflectionarian/sessions?user_id=${user.id}`
+      );
 
-      // Save to database for later access in User Settings
-      const { error } = await supabase.from("exported_sessions").insert({
-        user_id: user.id,
-        session_id: sessionId,
-        session_data: sessionData,
-        exported_at: new Date().toISOString(),
+      if (response.ok) {
+        const data = await response.json();
+        setSessionHistory(data.sessions || []);
+
+        // Load active session if exists
+        const activeSession = data.sessions?.find((s) => s.status === "active");
+        if (activeSession) {
+          setSessionId(activeSession.id);
+          await loadSessionMessages(activeSession.id);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading sessions:", error);
+    }
+  };
+
+  // Load messages for a session
+  const loadSessionMessages = async (sessionId) => {
+    try {
+      const response = await fetch(
+        `/api/reflectionarian/messages?session_id=${sessionId}&user_id=${user.id}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(data.messages || []);
+      }
+    } catch (error) {
+      console.error("Error loading messages:", error);
+    }
+  };
+
+  // Start a new session
+  const startNewSession = async () => {
+    try {
+      const response = await fetch("/api/reflectionarian/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          tier: "premium",
+        }),
       });
 
-      if (error) throw error;
+      if (response.ok) {
+        const data = await response.json();
+        setSessionId(data.session.id);
+        setMessages([]);
+        await loadSessions(); // Refresh session list
+      }
+    } catch (error) {
+      console.error("Error starting session:", error);
+    }
+  };
 
-      alert(
-        "Session exported successfully! You can download it from your User Settings page."
+  // End current session
+  const endSession = async () => {
+    if (!sessionId) return;
+
+    try {
+      const response = await fetch(
+        `/api/reflectionarian/sessions/${sessionId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: user.id,
+            status: "completed",
+          }),
+        }
       );
+
+      if (response.ok) {
+        // Generate session suggestions
+        await generateSessionSuggestions();
+
+        setSessionId(null);
+        setMessages([]);
+        setShowEndSessionModal(false);
+        await loadSessions(); // Refresh session list
+      }
+    } catch (error) {
+      console.error("Error ending session:", error);
+    }
+  };
+
+  // Send message to backend
+  const sendMessage = async () => {
+    if (!currentMessage.trim() || isLoading) return;
+
+    const userMessage = currentMessage.trim();
+    setCurrentMessage("");
+    setIsLoading(true);
+
+    // Add user message to UI immediately
+    const tempUserMessage = {
+      id: Date.now(),
+      role: "user",
+      content: userMessage,
+      timestamp: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, tempUserMessage]);
+
+    try {
+      // Ensure we have a session
+      if (!sessionId) {
+        await startNewSession();
+      }
+
+      // Send message to backend
+      const response = await fetch("/api/reflectionarian/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          message: userMessage,
+          session_id: sessionId,
+          tier: "premium",
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Add AI response to messages
+        const aiMessage = {
+          id: Date.now() + 1,
+          role: "assistant",
+          content: data.response,
+          timestamp: new Date().toISOString(),
+          metadata: data.metadata,
+        };
+        setMessages((prev) => [...prev, aiMessage]);
+
+        // Handle any metadata (insights, suggestions, etc.)
+        if (data.metadata?.prompts) {
+          setSessionPrompts((prev) => [...prev, ...data.metadata.prompts]);
+        }
+      } else {
+        throw new Error("Failed to get response");
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      // Remove the user message on error
+      setMessages((prev) => prev.filter((m) => m.id !== tempUserMessage.id));
+      alert("Failed to send message. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Generate session suggestions
+  const generateSessionSuggestions = async () => {
+    if (messages.length < 3) return;
+
+    try {
+      const response = await fetch("/api/reflectionarian/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          session_id: sessionId,
+          therapy_approach: preferences.therapy_approach,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setShowGoalSuggestions(true);
+        setCurrentGoalSuggestion(data);
+      }
+    } catch (error) {
+      console.error("Error generating suggestions:", error);
+    }
+  };
+
+  // Export session
+  const exportSession = async (format = "pdf") => {
+    try {
+      const response = await fetch("/api/reflectionarian/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          session_id: sessionId,
+          format: format,
+        }),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `reflectionarian-session-${sessionId}.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
     } catch (error) {
       console.error("Error exporting session:", error);
       alert("Failed to export session. Please try again.");
     }
   };
 
-  // Fetch relevant journal entries for context
-  const fetchRelevantJournalEntries = async (theme, mood) => {
-    try {
-      const { data, error } = await supabase
-        .from("journal_entries")
-        .select("*")
-        .eq("user_id", user.id)
-        .or(`theme.ilike.%${theme}%,mood.eq.${mood}`)
-        .order("created_at", { ascending: false })
-        .limit(5);
-
-      if (error) throw error;
-
-      // Decrypt entries
-      const decryptedEntries = await Promise.all(
-        data.map(async (entry) => {
-          const decrypted = await encryptionService.decryptEntry(entry);
-          return {
-            date: entry.created_at,
-            theme: decrypted.theme,
-            mood: decrypted.mood,
-            content: decrypted.content.substring(0, 200) + "...", // Preview only
-          };
-        })
-      );
-
-      return decryptedEntries;
-    } catch (error) {
-      console.error("Error fetching journal entries:", error);
-      return [];
+  // Handle key press in input
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
     }
   };
 
-  // Generate session-end suggestions
-  const generateSessionSuggestions = async () => {
-    if (messages.length < 3) return null;
-
-    try {
-      // Get conversation summary
-      const conversationText = messages
-        .map((m) => `${m.role}: ${m.content}`)
-        .join("\n");
-
-      const response = await fetch("/api/reflectionarian/suggestions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          conversation: conversationText,
-          therapyApproach: preferences.therapy_approach,
-        }),
-      });
-
-      const data = await response.json();
-
-      return {
-        journalPrompts: data.journalPrompts || [],
-        goalSuggestions: data.goalSuggestions || [],
-        nextSessionFocus: data.nextSessionFocus || "",
-      };
-    } catch (error) {
-      console.error("Error generating suggestions:", error);
-      return null;
+  // Audio functions (using Web Speech API)
+  const startListening = () => {
+    if (!("webkitSpeechRecognition" in window)) {
+      alert("Speech recognition is not supported in your browser.");
+      return;
     }
-  };
 
-  // Save journal prompt to Premium Journaling
-  const saveJournalPrompt = async (prompt) => {
-    try {
-      const { error } = await supabase.from("custom_prompts").insert({
-        user_id: user.id,
-        prompt_text: prompt,
-        source: "reflectionarian",
-        category: "reflection",
-        created_at: new Date().toISOString(),
-      });
+    const recognition = new webkitSpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
 
-      if (!error) {
-        alert("Prompt saved to your journaling prompts!");
-      }
-    } catch (error) {
-      console.error("Error saving prompt:", error);
-    }
-  };
-
-  // Save goal suggestion to Premium Goals
-  const saveGoalSuggestion = async (goal) => {
-    try {
-      const { error } = await supabase.from("goals").insert({
-        user_id: user.id,
-        title: goal.title,
-        description: goal.description,
-        category: goal.category || "personal_growth",
-        source: "reflectionarian",
-        status: "not_started",
-        created_at: new Date().toISOString(),
-      });
-
-      if (!error) {
-        alert("Goal saved to your goals page!");
-      }
-    } catch (error) {
-      console.error("Error saving goal:", error);
-    }
-  };
-
-  // ====================================================================
-  // SESSION MANAGEMENT
-  // ====================================================================
-
-  const startNewSession = async () => {
-    if (!user?.id || !preferences) return;
-
-    try {
-      const sessionData = {
-        user_id: user.id,
-        session_title: `Session - ${new Date().toLocaleDateString()}`,
-        approach_used: preferences.therapy_approach,
-        conversation_type: "premium_therapy",
-        session_start: new Date().toISOString(),
-        status: "active",
-      };
-
-      const { data, error } = await supabase
-        .from("therapy_sessions")
-        .insert(sessionData)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setSessionId(data.id);
-      setMessages([]);
-
-      // Add welcome message based on therapy approach
-      const welcomeMessage = {
-        id: Date.now(),
-        role: "assistant",
-        content: getWelcomeMessage(
-          preferences.therapy_approach,
-          preferences.preferred_tone
-        ),
-        timestamp: new Date(),
-      };
-
-      setMessages([welcomeMessage]);
-    } catch (error) {
-      console.error("Error starting new session:", error);
-    }
-  };
-
-  const getWelcomeMessage = (approach, tone) => {
-    const messages = {
-      "CBT/Solution-Focused": {
-        direct:
-          "Let's focus on what's happening right now and work together on practical solutions. What specific challenge would you like to address today?",
-        gentle:
-          "I'm here to help you work through challenges with practical strategies. What's on your mind today?",
-        default:
-          "I'm here to help you identify patterns and develop practical solutions. What would you like to work on today?",
-      },
-      "Mindfulness/DBT": {
-        gentle:
-          "Welcome. Let's take a moment to ground ourselves in the present. How are you feeling in this moment?",
-        curious:
-          "I'm here to help you explore present-moment awareness. What's alive for you in this moment?",
-        default:
-          "Let's focus on grounding and emotional regulation together. How are you feeling in this moment?",
-      },
-      "ACT/Positive Psychology": {
-        curious:
-          "I'm excited to explore your values and help you move toward meaningful action. What matters most to you right now?",
-        playful:
-          "Let's discover what brings you alive and helps you flourish! What's sparking joy in your life lately?",
-        default:
-          "Together we'll explore your values and build resilience. What would make today meaningful for you?",
-      },
-      "Narrative/Humanistic": {
-        gentle:
-          "I'm here to listen deeply and help you explore your story. What would you like to share with me today?",
-        philosophical:
-          "Let's explore the deeper meanings and patterns in your experience. What's been on your heart lately?",
-        default:
-          "I'm here to truly hear you and help you make meaning of your experiences. What feels important to share right now?",
-      },
-    };
-
-    return (
-      messages[approach]?.[tone] ||
-      messages[approach]?.default ||
-      messages["Narrative/Humanistic"].default
-    );
-  };
-
-  // ====================================================================
-  // MESSAGE HANDLING
-  // ====================================================================
-
-  const sendMessage = async () => {
-    if (!currentMessage.trim() || isLoading || !sessionId) return;
-
-    const userMessage = {
-      id: Date.now(),
-      role: "user",
-      content: currentMessage.trim(),
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setCurrentMessage("");
-    setIsLoading(true);
-    setIsProcessingResponse(true);
-
-    try {
-      // Play transitional response if audio is enabled
-      let transitionalText = null;
-      if (audioEnabled) {
-        const category = audioService.analyzeResponseCategory(
-          userMessage.content
-        );
-        transitionalText = await audioService.playTransitionalResponse(
-          category
-        );
-      }
-
-      // Call your API for the actual response
-
-      const relevantEntries = await fetchRelevantJournalEntries(
-        currentMessage, // Use message as theme search
-        "neutral" // Or extract mood from conversation
-      );
-      const response = await fetch("/api/reflectionarian/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userMessage.content,
-          sessionId,
-          userId: user.id,
-          therapyApproach: preferences.therapy_approach,
-          journalContext: relevantEntries,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to get response");
-
-      const data = await response.json();
-
-      // Add the AI response
-      const assistantMessage = {
-        id: Date.now() + 1,
-        role: "assistant",
-        content: data.response,
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-
-      // Play the full response audio if enabled
-      if (audioEnabled && data.response) {
-        // Stop any transitional audio
-        audioService.stopAudio();
-
-        // Stream the actual response
-        await audioService.streamAudioResponse(
-          data.response,
-          preferences.voice_preference
-        );
-      }
-    } catch (error) {
-      console.error("Error sending message:", error);
-
-      // Add error message
-      const errorMessage = {
-        id: Date.now() + 1,
-        role: "assistant",
-        content:
-          "I apologize, but I'm having trouble responding right now. Please try again in a moment.",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-
-      // Stop any playing audio
-      if (audioEnabled) {
-        audioService.stopAudio();
-      }
-    } finally {
-      setIsLoading(false);
-      setIsProcessingResponse(false);
-    }
-  };
-
-  // Handle voice input
-  const handleVoiceInput = () => {
-    if (!audioEnabled) return;
-
-    if (isListening) {
-      // Stop listening
-      audioService.stopListening();
-      setIsListening(false);
-
-      // Send the message if we have a transcript
-      if (currentTranscript.trim()) {
-        setCurrentMessage(currentTranscript);
-        sendMessage();
-        setCurrentTranscript("");
-      }
-    } else {
-      // Start listening
+    recognition.onstart = () => {
       setIsListening(true);
-      audioService.startListening(
-        (result) => {
-          setCurrentTranscript(result.transcript);
-          if (!result.isFinal) {
-            // Update the input field with interim results
-            setCurrentMessage(result.transcript);
-          }
-        },
-        (error) => {
-          console.error("Speech recognition error:", error);
-          setIsListening(false);
-          alert("Voice input error. Please try again or type your message.");
-        }
-      );
-    }
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setCurrentMessage((prev) => prev + " " + transcript);
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
   };
 
-  // Toggle audio on/off
-  const toggleAudio = () => {
-    setAudioEnabled(!audioEnabled);
+  const speakMessage = (text) => {
+    if (!audioEnabled || !("speechSynthesis" in window)) return;
 
-    if (!audioEnabled) {
-      // If turning on, preload responses
-      audioService.preloadCommonResponses();
-    } else {
-      // If turning off, stop any playing audio
-      audioService.stopAudio();
-      if (isListening) {
-        audioService.stopListening();
-        setIsListening(false);
-      }
-    }
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.voice =
+      speechSynthesis
+        .getVoices()
+        .find(
+          (voice) =>
+            voice.name.includes("Google UK English Female") ||
+            voice.name.includes("Samantha") ||
+            voice.gender === "female"
+        ) || speechSynthesis.getVoices()[0];
+
+    speechSynthesis.speak(utterance);
   };
 
-  // ====================================================================
-  // EFFECTS
-  // ====================================================================
-
-  useEffect(() => {
-    loadUserPreferences();
-  }, [user]);
-
-  useEffect(() => {
-    if (preferences && !sessionId && !showOnboarding) {
-      startNewSession();
-    }
-  }, [preferences, sessionId, showOnboarding]);
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  useEffect(() => {
-    if (preferences && audioEnabled) {
-      // Set voice preferences
-      audioService.setVoicePreferences(
-        preferences.voice_preference || "nova",
-        1.0, // playback speed
-        1.0 // volume
-      );
-
-      // Cleanup audio on unmount
-      useEffect(() => {
-        return () => {
-          if (audioService) {
-            audioService.stopAudio();
-            audioService.stopListening();
-            audioService.clearCache();
-          }
-        };
-      }, [audioService]);
-
-      // Preload common responses
-      audioService.preloadCommonResponses();
-    }
-  }, [preferences, audioEnabled, audioService]);
-
-  // ====================================================================
-  // LOADING & ACCESS CONTROL
-  // ====================================================================
-
+  // Render loading state
   if (isLoadingPreferences) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-purple-400 mx-auto mb-4" />
-          <p className="text-gray-300">
-            Loading your personalized experience...
-          </p>
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4" />
+          <p>Loading your Reflectionarian...</p>
         </div>
       </div>
     );
   }
 
-  if (!hasAccess("reflectionarian") || tier !== "premium") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-center py-12 bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-8 max-w-md">
-          <Brain className="w-16 h-16 text-purple-400 mx-auto mb-6" />
-          <h2 className="text-2xl font-bold text-white mb-4">
-            Premium Reflectionarian
-          </h2>
-          <p className="text-gray-300 mb-8">
-            Unlock the most sophisticated AI companion with therapy-style
-            structured sessions, voice interactions, and personalized growth
-            tracking.
-          </p>
-          <button className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
-            Upgrade to Premium
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ====================================================================
-  // ONBOARDING COMPONENT
-  // ====================================================================
-
+  // Render onboarding if needed
   if (showOnboarding) {
-    const currentQuestion = onboardingQuestions[onboardingStep];
-    const responses = {};
-
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-        <div className="w-full max-w-2xl">
-          <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl p-8">
-            {/* Progress Bar */}
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-white">
-                  Personalize Your Experience
-                </h2>
-                <span className="text-sm text-gray-300">
-                  {onboardingStep + 1} of {onboardingQuestions.length}
-                </span>
-              </div>
-              <div className="w-full bg-white/10 rounded-full h-2">
-                <div
-                  className="bg-gradient-to-r from-purple-500 to-purple-400 h-2 rounded-full transition-all duration-300"
-                  style={{
-                    width: `${
-                      ((onboardingStep + 1) / onboardingQuestions.length) * 100
-                    }%`,
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Question */}
-            <div className="mb-8">
-              <h3 className="text-xl font-semibold text-white mb-6">
-                {currentQuestion.question}
-              </h3>
-              <div className="space-y-3">
-                {currentQuestion.options.map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => {
-                      responses[currentQuestion.id] = option.value;
-
-                      if (onboardingStep < onboardingQuestions.length - 1) {
-                        setOnboardingStep(onboardingStep + 1);
-                      } else {
-                        // Save preferences and complete onboarding
-                        onboardingQuestions.forEach((q, idx) => {
-                          if (idx < onboardingStep) {
-                            responses[q.id] = q.options[0].value; // Default values for previous
-                          }
-                        });
-                        saveUserPreferences(responses);
-                      }
-                    }}
-                    className="w-full text-left p-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-purple-400 rounded-lg transition-all duration-200 group"
-                  >
-                    <span className="text-white group-hover:text-purple-300 transition-colors">
-                      {option.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Skip Button */}
-            {onboardingStep > 0 && (
-              <button
-                onClick={() => setOnboardingStep(onboardingStep - 1)}
-                className="text-gray-400 hover:text-white text-sm transition-colors"
-              >
-                ← Back
-              </button>
-            )}
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 p-6">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8">
+            <h2 className="text-2xl font-bold text-white mb-6">
+              Welcome to Premium Reflectionarian
+            </h2>
+            {/* Onboarding steps would go here */}
+            <button
+              onClick={() => {
+                savePreferences(preferences);
+                setShowOnboarding(false);
+              }}
+              className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              Get Started
+            </button>
           </div>
         </div>
       </div>
     );
   }
-
-  // ====================================================================
-  // MAIN CHAT INTERFACE
-  // ====================================================================
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      {/* Animated Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-600/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-pink-600/20 rounded-full blur-3xl animate-pulse delay-1000" />
-      </div>
-
-      {/* Header */}
-      <div className="relative z-10 bg-white/10 backdrop-blur-xl border-b border-white/20 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center shadow-lg">
-              <MessageCircle className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-white">
-                Premium Reflectionarian
-              </h1>
-              <p className="text-sm text-gray-300">
-                {preferences?.therapy_approach || "Your AI Therapy Companion"}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Premium Badge */}
-            <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-1.5 rounded-full text-sm font-medium shadow-lg">
-              Premium
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900">
+      <div className="max-w-7xl mx-auto h-screen flex flex-col">
+        {/* Header */}
+        <div className="bg-black/20 backdrop-blur-md border-b border-white/10 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
+                <Brain className="w-8 h-8 text-purple-300" />
+                <div>
+                  <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                    Premium Reflectionarian
+                    <Crown className="w-6 h-6 text-yellow-400" />
+                  </h1>
+                  <p className="text-purple-200 text-sm">
+                    Your AI companion for deep self-discovery
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {/* Privacy Info Icon */}
-            <button
-              onClick={() => setShowPrivacyInfo(true)}
-              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
-              title="Privacy Information"
-            >
-              <Shield className="w-5 h-5" />
-            </button>
-
-            {/* Audio Toggle */}
-            <button
-              onClick={toggleAudio}
-              className={`p-2 rounded-lg transition-colors ${
-                audioEnabled
-                  ? "bg-purple-600 text-white"
-                  : "bg-white/10 hover:bg-white/20 text-white"
-              }`}
-              title={audioEnabled ? "Disable voice" : "Enable voice"}
-            >
-              {audioEnabled ? (
-                <Volume2 className="w-5 h-5" />
-              ) : (
-                <VolumeX className="w-5 h-5" />
+            <div className="flex items-center gap-3">
+              {sessionId && (
+                <button
+                  onClick={() => setShowEndSessionModal(true)}
+                  className="px-4 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors flex items-center gap-2"
+                >
+                  <Clock className="w-4 h-4" />
+                  End Session
+                </button>
               )}
-            </button>
 
-            {/* Settings */}
-            <button
-              onClick={() => setShowSettingsModal(true)}
-              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
+              <button
+                onClick={() => setShowPrivacyInfo(true)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors text-purple-200"
+              >
+                <Shield className="w-5 h-5" />
+              </button>
 
-            {/* New Session */}
-            <button
-              onClick={startNewSession}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors shadow-lg"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>New Session</span>
-            </button>
+              <button
+                onClick={() => setActiveTab("settings")}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors text-purple-200"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Tab Navigation */}
+          <div className="flex gap-2 mt-4 overflow-x-auto scrollbar-hide">
+            {proTabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
+                    activeTab === tab.id
+                      ? "bg-purple-600 text-white"
+                      : "text-purple-200 hover:bg-white/10"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Pro Features Tabs */}
-        <div className="flex gap-2 mt-4 pb-2 overflow-x-auto">
-          {[
-            { id: "chat", label: "Conversation", icon: MessageCircle },
-            { id: "prompts", label: "Session Prompts", icon: Lightbulb },
-            { id: "goals", label: "Goal Tracking", icon: Target },
-            { id: "report", label: "Weekly Report", icon: FileText },
-            { id: "timeline", label: "Growth Timeline", icon: TrendingUp },
-            { id: "export", label: "Export Sessions", icon: Download },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveProTab(tab.id)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
-                activeProTab === tab.id
-                  ? "bg-purple-600 text-white shadow-lg"
-                  : "bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              <tab.icon className="w-4 h-4" />
-              <span className="text-sm">{tab.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+        {/* Main Content Area */}
+        <div className="flex-1 overflow-hidden">
+          {activeTab === "chat" && (
+            <div className="h-full flex flex-col">
+              {/* Messages Area */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {messages.length === 0 && (
+                  <div className="text-center text-purple-200 mt-20">
+                    <Brain className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg mb-2">
+                      Welcome to your Premium Reflectionarian session
+                    </p>
+                    <p className="text-sm opacity-75">
+                      Share your thoughts, and I'll help you explore them deeply
+                    </p>
+                  </div>
+                )}
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden relative z-10">
-        {activeProTab === "chat" ? (
-          <div className="flex flex-col h-full">
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {messages.length === 0 && (
-                <div className="text-center py-12">
-                  <Brain className="w-16 h-16 text-purple-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-white mb-2">
-                    Welcome to Your Therapy Session
-                  </h3>
+                {messages.map((message, index) => (
+                  <div
+                    key={message.id || index}
+                    className={`flex ${
+                      message.role === "user" ? "justify-end" : "justify-start"
+                    }`}
+                  >
+                    <div
+                      className={`max-w-2xl p-4 rounded-lg ${
+                        message.role === "user"
+                          ? "bg-purple-600 text-white"
+                          : "bg-white/10 text-white border border-white/20"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        {message.role === "assistant" && (
+                          <Brain className="w-5 h-5 mt-1 text-purple-300" />
+                        )}
+                        <div className="flex-1">
+                          <p className="whitespace-pre-wrap">
+                            {message.content}
+                          </p>
+                          {message.metadata?.prompts && (
+                            <div className="mt-3 pt-3 border-t border-white/20">
+                              <p className="text-sm text-purple-300 mb-2">
+                                Reflection prompts:
+                              </p>
+                              <ul className="space-y-1 text-sm">
+                                {message.metadata.prompts.map((prompt, i) => (
+                                  <li key={i} className="text-purple-200">
+                                    • {prompt}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                        {message.role === "assistant" && audioEnabled && (
+                          <button
+                            onClick={() => speakMessage(message.content)}
+                            className="p-1 hover:bg-white/10 rounded"
+                          >
+                            <Volume2 className="w-4 h-4 text-purple-300" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {isLoading && (
+                  <div className="flex justify-start">
+                    <div className="bg-white/10 rounded-lg p-4 border border-white/20">
+                      <div className="flex items-center gap-3">
+                        <Brain className="w-5 h-5 text-purple-300 animate-pulse" />
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" />
+                          <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-100" />
+                          <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-200" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Input Area */}
+              <div className="border-t border-white/10 p-6">
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setAudioEnabled(!audioEnabled)}
+                    className={`p-3 rounded-lg transition-colors ${
+                      audioEnabled
+                        ? "bg-purple-600 text-white"
+                        : "bg-white/10 text-purple-200 hover:bg-white/20"
+                    }`}
+                  >
+                    {audioEnabled ? (
+                      <Volume2 className="w-5 h-5" />
+                    ) : (
+                      <VolumeX className="w-5 h-5" />
+                    )}
+                  </button>
+
+                  <button
+                    onClick={startListening}
+                    disabled={isListening}
+                    className={`p-3 rounded-lg transition-colors ${
+                      isListening
+                        ? "bg-red-500 text-white animate-pulse"
+                        : "bg-white/10 text-purple-200 hover:bg-white/20"
+                    }`}
+                  >
+                    <Mic className="w-5 h-5" />
+                  </button>
+
+                  <textarea
+                    ref={chatInputRef}
+                    value={currentMessage}
+                    onChange={(e) => setCurrentMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Share your thoughts..."
+                    className="flex-1 bg-white/10 text-white placeholder-purple-300 rounded-lg px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 border border-white/20"
+                    rows="3"
+                    disabled={isLoading}
+                  />
+
+                  <button
+                    onClick={sendMessage}
+                    disabled={!currentMessage.trim() || isLoading}
+                    className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5" />
+                    )}
+                    Send
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Other Tabs */}
+          {activeTab === "prompts" && (
+            <SessionPromptsTab
+              prompts={sessionPrompts}
+              onSavePrompt={(prompt) => {
+                // Save to journal prompts
+                console.log("Save prompt:", prompt);
+              }}
+            />
+          )}
+
+          {activeTab === "goals" && (
+            <GoalTrackingTab sessionId={sessionId} userId={user.id} />
+          )}
+
+          {activeTab === "report" && (
+            <WeeklyReportTab
+              userId={user.id}
+              onGenerateReport={() => {
+                // Generate weekly report
+                console.log("Generate weekly report");
+              }}
+            />
+          )}
+
+          {activeTab === "timeline" && (
+            <GrowthTimelineTab userId={user.id} sessions={sessionHistory} />
+          )}
+
+          {activeTab === "export" && (
+            <ExportSessionsTab
+              sessions={sessionHistory}
+              onExport={exportSession}
+            />
+          )}
+
+          {activeTab === "settings" && (
+            <div className="p-6">
+              <div className="max-w-2xl mx-auto bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+                <h2 className="text-xl font-bold text-white mb-6">
+                  Reflectionarian Settings
+                </h2>
+                {/* Settings form would go here */}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* End Session Modal */}
+        {showEndSessionModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 max-w-md w-full p-6">
+              <h3 className="text-xl font-bold text-white mb-4">
+                End Session?
+              </h3>
+              <p className="text-gray-300 mb-6">
+                Are you sure you want to end this session? You'll receive
+                personalized suggestions and can start a new session anytime.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowEndSessionModal(false)}
+                  className="flex-1 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+                >
+                  Continue Session
+                </button>
+                <button
+                  onClick={endSession}
+                  className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                >
+                  End & Get Insights
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Goal Suggestions Modal */}
+        {showGoalSuggestions && currentGoalSuggestion && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 max-w-2xl w-full p-6">
+              <h3 className="text-xl font-bold text-white mb-4">
+                Session Insights & Suggestions
+              </h3>
+
+              {currentGoalSuggestion.journalPrompts && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-purple-300 mb-3">
+                    Journal Prompts
+                  </h4>
+                  <ul className="space-y-2">
+                    {currentGoalSuggestion.journalPrompts.map((prompt, i) => (
+                      <li key={i} className="text-gray-300">
+                        • {prompt}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {currentGoalSuggestion.goalSuggestions && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-purple-300 mb-3">
+                    Goal Suggestions
+                  </h4>
+                  <ul className="space-y-2">
+                    {currentGoalSuggestion.goalSuggestions.map((goal, i) => (
+                      <li key={i} className="text-gray-300">
+                        • {goal}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {currentGoalSuggestion.nextSessionFocus && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-purple-300 mb-3">
+                    Next Session Focus
+                  </h4>
                   <p className="text-gray-300">
-                    Share what's on your mind. This is your safe space.
+                    {currentGoalSuggestion.nextSessionFocus}
                   </p>
                 </div>
               )}
 
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  }`}
-                >
-                  <div
-                    className={`max-w-3xl p-4 rounded-2xl ${
-                      message.role === "user"
-                        ? "bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg"
-                        : "bg-white/10 backdrop-blur-md text-white border border-white/20"
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap">{message.content}</p>
-                    <div className="mt-2 text-xs opacity-70">
-                      {message.timestamp.toLocaleTimeString()}
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" />
-                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-100" />
-                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-200" />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div ref={chatEndRef} />
-            </div>
-
-            {/* Input Area */}
-            <div className="p-6 bg-white/5 backdrop-blur-md border-t border-white/20">
-              <div className="flex gap-3">
-                {/* Voice Input Button */}
-                {audioEnabled && (
-                  <button
-                    onClick={handleVoiceInput}
-                    disabled={isProcessingResponse}
-                    className={`p-3 rounded-lg transition-all ${
-                      isListening
-                        ? "bg-red-600 hover:bg-red-700 animate-pulse"
-                        : "bg-white/10 hover:bg-white/20"
-                    } text-white disabled:opacity-50`}
-                    title={isListening ? "Stop recording" : "Start recording"}
-                  >
-                    <Mic
-                      className={`w-5 h-5 ${
-                        isListening ? "animate-pulse" : ""
-                      }`}
-                    />
-                  </button>
-                )}
-
-                {/* Show current transcript while speaking */}
-                {isListening && currentTranscript && (
-                  <div className="absolute -top-12 left-0 right-0 bg-purple-600/90 backdrop-blur-sm rounded-lg px-3 py-1 text-sm text-white">
-                    {currentTranscript}
-                  </div>
-                )}
-
-                {/* Text Input */}
-                <div className="flex-1 relative">
-                  <textarea
-                    ref={messageInputRef}
-                    value={currentMessage}
-                    onChange={(e) => setCurrentMessage(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        sendMessage();
-                      }
-                    }}
-                    placeholder="Share what's on your mind..."
-                    className="w-full p-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg text-white placeholder-gray-400 resize-none focus:outline-none focus:border-purple-400 transition-colors"
-                    rows="3"
-                  />
-                </div>
-
-                {/* Send Button */}
-                <button
-                  onClick={sendMessage}
-                  disabled={!currentMessage.trim() || isLoading}
-                  className="p-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:opacity-50 text-white rounded-lg transition-all shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none"
-                >
-                  <Send className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Session Prompts (if any) */}
-              {sessionPrompts.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <span className="text-sm text-gray-400">Suggested:</span>
-                  {sessionPrompts.map((prompt, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setCurrentMessage(prompt)}
-                      className="text-sm px-3 py-1 bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white rounded-full transition-colors"
-                    >
-                      {prompt}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <button
+                onClick={() => setShowGoalSuggestions(false)}
+                className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+              >
+                Close
+              </button>
             </div>
           </div>
-        ) : (
-          // Other tabs content
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <Sparkles className="w-16 h-16 text-purple-400 mx-auto mb-4" />
-              {activeProTab === "prompts" && (
-                <SessionPromptsTab
-                  sessionId={sessionId}
-                  userId={user.id}
-                  preferences={preferences}
-                  messages={messages}
-                />
-              )}
-              {activeProTab === "goals" && (
-                <GoalTrackingTab
-                  sessionId={sessionId}
-                  userId={user.id}
-                  preferences={preferences}
-                  messages={messages}
-                />
-              )}
-              {activeProTab === "report" && (
-                <WeeklyReportTab userId={user.id} preferences={preferences} />
-              )}
-              {activeProTab === "timeline" && (
-                <GrowthTimelineTab userId={user.id} preferences={preferences} />
-              )}
-              {activeProTab === "export" && (
-                <ExportSessionsTab
-                  userId={user.id}
-                  currentSessionId={sessionId}
-                />
-              )}
+        )}
+
+        {/* Privacy Info Modal */}
+        {showPrivacyInfo && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 max-w-md w-full p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <Shield className="w-8 h-8 text-purple-400" />
+                <h3 className="text-xl font-bold text-white">
+                  Your Privacy Matters
+                </h3>
+              </div>
+
+              <div className="space-y-4 text-gray-300">
+                <p>
+                  Your Reflectionarian sessions are protected with the highest
+                  level of privacy:
+                </p>
+
+                <ul className="space-y-2 list-disc list-inside">
+                  <li>All conversations are end-to-end encrypted</li>
+                  <li>Only you can read your session content</li>
+                  <li>No personal identifiers are sent to AI services</li>
+                  <li>Voice data is processed locally when possible</li>
+                  <li>Audio is never stored - only text transcripts</li>
+                  <li>You can delete any session at any time</li>
+                </ul>
+
+                <div className="bg-purple-600/20 rounded-lg p-3 border border-purple-600/30">
+                  <p className="text-sm">
+                    <strong className="text-purple-300">Note:</strong> While AI
+                    responses are generated using OpenAI's API, all encryption
+                    and decryption happens on our secure servers. Your messages
+                    are never exposed in plain text outside our backend.
+                  </p>
+                </div>
+
+                <p className="text-sm">
+                  This is your private space for self-reflection and growth. Not
+                  even our team can access your conversations.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setShowPrivacyInfo(false)}
+                className="mt-6 w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+              >
+                Got it
+              </button>
             </div>
           </div>
         )}
       </div>
-      {/* Settings Modal */}
-      {showSettingsModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-white mb-4">
-              Reflectionarian Settings
-            </h3>
-
-            <div className="space-y-4">
-              {/* Voice Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  AI Voice
-                </label>
-                <select
-                  value={preferences?.voice_preference || "nova"}
-                  onChange={(e) => {
-                    // Update voice preference
-                    audioService.setVoicePreferences(e.target.value);
-                    // You'd also save this to the database
-                  }}
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
-                >
-                  <option value="alloy">Alloy - Neutral</option>
-                  <option value="echo">Echo - Smooth</option>
-                  <option value="fable">Fable - Expressive</option>
-                  <option value="onyx">Onyx - Deep</option>
-                  <option value="nova">Nova - Warm</option>
-                  <option value="shimmer">Shimmer - Soft</option>
-                </select>
-              </div>
-
-              {/* Session Preferences */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Session Reminders
-                </label>
-                <label className="flex items-center text-gray-300">
-                  <input
-                    type="checkbox"
-                    className="mr-2 rounded"
-                    defaultChecked
-                  />
-                  Send weekly session summaries
-                </label>
-              </div>
-
-              {/* Export Current Session */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Export Options
-                </label>
-                <button
-                  onClick={() => {
-                    // Export current session logic
-                    alert(
-                      "Current session will be available in your User Settings for download"
-                    );
-                  }}
-                  className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-                >
-                  Export Current Session
-                </button>
-              </div>
-
-              {/* Therapy Approach */}
-              <div className="bg-white/5 rounded-lg p-3">
-                <p className="text-sm text-gray-300">
-                  <span className="font-medium">Current Approach:</span>
-                  <br />
-                  {preferences?.therapy_approach || "Not set"}
-                </p>
-                <button
-                  onClick={() => {
-                    setShowSettingsModal(false);
-                    setShowOnboarding(true);
-                    setOnboardingStep(0);
-                  }}
-                  className="mt-2 text-sm text-purple-400 hover:text-purple-300"
-                >
-                  Retake questionnaire →
-                </button>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowSettingsModal(false)}
-              className="mt-6 w-full px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Privacy Info Modal */}
-      {showPrivacyInfo && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 max-w-md w-full p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Shield className="w-8 h-8 text-purple-400" />
-              <h3 className="text-xl font-bold text-white">
-                Your Privacy Matters
-              </h3>
-            </div>
-
-            <div className="space-y-4 text-gray-300">
-              <p>
-                Your Reflectionarian sessions are protected with the highest
-                level of privacy:
-              </p>
-
-              <ul className="space-y-2 list-disc list-inside">
-                <li>All conversations are end-to-end encrypted</li>
-                <li>Only you can read your session content</li>
-                <li>No personal identifiers are sent to AI services</li>
-                <li>Voice data is processed locally when possible</li>
-                <li>Audio is never stored - only text transcripts</li>
-                <li>You can delete any session at any time</li>
-              </ul>
-
-              <div className="bg-purple-600/20 rounded-lg p-3 border border-purple-600/30">
-                <p className="text-sm">
-                  <strong className="text-purple-300">Note:</strong> While AI
-                  responses are generated using OpenAI's API, we only send
-                  anonymized session IDs and your messages - never your personal
-                  information or account details.
-                </p>
-              </div>
-
-              <p className="text-sm">
-                This is your private space for self-reflection and growth. Not
-                even our team can access your conversations.
-              </p>
-            </div>
-
-            <button
-              onClick={() => setShowPrivacyInfo(false)}
-              className="mt-6 w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-            >
-              Got it
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

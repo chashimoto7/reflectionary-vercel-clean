@@ -2,8 +2,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMembership } from "../hooks/useMembership";
-import { supabase } from "../lib/supabase";
-import encryptionService from "../services/encryptionService";
 import {
   Calendar,
   Search,
@@ -206,251 +204,55 @@ const AdvancedHistory = () => {
           startDate.setMonth(startDate.getMonth() - 3);
       }
 
-      // Load journal entries (parent entries only, then load follow-ups separately)
-      const { data: entriesData, error: entriesError } = await supabase
-        .from("journal_entries")
-        .select("*")
-        .eq("user_id", user.id)
-        .is("parent_entry_id", null) // Only get parent entries (not follow-ups)
-        .gte("created_at", startDate.toISOString())
-        .lte("created_at", endDate.toISOString())
-        .order("created_at", { ascending: false });
-
-      if (entriesError) throw entriesError;
-
-      // Get the master key using the same pattern as other components
-      const masterKey = await encryptionService.getStaticMasterKey();
-
-      // Decrypt entries and load their follow-ups
-      const decryptedEntries = await Promise.all(
-        (entriesData || []).map(async (entry) => {
-          try {
-            // Decrypt the data key first
-            const dataKey = await encryptionService.decryptKey(
-              {
-                encryptedData: entry.encrypted_data_key,
-                iv: entry.data_key_iv,
-              },
-              masterKey
-            );
-
-            // Decrypt content using the data key
-            const decryptedContent = await encryptionService.decryptText(
-              entry.encrypted_content,
-              entry.content_iv,
-              dataKey
-            );
-
-            // Decrypt prompt if it exists
-            let decryptedPrompt = null;
-            if (entry.encrypted_prompt && entry.prompt_iv) {
-              decryptedPrompt = await encryptionService.decryptText(
-                entry.encrypted_prompt,
-                entry.prompt_iv,
-                dataKey
-              );
-            }
-
-            // Load follow-ups for this entry
-            const { data: followUpData } = await supabase
-              .from("journal_entries")
-              .select("*")
-              .eq("parent_entry_id", entry.id)
-              .order("created_at", { ascending: true });
-
-            // Decrypt follow-ups using the same pattern
-            const decryptedFollowUps = await Promise.all(
-              (followUpData || []).map(async (followUp) => {
-                try {
-                  // Decrypt follow-up data key
-                  const followUpDataKey = await encryptionService.decryptKey(
-                    {
-                      encryptedData: followUp.encrypted_data_key,
-                      iv: followUp.data_key_iv,
-                    },
-                    masterKey
-                  );
-
-                  // Decrypt follow-up content
-                  const decryptedResponse = await encryptionService.decryptText(
-                    followUp.encrypted_content,
-                    followUp.content_iv,
-                    followUpDataKey
-                  );
-
-                  // Decrypt follow-up prompt if it exists
-                  let decryptedQuestion = "Follow-up reflection";
-                  if (followUp.encrypted_prompt && followUp.prompt_iv) {
-                    decryptedQuestion = await encryptionService.decryptText(
-                      followUp.encrypted_prompt,
-                      followUp.prompt_iv,
-                      followUpDataKey
-                    );
-                  }
-
-                  return {
-                    ...followUp,
-                    decryptedQuestion,
-                    decryptedResponse,
-                  };
-                } catch (error) {
-                  console.error("Error decrypting follow-up:", error);
-                  return null;
-                }
-              })
-            );
-
-            return {
-              ...entry,
-              decryptedContent,
-              decryptedPrompt,
-              decryptedFollowUps: decryptedFollowUps.filter(Boolean),
-              // Mock AI analysis data - in production this would come from batch jobs
-              mood:
-                entry.mood ||
-                ["neutral", "calm", "hopeful"][Math.floor(Math.random() * 3)],
-              theme:
-                entry.theme ||
-                ["personal growth", "relationships", "work", "health"][
-                  Math.floor(Math.random() * 4)
-                ],
-              tone:
-                entry.tone ||
-                ["reflective", "optimistic", "analytical"][
-                  Math.floor(Math.random() * 3)
-                ],
-              starred: entry.starred || false,
-              pinned: entry.pinned || false,
-              folder_id: entry.folder_id || null,
-            };
-          } catch (decryptError) {
-            console.error("Error decrypting entry:", decryptError);
-            return {
-              ...entry,
-              decryptedContent: "Error decrypting content",
-              decryptedPrompt: null,
-              decryptedFollowUps: [],
-              // Add mock data even for failed decryption
-              mood: "neutral",
-              theme: "general",
-              tone: "reflective",
-              starred: false,
-              pinned: false,
-              folder_id: null,
-            };
-          }
-        })
+      // Use backend API to get decrypted entries with analytics
+      const historyResponse = await fetch(
+        `/api/history?user_id=${
+          user.id
+        }&date_from=${startDate.toISOString()}&date_to=${endDate.toISOString()}&include_analytics=true&include_followups=true`
       );
 
-      setEntries(decryptedEntries);
-
-      // Load folders
-      const { data: foldersData, error: foldersError } = await supabase
-        .from("journal_folders")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("name");
-
-      if (foldersError) throw foldersError;
-
-      let decryptedFolders = [];
-      if (foldersData && foldersData.length > 0) {
-        decryptedFolders = await Promise.all(
-          foldersData.map(async (folder) => {
-            try {
-              // Decrypt folder name using the same approach as other components
-              const decryptedName = await encryptionService.decrypt(
-                folder.name
-              );
-
-              // Decrypt folder description if it exists
-              let decryptedDescription = null;
-              if (folder.description) {
-                decryptedDescription = await encryptionService.decrypt(
-                  folder.description
-                );
-              }
-
-              return {
-                ...folder,
-                decryptedName,
-                decryptedDescription,
-              };
-            } catch (error) {
-              console.error("Error decrypting folder:", error);
-              return {
-                ...folder,
-                decryptedName: "Error decrypting folder name",
-                decryptedDescription: null,
-              };
-            }
-          })
-        );
+      if (!historyResponse.ok) {
+        throw new Error("Failed to fetch history");
       }
 
-      setFolders(decryptedFolders);
+      const historyData = await historyResponse.json();
 
-      // Load goals for connections - using the correct table name
-      const { data: goalsData, error: goalsError } = await supabase
-        .from("user_goals") // Fixed: using user_goals instead of goals
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+      setEntries(historyData.entries || []);
 
-      if (goalsError) throw goalsError;
-
-      let decryptedGoals = [];
-      if (goalsData && goalsData.length > 0) {
-        decryptedGoals = await Promise.all(
-          goalsData.map(async (goal) => {
-            try {
-              // Decrypt goal data key
-              const dataKey = await encryptionService.decryptKey(
-                {
-                  encryptedData: goal.encrypted_data_key,
-                  iv: goal.data_key_iv,
-                },
-                masterKey
-              );
-
-              // Decrypt goal title
-              const decryptedTitle = await encryptionService.decryptText(
-                goal.encrypted_goal,
-                goal.goal_iv,
-                dataKey
-              );
-
-              // Decrypt goal description if it exists
-              let decryptedDescription = null;
-              if (goal.encrypted_description && goal.description_iv) {
-                decryptedDescription = await encryptionService.decryptText(
-                  goal.encrypted_description,
-                  goal.description_iv,
-                  dataKey
-                );
-              }
-
-              return {
-                ...goal,
-                decryptedTitle,
-                decryptedDescription,
-              };
-            } catch (error) {
-              console.error("Error decrypting goal:", error);
-              return {
-                ...goal,
-                decryptedTitle: "Error decrypting goal",
-                decryptedDescription: null,
-              };
-            }
-          })
-        );
+      // Set analytics if provided by backend
+      if (historyData.analytics) {
+        setAnalytics((prevAnalytics) => ({
+          ...prevAnalytics,
+          ...historyData.analytics,
+        }));
       }
 
-      setGoals(decryptedGoals);
+      // Load folders using backend API
+      const foldersResponse = await fetch(
+        `/api/folders?user_id=${user.id}&include_entry_count=true`
+      );
 
-      // Calculate analytics
-      calculateAnalytics(decryptedEntries);
+      if (!foldersResponse.ok) {
+        throw new Error("Failed to fetch folders");
+      }
+
+      const foldersData = await foldersResponse.json();
+      setFolders(foldersData.folders || []);
+
+      // Load goals using backend API
+      const goalsResponse = await fetch(`/api/goals?user_id=${user.id}`);
+
+      if (!goalsResponse.ok) {
+        throw new Error("Failed to fetch goals");
+      }
+
+      const goalsData = await goalsResponse.json();
+      setGoals(goalsData.goals || []);
+
+      // Calculate additional analytics if not provided by backend
+      if (!historyData.analytics) {
+        calculateAnalytics(historyData.entries || []);
+      }
     } catch (error) {
       console.error("Error loading history data:", error);
       setError("Failed to load your journal history. Please try again.");
@@ -460,80 +262,139 @@ const AdvancedHistory = () => {
   };
 
   const calculateAnalytics = (entriesData) => {
-    // Calculate mood distribution
+    if (!entriesData || entriesData.length === 0) return;
+
+    // Basic analytics calculations
+    const totalEntries = entriesData.length;
+
+    // Mood distribution
     const moodCounts = {};
     entriesData.forEach((entry) => {
-      if (entry.mood) {
-        moodCounts[entry.mood] = (moodCounts[entry.mood] || 0) + 1;
-      }
+      const mood = entry.mood || "neutral";
+      moodCounts[mood] = (moodCounts[mood] || 0) + 1;
     });
 
     const moodDistribution = Object.entries(moodCounts).map(
       ([mood, count]) => ({
         mood,
         count,
-        percentage: ((count / entriesData.length) * 100).toFixed(1),
+        percentage: Math.round((count / totalEntries) * 100),
       })
     );
 
-    // Calculate theme frequency
+    // Theme frequency
     const themeCounts = {};
     entriesData.forEach((entry) => {
-      if (entry.theme) {
-        themeCounts[entry.theme] = (themeCounts[entry.theme] || 0) + 1;
-      }
+      const theme = entry.theme || "general";
+      themeCounts[theme] = (themeCounts[theme] || 0) + 1;
     });
 
-    const themeFrequency = Object.entries(themeCounts).map(
-      ([theme, count]) => ({
+    const themeFrequency = Object.entries(themeCounts)
+      .map(([theme, count]) => ({
         theme,
         count,
-        percentage: ((count / entriesData.length) * 100).toFixed(1),
-      })
-    );
+        percentage: Math.round((count / totalEntries) * 100),
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
 
-    // Calculate entry trends (entries per week)
-    const entryTrends = calculateEntryTrends(entriesData);
+    // Entry trends (weekly)
+    const entryTrends = calculateWeeklyTrends(entriesData);
 
-    setAnalytics({
-      totalEntries: entriesData.length,
+    setAnalytics((prev) => ({
+      ...prev,
+      totalEntries,
       moodDistribution,
       themeFrequency,
       entryTrends,
-      starredCount: entriesData.filter((e) => e.starred).length,
-      pinnedCount: entriesData.filter((e) => e.pinned).length,
-      foldersUsed: new Set(entriesData.map((e) => e.folder_id).filter(Boolean))
-        .size,
-      // These would be populated by batch AI analysis in production
-      writingPatterns: null,
-      contentAnalysis: null,
-      styleEvolution: null,
-      journalHealth: null,
-    });
+    }));
   };
 
-  const calculateEntryTrends = (entriesData) => {
-    // Group entries by week
+  const calculateWeeklyTrends = (entriesData) => {
     const weeklyData = {};
+
     entriesData.forEach((entry) => {
       const date = new Date(entry.created_at);
       const weekStart = new Date(date);
       weekStart.setDate(date.getDate() - date.getDay());
       const weekKey = weekStart.toISOString().split("T")[0];
 
-      weeklyData[weekKey] = (weeklyData[weekKey] || 0) + 1;
+      if (!weeklyData[weekKey]) {
+        weeklyData[weekKey] = { count: 0, moods: [] };
+      }
+
+      weeklyData[weekKey].count++;
+      if (entry.mood) {
+        weeklyData[weekKey].moods.push(entry.mood);
+      }
     });
 
     return Object.entries(weeklyData)
-      .map(([week, count]) => ({
+      .map(([week, data]) => ({
         week: new Date(week).toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
         }),
-        count,
+        count: data.count,
+        avgMood:
+          data.moods.length > 0
+            ? Math.round(
+                data.moods.reduce((sum, mood) => {
+                  const moodValues = {
+                    very_negative: 1,
+                    negative: 2,
+                    neutral: 3,
+                    positive: 4,
+                    very_positive: 5,
+                  };
+                  return sum + (moodValues[mood] || 3);
+                }, 0) / data.moods.length
+              )
+            : 3,
       }))
       .sort((a, b) => new Date(a.week) - new Date(b.week))
       .slice(-12); // Last 12 weeks
+  };
+
+  // Search functionality using backend
+  const handleSearch = async (query) => {
+    if (!query.trim()) {
+      loadHistoryData(); // Reload all data
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const searchResponse = await fetch("/api/search-entries", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          query: query,
+          date_from: dateRange
+            ? new Date(
+                new Date().setMonth(new Date().getMonth() - parseInt(dateRange))
+              ).toISOString()
+            : undefined,
+          filters: filters,
+        }),
+      });
+
+      if (!searchResponse.ok) {
+        throw new Error("Search failed");
+      }
+
+      const searchData = await searchResponse.json();
+      setEntries(searchData.entries || []);
+      calculateAnalytics(searchData.entries || []);
+    } catch (error) {
+      console.error("Search error:", error);
+      setError("Search failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Access control check
@@ -678,82 +539,59 @@ const AdvancedHistory = () => {
           <EmptyHistoryState />
         ) : (
           <>
-            {/* Advanced Tab Navigation - Two Row Layout */}
+            {/* Advanced Tabs - 2x5 Grid */}
             <div className="mb-8">
-              <div className="bg-white/10 backdrop-blur-md p-3 rounded-lg border border-white/20">
-                {/* First Row - 5 tabs */}
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {advancedTabs.slice(0, 5).map((tab) => {
-                    const IconComponent = tab.icon;
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors flex-1 min-w-0 ${
-                          activeTab === tab.id
-                            ? "bg-purple-600 text-white shadow-sm"
-                            : "text-gray-300 hover:text-white hover:bg-white/10"
-                        }`}
-                      >
-                        <IconComponent className="h-4 w-4 flex-shrink-0" />
-                        <span className="truncate">{tab.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+              <div className="grid grid-cols-5 gap-2">
+                {advancedTabs.map((tab, index) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  const rowClass = index < 5 ? "row-start-1" : "row-start-2";
 
-                {/* Second Row - 5 tabs */}
-                <div className="flex flex-wrap gap-2">
-                  {advancedTabs.slice(5, 10).map((tab) => {
-                    const IconComponent = tab.icon;
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors flex-1 min-w-0 ${
-                          activeTab === tab.id
-                            ? "bg-purple-600 text-white shadow-sm"
-                            : "text-gray-300 hover:text-white hover:bg-white/10"
-                        }`}
-                      >
-                        <IconComponent className="h-4 w-4 flex-shrink-0" />
-                        <span className="truncate">{tab.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`
+                        ${rowClass}
+                        flex flex-col items-center justify-center p-4 rounded-lg transition-all
+                        ${
+                          isActive
+                            ? "bg-gradient-to-br from-purple-600 to-pink-600 text-white shadow-lg scale-105"
+                            : "bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white"
+                        }
+                      `}
+                    >
+                      <Icon className="h-6 w-6 mb-2" />
+                      <span className="text-xs font-medium text-center">
+                        {tab.label}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* Tab Content */}
-            <div className="space-y-6">
+            <div className="bg-white/5 backdrop-blur-md rounded-lg border border-white/10 p-6">
               {activeTab === "overview" && (
                 <OverviewTab
                   entries={entries}
                   analytics={analytics}
-                  folders={folders}
-                  goals={goals}
                   colors={colors}
                 />
               )}
               {activeTab === "calendar" && (
-                <CalendarViewTab
-                  entries={entries}
-                  colors={colors}
-                  onEntrySelect={(entry) =>
-                    console.log("Selected entry:", entry)
-                  }
-                />
+                <CalendarViewTab entries={entries} colors={colors} />
               )}
               {activeTab === "search-filter" && (
                 <SearchFilterTab
                   entries={entries}
-                  folders={folders}
-                  goals={goals}
-                  searchQuery={searchQuery}
-                  setSearchQuery={setSearchQuery}
+                  setEntries={setEntries}
                   filters={filters}
                   setFilters={setFilters}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  onSearch={handleSearch}
                   colors={colors}
                 />
               )}
@@ -762,15 +600,10 @@ const AdvancedHistory = () => {
                   entries={entries}
                   folders={folders}
                   colors={colors}
-                  onRefresh={loadHistoryData}
                 />
               )}
               {activeTab === "starred-pinned" && (
-                <StarredPinnedTab
-                  entries={entries}
-                  colors={colors}
-                  onRefresh={loadHistoryData}
-                />
+                <StarredPinnedTab entries={entries} colors={colors} />
               )}
               {activeTab === "writing-patterns" && (
                 <WritingPatternsTab
