@@ -179,9 +179,6 @@ export default function SignupPage() {
     }
   };
 
-  // Fixed handleStripeCheckout function for SignupPage.jsx
-  // Replace the existing handleStripeCheckout function with this version
-
   const handleStripeCheckout = async () => {
     setLoading(true);
     setError("");
@@ -190,17 +187,9 @@ export default function SignupPage() {
       console.log("🚀 Starting Stripe checkout process...");
 
       // First create the Supabase user
-      const { data: authData, error: authError } = await signUp(
-        email,
-        password
-      );
+      const authData = await signUp(email, password);
 
-      console.log("📋 SignUp response:", { authData, authError });
-
-      if (authError) {
-        console.error("❌ Auth error:", authError);
-        throw authError;
-      }
+      console.log("📋 SignUp response:", { authData });
 
       // Add validation for authData structure
       if (!authData) {
@@ -209,7 +198,7 @@ export default function SignupPage() {
       }
 
       // Check if user exists in the expected structure
-      const userId = authData.user?.id || authData.id;
+      const userId = authData.user?.id;
 
       if (!userId) {
         console.error("❌ No user ID found in authData:", authData);
