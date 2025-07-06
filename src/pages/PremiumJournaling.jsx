@@ -1,237 +1,57 @@
-// src/pages/PremiumJournaling.jsx
-import React, { useEffect, useState, useRef } from "react";
+// src/pages/PremiumJournaling.jsx - Fixed to use backend API
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { PromptRecommendations } from "../components/ReflectionarianRecommendations";
 import { useSecurity } from "../contexts/SecurityContext";
 import { useMembership } from "../hooks/useMembership";
-import { supabase } from "../lib/supabase";
-import encryptionService from "../services/encryptionService";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
+import { useFeatureAccess } from "../hooks/useFeatureAccess";
 import { useCrisisIntegration } from "../hooks/useCrisisIntegration";
 import CrisisResourceModal from "../components/CrisisResourceModal";
 import {
-  Info,
-  Mic,
-  MicOff,
-  Volume2,
-  VolumeX,
-  FileText,
-  Sparkles,
-  BookOpen,
-  Tag,
-  Calendar,
-  Image,
-  Link,
-  Hash,
+  Activity,
+  Moon,
+  Droplets,
   Heart,
-  Zap,
-  Target,
-  Crown,
-  ChevronDown,
+  Brain,
+  Coffee,
+  Apple,
+  Dumbbell,
+  Wind,
+  Save,
+  RefreshCw,
   ChevronRight,
-  Settings,
-  Palette,
-  MessageCircle,
-  Lightbulb,
-  Clock,
-  Star,
-  Check,
-  Users,
+  Sparkles,
+  FileText,
+  Mic,
+  Camera,
+  Paperclip,
+  Tag,
   Folder,
-  FolderPlus,
+  Star,
   Pin,
-  PinOff,
-  StarOff,
-  X,
-  Plus,
-  Shuffle,
-  Search,
-  Shield,
+  Calendar,
+  Clock,
+  Target,
+  BookOpen,
+  Zap,
 } from "lucide-react";
-
-// Journal templates for different use cases
-const JOURNAL_TEMPLATES = {
-  daily: {
-    name: "Daily Reflection",
-    icon: Calendar,
-    prompts: [
-      "What am I grateful for today?",
-      "What challenged me and how did I respond?",
-      "What did I learn about myself?",
-      "What intentions do I set for tomorrow?",
-    ],
-  },
-  gratitude: {
-    name: "Gratitude Practice",
-    icon: Heart,
-    prompts: [
-      "Three things I'm grateful for...",
-      "Someone who made a positive impact today...",
-      "A small moment that brought joy...",
-      "Something about myself I appreciate...",
-    ],
-  },
-  goals: {
-    name: "Goal Tracking",
-    icon: Target,
-    prompts: [
-      "Progress I made toward my goals today...",
-      "Obstacles I encountered and how I'll overcome them...",
-      "Next steps for tomorrow...",
-      "How I'm feeling about my progress...",
-    ],
-  },
-  creative: {
-    name: "Creative Expression",
-    icon: Palette,
-    prompts: [
-      "A story or scene that came to mind...",
-      "Colors, sounds, or sensations I noticed...",
-      "An idea I want to explore...",
-      "Something that inspired me today...",
-    ],
-  },
-};
 
 export default function PremiumJournaling() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isLocked } = useSecurity();
-  const { hasAccess, tier, loading } = useMembership();
-  const editorRef = useRef(null);
-  const quillRef = useRef(null);
-  const audioRef = useRef(null);
-  const quillInitialized = useRef(false);
-  const initTimeoutRef = useRef(null);
+  const { hasAccess, tier } = useMembership();
 
-  // Add custom CSS for white text in Quill with frosted glass effect
-  useEffect(() => {
-    const style = document.createElement("style");
-    style.textContent = `
-      /* Premium Quill Editor Styling with Frosted Glass Effect */
-      .premium-quill-container .ql-toolbar {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 0.5rem 0.5rem 0 0;
-      }
-      
-      .premium-quill-container .ql-toolbar .ql-stroke {
-        stroke: white;
-      }
-      
-      .premium-quill-container .ql-toolbar .ql-fill {
-        fill: white;
-      }
-      
-      .premium-quill-container .ql-toolbar .ql-picker-label {
-        color: white;
-      }
-      
-      .premium-quill-container .ql-toolbar button:hover .ql-stroke {
-        stroke: #8B5CF6;
-      }
-      
-      .premium-quill-container .ql-toolbar button:hover .ql-fill {
-        fill: #8B5CF6;
-      }
-      
-      .premium-quill-container .ql-toolbar button.ql-active .ql-stroke {
-        stroke: #8B5CF6;
-      }
-      
-      .premium-quill-container .ql-toolbar button.ql-active .ql-fill {
-        fill: #8B5CF6;
-      }
-      
-      .premium-quill-container .ql-container {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-top: none;
-        border-radius: 0 0 0.5rem 0.5rem;
-        min-height: 400px;
-        max-height: 600px;
-        overflow-y: auto;
-        /* Fix for jumping issue - reserve space for scrollbar */
-        scrollbar-gutter: stable;
-      }
-      
-      .premium-quill-container .ql-editor {
-        color: white;
-        font-size: 1.125rem;
-        line-height: 1.75rem;
-        min-height: 400px;
-      }
-      
-      .premium-quill-container .ql-editor.ql-blank::before {
-        color: rgba(255, 255, 255, 0.5);
-      }
-      
-      .premium-quill-container .ql-editor h1,
-      .premium-quill-container .ql-editor h2,
-      .premium-quill-container .ql-editor h3,
-      .premium-quill-container .ql-editor h4,
-      .premium-quill-container .ql-editor h5,
-      .premium-quill-container .ql-editor h6 {
-        color: white;
-      }
-      
-      .premium-quill-container .ql-editor blockquote {
-        border-left-color: #8B5CF6;
-        color: rgba(255, 255, 255, 0.9);
-      }
-      
-      .premium-quill-container .ql-editor a {
-        color: #8B5CF6;
-      }
-      
-      .premium-quill-container .ql-editor code,
-      .premium-quill-container .ql-editor pre {
-        background: rgba(139, 92, 246, 0.1);
-        color: white;
-      }
-      
-      /* Scrollbar styling */
-      .premium-quill-container .ql-container::-webkit-scrollbar {
-        width: 8px;
-      }
-      
-      .premium-quill-container .ql-container::-webkit-scrollbar-track {
-        background: rgba(139, 92, 246, 0.1);
-        border-radius: 4px;
-      }
-      
-      .premium-quill-container .ql-container::-webkit-scrollbar-thumb {
-        background: rgba(139, 92, 246, 0.5);
-        border-radius: 4px;
-      }
-      
-      .premium-quill-container .ql-container::-webkit-scrollbar-thumb:hover {
-        background: rgba(139, 92, 246, 0.7);
-      }
-      
-      /* Fix for select dropdowns */
-      select {
-        background-color: #475569 !important;
-        color: white !important;
-      }
-      
-      select option {
-        background-color: #475569 !important;
-        color: white !important;
-      }
-    `;
-    document.head.appendChild(style);
-
-    return () => {
-      document.head.removeChild(style);
-    };
-  }, []);
+  // Feature access management
+  const {
+    checkFeatureAccess,
+    showUpgradePrompt,
+    requestedFeature,
+    handleUpgrade,
+    closeUpgradePrompt,
+  } = useFeatureAccess(tier);
 
   // Crisis integration
   const {
@@ -242,625 +62,409 @@ export default function PremiumJournaling() {
     showCrisisResources,
   } = useCrisisIntegration();
 
-  // Core state
+  // Journal entry state
   const [lastSavedEntry, setLastSavedEntry] = useState(null);
   const [prompt, setPrompt] = useState("");
-  const [promptType, setPromptType] = useState("initial");
-  const [showPromptButton, setShowPromptButton] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+  const [subjectPrompt, setSubjectPrompt] = useState("");
+  const [showPromptOptions, setShowPromptOptions] = useState(true);
+  const [loadingPrompt, setLoadingPrompt] = useState(false);
   const [saveLabel, setSaveLabel] = useState("Save Entry");
-  const [editorContent, setEditorContent] = useState("");
-  const [entryChain, setEntryChain] = useState([]);
-  const [isEditorReady, setIsEditorReady] = useState(false);
-  const [saveConfirmation, setSaveConfirmation] = useState(false);
   const [showFollowUpButtons, setShowFollowUpButtons] = useState(false);
-  const [subject, setSubject] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [saveConfirmation, setSaveConfirmation] = useState(false);
+  const [entryChain, setEntryChain] = useState([]);
   const [currentThreadId, setCurrentThreadId] = useState(null);
-  const [followUpPrompt, setFollowUpPrompt] = useState("");
 
-  // Advanced features state
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [audioPlayback, setAudioPlayback] = useState(true);
-  const [showReflectionarian, setShowReflectionarian] = useState(false);
+  // Premium features state
+  const [selectedFolder, setSelectedFolder] = useState(null);
+  const [folders, setFolders] = useState([]);
   const [tags, setTags] = useState([]);
   const [currentTag, setCurrentTag] = useState("");
-  const [showTemplates, setShowTemplates] = useState(false);
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
-  const [mediaAttachments, setMediaAttachments] = useState([]);
-  const [smartPromptsEnabled, setSmartPromptsEnabled] = useState(true);
-  const [reflectionarianInsight, setReflectionarianInsight] = useState("");
   const [isStarred, setIsStarred] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
-  const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
-  const [isLoadingRandom, setIsLoadingRandom] = useState(false);
-  const [isLoadingSubject, setIsLoadingSubject] = useState(false);
+  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [attachments, setAttachments] = useState([]);
+  const [connectedGoals, setConnectedGoals] = useState([]);
+  const [showGoalSelector, setShowGoalSelector] = useState(false);
+  const [userGoals, setUserGoals] = useState([]);
+  const [writingMode, setWritingMode] = useState("free"); // free, guided, structured
+  const [guidedQuestions, setGuidedQuestions] = useState([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
-  // Folders state
-  const [folders, setFolders] = useState([]);
-  const [selectedFolder, setSelectedFolder] = useState(null);
-  const [showFolderModal, setShowFolderModal] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
-  const [loadingFolders, setLoadingFolders] = useState(false);
+  // Enhanced wellness tracking
+  const [showAdvancedWellness, setShowAdvancedWellness] = useState(false);
+  const [exerciseType, setExerciseType] = useState("");
+  const [exerciseDuration, setExerciseDuration] = useState("");
+  const [exerciseIntensity, setExerciseIntensity] = useState("");
+  const [sleepHours, setSleepHours] = useState("");
+  const [sleepQuality, setSleepQuality] = useState("");
+  const [sleepDisturbances, setSleepDisturbances] = useState([]);
+  const [hydration, setHydration] = useState("");
+  const [mood, setMood] = useState("");
+  const [stressLevel, setStressLevel] = useState("");
+  const [anxietyLevel, setAnxietyLevel] = useState("");
+  const [energyLevel, setEnergyLevel] = useState("");
+  const [nutritionNotes, setNutritionNotes] = useState("");
+  const [medications, setMedications] = useState([]);
+  const [symptoms, setSymptoms] = useState([]);
 
-  // Voice recording state
-  const [mediaRecorder, setMediaRecorder] = useState(null);
-  const [audioChunks, setAudioChunks] = useState([]);
-  const [transcribedText, setTranscribedText] = useState("");
-  const [isTranscribing, setIsTranscribing] = useState(false);
+  const quillRef = useRef(null);
+  const editorRef = useRef(null);
 
-  // Fixed encryption function
-  const encryptJournalEntry = async (entryData) => {
-    try {
-      const masterKey = await encryptionService.getStaticMasterKey();
-      const dataKey = await encryptionService.generateDataKey();
-
-      const encryptedContent = await encryptionService.encryptText(
-        entryData.content,
-        dataKey
-      );
-
-      let encryptedPrompt = null;
-      let promptIv = null;
-
-      if (entryData.prompt) {
-        const promptEncryption = await encryptionService.encryptText(
-          entryData.prompt,
-          dataKey
-        );
-        encryptedPrompt = promptEncryption.encryptedData;
-        promptIv = promptEncryption.iv;
-      }
-
-      const encryptedDataKey = await encryptionService.encryptKey(
-        dataKey,
-        masterKey
-      );
-
-      return {
-        encrypted_content: encryptedContent.encryptedData,
-        content_iv: encryptedContent.iv,
-        encrypted_prompt: encryptedPrompt,
-        prompt_iv: promptIv,
-        encrypted_data_key: encryptedDataKey.encryptedData,
-        data_key_iv: encryptedDataKey.iv,
-      };
-    } catch (error) {
-      console.error("Encryption error:", error);
-      throw error;
+  // Redirect if locked
+  useEffect(() => {
+    if (isLocked) {
+      navigate("/dashboard");
     }
-  };
+  }, [isLocked, navigate]);
 
-  // Clear editor function
-  const clearEditor = () => {
-    if (quillRef.current && isEditorReady) {
-      try {
-        quillRef.current.setText("");
-        setEditorContent("");
-        console.log("Advanced editor cleared");
-      } catch (error) {
-        console.error("Error clearing advanced editor:", error);
-      }
-    }
-  };
-
-  // Format greeting based on time of day
-  const formatGreeting = () => {
-    const hour = new Date().getHours();
-    const timeOfDay =
-      hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
-    const name = user?.user_metadata?.name || user?.email?.split("@")[0] || "";
-    return `Good ${timeOfDay}, ${name}`;
-  };
-
-  // Load folders on mount
+  // Load premium data
   useEffect(() => {
     if (user) {
       loadFolders();
+      loadGoals();
     }
   }, [user]);
 
-  // Initialize Quill editor
+  // Initialize Quill with premium features
   useEffect(() => {
-    if (isLocked || !user) return;
+    if (editorRef.current && !quillRef.current) {
+      quillRef.current = new Quill(editorRef.current, {
+        theme: "snow",
+        placeholder: prompt || "Begin your reflection...",
+        modules: {
+          toolbar: [
+            ["bold", "italic", "underline", "strike"],
+            ["blockquote", "code-block"],
+            [{ header: 1 }, { header: 2 }],
+            [{ list: "ordered" }, { list: "bullet" }],
+            [{ script: "sub" }, { script: "super" }],
+            [{ indent: "-1" }, { indent: "+1" }],
+            [{ direction: "rtl" }],
+            [{ size: ["small", false, "large", "huge"] }],
+            [{ header: [1, 2, 3, 4, 5, 6, false] }],
+            [{ color: [] }, { background: [] }],
+            [{ font: [] }],
+            [{ align: [] }],
+            ["clean"],
+            ["link", "image", "video"],
+          ],
+        },
+      });
 
-    // Clean up any existing timeout
-    if (initTimeoutRef.current) {
-      clearTimeout(initTimeoutRef.current);
+      // Update placeholder when prompt changes
+      if (prompt) {
+        quillRef.current.root.setAttribute("data-placeholder", prompt);
+      }
     }
+  }, [prompt]);
 
-    const initializeQuill = () => {
-      // More robust DOM readiness check
-      if (!editorRef.current || !document.body.contains(editorRef.current)) {
-        console.log("📝 Editor ref not ready, retrying...");
-        initTimeoutRef.current = setTimeout(initializeQuill, 100);
+  const loadFolders = async () => {
+    try {
+      const response = await fetch(
+        `/api/folders?user_id=${user.id}&include_entry_count=true`
+      );
+      if (!response.ok) throw new Error("Failed to load folders");
+
+      const data = await response.json();
+      setFolders(data.folders || []);
+    } catch (error) {
+      console.error("Error loading folders:", error);
+    }
+  };
+
+  const loadGoals = async () => {
+    try {
+      const response = await fetch(`/api/goals?user_id=${user.id}`);
+      if (!response.ok) throw new Error("Failed to load goals");
+
+      const data = await response.json();
+      setUserGoals(data.goals?.filter((g) => g.status === "active") || []);
+    } catch (error) {
+      console.error("Error loading goals:", error);
+    }
+  };
+
+  const generatePrompt = async () => {
+    setLoadingPrompt(true);
+    try {
+      const response = await fetch("/api/generatePrompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: user.id }),
+      });
+
+      if (!response.ok) throw new Error("Failed to generate prompt");
+
+      const data = await response.json();
+      setPrompt(data.prompt);
+      setShowPromptOptions(false);
+
+      if (quillRef.current) {
+        quillRef.current.root.setAttribute("data-placeholder", data.prompt);
+      }
+    } catch (error) {
+      console.error("Error generating prompt:", error);
+      alert("Failed to generate prompt. Please try again.");
+    } finally {
+      setLoadingPrompt(false);
+    }
+  };
+
+  const generateSubjectPrompt = async (subject) => {
+    setLoadingPrompt(true);
+    try {
+      const response = await fetch("/api/generate-subject-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          subject: subject,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to generate subject prompt");
+
+      const data = await response.json();
+      setPrompt(data.prompt);
+      setShowPromptOptions(false);
+
+      if (quillRef.current) {
+        quillRef.current.root.setAttribute("data-placeholder", data.prompt);
+      }
+    } catch (error) {
+      console.error("Error generating subject prompt:", error);
+      alert("Failed to generate prompt. Please try again.");
+    } finally {
+      setLoadingPrompt(false);
+    }
+  };
+
+  const generateGuidedQuestions = async (topic) => {
+    setLoadingPrompt(true);
+    try {
+      // For premium, we could have a special endpoint for guided journaling
+      const response = await fetch("/api/generate-guided-questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          topic: topic,
+          tier: "premium",
+        }),
+      });
+
+      if (!response.ok) {
+        // Fallback to local questions if API doesn't exist yet
+        const fallbackQuestions = [
+          "What brought this topic to mind today?",
+          "How does this make you feel emotionally and physically?",
+          "What patterns do you notice in your thoughts about this?",
+          "What would you like to explore or understand better?",
+          "What insights are emerging as you reflect on this?",
+        ];
+        setGuidedQuestions(fallbackQuestions);
+        setCurrentQuestionIndex(0);
+        setWritingMode("guided");
+        setShowPromptOptions(false);
         return;
       }
 
-      // Check if Quill is already properly initialized
-      if (quillRef.current && quillRef.current.getModule) {
-        try {
-          // Test if Quill is actually functional
-          quillRef.current.getText();
-          console.log("✅ Quill already initialized and functional");
-          setIsEditorReady(true);
-          return;
-        } catch (error) {
-          console.log("🔄 Existing Quill not functional, reinitializing...");
-          // Clear the broken instance
-          quillRef.current = null;
-          quillInitialized.current = false;
-        }
-      }
+      const data = await response.json();
+      setGuidedQuestions(data.questions || []);
+      setCurrentQuestionIndex(0);
+      setWritingMode("guided");
+      setShowPromptOptions(false);
+    } catch (error) {
+      console.error("Error generating guided questions:", error);
+    } finally {
+      setLoadingPrompt(false);
+    }
+  };
 
-      // Clear any existing Quill content in the element
-      if (editorRef.current) {
-        editorRef.current.innerHTML = "";
-        // Remove any Quill classes that might interfere
-        editorRef.current.className = editorRef.current.className
-          .split(" ")
-          .filter((cls) => !cls.startsWith("ql-"))
-          .join(" ");
-      }
+  const saveJournalEntry = async () => {
+    if (!quillRef.current || !user) {
+      alert("Unable to save. Please try again.");
+      return;
+    }
 
-      try {
-        const toolbarOptions = [
-          ["bold", "italic", "underline", "strike"],
-          ["blockquote", "code-block"],
-          [{ header: 1 }, { header: 2 }],
-          [{ list: "ordered" }, { list: "bullet" }],
-          [{ script: "sub" }, { script: "super" }],
-          [{ indent: "-1" }, { indent: "+1" }],
-          [{ direction: "rtl" }],
-          [{ size: ["small", false, "large", "huge"] }],
-          [{ header: [1, 2, 3, 4, 5, 6, false] }],
-          [{ color: [] }, { background: [] }],
-          [{ font: [] }],
-          [{ align: [] }],
-          ["link", "image"],
-          ["clean"],
-        ];
+    const htmlContent = quillRef.current.root.innerHTML;
+    const plainText = quillRef.current.getText().trim();
 
-        const quill = new Quill(editorRef.current, {
-          theme: "snow",
-          modules: {
-            toolbar: toolbarOptions,
-          },
-          placeholder: selectedTemplate
-            ? "Start writing based on the template prompts..."
-            : "Start writing your thoughts...",
-        });
+    if (!plainText) {
+      alert("Please write something before saving.");
+      return;
+    }
 
-        // Set up event listener
-        quill.on("text-change", () => {
-          setEditorContent(quill.root.innerHTML);
-        });
+    setSaveLabel("Saving...");
 
-        // Store references
-        quillRef.current = quill;
-        quillInitialized.current = true;
-        setIsEditorReady(true);
-
-        // Load the last saved entry
-        loadLastEntry();
-
-        console.log("✅ Quill editor initialized successfully");
-      } catch (error) {
-        console.error("❌ Error initializing Quill:", error);
-        // Reset state and retry
-        quillRef.current = null;
-        quillInitialized.current = false;
-        setIsEditorReady(false);
-        initTimeoutRef.current = setTimeout(initializeQuill, 500);
-      }
-    };
-
-    // Start initialization with a small delay to ensure DOM is ready
-    initTimeoutRef.current = setTimeout(initializeQuill, 50);
-
-    return () => {
-      if (initTimeoutRef.current) {
-        clearTimeout(initTimeoutRef.current);
-      }
-    };
-  }, [isLocked, user, selectedTemplate]);
-
-  // Handle visibility changes (browser tab switching)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && editorRef.current && user && !isLocked) {
-        // Page became visible again, check if Quill needs reinitialization
-        setTimeout(() => {
-          if (!quillRef.current || !isEditorReady) {
-            console.log("🔄 Page visible again, reinitializing Quill...");
-            quillInitialized.current = false; // Allow reinitialization
-            // Trigger the main initialization useEffect
-            setIsEditorReady(false);
+    try {
+      // Prepare comprehensive wellness data for premium
+      const wellnessData = showAdvancedWellness
+        ? {
+            exercise_type: exerciseType || null,
+            exercise_duration: exerciseDuration
+              ? parseInt(exerciseDuration)
+              : null,
+            exercise_intensity: exerciseIntensity || null,
+            sleep_hours: sleepHours ? parseFloat(sleepHours) : null,
+            sleep_quality: sleepQuality || null,
+            sleep_disturbances:
+              sleepDisturbances.length > 0 ? sleepDisturbances : null,
+            hydration_glasses: hydration ? parseInt(hydration) : null,
+            mood: mood || null,
+            stress_level: stressLevel || null,
+            anxiety_level: anxietyLevel || null,
+            energy_level: energyLevel || null,
+            nutrition_notes: nutritionNotes || null,
+            medications: medications.length > 0 ? medications : null,
+            symptoms: symptoms.length > 0 ? symptoms : null,
           }
-        }, 100);
-      }
-    };
+        : null;
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [user, isLocked, isEditorReady]);
-
-  // Handle navigation back to the component
-  useEffect(() => {
-    // This runs every time the component mounts/becomes active
-    if (!isLocked && user && editorRef.current) {
-      // Small delay to ensure DOM is settled after navigation
-      const checkTimer = setTimeout(() => {
-        if (!quillRef.current || !isEditorReady) {
-          console.log("🔄 Component reactivated, checking Quill status...");
-          quillInitialized.current = false;
-          setIsEditorReady(false);
-        }
-      }, 200);
-
-      return () => clearTimeout(checkTimer);
-    }
-  }, []); // Empty dependency array - runs on every mount
-
-  // Update placeholder when template changes
-  useEffect(() => {
-    if (quillRef.current && isEditorReady) {
-      quillRef.current.root.dataset.placeholder = selectedTemplate
-        ? "Start writing based on the template prompts..."
-        : "Start writing your thoughts...";
-    }
-  }, [selectedTemplate, isEditorReady]);
-
-  // Access check
-  useEffect(() => {
-    if (!loading && tier && tier !== "premium") {
-      navigate("/journaling");
-    }
-  }, [tier, loading, navigate]);
-
-  // Load last saved entry
-  const loadLastEntry = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("journal_entries")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (!error && data && data.length > 0) {
-        setLastSavedEntry(data[0]);
-      }
-    } catch (error) {
-      console.error("Error loading last entry:", error);
-    }
-  };
-
-  // Load folders
-  const loadFolders = async () => {
-    try {
-      setLoadingFolders(true);
-      const { data, error } = await supabase
-        .from("journal_folders")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("name");
-
-      if (!error) {
-        setFolders(data || []);
-      }
-    } catch (error) {
-      console.error("Error loading folders:", error);
-    } finally {
-      setLoadingFolders(false);
-    }
-  };
-
-  // Create new folder
-  const createFolder = async () => {
-    if (!newFolderName.trim()) return;
-
-    try {
-      const { data, error } = await supabase
-        .from("journal_folders")
-        .insert({ user_id: user.id, name: newFolderName.trim() })
-        .select()
-        .single();
-
-      if (!error) {
-        setFolders([...folders, data]);
-        setSelectedFolder(data.id);
-        setNewFolderName("");
-        setShowFolderModal(false);
-      }
-    } catch (error) {
-      console.error("Error creating folder:", error);
-    }
-  };
-
-  // Generate AI prompt (Premium tier includes all types)
-  const generateAIPrompt = async () => {
-    if (isLocked) return;
-
-    try {
-      setIsLoadingRandom(true);
-      const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/generate-random-prompt",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_id: user.id,
-            pastEntries: lastSavedEntry ? [lastSavedEntry.content] : [],
-          }),
-        }
-      );
-
-      const data = await response.json();
-      setPrompt(data.prompt || "What's on your mind today?");
-      setPromptType("initial");
-      setSaveLabel("Save Entry");
-      setShowPromptButton(false);
-    } catch (error) {
-      console.error("Error generating prompt:", error);
-      setPrompt("Take a moment to reflect on your day...");
-    } finally {
-      setIsLoadingRandom(false);
-    }
-  };
-
-  // Generate subject-based prompt (Premium feature)
-  const generateSubjectPrompt = async () => {
-    if (!subject.trim() || isLocked) return;
-
-    try {
-      setIsLoadingSubject(true);
-      const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/generate-subject-prompt",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_id: user.id,
-            subject: subject.trim(),
-          }),
-        }
-      );
-
-      const data = await response.json();
-      setPrompt(data.prompt || `Write about ${subject}...`);
-      setPromptType("subject");
-      setSaveLabel("Save Entry");
-      setShowPromptButton(false);
-      setSubject(""); // Clear the subject input after generating prompt
-    } catch (error) {
-      console.error("Error generating subject prompt:", error);
-      setPrompt(`Explore your thoughts about ${subject}...`);
-      setSubject(""); // Clear even on error
-    } finally {
-      setIsLoadingSubject(false);
-    }
-  };
-
-  // Generate folder-based prompt (Premium feature)
-  const generateFolderPrompt = async () => {
-    if (!selectedFolder) return;
-
-    const folder = folders.find((f) => f.id === selectedFolder);
-    if (!folder) return;
-
-    try {
-      setIsLoading(true);
-      // Get recent entries from this folder for context
-      const { data: recentEntries } = await supabase
-        .from("journal_entries")
-        .select("content")
-        .eq("user_id", user.id)
-        .eq("folder_id", selectedFolder)
-        .order("created_at", { ascending: false })
-        .limit(3);
-
-      const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/generate-folder-prompt",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_id: user.id,
-            folderName: folder.name,
-            recentEntries: recentEntries?.map((e) => e.content) || [],
-          }),
-        }
-      );
-
-      const data = await response.json();
-      setPrompt(data.prompt || `Continue your journey in "${folder.name}"...`);
-      setPromptType("folder");
-      setSaveLabel("Save Entry");
-      setShowPromptButton(false);
-    } catch (error) {
-      console.error("Error generating folder prompt:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Select template (Premium feature)
-  const selectTemplate = (templateKey) => {
-    const template = JOURNAL_TEMPLATES[templateKey];
-    setSelectedTemplate(template);
-    const randomPrompt =
-      template.prompts[Math.floor(Math.random() * template.prompts.length)];
-    setPrompt(randomPrompt);
-    setPromptType("template");
-    setSaveLabel("Save Entry");
-    setShowPromptButton(false);
-    setShowTemplates(false);
-  };
-
-  // Voice recording functions with OpenAI Whisper transcription
-  const startVoiceRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      const chunks = [];
-
-      recorder.ondataavailable = (e) => chunks.push(e.data);
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(chunks, { type: "audio/webm" });
-        await transcribeAudio(audioBlob);
+      // Prepare metadata for premium features
+      const metadata = {
+        folder_id: selectedFolder,
+        tags: tags.length > 0 ? tags : null,
+        starred: isStarred,
+        pinned: isPinned,
+        connected_goals: connectedGoals.length > 0 ? connectedGoals : null,
+        writing_mode: writingMode,
+        attachments:
+          attachments.length > 0 ? attachments.map((a) => a.name) : null,
+        guided_questions: writingMode === "guided" ? guidedQuestions : null,
+        current_question_index:
+          writingMode === "guided" ? currentQuestionIndex : null,
       };
 
-      setMediaRecorder(recorder);
-      setAudioChunks([]);
-      recorder.start();
-      setIsRecording(true);
-    } catch (error) {
-      console.error("Error starting recording:", error);
-      alert(
-        "Unable to access microphone. Please check your browser permissions."
-      );
-    }
-  };
-
-  const stopVoiceRecording = () => {
-    if (mediaRecorder && isRecording) {
-      mediaRecorder.stop();
-      mediaRecorder.stream.getTracks().forEach((track) => track.stop());
-      setIsRecording(false);
-    }
-  };
-
-  const transcribeAudio = async (audioBlob) => {
-    setIsTranscribing(true);
-    try {
-      // Get the current session
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        throw new Error("No active session");
-      }
-
-      // Create FormData for the audio file
-      const formData = new FormData();
-      formData.append("audio", audioBlob, "recording.webm");
-
-      // Call Supabase Edge Function for transcription
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe-audio`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: formData,
-        }
-      );
+      // Send to backend for encryption and saving
+      const response = await fetch("/api/save-entry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          content: htmlContent,
+          title: `Entry from ${new Date().toLocaleDateString()}`,
+          prompt: prompt || null,
+          is_follow_up: false,
+          parent_entry_id: null,
+          thread_id: currentThreadId,
+          prompt_used: prompt ? "AI-generated" : "user-initiated",
+          // Include all premium data
+          ...wellnessData,
+          // Premium metadata
+          folder_id: selectedFolder,
+          starred: isStarred,
+          pinned: isPinned,
+          tags: tags,
+          goal_ids: connectedGoals,
+          metadata: metadata,
+        }),
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to transcribe audio");
+        throw new Error(errorData.error || "Failed to save entry");
       }
 
-      const { text } = await response.json();
+      const result = await response.json();
 
-      // Add transcribed text to the editor
-      if (quillRef.current && text) {
-        const currentContent = quillRef.current.getText();
-        const newContent = currentContent ? currentContent + " " + text : text;
-        quillRef.current.setText(newContent);
+      // Handle crisis detection result
+      if (result.crisis_analysis) {
+        await triggerCrisisModal(plainText, result.crisis_analysis);
+      }
+
+      // Reset form after successful save
+      quillRef.current.setText("");
+      setPrompt("");
+      setShowPromptOptions(true);
+      setSaveLabel("Save Entry");
+      setLastSavedEntry(result.entry);
+      setShowFollowUpButtons(true);
+
+      // Reset premium features
+      setTags([]);
+      setIsStarred(false);
+      setIsPinned(false);
+      setConnectedGoals([]);
+      setAttachments([]);
+      setWritingMode("free");
+      setGuidedQuestions([]);
+
+      // Reset wellness data
+      if (showAdvancedWellness) {
+        resetWellnessForm();
+      }
+
+      // Show confirmation
+      setSaveConfirmation(true);
+      setTimeout(() => setSaveConfirmation(false), 3000);
+    } catch (error) {
+      console.error("Save error:", error);
+      alert(error.message || "Failed to save entry. Please try again.");
+      setSaveLabel("Save Entry");
+    }
+  };
+
+  const generateFollowUp = async () => {
+    if (!lastSavedEntry) return;
+
+    setLoadingPrompt(true);
+    try {
+      const response = await fetch("/api/follow-up", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entry_id: lastSavedEntry.id,
+          user_id: user.id,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to generate follow-up");
+
+      const data = await response.json();
+      setPrompt(data.followUpQuestion);
+      setShowFollowUpButtons(false);
+      setShowPromptOptions(false);
+
+      if (quillRef.current) {
+        quillRef.current.root.setAttribute(
+          "data-placeholder",
+          data.followUpQuestion
+        );
+        quillRef.current.focus();
       }
     } catch (error) {
-      console.error("Error transcribing audio:", error);
-      alert("Failed to transcribe audio. Please try again.");
+      console.error("Error generating follow-up:", error);
+      alert("Failed to generate follow-up. Please try again.");
     } finally {
-      setIsTranscribing(false);
+      setLoadingPrompt(false);
     }
   };
 
-  // Read aloud function using OpenAI TTS
-  const toggleReadAloud = async () => {
-    if (!audioPlayback) {
-      // If turning on, start reading
-      const content = quillRef.current?.getText();
-      if (!content || content.trim() === "") {
-        alert("Please write something first");
-        return;
-      }
-
-      try {
-        setAudioPlayback(true);
-
-        // Get the current session
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session) {
-          throw new Error("No active session");
-        }
-
-        // Call Supabase Edge Function for TTS
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-audio`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
-              text: content,
-              voice: "nova", // Default voice, could make this configurable
-              model: "tts-1",
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error("Failed to generate audio");
-        }
-
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-
-        // Create and play audio
-        const audio = new Audio(audioUrl);
-        audioRef.current = audio;
-
-        audio.onended = () => {
-          URL.revokeObjectURL(audioUrl);
-          setAudioPlayback(false);
-          audioRef.current = null;
-        };
-
-        await audio.play();
-      } catch (error) {
-        console.error("Error with text-to-speech:", error);
-        alert("Failed to read aloud. Please try again.");
-        setAudioPlayback(false);
-      }
-    } else {
-      // Stop reading
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      setAudioPlayback(false);
-    }
+  const resetWellnessForm = () => {
+    setExerciseType("");
+    setExerciseDuration("");
+    setExerciseIntensity("");
+    setSleepHours("");
+    setSleepQuality("");
+    setSleepDisturbances([]);
+    setHydration("");
+    setMood("");
+    setStressLevel("");
+    setAnxietyLevel("");
+    setEnergyLevel("");
+    setNutritionNotes("");
+    setMedications([]);
+    setSymptoms([]);
+    setShowAdvancedWellness(false);
   };
 
-  // Tag management (Premium feature)
-  const addTag = () => {
-    if (currentTag.trim() && !tags.includes(currentTag.trim())) {
-      setTags([...tags, currentTag.trim()]);
+  const handleTagInput = (e) => {
+    if (e.key === "Enter" && currentTag.trim()) {
+      e.preventDefault();
+      if (!tags.includes(currentTag.trim())) {
+        setTags([...tags, currentTag.trim()]);
+      }
       setCurrentTag("");
     }
   };
@@ -869,654 +473,511 @@ export default function PremiumJournaling() {
     setTags(tags.filter((tag) => tag !== tagToRemove));
   };
 
-  // Fixed save entry function
-  const saveEntry = async () => {
-    if (
-      !editorContent ||
-      editorContent.trim() === "<p><br></p>" ||
-      editorContent.trim() === ""
-    ) {
-      alert("Please write something before saving.");
-      return;
-    }
-
-    try {
-      setSaveLabel("Saving...");
-
-      const threadId = currentThreadId || crypto.randomUUID();
-      const cleanContent = editorContent.trim();
-      const contentToAnalyze = quillRef.current?.getText() || "";
-
-      // Encrypt the entry
-      const encryptedData = await encryptJournalEntry({
-        content: cleanContent,
-        prompt: promptType !== "none" ? prompt : null,
-      });
-
-      // Save to database with correct data structure
-      const { data, error } = await supabase
-        .from("journal_entries")
-        .insert({
-          user_id: user.id,
-          thread_id: threadId,
-          encrypted_content: encryptedData.encrypted_content,
-          content_iv: encryptedData.content_iv,
-          encrypted_prompt: encryptedData.encrypted_prompt || null,
-          prompt_iv: encryptedData.prompt_iv || null,
-          encrypted_data_key: encryptedData.encrypted_data_key,
-          data_key_iv: encryptedData.data_key_iv,
-          prompt_type: promptType,
-          entry_number: entryChain.length + 1,
-          word_count: contentToAnalyze.split(/\s+/).filter(Boolean).length,
-          folder_id: selectedFolder || null,
-          tags: tags.length > 0 ? tags : null,
-          starred: isStarred || false,
-          pinned: isPinned || false,
-          parent_entry_id: null, // For main entries
-        })
-        .select();
-
-      if (error) {
-        console.error("Database error:", error);
-        throw error;
-      }
-
-      setLastSavedEntry(data[0]);
-      setCurrentThreadId(threadId);
-      setEntryChain([...entryChain, cleanContent]);
-      setSaveConfirmation(true);
-      setTimeout(() => setSaveConfirmation(false), 3000);
-
-      if (promptType === "initial") {
-        setShowModal(true);
-      } else {
-        handleEndFollowUps();
-      }
-
-      // Crisis detection
-      if (showCrisisResources) {
-        await triggerCrisisModal(contentToAnalyze);
-      }
-    } catch (error) {
-      console.error("Error saving entry:", error);
-      alert("Failed to save entry. Please try again.");
-    } finally {
-      setSaveLabel("Save Entry");
-    }
-  };
-
-  // Generate follow-up prompt
-  const generateFollowUp = async () => {
-    setShowModal(false);
-    clearEditor();
-
-    try {
-      setIsLoading(true);
-      const response = await fetch(
-        "https://reflectionary-api.vercel.app/api/generate-followup",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_id: user.id,
-            previousEntries: entryChain,
-            currentEntry: lastSavedEntry?.content || editorContent,
-          }),
-        }
-      );
-
-      const data = await response.json();
-      setFollowUpPrompt(data.prompt || "Tell me more about that...");
-      setPromptType("followup");
-      setSaveLabel("Save & Continue");
-      setShowFollowUpModal(true);
-    } catch (error) {
-      console.error("Error generating follow-up:", error);
-      setFollowUpPrompt("What else would you like to explore?");
-      setShowFollowUpModal(true);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // End follow-ups
-  const handleEndFollowUps = () => {
-    setShowModal(false);
-    setShowFollowUpModal(false);
-    clearEditor();
-    setPrompt("");
-    setPromptType("none");
-    setSaveLabel("Save Entry");
-    setShowPromptButton(true);
-    setEntryChain([]);
-    setCurrentThreadId(null);
-    setSelectedTemplate(null);
-    setTags([]);
-    setIsStarred(false);
-    setIsPinned(false);
-  };
-
-  // Access denied screen
-  if (!hasAccess("premium_journaling")) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 max-w-md text-center border border-white/20">
-          <Crown className="w-16 h-16 text-purple-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-4">
-            Premium Feature
-          </h2>
-          <p className="text-gray-300 mb-6">
-            Upgrade to Premium to unlock advanced journaling features including
-            templates, voice recording, and AI-powered insights.
-          </p>
-          <button
-            onClick={() => navigate("/pricing")}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-pink-700"
-          >
-            View Premium Plans
-          </button>
-        </div>
-      </div>
+  const toggleGoal = (goalId) => {
+    setConnectedGoals((prev) =>
+      prev.includes(goalId)
+        ? prev.filter((id) => id !== goalId)
+        : [...prev, goalId]
     );
-  }
+  };
 
-  // Locked state
-  if (isLocked) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="text-6xl mb-4">🔒</div>
-          <p className="text-xl text-gray-300">
-            Please unlock to continue journaling.
-          </p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white flex items-center justify-center">
+        <div className="text-xl">Loading premium features...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen text-white">
-      <div className="px-6 py-6 max-w-full">
-        {/* Premium Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                <Sparkles className="text-white" size={20} />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-white">
-                  {formatGreeting()}
-                </h1>
-                <p className="text-gray-300">
-                  Your premium journaling experience awaits
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 bg-gradient-to-r from-purple-600/20 to-pink-600/20 px-3 py-2 rounded-full border border-purple-400/30">
-                <Crown className="text-purple-400" size={16} />
-                <span className="text-purple-300 font-medium text-sm">
-                  Premium
-                </span>
-              </div>
-              <button
-                onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
-                className="flex items-center gap-2 px-3 py-2 hover:bg-white/10 rounded-lg transition-colors text-gray-300 hover:text-white text-sm"
-                title="Privacy Info"
-              >
-                <Shield size={16} />
-                <span>Privacy Info</span>
-              </button>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-3xl font-bold mb-8 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent flex items-center gap-2">
+          <Sparkles className="h-8 w-8 text-purple-400" />
+          Premium Journaling Studio
+        </h1>
 
-          {/* Quick Actions */}
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setShowTemplates(!showTemplates)}
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg hover:bg-white/20 text-white text-sm transition-colors"
-            >
-              <FileText size={16} />
-              Templates
-            </button>
-
-            <button
-              onClick={generateSubjectPrompt}
-              disabled={!subject.trim() || isLoadingSubject}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-400 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 text-sm transition-colors disabled:opacity-50"
-            >
-              {isLoadingSubject ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-              ) : (
-                <Search size={16} />
-              )}
-              Subject Prompt
-            </button>
-
-            <button
-              onClick={generateAIPrompt}
-              disabled={isLoadingRandom}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-purple-400 text-sm transition-colors"
-            >
-              {isLoadingRandom ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-              ) : (
-                <Shuffle size={16} />
-              )}
-              Random Prompt
-            </button>
-
-            <button
-              onClick={() => setShowReflectionarian(!showReflectionarian)}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 text-sm transition-colors"
-            >
-              <MessageCircle size={16} />
-              Reflectionarian
-            </button>
-
-            <button
-              onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${
-                isRecording
-                  ? "bg-red-600 text-white hover:bg-red-700"
-                  : "bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20"
-              }`}
-            >
-              {isRecording ? <MicOff size={16} /> : <Mic size={16} />}
-              {isRecording ? "Stop" : "Voice"}
-            </button>
-
-            <button
-              onClick={toggleReadAloud}
-              disabled={audioPlayback && audioRef.current}
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg hover:bg-white/20 text-white text-sm transition-colors disabled:opacity-50"
-            >
-              {audioPlayback ? <VolumeX size={16} /> : <Volume2 size={16} />}
-              {audioPlayback ? "Stop Reading" : "Read Aloud"}
-            </button>
-          </div>
-        </div>
-
-        {/* Privacy Modal */}
-        {showPrivacyInfo && (
-          <div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowPrivacyInfo(false)}
-          >
-            <div
-              className="bg-slate-800 border border-white/20 rounded-lg p-6 max-w-md"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white">
-                  Your Privacy Matters
+        <div className="grid lg:grid-cols-4 gap-6">
+          {/* Main Journal Area */}
+          <div className="lg:col-span-3 space-y-6">
+            {/* Prompt Options */}
+            {showPromptOptions && (
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6">
+                <h3 className="text-lg font-semibold mb-4">
+                  Choose Your Journaling Approach
                 </h3>
-                <button
-                  onClick={() => setShowPrivacyInfo(false)}
-                  className="text-gray-400 hover:text-white"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-              <p className="text-gray-300">
-                Your information is personal — and we treat it that way. All
-                your reflections and data are end-to-end encrypted so no one
-                else can read it. Not our team. Not our servers. Just you.
-                Reflectionary is your private space to be real, raw, and fully
-                yourself.
-              </p>
-            </div>
-          </div>
-        )}
 
-        {/* Templates Section */}
-        {showTemplates && (
-          <div className="mb-6 p-4 bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
-            <h3 className="text-lg font-semibold text-white mb-3">
-              Choose a Template
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {Object.entries(JOURNAL_TEMPLATES).map(([key, template]) => {
-                const Icon = template.icon;
-                return (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* AI Prompt */}
                   <button
-                    key={key}
-                    onClick={() => selectTemplate(key)}
-                    className="p-3 bg-white/10 rounded-lg hover:bg-white/20 text-center transition-colors"
+                    onClick={generatePrompt}
+                    disabled={loadingPrompt}
+                    className="p-4 bg-purple-600/20 hover:bg-purple-600/30 rounded-lg transition text-left"
                   >
-                    <Icon className="w-6 h-6 text-purple-400 mx-auto mb-2" />
-                    <span className="text-sm text-white">{template.name}</span>
+                    <RefreshCw
+                      className={`h-5 w-5 mb-2 ${
+                        loadingPrompt ? "animate-spin" : ""
+                      }`}
+                    />
+                    <h4 className="font-semibold">AI Prompt</h4>
+                    <p className="text-sm text-gray-300">
+                      Get a personalized prompt
+                    </p>
                   </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
-        {/* Reflectionarian Integration */}
-        {showReflectionarian && (
-          <div className="mb-6">
-            <PromptRecommendations
-              onSelectPrompt={(p) => {
-                setPrompt(p);
-                setPromptType("reflectionarian");
-                setShowPromptButton(false);
-                setShowReflectionarian(false);
-              }}
-            />
-          </div>
-        )}
+                  {/* Subject Prompt */}
+                  <div className="p-4 bg-purple-600/20 rounded-lg">
+                    <BookOpen className="h-5 w-5 mb-2" />
+                    <h4 className="font-semibold mb-2">Subject Prompt</h4>
+                    <input
+                      type="text"
+                      placeholder="Enter topic..."
+                      value={subjectPrompt}
+                      onChange={(e) => setSubjectPrompt(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter" && subjectPrompt.trim()) {
+                          generateSubjectPrompt(subjectPrompt);
+                        }
+                      }}
+                      className="w-full px-2 py-1 bg-white/10 border border-white/20 rounded text-sm"
+                    />
+                  </div>
 
-        {/* Subject Prompt Input */}
-        <div className="mb-6">
-          <input
-            type="text"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            placeholder="Enter a subject for a specific prompt..."
-            className="w-full px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            onKeyPress={(e) => {
-              if (e.key === "Enter" && subject.trim()) {
-                generateSubjectPrompt();
-              }
-            }}
-          />
-        </div>
-
-        {/* Tags, Star, Pin, Folder - All on one line */}
-        <div className="mb-6">
-          <div className="flex items-center gap-4 flex-wrap">
-            {/* Tags Section */}
-            <div className="flex items-center gap-2">
-              <Tag className="w-4 h-4 text-gray-400" />
-              <span className="text-sm text-gray-300">Add tags:</span>
-              <div className="flex flex-wrap gap-2 items-center">
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="px-3 py-1 bg-purple-600/20 text-purple-300 rounded-full text-sm flex items-center gap-1"
+                  {/* Guided Journaling */}
+                  <button
+                    onClick={() => generateGuidedQuestions("personal growth")}
+                    className="p-4 bg-purple-600/20 hover:bg-purple-600/30 rounded-lg transition text-left"
                   >
-                    #{tag}
-                    <button
-                      onClick={() => removeTag(tag)}
-                      className="hover:text-purple-100"
-                    >
-                      <X size={14} />
-                    </button>
-                  </span>
-                ))}
-                <input
-                  type="text"
-                  value={currentTag}
-                  onChange={(e) => setCurrentTag(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addTag();
-                    }
-                  }}
-                  placeholder="Add tag..."
-                  className="px-3 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-20"
-                />
-              </div>
-            </div>
-
-            {/* Star and Pin buttons - Next to tags */}
-            <button
-              onClick={() => setIsStarred(!isStarred)}
-              className={`flex items-center gap-1 px-3 py-1 rounded-md text-sm transition-colors ${
-                isStarred
-                  ? "bg-yellow-500/20 text-yellow-300"
-                  : "bg-white/10 text-gray-300 hover:bg-white/20"
-              }`}
-            >
-              {isStarred ? (
-                <Star size={16} fill="currentColor" />
-              ) : (
-                <StarOff size={16} />
-              )}
-              Star
-            </button>
-
-            <button
-              onClick={() => setIsPinned(!isPinned)}
-              className={`flex items-center gap-1 px-3 py-1 rounded-md text-sm transition-colors ${
-                isPinned
-                  ? "bg-blue-500/20 text-blue-300"
-                  : "bg-white/10 text-gray-300 hover:bg-white/20"
-              }`}
-            >
-              {isPinned ? (
-                <Pin size={16} fill="currentColor" />
-              ) : (
-                <PinOff size={16} />
-              )}
-              Pin
-            </button>
-
-            {/* Folder Section - Moved to same line */}
-            <div className="flex items-center gap-2">
-              <Folder className="w-4 h-4 text-gray-400" />
-              <span className="text-sm text-gray-300">Folder:</span>
-              <select
-                value={selectedFolder || ""}
-                onChange={(e) => setSelectedFolder(e.target.value || null)}
-                className="px-3 py-1 bg-slate-700 border border-white/20 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="">No folder</option>
-                {folders.map((folder) => (
-                  <option key={folder.id} value={folder.id}>
-                    {folder.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => setShowFolderModal(true)}
-                className="px-3 py-1 bg-purple-600 text-white rounded-md text-sm hover:bg-purple-700"
-              >
-                <FolderPlus size={16} />
-              </button>
-              {selectedFolder && (
-                <button
-                  onClick={generateFolderPrompt}
-                  disabled={isLoading}
-                  className="px-3 py-1 bg-purple-100 text-purple-700 rounded-md text-sm hover:bg-purple-200"
-                >
-                  Folder Prompt
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Current Prompt Display */}
-        {prompt && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-md rounded-lg border border-purple-400/30">
-            <p className="text-sm text-purple-300 mb-1">
-              {promptType === "followup"
-                ? "Follow-up prompt:"
-                : promptType === "subject"
-                ? "Subject-specific prompt:"
-                : promptType === "folder"
-                ? "Folder-based prompt:"
-                : promptType === "template"
-                ? "Template-based prompt:"
-                : "Your journaling prompt:"}
-            </p>
-            <p className="text-white">{prompt}</p>
-          </div>
-        )}
-
-        {/* Quill Editor Container */}
-        <div className="mb-6">
-          <div className="premium-quill-container">
-            <div ref={editorRef} />
-          </div>
-          {isTranscribing && (
-            <div className="mt-2 text-sm text-purple-300 flex items-center gap-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-300" />
-              Transcribing audio...
-            </div>
-          )}
-        </div>
-
-        {/* Save Button & Status */}
-        <div className="flex justify-between items-center">
-          <div className="text-sm text-gray-400">
-            {isEditorReady ? (
-              <span className="flex items-center gap-1">
-                <Check className="w-4 h-4 text-green-400" />
-                Premium editor ready
-              </span>
-            ) : (
-              <span>Setting up editor...</span>
-            )}
-            {tags.length > 0 && (
-              <div className="text-sm text-gray-400">
-                {tags.length} tag{tags.length !== 1 ? "s" : ""} added
-              </div>
-            )}
-          </div>
-
-          <button
-            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-3 rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2 shadow-lg transition-all"
-            onClick={saveEntry}
-            disabled={
-              !isEditorReady ||
-              !editorContent.trim() ||
-              editorContent.trim() === "<p><br></p>" ||
-              saveLabel === "Saving..."
-            }
-          >
-            {saveLabel === "Saving..." && (
-              <span className="inline-block animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-            )}
-            {saveLabel}
-          </button>
-        </div>
-
-        {/* Save Confirmation */}
-        {saveConfirmation && (
-          <div className="fixed bottom-8 right-8 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in">
-            <Star className="w-5 h-5" />
-            Entry saved successfully!
-          </div>
-        )}
-
-        {/* Follow-up Modal */}
-        {showModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-slate-800 border border-white/20 p-6 rounded-lg shadow-lg max-w-sm text-center">
-              <div className="mb-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Sparkles className="text-white" size={32} />
+                    <Zap className="h-5 w-5 mb-2" />
+                    <h4 className="font-semibold">Guided Journey</h4>
+                    <p className="text-sm text-gray-300">
+                      Step-by-step reflection
+                    </p>
+                  </button>
                 </div>
-                <p className="text-lg font-medium text-white">
-                  Great job! Your entry has been saved.
+
+                {/* Free Writing Option */}
+                <button
+                  onClick={() => setShowPromptOptions(false)}
+                  className="mt-4 w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg transition"
+                >
+                  Or start free writing...
+                </button>
+              </div>
+            )}
+
+            {/* Current Prompt Display */}
+            {prompt && (
+              <div className="bg-purple-500/10 backdrop-blur-sm rounded-lg border border-purple-500/20 p-4">
+                <p className="text-purple-200 font-medium">Today's Prompt:</p>
+                <p className="text-gray-100 mt-1">{prompt}</p>
+              </div>
+            )}
+
+            {/* Guided Questions */}
+            {writingMode === "guided" && guidedQuestions.length > 0 && (
+              <div className="bg-blue-500/10 backdrop-blur-sm rounded-lg border border-blue-500/20 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-blue-200 font-medium">
+                    Question {currentQuestionIndex + 1} of{" "}
+                    {guidedQuestions.length}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() =>
+                        setCurrentQuestionIndex(
+                          Math.max(0, currentQuestionIndex - 1)
+                        )
+                      }
+                      disabled={currentQuestionIndex === 0}
+                      className="p-1 disabled:opacity-50"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() =>
+                        setCurrentQuestionIndex(
+                          Math.min(
+                            guidedQuestions.length - 1,
+                            currentQuestionIndex + 1
+                          )
+                        )
+                      }
+                      disabled={
+                        currentQuestionIndex === guidedQuestions.length - 1
+                      }
+                      className="p-1 disabled:opacity-50"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+                <p className="text-gray-100">
+                  {guidedQuestions[currentQuestionIndex]}
                 </p>
               </div>
-              <p className="mb-6 text-gray-300">
-                Would you like a personalized follow-up question?
-              </p>
-              <div className="flex gap-3 justify-center">
+            )}
+
+            {/* Premium Metadata Bar */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
+              <div className="flex flex-wrap items-center gap-4">
+                {/* Folder Selector */}
+                <select
+                  value={selectedFolder || ""}
+                  onChange={(e) => setSelectedFolder(e.target.value || null)}
+                  className="px-3 py-1 bg-white/10 border border-white/20 rounded text-sm"
+                >
+                  <option value="">No Folder</option>
+                  {folders.map((folder) => (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.name} ({folder.entry_count})
+                    </option>
+                  ))}
+                </select>
+
+                {/* Tags Input */}
+                <div className="flex items-center gap-2 flex-1">
+                  <Tag className="h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Add tags..."
+                    value={currentTag}
+                    onChange={(e) => setCurrentTag(e.target.value)}
+                    onKeyDown={handleTagInput}
+                    className="px-2 py-1 bg-white/10 border border-white/20 rounded text-sm flex-1"
+                  />
+                </div>
+
+                {/* Star & Pin */}
+                <button
+                  onClick={() => setIsStarred(!isStarred)}
+                  className={`p-2 rounded transition ${
+                    isStarred
+                      ? "bg-yellow-500/30 text-yellow-400"
+                      : "hover:bg-white/10"
+                  }`}
+                >
+                  <Star
+                    className="h-4 w-4"
+                    fill={isStarred ? "currentColor" : "none"}
+                  />
+                </button>
+                <button
+                  onClick={() => setIsPinned(!isPinned)}
+                  className={`p-2 rounded transition ${
+                    isPinned
+                      ? "bg-blue-500/30 text-blue-400"
+                      : "hover:bg-white/10"
+                  }`}
+                >
+                  <Pin
+                    className="h-4 w-4"
+                    fill={isPinned ? "currentColor" : "none"}
+                  />
+                </button>
+
+                {/* Goal Connection */}
+                <button
+                  onClick={() => setShowGoalSelector(!showGoalSelector)}
+                  className="p-2 hover:bg-white/10 rounded transition"
+                >
+                  <Target className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Tags Display */}
+              {tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="px-2 py-1 bg-purple-600/30 rounded-full text-xs flex items-center gap-1"
+                    >
+                      {tag}
+                      <button
+                        onClick={() => removeTag(tag)}
+                        className="hover:text-red-400"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Goal Selector */}
+              {showGoalSelector && userGoals.length > 0 && (
+                <div className="mt-3 p-3 bg-white/5 rounded-lg">
+                  <p className="text-sm font-medium mb-2">Connect to Goals:</p>
+                  <div className="space-y-2">
+                    {userGoals.map((goal) => (
+                      <label
+                        key={goal.id}
+                        className="flex items-center gap-2 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={connectedGoals.includes(goal.id)}
+                          onChange={() => toggleGoal(goal.id)}
+                          className="rounded"
+                        />
+                        {goal.title}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Editor */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden">
+              <div ref={editorRef} className="min-h-[500px]" />
+            </div>
+
+            {/* Premium Tools Bar */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setShowVoiceRecorder(!showVoiceRecorder)}
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2"
+              >
+                <Mic className="h-4 w-4" />
+                Voice Note
+              </button>
+              <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2">
+                <Camera className="h-4 w-4" />
+                Add Photo
+              </button>
+              <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2">
+                <Paperclip className="h-4 w-4" />
+                Attach File
+              </button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-4">
+              <button
+                onClick={saveJournalEntry}
+                disabled={saveLabel === "Saving..."}
+                className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <Save className="h-5 w-5" />
+                {saveLabel}
+              </button>
+
+              {/* Follow-up Options */}
+              {showFollowUpButtons && (
                 <button
                   onClick={generateFollowUp}
-                  disabled={isLoading}
-                  className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50"
+                  disabled={loadingPrompt}
+                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition flex items-center gap-2"
                 >
-                  {isLoading ? "Generating..." : "Yes, Please!"}
+                  <ChevronRight className="h-5 w-5" />
+                  Follow-up
+                </button>
+              )}
+            </div>
+
+            {/* Save Confirmation */}
+            {saveConfirmation && (
+              <div className="p-4 bg-green-500/20 border border-green-500/40 rounded-lg text-green-200">
+                Entry saved successfully!
+              </div>
+            )}
+          </div>
+
+          {/* Premium Sidebar */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Advanced Wellness Tracking */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Activity className="h-5 w-5 text-purple-400" />
+                Advanced Wellness
+              </h2>
+
+              {!showAdvancedWellness ? (
+                <button
+                  onClick={() => setShowAdvancedWellness(true)}
+                  className="w-full py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition"
+                >
+                  Track Wellness Data
+                </button>
+              ) : (
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {/* Exercise */}
+                  <div>
+                    <label className="text-sm font-medium">Exercise</label>
+                    <input
+                      type="text"
+                      placeholder="Type"
+                      value={exerciseType}
+                      onChange={(e) => setExerciseType(e.target.value)}
+                      className="w-full px-2 py-1 bg-white/5 border border-white/10 rounded text-sm mt-1"
+                    />
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <input
+                        type="number"
+                        placeholder="Minutes"
+                        value={exerciseDuration}
+                        onChange={(e) => setExerciseDuration(e.target.value)}
+                        className="px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
+                      />
+                      <select
+                        value={exerciseIntensity}
+                        onChange={(e) => setExerciseIntensity(e.target.value)}
+                        className="px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
+                      >
+                        <option value="">Intensity</option>
+                        <option value="low">Low</option>
+                        <option value="moderate">Moderate</option>
+                        <option value="high">High</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Sleep */}
+                  <div>
+                    <label className="text-sm font-medium">Sleep</label>
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      <input
+                        type="number"
+                        step="0.5"
+                        placeholder="Hours"
+                        value={sleepHours}
+                        onChange={(e) => setSleepHours(e.target.value)}
+                        className="px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
+                      />
+                      <select
+                        value={sleepQuality}
+                        onChange={(e) => setSleepQuality(e.target.value)}
+                        className="px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
+                      >
+                        <option value="">Quality</option>
+                        <option value="poor">Poor</option>
+                        <option value="fair">Fair</option>
+                        <option value="good">Good</option>
+                        <option value="excellent">Excellent</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Mental Health */}
+                  <div>
+                    <label className="text-sm font-medium">Mental Health</label>
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        placeholder="Mood"
+                        value={mood}
+                        onChange={(e) => setMood(e.target.value)}
+                        className="px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
+                      />
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        placeholder="Energy"
+                        value={energyLevel}
+                        onChange={(e) => setEnergyLevel(e.target.value)}
+                        className="px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
+                      />
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        placeholder="Stress"
+                        value={stressLevel}
+                        onChange={(e) => setStressLevel(e.target.value)}
+                        className="px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
+                      />
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        placeholder="Anxiety"
+                        value={anxietyLevel}
+                        onChange={(e) => setAnxietyLevel(e.target.value)}
+                        className="px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setShowAdvancedWellness(false)}
+                    className="w-full py-1 bg-gray-600 hover:bg-gray-700 rounded text-sm"
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Session Stats */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6">
+              <h3 className="text-lg font-semibold mb-4">Session Stats</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Words Written</span>
+                  <span>
+                    {quillRef.current?.getText()?.split(/\s+/).filter(Boolean)
+                      .length || 0}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Time Elapsed</span>
+                  <span>
+                    <Clock className="h-4 w-4 inline mr-1" />
+                    {new Date().toLocaleTimeString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Writing Mode</span>
+                  <span className="capitalize">{writingMode}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6">
+              <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+              <div className="space-y-2">
+                <button
+                  onClick={() => navigate("/history")}
+                  className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg transition text-sm flex items-center justify-center gap-2"
+                >
+                  <Calendar className="h-4 w-4" />
+                  View History
                 </button>
                 <button
-                  onClick={handleEndFollowUps}
-                  className="px-6 py-2 border border-gray-500 text-gray-300 rounded-lg hover:bg-white/10"
+                  onClick={() => navigate("/analytics")}
+                  className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg transition text-sm flex items-center justify-center gap-2"
                 >
-                  No Thanks
+                  <Activity className="h-4 w-4" />
+                  Analytics
+                </button>
+                <button
+                  onClick={() => navigate("/goals")}
+                  className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg transition text-sm flex items-center justify-center gap-2"
+                >
+                  <Target className="h-4 w-4" />
+                  Goals
                 </button>
               </div>
             </div>
           </div>
-        )}
-
-        {/* Follow-up Prompt Modal */}
-        {showFollowUpModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-slate-800 border border-white/20 p-6 rounded-lg shadow-lg max-w-md">
-              <h3 className="text-lg font-semibold mb-4 text-white">
-                Your Follow-up Prompt
-              </h3>
-              <p className="text-purple-300 mb-6">{followUpPrompt}</p>
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={() => {
-                    setPrompt(followUpPrompt);
-                    setShowFollowUpModal(false);
-                    // Focus on editor to continue writing
-                    if (quillRef.current) {
-                      quillRef.current.focus();
-                    }
-                  }}
-                  className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700"
-                >
-                  Continue Writing
-                </button>
-                <button
-                  onClick={handleEndFollowUps}
-                  className="px-6 py-2 border border-gray-500 text-gray-300 rounded-lg hover:bg-white/10"
-                >
-                  End Session
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Folder Creation Modal */}
-        {showFolderModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-slate-800 border border-white/20 p-6 rounded-lg shadow-lg max-w-sm w-full">
-              <h3 className="text-lg font-semibold mb-4 text-white">
-                Create New Folder
-              </h3>
-              <input
-                type="text"
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                placeholder="Folder name..."
-                className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4"
-                autoFocus
-              />
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={createFolder}
-                  disabled={!newFolderName.trim()}
-                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-600"
-                >
-                  Create
-                </button>
-                <button
-                  onClick={() => {
-                    setShowFolderModal(false);
-                    setNewFolderName("");
-                  }}
-                  className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Crisis Resource Modal */}
-        {showCrisisModal && (
-          <CrisisResourceModal
-            isOpen={showCrisisModal}
-            onClose={closeCrisisModal}
-            analysisResult={crisisAnalysisResult}
-          />
-        )}
+        </div>
       </div>
+
+      {/* Crisis Resource Modal */}
+      {showCrisisModal && (
+        <CrisisResourceModal
+          isOpen={showCrisisModal}
+          onClose={closeCrisisModal}
+          analysisResult={crisisAnalysisResult}
+          showResources={showCrisisResources}
+        />
+      )}
     </div>
   );
 }
