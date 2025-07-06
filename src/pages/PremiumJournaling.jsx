@@ -42,7 +42,7 @@ export default function PremiumJournaling() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isLocked } = useSecurity();
-  const { hasAccess, tier } = useMembership();
+  const { hasAccess, tier, loading } = useMembership();
 
   // Feature access management
   const {
@@ -89,23 +89,6 @@ export default function PremiumJournaling() {
   const [writingMode, setWritingMode] = useState("free"); // free, guided, structured
   const [guidedQuestions, setGuidedQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-
-  // Enhanced wellness tracking
-  const [showAdvancedWellness, setShowAdvancedWellness] = useState(false);
-  const [exerciseType, setExerciseType] = useState("");
-  const [exerciseDuration, setExerciseDuration] = useState("");
-  const [exerciseIntensity, setExerciseIntensity] = useState("");
-  const [sleepHours, setSleepHours] = useState("");
-  const [sleepQuality, setSleepQuality] = useState("");
-  const [sleepDisturbances, setSleepDisturbances] = useState([]);
-  const [hydration, setHydration] = useState("");
-  const [mood, setMood] = useState("");
-  const [stressLevel, setStressLevel] = useState("");
-  const [anxietyLevel, setAnxietyLevel] = useState("");
-  const [energyLevel, setEnergyLevel] = useState("");
-  const [nutritionNotes, setNutritionNotes] = useState("");
-  const [medications, setMedications] = useState([]);
-  const [symptoms, setSymptoms] = useState([]);
 
   const quillRef = useRef(null);
   const editorRef = useRef(null);
@@ -298,29 +281,6 @@ export default function PremiumJournaling() {
     setSaveLabel("Saving...");
 
     try {
-      // Prepare comprehensive wellness data for premium
-      const wellnessData = showAdvancedWellness
-        ? {
-            exercise_type: exerciseType || null,
-            exercise_duration: exerciseDuration
-              ? parseInt(exerciseDuration)
-              : null,
-            exercise_intensity: exerciseIntensity || null,
-            sleep_hours: sleepHours ? parseFloat(sleepHours) : null,
-            sleep_quality: sleepQuality || null,
-            sleep_disturbances:
-              sleepDisturbances.length > 0 ? sleepDisturbances : null,
-            hydration_glasses: hydration ? parseInt(hydration) : null,
-            mood: mood || null,
-            stress_level: stressLevel || null,
-            anxiety_level: anxietyLevel || null,
-            energy_level: energyLevel || null,
-            nutrition_notes: nutritionNotes || null,
-            medications: medications.length > 0 ? medications : null,
-            symptoms: symptoms.length > 0 ? symptoms : null,
-          }
-        : null;
-
       // Prepare metadata for premium features
       const metadata = {
         folder_id: selectedFolder,
@@ -349,8 +309,7 @@ export default function PremiumJournaling() {
           parent_entry_id: null,
           thread_id: currentThreadId,
           prompt_used: prompt ? "AI-generated" : "user-initiated",
-          // Include all premium data
-          ...wellnessData,
+
           // Premium metadata
           folder_id: selectedFolder,
           starred: isStarred,
@@ -389,11 +348,6 @@ export default function PremiumJournaling() {
       setAttachments([]);
       setWritingMode("free");
       setGuidedQuestions([]);
-
-      // Reset wellness data
-      if (showAdvancedWellness) {
-        resetWellnessForm();
-      }
 
       // Show confirmation
       setSaveConfirmation(true);
@@ -441,24 +395,6 @@ export default function PremiumJournaling() {
     }
   };
 
-  const resetWellnessForm = () => {
-    setExerciseType("");
-    setExerciseDuration("");
-    setExerciseIntensity("");
-    setSleepHours("");
-    setSleepQuality("");
-    setSleepDisturbances([]);
-    setHydration("");
-    setMood("");
-    setStressLevel("");
-    setAnxietyLevel("");
-    setEnergyLevel("");
-    setNutritionNotes("");
-    setMedications([]);
-    setSymptoms([]);
-    setShowAdvancedWellness(false);
-  };
-
   const handleTagInput = (e) => {
     if (e.key === "Enter" && currentTag.trim()) {
       e.preventDefault();
@@ -480,14 +416,6 @@ export default function PremiumJournaling() {
         : [...prev, goalId]
     );
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white flex items-center justify-center">
-        <div className="text-xl">Loading premium features...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
@@ -787,132 +715,6 @@ export default function PremiumJournaling() {
 
           {/* Premium Sidebar */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Advanced Wellness Tracking */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Activity className="h-5 w-5 text-purple-400" />
-                Advanced Wellness
-              </h2>
-
-              {!showAdvancedWellness ? (
-                <button
-                  onClick={() => setShowAdvancedWellness(true)}
-                  className="w-full py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition"
-                >
-                  Track Wellness Data
-                </button>
-              ) : (
-                <div className="space-y-4 max-h-96 overflow-y-auto">
-                  {/* Exercise */}
-                  <div>
-                    <label className="text-sm font-medium">Exercise</label>
-                    <input
-                      type="text"
-                      placeholder="Type"
-                      value={exerciseType}
-                      onChange={(e) => setExerciseType(e.target.value)}
-                      className="w-full px-2 py-1 bg-white/5 border border-white/10 rounded text-sm mt-1"
-                    />
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      <input
-                        type="number"
-                        placeholder="Minutes"
-                        value={exerciseDuration}
-                        onChange={(e) => setExerciseDuration(e.target.value)}
-                        className="px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
-                      />
-                      <select
-                        value={exerciseIntensity}
-                        onChange={(e) => setExerciseIntensity(e.target.value)}
-                        className="px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
-                      >
-                        <option value="">Intensity</option>
-                        <option value="low">Low</option>
-                        <option value="moderate">Moderate</option>
-                        <option value="high">High</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Sleep */}
-                  <div>
-                    <label className="text-sm font-medium">Sleep</label>
-                    <div className="grid grid-cols-2 gap-2 mt-1">
-                      <input
-                        type="number"
-                        step="0.5"
-                        placeholder="Hours"
-                        value={sleepHours}
-                        onChange={(e) => setSleepHours(e.target.value)}
-                        className="px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
-                      />
-                      <select
-                        value={sleepQuality}
-                        onChange={(e) => setSleepQuality(e.target.value)}
-                        className="px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
-                      >
-                        <option value="">Quality</option>
-                        <option value="poor">Poor</option>
-                        <option value="fair">Fair</option>
-                        <option value="good">Good</option>
-                        <option value="excellent">Excellent</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Mental Health */}
-                  <div>
-                    <label className="text-sm font-medium">Mental Health</label>
-                    <div className="grid grid-cols-2 gap-2 mt-1">
-                      <input
-                        type="number"
-                        min="1"
-                        max="10"
-                        placeholder="Mood"
-                        value={mood}
-                        onChange={(e) => setMood(e.target.value)}
-                        className="px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
-                      />
-                      <input
-                        type="number"
-                        min="1"
-                        max="10"
-                        placeholder="Energy"
-                        value={energyLevel}
-                        onChange={(e) => setEnergyLevel(e.target.value)}
-                        className="px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
-                      />
-                      <input
-                        type="number"
-                        min="1"
-                        max="10"
-                        placeholder="Stress"
-                        value={stressLevel}
-                        onChange={(e) => setStressLevel(e.target.value)}
-                        className="px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
-                      />
-                      <input
-                        type="number"
-                        min="1"
-                        max="10"
-                        placeholder="Anxiety"
-                        value={anxietyLevel}
-                        onChange={(e) => setAnxietyLevel(e.target.value)}
-                        className="px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => setShowAdvancedWellness(false)}
-                    className="w-full py-1 bg-gray-600 hover:bg-gray-700 rounded text-sm"
-                  >
-                    Close
-                  </button>
-                </div>
-              )}
-            </div>
-
             {/* Session Stats */}
             <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6">
               <h3 className="text-lg font-semibold mb-4">Session Stats</h3>
