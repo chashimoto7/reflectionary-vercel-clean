@@ -105,41 +105,53 @@ export default function PremiumJournaling() {
     }
   }, [user]);
 
-  // Initialize Quill with premium features - Fixed to always show toolbar
+  // Initialize Quill editor - Fixed based on working version
   useEffect(() => {
-    if (editorRef.current && !quillRef.current && user) {
-      quillRef.current = new Quill(editorRef.current, {
-        theme: "snow",
-        placeholder: "Begin your reflection...",
-        modules: {
-          toolbar: [
-            ["bold", "italic", "underline", "strike"],
-            ["blockquote", "code-block"],
-            [{ header: 1 }, { header: 2 }],
-            [{ list: "ordered" }, { list: "bullet" }],
-            [{ script: "sub" }, { script: "super" }],
-            [{ indent: "-1" }, { indent: "+1" }],
-            [{ direction: "rtl" }],
-            [{ size: ["small", false, "large", "huge"] }],
-            [{ header: [1, 2, 3, 4, 5, 6, false] }],
-            [{ color: [] }, { background: [] }],
-            [{ font: [] }],
-            [{ align: [] }],
-            ["clean"],
-            ["link", "image", "video"],
-          ],
-        },
-      });
+    if (isLocked || !editorRef.current || quillRef.current) return;
 
-      // Make editor always clickable
-      quillRef.current.focus();
-
-      // Update placeholder when prompt changes
-      if (prompt) {
-        quillRef.current.root.setAttribute("data-placeholder", prompt);
-      }
+    // Check if Quill is already initialized in this element
+    if (editorRef.current.classList.contains("ql-container")) {
+      return;
     }
-  }, [user]);
+
+    const toolbarOptions = [
+      ["bold", "italic", "underline", "strike"],
+      ["blockquote", "code-block"],
+      [{ header: 1 }, { header: 2 }],
+      [{ list: "ordered" }, { list: "bullet" }],
+      [{ script: "sub" }, { script: "super" }],
+      [{ indent: "-1" }, { indent: "+1" }],
+      [{ direction: "rtl" }],
+      [{ size: ["small", false, "large", "huge"] }],
+      [{ header: [1, 2, 3, 4, 5, 6, false] }],
+      [{ color: [] }, { background: [] }],
+      [{ font: [] }],
+      [{ align: [] }],
+      ["link", "image"],
+      ["clean"],
+    ];
+
+    const quill = new Quill(editorRef.current, {
+      theme: "snow",
+      modules: {
+        toolbar: toolbarOptions,
+      },
+      placeholder: "Start writing your thoughts...",
+    });
+
+    quill.on("text-change", () => {
+      // You can add content change handling here if needed
+    });
+
+    quillRef.current = quill;
+
+    return () => {
+      // Clean up on unmount
+      if (quillRef.current) {
+        quillRef.current = null;
+      }
+    };
+  }, [isLocked, user]);
 
   // Separate effect to handle prompt changes
   useEffect(() => {
@@ -768,20 +780,20 @@ export default function PremiumJournaling() {
             </div>
           )}
 
-          {/* Premium Features Bar - Reorganized with Voice Note and proper labels */}
+          {/* Premium Features Bar - Reorganized inline: Voice Note, Folder, Tags, Star, Pin, Connect to Goals */}
           <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {/* Voice Note */}
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+              {/* Voice Note - Smaller */}
               <div>
                 <label className="block text-sm text-gray-400 mb-1">
                   Voice Note
                 </label>
                 <button
                   onClick={() => alert("Voice recording feature coming soon!")}
-                  className="w-full px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center justify-center gap-2"
+                  className="w-full px-2 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center justify-center gap-1"
                 >
                   <Mic className="h-4 w-4" />
-                  <span className="text-sm">Record</span>
+                  <span className="text-xs">Record</span>
                 </button>
               </div>
 
@@ -793,7 +805,7 @@ export default function PremiumJournaling() {
                 <select
                   value={selectedFolder || ""}
                   onChange={(e) => setSelectedFolder(e.target.value || null)}
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400"
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 text-sm"
                 >
                   <option value="">No Folder</option>
                   {folders.map((folder) => (
@@ -813,27 +825,66 @@ export default function PremiumJournaling() {
                   value={currentTag}
                   onChange={(e) => setCurrentTag(e.target.value)}
                   onKeyPress={addTag}
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400"
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 text-sm"
                 />
               </div>
 
-              {/* Connect to Goals */}
+              {/* Star Button */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Star</label>
+                <button
+                  onClick={() => setIsStarred(!isStarred)}
+                  className={`w-full px-2 py-2 rounded-lg transition flex items-center justify-center gap-1 ${
+                    isStarred
+                      ? "bg-yellow-500 text-white"
+                      : "bg-white/10 hover:bg-white/20"
+                  }`}
+                  title={isStarred ? "Unstar" : "Star"}
+                >
+                  <Star
+                    className="h-4 w-4"
+                    fill={isStarred ? "white" : "none"}
+                  />
+                  <span className="text-xs">
+                    {isStarred ? "Starred" : "Star"}
+                  </span>
+                </button>
+              </div>
+
+              {/* Pin Button */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Pin</label>
+                <button
+                  onClick={() => setIsPinned(!isPinned)}
+                  className={`w-full px-2 py-2 rounded-lg transition flex items-center justify-center gap-1 ${
+                    isPinned
+                      ? "bg-blue-500 text-white"
+                      : "bg-white/10 hover:bg-white/20"
+                  }`}
+                  title={isPinned ? "Unpin" : "Pin"}
+                >
+                  <Pin className="h-4 w-4" fill={isPinned ? "white" : "none"} />
+                  <span className="text-xs">{isPinned ? "Pinned" : "Pin"}</span>
+                </button>
+              </div>
+
+              {/* Connect to Goals - Smaller */}
               <div className="relative">
                 <label className="block text-sm text-gray-400 mb-1">
                   Connect to Goals
                 </label>
                 <button
                   onClick={() => setShowGoalSelector(!showGoalSelector)}
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/20 transition flex items-center justify-between"
+                  className="w-full px-2 py-2 bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/20 transition flex items-center justify-center gap-1"
                 >
-                  <span className="text-sm">
-                    {connectedGoals.length > 0
-                      ? `${connectedGoals.length} Goals`
-                      : userGoals.length > 0
-                      ? "Select Goals"
-                      : "No Goals Set"}
-                  </span>
                   <Target className="h-4 w-4" />
+                  <span className="text-xs">
+                    {connectedGoals.length > 0
+                      ? `${connectedGoals.length}`
+                      : userGoals.length > 0
+                      ? "Goals"
+                      : "None"}
+                  </span>
                 </button>
 
                 {/* Goal Selector Dropdown */}
@@ -872,36 +923,6 @@ export default function PremiumJournaling() {
               </div>
             </div>
 
-            {/* Star & Pin Row */}
-            <div className="flex items-center gap-4 mt-4">
-              <button
-                onClick={() => setIsStarred(!isStarred)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition ${
-                  isStarred
-                    ? "bg-yellow-500 text-white"
-                    : "bg-white/10 hover:bg-white/20"
-                }`}
-                title={isStarred ? "Unstar" : "Star"}
-              >
-                <Star className="h-4 w-4" fill={isStarred ? "white" : "none"} />
-                <span className="text-sm">
-                  {isStarred ? "Starred" : "Star"}
-                </span>
-              </button>
-              <button
-                onClick={() => setIsPinned(!isPinned)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition ${
-                  isPinned
-                    ? "bg-blue-500 text-white"
-                    : "bg-white/10 hover:bg-white/20"
-                }`}
-                title={isPinned ? "Unpin" : "Pin"}
-              >
-                <Pin className="h-4 w-4" fill={isPinned ? "white" : "none"} />
-                <span className="text-sm">{isPinned ? "Pinned" : "Pin"}</span>
-              </button>
-            </div>
-
             {/* Tags Display */}
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
@@ -931,10 +952,8 @@ export default function PremiumJournaling() {
           >
             <div
               ref={editorRef}
-              className="h-[500px] overflow-y-auto"
-              style={{
-                minHeight: "500px",
-              }}
+              className="border border-gray-300 rounded-lg"
+              style={{ minHeight: "400px" }}
             />
           </div>
 
