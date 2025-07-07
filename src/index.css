@@ -37,3 +37,48 @@ body {
   background-color: rgba(0, 0, 0, 0.2) !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
+/* Quill editor container with fixed height and scrollbar */
+.ql-container {
+  height: 450px !important; /* Leaves room for toolbar */
+  overflow-y: auto !important;
+}
+
+.ql-editor {
+  min-height: 450px !important;
+  max-height: none !important; /* Allow content to grow */
+  overflow-y: visible !important; /* Let container handle scroll */
+}
+
+/* Custom scrollbar styling for the editor */
+.ql-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ql-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.ql-container::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.5); /* Purple to match theme */
+  border-radius: 4px;
+}
+
+.ql-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.7);
+}
+
+/* Ensure the toolbar stays at the top */
+.ql-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: rgba(0, 0, 0, 0.3) !important;
+  backdrop-filter: blur(10px);
+}
+
+/* Full width layout for the editor container */
+.editor-full-width {
+  width: 100%;
+  max-width: none;
+}

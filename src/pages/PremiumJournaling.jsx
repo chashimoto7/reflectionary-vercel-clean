@@ -355,6 +355,7 @@ export default function PremiumJournaling() {
     } catch (error) {
       console.error("Save error:", error);
       alert(error.message || "Failed to save entry. Please try again.");
+    } finally {
       setSaveLabel("Save Entry");
     }
   };
@@ -364,28 +365,31 @@ export default function PremiumJournaling() {
 
     setLoadingPrompt(true);
     try {
-      const response = await fetch("/api/follow-up", {
+      const response = await fetch("/api/generate-followup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          entry_id: lastSavedEntry.id,
           user_id: user.id,
+          parent_entry_id: lastSavedEntry.id,
+          thread_id: currentThreadId || lastSavedEntry.id,
         }),
       });
 
       if (!response.ok) throw new Error("Failed to generate follow-up");
 
       const data = await response.json();
-      setPrompt(data.followUpQuestion);
-      setShowFollowUpButtons(false);
+      setPrompt(data.prompt);
       setShowPromptOptions(false);
+      setShowFollowUpButtons(false);
 
       if (quillRef.current) {
-        quillRef.current.root.setAttribute(
-          "data-placeholder",
-          data.followUpQuestion
-        );
-        quillRef.current.focus();
+        quillRef.current.setText("");
+        quillRef.current.root.setAttribute("data-placeholder", data.prompt);
+      }
+
+      setEntryChain((prev) => [...prev, lastSavedEntry.id]);
+      if (!currentThreadId) {
+        setCurrentThreadId(lastSavedEntry.id);
       }
     } catch (error) {
       console.error("Error generating follow-up:", error);
@@ -395,12 +399,9 @@ export default function PremiumJournaling() {
     }
   };
 
-  const handleTagInput = (e) => {
+  const addTag = (e) => {
     if (e.key === "Enter" && currentTag.trim()) {
-      e.preventDefault();
-      if (!tags.includes(currentTag.trim())) {
-        setTags([...tags, currentTag.trim()]);
-      }
+      setTags([...tags, currentTag.trim()]);
       setCurrentTag("");
     }
   };
@@ -410,364 +411,313 @@ export default function PremiumJournaling() {
   };
 
   const toggleGoal = (goalId) => {
-    setConnectedGoals((prev) =>
-      prev.includes(goalId)
-        ? prev.filter((id) => id !== goalId)
-        : [...prev, goalId]
-    );
+    if (connectedGoals.includes(goalId)) {
+      setConnectedGoals(connectedGoals.filter((id) => id !== goalId));
+    } else {
+      setConnectedGoals([...connectedGoals, goalId]);
+    }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    navigate("/journaling");
+    return null;
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent flex items-center gap-2">
-          <Sparkles className="h-8 w-8 text-purple-400" />
-          Premium Journaling Studio
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
+      <div className="max-w-6xl mx-auto p-4">
+        <h1 className="text-3xl font-bold mb-8 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+          Premium Journaling
         </h1>
 
-        <div className="grid lg:grid-cols-4 gap-6">
-          {/* Main Journal Area */}
-          <div className="lg:col-span-3 space-y-6">
-            {/* Prompt Options */}
-            {showPromptOptions && (
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6">
-                <h3 className="text-lg font-semibold mb-4">
-                  Choose Your Journaling Approach
-                </h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* AI Prompt */}
-                  <button
-                    onClick={generatePrompt}
-                    disabled={loadingPrompt}
-                    className="p-4 bg-purple-600/20 hover:bg-purple-600/30 rounded-lg transition text-left"
-                  >
-                    <RefreshCw
-                      className={`h-5 w-5 mb-2 ${
-                        loadingPrompt ? "animate-spin" : ""
-                      }`}
-                    />
-                    <h4 className="font-semibold">AI Prompt</h4>
-                    <p className="text-sm text-gray-300">
-                      Get a personalized prompt
-                    </p>
-                  </button>
-
-                  {/* Subject Prompt */}
-                  <div className="p-4 bg-purple-600/20 rounded-lg">
-                    <BookOpen className="h-5 w-5 mb-2" />
-                    <h4 className="font-semibold mb-2">Subject Prompt</h4>
-                    <input
-                      type="text"
-                      placeholder="Enter topic..."
-                      value={subjectPrompt}
-                      onChange={(e) => setSubjectPrompt(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === "Enter" && subjectPrompt.trim()) {
-                          generateSubjectPrompt(subjectPrompt);
-                        }
-                      }}
-                      className="w-full px-2 py-1 bg-white/10 border border-white/20 rounded text-sm"
-                    />
-                  </div>
-
-                  {/* Guided Journaling */}
-                  <button
-                    onClick={() => generateGuidedQuestions("personal growth")}
-                    className="p-4 bg-purple-600/20 hover:bg-purple-600/30 rounded-lg transition text-left"
-                  >
-                    <Zap className="h-5 w-5 mb-2" />
-                    <h4 className="font-semibold">Guided Journey</h4>
-                    <p className="text-sm text-gray-300">
-                      Step-by-step reflection
-                    </p>
-                  </button>
-                </div>
-
-                {/* Free Writing Option */}
+        {/* Main content area - Full width without sidebar */}
+        <div className="space-y-6">
+          {/* Writing Mode Selector */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Writing Mode</h3>
+              <div className="flex gap-2">
                 <button
-                  onClick={() => setShowPromptOptions(false)}
-                  className="mt-4 w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg transition"
+                  onClick={() => setWritingMode("free")}
+                  className={`px-4 py-2 rounded-lg transition ${
+                    writingMode === "free"
+                      ? "bg-purple-600"
+                      : "bg-white/10 hover:bg-white/20"
+                  }`}
                 >
-                  Or start free writing...
+                  Free Writing
+                </button>
+                <button
+                  onClick={() => generateGuidedQuestions("general")}
+                  className={`px-4 py-2 rounded-lg transition ${
+                    writingMode === "guided"
+                      ? "bg-purple-600"
+                      : "bg-white/10 hover:bg-white/20"
+                  }`}
+                >
+                  Guided
                 </button>
               </div>
-            )}
+            </div>
 
-            {/* Current Prompt Display */}
-            {prompt && (
-              <div className="bg-purple-500/10 backdrop-blur-sm rounded-lg border border-purple-500/20 p-4">
-                <p className="text-purple-200 font-medium">Today's Prompt:</p>
-                <p className="text-gray-100 mt-1">{prompt}</p>
+            {/* Prompt Options */}
+            {showPromptOptions && writingMode === "free" && (
+              <div className="space-y-3">
+                <button
+                  onClick={generatePrompt}
+                  disabled={loadingPrompt}
+                  className="w-full py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <Sparkles className="h-5 w-5" />
+                  {loadingPrompt ? "Generating..." : "Generate AI Prompt"}
+                </button>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Or write about a specific topic..."
+                    value={subjectPrompt}
+                    onChange={(e) => setSubjectPrompt(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter" && subjectPrompt.trim()) {
+                        generateSubjectPrompt(subjectPrompt);
+                      }
+                    }}
+                    className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400"
+                  />
+                  <button
+                    onClick={() => generateSubjectPrompt(subjectPrompt)}
+                    disabled={!subjectPrompt.trim() || loadingPrompt}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition disabled:opacity-50"
+                  >
+                    Generate
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* Guided Questions */}
+            {/* Guided Questions Display */}
             {writingMode === "guided" && guidedQuestions.length > 0 && (
-              <div className="bg-blue-500/10 backdrop-blur-sm rounded-lg border border-blue-500/20 p-4">
+              <div className="mt-4 p-4 bg-white/5 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-blue-200 font-medium">
+                  <span className="text-sm text-gray-400">
                     Question {currentQuestionIndex + 1} of{" "}
                     {guidedQuestions.length}
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() =>
-                        setCurrentQuestionIndex(
-                          Math.max(0, currentQuestionIndex - 1)
+                  </span>
+                  <button
+                    onClick={() =>
+                      setCurrentQuestionIndex(
+                        Math.min(
+                          currentQuestionIndex + 1,
+                          guidedQuestions.length - 1
                         )
-                      }
-                      disabled={currentQuestionIndex === 0}
-                      className="p-1 disabled:opacity-50"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() =>
-                        setCurrentQuestionIndex(
-                          Math.min(
-                            guidedQuestions.length - 1,
-                            currentQuestionIndex + 1
-                          )
-                        )
-                      }
-                      disabled={
-                        currentQuestionIndex === guidedQuestions.length - 1
-                      }
-                      className="p-1 disabled:opacity-50"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
+                      )
+                    }
+                    disabled={
+                      currentQuestionIndex >= guidedQuestions.length - 1
+                    }
+                    className="text-sm text-purple-400 hover:text-purple-300 disabled:opacity-50"
+                  >
+                    Next Question →
+                  </button>
                 </div>
-                <p className="text-gray-100">
+                <p className="text-lg">
                   {guidedQuestions[currentQuestionIndex]}
                 </p>
               </div>
             )}
+          </div>
 
-            {/* Premium Metadata Bar */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
-              <div className="flex flex-wrap items-center gap-4">
-                {/* Folder Selector */}
+          {/* Premium Features Bar */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Folder Selection */}
+              <div className="relative">
+                <label className="block text-sm text-gray-400 mb-1">
+                  Folder
+                </label>
                 <select
                   value={selectedFolder || ""}
                   onChange={(e) => setSelectedFolder(e.target.value || null)}
-                  className="px-3 py-1 bg-white/10 border border-white/20 rounded text-sm"
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400"
                 >
                   <option value="">No Folder</option>
                   {folders.map((folder) => (
                     <option key={folder.id} value={folder.id}>
-                      {folder.name} ({folder.entry_count})
+                      {folder.name}
                     </option>
                   ))}
                 </select>
+              </div>
 
-                {/* Tags Input */}
-                <div className="flex items-center gap-2 flex-1">
-                  <Tag className="h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Add tags..."
-                    value={currentTag}
-                    onChange={(e) => setCurrentTag(e.target.value)}
-                    onKeyDown={handleTagInput}
-                    className="px-2 py-1 bg-white/10 border border-white/20 rounded text-sm flex-1"
-                  />
-                </div>
+              {/* Tags */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Tags</label>
+                <input
+                  type="text"
+                  placeholder="Add tags..."
+                  value={currentTag}
+                  onChange={(e) => setCurrentTag(e.target.value)}
+                  onKeyPress={addTag}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400"
+                />
+              </div>
 
-                {/* Star & Pin */}
+              {/* Star & Pin */}
+              <div className="flex items-end gap-2">
                 <button
                   onClick={() => setIsStarred(!isStarred)}
-                  className={`p-2 rounded transition ${
+                  className={`p-2 rounded-lg transition ${
                     isStarred
-                      ? "bg-yellow-500/30 text-yellow-400"
-                      : "hover:bg-white/10"
+                      ? "bg-yellow-500 text-white"
+                      : "bg-white/10 hover:bg-white/20"
                   }`}
                 >
                   <Star
-                    className="h-4 w-4"
-                    fill={isStarred ? "currentColor" : "none"}
+                    className="h-5 w-5"
+                    fill={isStarred ? "white" : "none"}
                   />
                 </button>
                 <button
                   onClick={() => setIsPinned(!isPinned)}
-                  className={`p-2 rounded transition ${
+                  className={`p-2 rounded-lg transition ${
                     isPinned
-                      ? "bg-blue-500/30 text-blue-400"
-                      : "hover:bg-white/10"
+                      ? "bg-blue-500 text-white"
+                      : "bg-white/10 hover:bg-white/20"
                   }`}
                 >
-                  <Pin
-                    className="h-4 w-4"
-                    fill={isPinned ? "currentColor" : "none"}
-                  />
-                </button>
-
-                {/* Goal Connection */}
-                <button
-                  onClick={() => setShowGoalSelector(!showGoalSelector)}
-                  className="p-2 hover:bg-white/10 rounded transition"
-                >
-                  <Target className="h-4 w-4" />
+                  <Pin className="h-5 w-5" fill={isPinned ? "white" : "none"} />
                 </button>
               </div>
 
-              {/* Tags Display */}
-              {tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-2 py-1 bg-purple-600/30 rounded-full text-xs flex items-center gap-1"
+              {/* Goals Connection */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowGoalSelector(!showGoalSelector)}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/20 transition flex items-center justify-between"
+                >
+                  <span>
+                    {connectedGoals.length > 0
+                      ? `${connectedGoals.length} Goals`
+                      : "Connect Goals"}
+                  </span>
+                  <Target className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Tags Display */}
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {tags.map((tag, index) => (
+                  <span
+                    key={index}
+                    className="px-3 py-1 bg-purple-600/30 rounded-full text-sm flex items-center gap-1"
+                  >
+                    <Tag className="h-3 w-3" />
+                    {tag}
+                    <button
+                      onClick={() => removeTag(tag)}
+                      className="ml-1 hover:text-red-400"
                     >
-                      {tag}
-                      <button
-                        onClick={() => removeTag(tag)}
-                        className="hover:text-red-400"
-                      >
-                        ×
-                      </button>
-                    </span>
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Goal Selector Dropdown */}
+            {showGoalSelector && userGoals.length > 0 && (
+              <div className="absolute mt-2 w-64 bg-slate-800 border border-white/20 rounded-lg shadow-xl p-3 z-10">
+                <div className="space-y-2">
+                  {userGoals.map((goal) => (
+                    <label
+                      key={goal.id}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={connectedGoals.includes(goal.id)}
+                        onChange={() => toggleGoal(goal.id)}
+                        className="rounded"
+                      />
+                      {goal.title}
+                    </label>
                   ))}
                 </div>
-              )}
-
-              {/* Goal Selector */}
-              {showGoalSelector && userGoals.length > 0 && (
-                <div className="mt-3 p-3 bg-white/5 rounded-lg">
-                  <p className="text-sm font-medium mb-2">Connect to Goals:</p>
-                  <div className="space-y-2">
-                    {userGoals.map((goal) => (
-                      <label
-                        key={goal.id}
-                        className="flex items-center gap-2 text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={connectedGoals.includes(goal.id)}
-                          onChange={() => toggleGoal(goal.id)}
-                          className="rounded"
-                        />
-                        {goal.title}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Editor */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden">
-              <div ref={editorRef} className="min-h-[500px]" />
-            </div>
-
-            {/* Premium Tools Bar */}
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setShowVoiceRecorder(!showVoiceRecorder)}
-                className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2"
-              >
-                <Mic className="h-4 w-4" />
-                Voice Note
-              </button>
-              <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2">
-                <Camera className="h-4 w-4" />
-                Add Photo
-              </button>
-              <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2">
-                <Paperclip className="h-4 w-4" />
-                Attach File
-              </button>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-4">
-              <button
-                onClick={saveJournalEntry}
-                disabled={saveLabel === "Saving..."}
-                className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                <Save className="h-5 w-5" />
-                {saveLabel}
-              </button>
-
-              {/* Follow-up Options */}
-              {showFollowUpButtons && (
-                <button
-                  onClick={generateFollowUp}
-                  disabled={loadingPrompt}
-                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition flex items-center gap-2"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                  Follow-up
-                </button>
-              )}
-            </div>
-
-            {/* Save Confirmation */}
-            {saveConfirmation && (
-              <div className="p-4 bg-green-500/20 border border-green-500/40 rounded-lg text-green-200">
-                Entry saved successfully!
               </div>
             )}
           </div>
 
-          {/* Premium Sidebar */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Session Stats */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6">
-              <h3 className="text-lg font-semibold mb-4">Session Stats</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Words Written</span>
-                  <span>
-                    {quillRef.current?.getText()?.split(/\s+/).filter(Boolean)
-                      .length || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Time Elapsed</span>
-                  <span>
-                    <Clock className="h-4 w-4 inline mr-1" />
-                    {new Date().toLocaleTimeString()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Writing Mode</span>
-                  <span className="capitalize">{writingMode}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6">
-              <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-              <div className="space-y-2">
-                <button
-                  onClick={() => navigate("/history")}
-                  className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg transition text-sm flex items-center justify-center gap-2"
-                >
-                  <Calendar className="h-4 w-4" />
-                  View History
-                </button>
-                <button
-                  onClick={() => navigate("/analytics")}
-                  className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg transition text-sm flex items-center justify-center gap-2"
-                >
-                  <Activity className="h-4 w-4" />
-                  Analytics
-                </button>
-                <button
-                  onClick={() => navigate("/goals")}
-                  className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg transition text-sm flex items-center justify-center gap-2"
-                >
-                  <Target className="h-4 w-4" />
-                  Goals
-                </button>
-              </div>
-            </div>
+          {/* Editor with fixed height and scrollbar */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden">
+            <div
+              ref={editorRef}
+              className="h-[500px] overflow-y-auto"
+              style={{
+                maxHeight: "500px",
+              }}
+            />
           </div>
+
+          {/* Premium Tools Bar */}
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setShowVoiceRecorder(!showVoiceRecorder)}
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2"
+            >
+              <Mic className="h-4 w-4" />
+              Voice Note
+            </button>
+            <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2">
+              <Camera className="h-4 w-4" />
+              Add Photo
+            </button>
+            <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2">
+              <Paperclip className="h-4 w-4" />
+              Attach File
+            </button>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-4">
+            <button
+              onClick={saveJournalEntry}
+              disabled={saveLabel === "Saving..."}
+              className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <Save className="h-5 w-5" />
+              {saveLabel}
+            </button>
+
+            {/* Follow-up Options */}
+            {showFollowUpButtons && (
+              <button
+                onClick={generateFollowUp}
+                disabled={loadingPrompt}
+                className="px-4 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition flex items-center gap-2"
+              >
+                <ChevronRight className="h-5 w-5" />
+                Follow-up
+              </button>
+            )}
+          </div>
+
+          {/* Save Confirmation */}
+          {saveConfirmation && (
+            <div className="p-4 bg-green-500/20 border border-green-500/40 rounded-lg text-green-200">
+              Entry saved successfully!
+            </div>
+          )}
         </div>
       </div>
 
