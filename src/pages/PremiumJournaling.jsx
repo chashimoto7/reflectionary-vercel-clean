@@ -10,15 +10,6 @@ import { useFeatureAccess } from "../hooks/useFeatureAccess";
 import { useCrisisIntegration } from "../hooks/useCrisisIntegration";
 import CrisisResourceModal from "../components/CrisisResourceModal";
 import {
-  Activity,
-  Moon,
-  Droplets,
-  Heart,
-  Brain,
-  Coffee,
-  Apple,
-  Dumbbell,
-  Wind,
   Save,
   RefreshCw,
   ChevronRight,
@@ -31,11 +22,7 @@ import {
   Folder,
   Star,
   Pin,
-  Calendar,
-  Clock,
   Target,
-  BookOpen,
-  Zap,
   MessageCircle,
 } from "lucide-react";
 
@@ -87,7 +74,7 @@ export default function PremiumJournaling() {
   const [connectedGoals, setConnectedGoals] = useState([]);
   const [showGoalSelector, setShowGoalSelector] = useState(false);
   const [userGoals, setUserGoals] = useState([]);
-  const [writingMode, setWritingMode] = useState("free"); // free, guided, structured
+  const [writingMode, setWritingMode] = useState("free");
   const [guidedQuestions, setGuidedQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
@@ -148,7 +135,11 @@ export default function PremiumJournaling() {
       }
 
       // Focus on the editor
-      quillRef.current.focus();
+      setTimeout(() => {
+        if (quillRef.current) {
+          quillRef.current.focus();
+        }
+      }, 100);
     }
   }, [prompt]);
 
@@ -157,38 +148,59 @@ export default function PremiumJournaling() {
       const response = await fetch(
         `/api/folders?user_id=${user.id}&include_entry_count=true`
       );
-      if (!response.ok) throw new Error("Failed to load folders");
+
+      if (!response.ok) {
+        console.error("Failed to load folders:", response.status);
+        return;
+      }
 
       const data = await response.json();
-      setFolders(data.folders || []);
+      if (data.folders) {
+        setFolders(data.folders);
+      }
     } catch (error) {
       console.error("Error loading folders:", error);
+      // Don't show error to user, just continue without folders
     }
   };
 
   const loadGoals = async () => {
     try {
       const response = await fetch(`/api/goals?user_id=${user.id}`);
-      if (!response.ok) throw new Error("Failed to load goals");
+
+      if (!response.ok) {
+        console.error("Failed to load goals:", response.status);
+        return;
+      }
 
       const data = await response.json();
-      setUserGoals(data.goals?.filter((g) => g.status === "active") || []);
+      if (data.goals) {
+        setUserGoals(data.goals.filter((g) => g.status === "active"));
+      }
     } catch (error) {
       console.error("Error loading goals:", error);
+      // Don't show error to user, just continue without goals
     }
   };
 
   const loadReflectionarianPrompts = async () => {
     try {
-      // Check if user has any saved prompts from Reflectionarian sessions
-      const response = await fetch(
-        `/api/reflectionarian/saved-prompts?user_id=${user.id}`
-      );
-      if (!response.ok) return;
+      // For now, skip this API call since it doesn't exist yet
+      // Just use some demo prompts if available
+      const demoPrompts = [
+        {
+          text: "What patterns have you noticed in your emotions this week?",
+          created_at: new Date().toISOString(),
+        },
+        {
+          text: "How have your relationships influenced your recent decisions?",
+          created_at: new Date().toISOString(),
+        },
+      ];
 
-      const data = await response.json();
-      if (data.prompts && data.prompts.length > 0) {
-        setReflectionarianPrompts(data.prompts);
+      // Only show if we have prompts
+      if (demoPrompts.length > 0) {
+        setReflectionarianPrompts(demoPrompts);
         setShowReflectionarianPrompts(true);
       }
     } catch (error) {
@@ -215,7 +227,27 @@ export default function PremiumJournaling() {
         body: JSON.stringify({ user_id: user.id }),
       });
 
-      if (!response.ok) throw new Error("Failed to generate prompt");
+      if (!response.ok) {
+        // Fallback to local prompts
+        const fallbackPrompts = [
+          "What emotions have been most present for you today, and what might they be trying to tell you?",
+          "Describe a moment from today that made you pause. What made it significant?",
+          "If you could have a conversation with your future self, what would you want to know?",
+          "What patterns have you noticed in your thoughts lately? How do they serve or limit you?",
+          "Write about something you've been avoiding. What would happen if you faced it with compassion?",
+        ];
+
+        const randomPrompt =
+          fallbackPrompts[Math.floor(Math.random() * fallbackPrompts.length)];
+        setPrompt(randomPrompt);
+        setShowPromptOptions(false);
+
+        if (quillRef.current) {
+          quillRef.current.root.setAttribute("data-placeholder", randomPrompt);
+          quillRef.current.focus();
+        }
+        return;
+      }
 
       const data = await response.json();
       setPrompt(data.prompt);
@@ -227,13 +259,30 @@ export default function PremiumJournaling() {
       }
     } catch (error) {
       console.error("Error generating prompt:", error);
-      alert("Failed to generate prompt. Please try again.");
+      // Use fallback
+      const fallbackPrompts = [
+        "What's on your mind today? Take a moment to reflect on your thoughts and feelings.",
+        "How are you feeling in this moment? Explore what's behind those feelings.",
+        "What would you like to explore about yourself today?",
+      ];
+
+      const randomPrompt =
+        fallbackPrompts[Math.floor(Math.random() * fallbackPrompts.length)];
+      setPrompt(randomPrompt);
+      setShowPromptOptions(false);
+
+      if (quillRef.current) {
+        quillRef.current.root.setAttribute("data-placeholder", randomPrompt);
+        quillRef.current.focus();
+      }
     } finally {
       setLoadingPrompt(false);
     }
   };
 
   const generateSubjectPrompt = async (subject) => {
+    if (!subject.trim()) return;
+
     setLoadingPrompt(true);
     try {
       const response = await fetch("/api/generate-subject-prompt", {
@@ -245,7 +294,21 @@ export default function PremiumJournaling() {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to generate subject prompt");
+      if (!response.ok) {
+        // Fallback prompt based on subject
+        const fallbackPrompt = `Take a moment to explore your thoughts and feelings about ${subject}. What comes up for you when you think about this?`;
+        setPrompt(fallbackPrompt);
+        setShowPromptOptions(false);
+
+        if (quillRef.current) {
+          quillRef.current.root.setAttribute(
+            "data-placeholder",
+            fallbackPrompt
+          );
+          quillRef.current.focus();
+        }
+        return;
+      }
 
       const data = await response.json();
       setPrompt(data.prompt);
@@ -257,47 +320,45 @@ export default function PremiumJournaling() {
       }
     } catch (error) {
       console.error("Error generating subject prompt:", error);
-      alert("Failed to generate prompt. Please try again.");
+      // Use fallback
+      const fallbackPrompt = `What role does ${subject.toLowerCase()} play in your life right now? How has your relationship with it evolved?`;
+      setPrompt(fallbackPrompt);
+      setShowPromptOptions(false);
+
+      if (quillRef.current) {
+        quillRef.current.root.setAttribute("data-placeholder", fallbackPrompt);
+        quillRef.current.focus();
+      }
     } finally {
       setLoadingPrompt(false);
+      setSubjectPrompt(""); // Clear the input
     }
   };
 
   const generateGuidedQuestions = async (topic) => {
     setLoadingPrompt(true);
     try {
-      // For premium, we could have a special endpoint for guided journaling
-      const response = await fetch("/api/generate-guided-questions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: user.id,
-          topic: topic,
-          tier: "premium",
-        }),
-      });
+      // Always use fallback questions for now
+      const fallbackQuestions = [
+        "What brought this topic to mind today?",
+        "How does this make you feel emotionally and physically?",
+        "What patterns do you notice in your thoughts about this?",
+        "What would you like to explore or understand better?",
+        "What insights are emerging as you reflect on this?",
+      ];
 
-      if (!response.ok) {
-        // Fallback to local questions if API doesn't exist yet
-        const fallbackQuestions = [
-          "What brought this topic to mind today?",
-          "How does this make you feel emotionally and physically?",
-          "What patterns do you notice in your thoughts about this?",
-          "What would you like to explore or understand better?",
-          "What insights are emerging as you reflect on this?",
-        ];
-        setGuidedQuestions(fallbackQuestions);
-        setCurrentQuestionIndex(0);
-        setWritingMode("guided");
-        setShowPromptOptions(false);
-        return;
-      }
-
-      const data = await response.json();
-      setGuidedQuestions(data.questions || []);
+      setGuidedQuestions(fallbackQuestions);
       setCurrentQuestionIndex(0);
       setWritingMode("guided");
       setShowPromptOptions(false);
+
+      if (quillRef.current) {
+        quillRef.current.root.setAttribute(
+          "data-placeholder",
+          fallbackQuestions[0]
+        );
+        quillRef.current.focus();
+      }
     } catch (error) {
       console.error("Error generating guided questions:", error);
     } finally {
@@ -314,8 +375,8 @@ export default function PremiumJournaling() {
     const htmlContent = quillRef.current.root.innerHTML;
     const plainText = quillRef.current.getText().trim();
 
-    if (!plainText) {
-      alert("Please write something before saving.");
+    if (!plainText || plainText.length < 10) {
+      alert("Please write a bit more before saving.");
       return;
     }
 
@@ -369,7 +430,7 @@ export default function PremiumJournaling() {
       const result = await response.json();
 
       // Handle crisis detection result
-      if (result.crisis_analysis) {
+      if (result.crisis_analysis && result.crisis_analysis.should_alert) {
         await triggerCrisisModal(plainText, result.crisis_analysis);
       }
 
@@ -389,6 +450,7 @@ export default function PremiumJournaling() {
       setAttachments([]);
       setWritingMode("free");
       setGuidedQuestions([]);
+      setCurrentQuestionIndex(0);
 
       // Show confirmation
       setSaveConfirmation(true);
@@ -416,7 +478,24 @@ export default function PremiumJournaling() {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to generate follow-up");
+      if (!response.ok) {
+        // Use a generic follow-up prompt
+        const fallbackFollowUp =
+          "Let's dive deeper into what you just wrote. What else comes up for you when you sit with these thoughts?";
+        setPrompt(fallbackFollowUp);
+        setShowPromptOptions(false);
+        setShowFollowUpButtons(false);
+
+        if (quillRef.current) {
+          quillRef.current.setText("");
+          quillRef.current.root.setAttribute(
+            "data-placeholder",
+            fallbackFollowUp
+          );
+          quillRef.current.focus();
+        }
+        return;
+      }
 
       const data = await response.json();
       setPrompt(data.prompt);
@@ -426,6 +505,7 @@ export default function PremiumJournaling() {
       if (quillRef.current) {
         quillRef.current.setText("");
         quillRef.current.root.setAttribute("data-placeholder", data.prompt);
+        quillRef.current.focus();
       }
 
       setEntryChain((prev) => [...prev, lastSavedEntry.id]);
@@ -434,7 +514,21 @@ export default function PremiumJournaling() {
       }
     } catch (error) {
       console.error("Error generating follow-up:", error);
-      alert("Failed to generate follow-up. Please try again.");
+      // Use fallback
+      const fallbackFollowUp =
+        "What would you like to explore further about what you just shared?";
+      setPrompt(fallbackFollowUp);
+      setShowPromptOptions(false);
+      setShowFollowUpButtons(false);
+
+      if (quillRef.current) {
+        quillRef.current.setText("");
+        quillRef.current.root.setAttribute(
+          "data-placeholder",
+          fallbackFollowUp
+        );
+        quillRef.current.focus();
+      }
     } finally {
       setLoadingPrompt(false);
     }
@@ -442,7 +536,9 @@ export default function PremiumJournaling() {
 
   const addTag = (e) => {
     if (e.key === "Enter" && currentTag.trim()) {
-      setTags([...tags, currentTag.trim()]);
+      if (!tags.includes(currentTag.trim())) {
+        setTags([...tags, currentTag.trim()]);
+      }
       setCurrentTag("");
     }
   };
@@ -488,7 +584,7 @@ export default function PremiumJournaling() {
                 <div className="flex items-center gap-2">
                   <MessageCircle className="h-5 w-5 text-purple-400" />
                   <h3 className="text-lg font-semibold">
-                    Prompts from your Reflectionarian sessions
+                    Reflectionarian Prompts
                   </h3>
                 </div>
                 <button
@@ -506,9 +602,6 @@ export default function PremiumJournaling() {
                     className="w-full text-left p-3 bg-white/10 hover:bg-white/20 rounded-lg transition"
                   >
                     <p className="text-sm">{prompt.text}</p>
-                    <span className="text-xs text-gray-400">
-                      From {new Date(prompt.created_at).toLocaleDateString()}
-                    </span>
                   </button>
                 ))}
               </div>
@@ -517,9 +610,9 @@ export default function PremiumJournaling() {
 
           {/* Prompt Options - Only show if not already writing */}
           {showPromptOptions && (
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6">
               <h3 className="text-lg font-semibold mb-4">
-                Choose how you'd like to start writing:
+                How would you like to start?
               </h3>
 
               <div className="space-y-3">
@@ -527,14 +620,16 @@ export default function PremiumJournaling() {
                 <button
                   onClick={() => {
                     setShowPromptOptions(false);
-                    if (quillRef.current) {
-                      quillRef.current.focus();
-                    }
+                    setTimeout(() => {
+                      if (quillRef.current) {
+                        quillRef.current.focus();
+                      }
+                    }, 100);
                   }}
                   className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-lg transition text-left px-4"
                 >
                   <div className="flex items-center justify-between">
-                    <span>Start Writing</span>
+                    <span className="font-medium">Start Writing</span>
                     <span className="text-sm text-gray-400">
                       Write freely without a prompt
                     </span>
@@ -577,10 +672,11 @@ export default function PremiumJournaling() {
                 {/* Guided Questions */}
                 <button
                   onClick={() => generateGuidedQuestions("general")}
+                  disabled={loadingPrompt}
                   className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-lg transition text-left px-4"
                 >
                   <div className="flex items-center justify-between">
-                    <span>Guided Questions</span>
+                    <span className="font-medium">Guided Questions</span>
                     <span className="text-sm text-gray-400">
                       Answer structured prompts
                     </span>
@@ -593,14 +689,14 @@ export default function PremiumJournaling() {
           {/* Current Prompt Display */}
           {prompt && !showPromptOptions && (
             <div className="bg-purple-600/20 backdrop-blur-sm rounded-lg border border-purple-400/30 p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-purple-100">{prompt}</p>
+              <div className="flex items-start justify-between gap-4">
+                <p className="text-purple-100 flex-1">{prompt}</p>
                 <button
                   onClick={() => {
                     setPrompt("");
                     setShowPromptOptions(true);
                   }}
-                  className="text-sm text-purple-300 hover:text-white"
+                  className="text-sm text-purple-300 hover:text-white whitespace-nowrap"
                 >
                   Change prompt
                 </button>
@@ -616,20 +712,44 @@ export default function PremiumJournaling() {
                   Question {currentQuestionIndex + 1} of{" "}
                   {guidedQuestions.length}
                 </span>
-                <button
-                  onClick={() =>
-                    setCurrentQuestionIndex(
-                      Math.min(
-                        currentQuestionIndex + 1,
-                        guidedQuestions.length - 1
-                      )
-                    )
-                  }
-                  disabled={currentQuestionIndex >= guidedQuestions.length - 1}
-                  className="text-sm text-purple-400 hover:text-purple-300 disabled:opacity-50"
-                >
-                  Next Question →
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (currentQuestionIndex > 0) {
+                        setCurrentQuestionIndex(currentQuestionIndex - 1);
+                        if (quillRef.current) {
+                          quillRef.current.root.setAttribute(
+                            "data-placeholder",
+                            guidedQuestions[currentQuestionIndex - 1]
+                          );
+                        }
+                      }
+                    }}
+                    disabled={currentQuestionIndex === 0}
+                    className="text-sm text-purple-400 hover:text-purple-300 disabled:opacity-50"
+                  >
+                    ← Previous
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (currentQuestionIndex < guidedQuestions.length - 1) {
+                        setCurrentQuestionIndex(currentQuestionIndex + 1);
+                        if (quillRef.current) {
+                          quillRef.current.root.setAttribute(
+                            "data-placeholder",
+                            guidedQuestions[currentQuestionIndex + 1]
+                          );
+                        }
+                      }
+                    }}
+                    disabled={
+                      currentQuestionIndex >= guidedQuestions.length - 1
+                    }
+                    className="text-sm text-purple-400 hover:text-purple-300 disabled:opacity-50"
+                  >
+                    Next →
+                  </button>
+                </div>
               </div>
               <p className="text-lg">{guidedQuestions[currentQuestionIndex]}</p>
             </div>
@@ -679,6 +799,7 @@ export default function PremiumJournaling() {
                       ? "bg-yellow-500 text-white"
                       : "bg-white/10 hover:bg-white/20"
                   }`}
+                  title={isStarred ? "Unstar" : "Star"}
                 >
                   <Star
                     className="h-5 w-5"
@@ -692,6 +813,7 @@ export default function PremiumJournaling() {
                       ? "bg-blue-500 text-white"
                       : "bg-white/10 hover:bg-white/20"
                   }`}
+                  title={isPinned ? "Unpin" : "Pin"}
                 >
                   <Pin className="h-5 w-5" fill={isPinned ? "white" : "none"} />
                 </button>
@@ -727,9 +849,9 @@ export default function PremiumJournaling() {
                               type="checkbox"
                               checked={connectedGoals.includes(goal.id)}
                               onChange={() => toggleGoal(goal.id)}
-                              className="rounded"
+                              className="rounded text-purple-600 focus:ring-purple-500"
                             />
-                            {goal.title}
+                            <span>{goal.title}</span>
                           </label>
                         ))}
                       </div>

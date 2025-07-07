@@ -47,6 +47,18 @@ body {
   min-height: 450px !important;
   max-height: none !important; /* Allow content to grow */
   overflow-y: visible !important; /* Let container handle scroll */
+  padding: 20px !important; /* Add padding for better readability */
+}
+
+/* Ensure the editor is clickable */
+.ql-editor.ql-blank::before {
+  color: rgba(255, 255, 255, 0.6);
+  content: attr(data-placeholder);
+  font-style: italic;
+  left: 20px;
+  pointer-events: none;
+  position: absolute;
+  right: 20px;
 }
 
 /* Custom scrollbar styling for the editor */
