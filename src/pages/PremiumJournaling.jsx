@@ -28,6 +28,7 @@ import {
   X,
   Check,
   Trash2,
+  Lightbulb,
 } from "lucide-react";
 
 export default function PremiumJournaling() {
@@ -58,7 +59,6 @@ export default function PremiumJournaling() {
   const [lastSavedEntry, setLastSavedEntry] = useState(null);
   const [prompt, setPrompt] = useState("");
   const [subjectPrompt, setSubjectPrompt] = useState("");
-  const [showPromptOptions, setShowPromptOptions] = useState(true);
   const [loadingPrompt, setLoadingPrompt] = useState(false);
   const [saveLabel, setSaveLabel] = useState("Save Entry");
   const [showFollowUpButtons, setShowFollowUpButtons] = useState(false);
@@ -105,12 +105,12 @@ export default function PremiumJournaling() {
     }
   }, [user]);
 
-  // Initialize Quill with premium features
+  // Initialize Quill with premium features - Fixed to always show toolbar
   useEffect(() => {
-    if (editorRef.current && !quillRef.current) {
+    if (editorRef.current && !quillRef.current && user) {
       quillRef.current = new Quill(editorRef.current, {
         theme: "snow",
-        placeholder: prompt || "Begin your reflection...",
+        placeholder: "Begin your reflection...",
         modules: {
           toolbar: [
             ["bold", "italic", "underline", "strike"],
@@ -131,30 +131,22 @@ export default function PremiumJournaling() {
         },
       });
 
+      // Make editor always clickable
+      quillRef.current.focus();
+
       // Update placeholder when prompt changes
       if (prompt) {
         quillRef.current.root.setAttribute("data-placeholder", prompt);
       }
     }
-  }, []);
+  }, [user]);
 
-  // Separate effect to handle prompt changes and focus
+  // Separate effect to handle prompt changes
   useEffect(() => {
-    if (quillRef.current) {
-      if (prompt) {
-        quillRef.current.root.setAttribute("data-placeholder", prompt);
-      }
-
-      // Focus the editor when prompt options are hidden
-      if (!showPromptOptions) {
-        setTimeout(() => {
-          if (quillRef.current) {
-            quillRef.current.focus();
-          }
-        }, 100);
-      }
+    if (quillRef.current && prompt) {
+      quillRef.current.root.setAttribute("data-placeholder", prompt);
     }
-  }, [prompt, showPromptOptions]);
+  }, [prompt]);
 
   const loadFolders = async () => {
     try {
@@ -222,7 +214,6 @@ export default function PremiumJournaling() {
 
   const useReflectionarianPrompt = (promptText) => {
     setPrompt(promptText);
-    setShowPromptOptions(false);
     setShowReflectionarianDropdown(false);
     if (quillRef.current) {
       quillRef.current.root.setAttribute("data-placeholder", promptText);
@@ -295,13 +286,11 @@ export default function PremiumJournaling() {
         const randomPrompt =
           fallbackPrompts[Math.floor(Math.random() * fallbackPrompts.length)];
         setPrompt(randomPrompt);
-        setShowPromptOptions(false);
         return;
       }
 
       const data = await response.json();
       setPrompt(data.prompt);
-      setShowPromptOptions(false);
     } catch (error) {
       console.error("Error generating prompt:", error);
       // Use fallback
@@ -314,7 +303,6 @@ export default function PremiumJournaling() {
       const randomPrompt =
         fallbackPrompts[Math.floor(Math.random() * fallbackPrompts.length)];
       setPrompt(randomPrompt);
-      setShowPromptOptions(false);
     } finally {
       setLoadingPrompt(false);
     }
@@ -338,19 +326,16 @@ export default function PremiumJournaling() {
         // Fallback prompt based on subject
         const fallbackPrompt = `Take a moment to explore your thoughts and feelings about ${subject}. What comes up for you when you think about this?`;
         setPrompt(fallbackPrompt);
-        setShowPromptOptions(false);
         return;
       }
 
       const data = await response.json();
       setPrompt(data.prompt);
-      setShowPromptOptions(false);
     } catch (error) {
       console.error("Error generating subject prompt:", error);
       // Use fallback
       const fallbackPrompt = `What role does ${subject.toLowerCase()} play in your life right now? How has your relationship with it evolved?`;
       setPrompt(fallbackPrompt);
-      setShowPromptOptions(false);
     } finally {
       setLoadingPrompt(false);
       setSubjectPrompt(""); // Clear the input
@@ -372,7 +357,6 @@ export default function PremiumJournaling() {
       setGuidedQuestions(fallbackQuestions);
       setCurrentQuestionIndex(0);
       setWritingMode("guided");
-      setShowPromptOptions(false);
 
       if (quillRef.current) {
         quillRef.current.root.setAttribute(
@@ -458,7 +442,6 @@ export default function PremiumJournaling() {
       // Reset form after successful save
       quillRef.current.setText("");
       setPrompt("");
-      setShowPromptOptions(true);
       setSaveLabel("Save Entry");
       setLastSavedEntry(result.entry);
       setShowFollowUpButtons(true);
@@ -503,7 +486,6 @@ export default function PremiumJournaling() {
         const fallbackFollowUp =
           "Let's dive deeper into what you just wrote. What else comes up for you when you sit with these thoughts?";
         setPrompt(fallbackFollowUp);
-        setShowPromptOptions(false);
         setShowFollowUpButtons(false);
 
         if (quillRef.current) {
@@ -519,7 +501,6 @@ export default function PremiumJournaling() {
 
       const data = await response.json();
       setPrompt(data.prompt);
-      setShowPromptOptions(false);
       setShowFollowUpButtons(false);
 
       if (quillRef.current) {
@@ -538,7 +519,6 @@ export default function PremiumJournaling() {
       const fallbackFollowUp =
         "What would you like to explore further about what you just shared?";
       setPrompt(fallbackFollowUp);
-      setShowPromptOptions(false);
       setShowFollowUpButtons(false);
 
       if (quillRef.current) {
@@ -597,10 +577,14 @@ export default function PremiumJournaling() {
 
         {/* Main content area - Reorganized layout */}
         <div className="space-y-6">
-          {/* Compact top section with prompts side by side */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Reflectionarian Prompts - Compact Dropdown */}
-            {reflectionarianPrompts.length > 0 && (
+          {/* Compact prompt section with inline buttons */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
+            <h3 className="text-lg font-semibold mb-3">
+              How would you like to start?
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Reflectionarian Prompts Dropdown - Replaces Start Writing */}
               <div className="relative">
                 <button
                   onClick={() =>
@@ -609,13 +593,15 @@ export default function PremiumJournaling() {
                   className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-sm rounded-lg border border-purple-400/30 hover:border-purple-400/50 transition"
                 >
                   <div className="flex items-center gap-2">
-                    <MessageCircle className="h-5 w-5 text-purple-400" />
-                    <span className="font-medium">
-                      Reflectionarian Prompts ({reflectionarianPrompts.length})
+                    <MessageCircle className="h-4 w-4 text-purple-400" />
+                    <span className="text-sm font-medium">
+                      {reflectionarianPrompts.length > 0
+                        ? `Reflectionarian (${reflectionarianPrompts.length})`
+                        : "Reflectionarian"}
                     </span>
                   </div>
                   <ChevronDown
-                    className={`h-5 w-5 text-purple-400 transform transition-transform ${
+                    className={`h-4 w-4 text-purple-400 transform transition-transform ${
                       showReflectionarianDropdown ? "rotate-180" : ""
                     }`}
                   />
@@ -624,136 +610,108 @@ export default function PremiumJournaling() {
                 {/* Dropdown overlay */}
                 {showReflectionarianDropdown && (
                   <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800/95 backdrop-blur-sm border border-purple-400/30 rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto">
-                    {reflectionarianPrompts.map((prompt) => (
-                      <div
-                        key={prompt.id}
-                        className="flex items-center justify-between p-3 hover:bg-purple-600/20 border-b border-purple-400/20 last:border-b-0"
-                      >
-                        <button
-                          onClick={() => useReflectionarianPrompt(prompt.text)}
-                          className="flex-1 text-left text-sm text-purple-100 hover:text-white"
+                    {reflectionarianPrompts.length > 0 ? (
+                      reflectionarianPrompts.map((prompt) => (
+                        <div
+                          key={prompt.id}
+                          className="flex items-center justify-between p-3 hover:bg-purple-600/20 border-b border-purple-400/20 last:border-b-0"
                         >
-                          {prompt.text}
-                        </button>
-                        <div className="flex gap-1 ml-2">
                           <button
                             onClick={() =>
-                              markReflectionarianPromptDone(prompt.id)
+                              useReflectionarianPrompt(prompt.text)
                             }
-                            className="p-1 text-green-400 hover:text-green-300 transition"
-                            title="Mark as done"
+                            className="flex-1 text-left text-sm text-purple-100 hover:text-white"
                           >
-                            <Check className="h-4 w-4" />
+                            {prompt.text}
                           </button>
-                          <button
-                            onClick={() =>
-                              deleteReflectionarianPrompt(prompt.id)
-                            }
-                            className="p-1 text-red-400 hover:text-red-300 transition"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          <div className="flex gap-1 ml-2">
+                            <button
+                              onClick={() =>
+                                markReflectionarianPromptDone(prompt.id)
+                              }
+                              className="p-1 text-green-400 hover:text-green-300 transition"
+                              title="Mark as done"
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() =>
+                                deleteReflectionarianPrompt(prompt.id)
+                              }
+                              className="p-1 text-red-400 hover:text-red-300 transition"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
                         </div>
+                      ))
+                    ) : (
+                      <div className="p-3 text-sm text-gray-400 text-center">
+                        No prompts available
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
               </div>
-            )}
 
-            {/* Prompt Options - Only show if not already writing */}
-            {showPromptOptions && (
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
-                <h3 className="text-lg font-semibold mb-3">
-                  How would you like to start?
-                </h3>
+              {/* Generate AI Prompt */}
+              <button
+                onClick={generatePrompt}
+                disabled={loadingPrompt}
+                className="w-full py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span className="text-sm">
+                  {loadingPrompt ? "Generating..." : "Generate AI Prompt"}
+                </span>
+              </button>
 
-                <div className="space-y-2">
-                  {/* Start Writing (no prompt) */}
-                  <button
-                    onClick={() => {
-                      setShowPromptOptions(false);
-                      setTimeout(() => {
-                        if (quillRef.current) {
-                          quillRef.current.focus();
-                        }
-                      }, 100);
-                    }}
-                    className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg transition text-left px-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">Start Writing</span>
-                      <span className="text-xs text-gray-400">
-                        Write freely without a prompt
-                      </span>
-                    </div>
-                  </button>
-
-                  {/* Generate AI Prompt */}
-                  <button
-                    onClick={generatePrompt}
-                    disabled={loadingPrompt}
-                    className="w-full py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    {loadingPrompt ? "Generating..." : "Generate AI Prompt"}
-                  </button>
-
-                  {/* Topic-specific prompt */}
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Or write about a specific topic..."
-                      value={subjectPrompt}
-                      onChange={(e) => setSubjectPrompt(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === "Enter" && subjectPrompt.trim()) {
-                          generateSubjectPrompt(subjectPrompt);
-                        }
-                      }}
-                      className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400"
-                    />
-                    <button
-                      onClick={() => generateSubjectPrompt(subjectPrompt)}
-                      disabled={!subjectPrompt.trim() || loadingPrompt}
-                      className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition disabled:opacity-50 text-sm"
-                    >
-                      Generate
-                    </button>
-                  </div>
-
-                  {/* Guided Questions */}
-                  <button
-                    onClick={() => generateGuidedQuestions("general")}
-                    disabled={loadingPrompt}
-                    className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg transition text-left px-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">Guided Questions</span>
-                      <span className="text-xs text-gray-400">
-                        Answer structured prompts
-                      </span>
-                    </div>
-                  </button>
-                </div>
+              {/* Generate Subject Prompt - Inline */}
+              <div className="flex gap-1">
+                <input
+                  type="text"
+                  placeholder="Topic..."
+                  value={subjectPrompt}
+                  onChange={(e) => setSubjectPrompt(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter" && subjectPrompt.trim()) {
+                      generateSubjectPrompt(subjectPrompt);
+                    }
+                  }}
+                  className="flex-1 px-2 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 text-sm"
+                />
+                <button
+                  onClick={() => generateSubjectPrompt(subjectPrompt)}
+                  disabled={!subjectPrompt.trim() || loadingPrompt}
+                  className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition disabled:opacity-50"
+                  title="Generate Subject Prompt"
+                >
+                  <Lightbulb className="h-4 w-4" />
+                </button>
               </div>
-            )}
+
+              {/* Guided Questions */}
+              <button
+                onClick={() => generateGuidedQuestions("general")}
+                disabled={loadingPrompt}
+                className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-lg transition text-sm"
+              >
+                Guided Questions
+              </button>
+            </div>
           </div>
 
           {/* Current Prompt Display */}
-          {prompt && !showPromptOptions && (
+          {prompt && (
             <div className="bg-purple-600/20 backdrop-blur-sm rounded-lg border border-purple-400/30 p-4">
               <div className="flex items-start justify-between gap-4">
                 <p className="text-purple-100 flex-1">{prompt}</p>
                 <button
-                  onClick={() => {
-                    setPrompt("");
-                    setShowPromptOptions(true);
-                  }}
+                  onClick={() => setPrompt("")}
                   className="text-sm text-purple-300 hover:text-white whitespace-nowrap"
                 >
-                  Change prompt
+                  Clear prompt
                 </button>
               </div>
             </div>
@@ -810,9 +768,23 @@ export default function PremiumJournaling() {
             </div>
           )}
 
-          {/* Premium Features Bar */}
+          {/* Premium Features Bar - Reorganized with Voice Note and proper labels */}
           <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Voice Note */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">
+                  Voice Note
+                </label>
+                <button
+                  onClick={() => alert("Voice recording feature coming soon!")}
+                  className="w-full px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center justify-center gap-2"
+                >
+                  <Mic className="h-4 w-4" />
+                  <span className="text-sm">Record</span>
+                </button>
+              </div>
+
               {/* Folder Selection */}
               <div className="relative">
                 <label className="block text-sm text-gray-400 mb-1">
@@ -845,46 +817,20 @@ export default function PremiumJournaling() {
                 />
               </div>
 
-              {/* Star & Pin */}
-              <div className="flex items-end gap-2">
-                <button
-                  onClick={() => setIsStarred(!isStarred)}
-                  className={`p-2 rounded-lg transition ${
-                    isStarred
-                      ? "bg-yellow-500 text-white"
-                      : "bg-white/10 hover:bg-white/20"
-                  }`}
-                  title={isStarred ? "Unstar" : "Star"}
-                >
-                  <Star
-                    className="h-5 w-5"
-                    fill={isStarred ? "white" : "none"}
-                  />
-                </button>
-                <button
-                  onClick={() => setIsPinned(!isPinned)}
-                  className={`p-2 rounded-lg transition ${
-                    isPinned
-                      ? "bg-blue-500 text-white"
-                      : "bg-white/10 hover:bg-white/20"
-                  }`}
-                  title={isPinned ? "Unpin" : "Pin"}
-                >
-                  <Pin className="h-5 w-5" fill={isPinned ? "white" : "none"} />
-                </button>
-              </div>
-
-              {/* Goals Connection */}
+              {/* Connect to Goals */}
               <div className="relative">
+                <label className="block text-sm text-gray-400 mb-1">
+                  Connect to Goals
+                </label>
                 <button
                   onClick={() => setShowGoalSelector(!showGoalSelector)}
                   className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/20 transition flex items-center justify-between"
                 >
-                  <span>
+                  <span className="text-sm">
                     {connectedGoals.length > 0
                       ? `${connectedGoals.length} Goals`
                       : userGoals.length > 0
-                      ? "Connect Goals"
+                      ? "Select Goals"
                       : "No Goals Set"}
                   </span>
                   <Target className="h-4 w-4" />
@@ -926,6 +872,36 @@ export default function PremiumJournaling() {
               </div>
             </div>
 
+            {/* Star & Pin Row */}
+            <div className="flex items-center gap-4 mt-4">
+              <button
+                onClick={() => setIsStarred(!isStarred)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition ${
+                  isStarred
+                    ? "bg-yellow-500 text-white"
+                    : "bg-white/10 hover:bg-white/20"
+                }`}
+                title={isStarred ? "Unstar" : "Star"}
+              >
+                <Star className="h-4 w-4" fill={isStarred ? "white" : "none"} />
+                <span className="text-sm">
+                  {isStarred ? "Starred" : "Star"}
+                </span>
+              </button>
+              <button
+                onClick={() => setIsPinned(!isPinned)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition ${
+                  isPinned
+                    ? "bg-blue-500 text-white"
+                    : "bg-white/10 hover:bg-white/20"
+                }`}
+                title={isPinned ? "Unpin" : "Pin"}
+              >
+                <Pin className="h-4 w-4" fill={isPinned ? "white" : "none"} />
+                <span className="text-sm">{isPinned ? "Pinned" : "Pin"}</span>
+              </button>
+            </div>
+
             {/* Tags Display */}
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
@@ -948,7 +924,7 @@ export default function PremiumJournaling() {
             )}
           </div>
 
-          {/* Editor with fixed height and scrollbar - Now higher up */}
+          {/* Editor with fixed height and scrollbar - Now higher up with always-visible toolbar */}
           <div
             ref={editorContainerRef}
             className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden"
@@ -957,21 +933,9 @@ export default function PremiumJournaling() {
               ref={editorRef}
               className="h-[500px] overflow-y-auto"
               style={{
-                maxHeight: "500px",
+                minHeight: "500px",
               }}
             />
-          </div>
-
-          {/* Simple Tools Bar - Simplified without photo/attach features for now */}
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => alert("Voice recording feature coming soon!")}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2"
-            >
-              <Mic className="h-4 w-4" />
-              Voice Note
-            </button>
-            {/* Removing photo and attach file for now due to privacy concerns and complexity */}
           </div>
 
           {/* Action Buttons */}
