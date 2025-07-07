@@ -1,4 +1,4 @@
-// src/pages/StandardAnalytics.jsx - Fixed to use backend API
+// frontend/ src/pages/StandardAnalytics.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMembership } from "../hooks/useMembership";

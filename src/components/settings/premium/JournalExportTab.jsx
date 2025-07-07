@@ -1,4 +1,4 @@
-// src/components/settings/premium/JournalExportTab.jsx
+// frontend/ src/components/settings/premium/JournalExportTab.jsx
 import React, { useState } from "react";
 import {
   FileText,

@@ -1,4 +1,4 @@
-// src/components/analytics/tabs/PersonalizedRecommendationsTab.jsx
+// frontend/ src/components/analytics/tabs/PersonalizedRecommendationsTab.jsx
 import React, { useState } from "react";
 import {
   BarChart,

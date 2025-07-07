@@ -1,4 +1,4 @@
-// src/pages/StandardWomensHealth.jsx - Fixed to use backend API
+// frontend/ src/pages/StandardWomensHealth.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMembership } from "../hooks/useMembership";

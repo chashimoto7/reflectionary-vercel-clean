@@ -1,4 +1,4 @@
-// src/components/AudioButton.jsx
+// frontend/ src/components/AudioButton.jsx
 import React from "react";
 import { Volume2 } from "lucide-react";
 

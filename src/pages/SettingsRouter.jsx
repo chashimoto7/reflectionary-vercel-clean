@@ -1,4 +1,4 @@
-// src/pages/SettingsRouter.jsx
+// frontend/ src/pages/SettingsRouter.jsx
 import React from "react";
 import { useMembership } from "../hooks/useMembership";
 

@@ -1,5 +1,5 @@
+// frontend/ src/services/PromptUsageService.js
 // This service manages prompt usage tracking and eligibility checking
-// Think of it as the "accounting department" for your app's prompt economy
 
 class PromptUsageService {
   constructor(supabaseClient) {

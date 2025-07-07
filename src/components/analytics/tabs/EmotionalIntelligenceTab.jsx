@@ -1,4 +1,4 @@
-// src/components/analytics/tabs/EmotionalIntelligenceTab.jsx
+// frontend/ src/components/analytics/tabs/EmotionalIntelligenceTab.jsx
 import React, { useState } from "react";
 import {
   RadarChart,

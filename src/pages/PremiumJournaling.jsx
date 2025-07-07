@@ -1,4 +1,4 @@
-// src/pages/PremiumJournaling.jsx - Fixed to use backend API
+// frontend/ src/pages/PremiumJournaling.jsx
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";

@@ -1,4 +1,4 @@
-// src/components/womenshealth/tabs/HormonalInsightsTab.jsx
+// frontend/ src/components/womenshealth/tabs/HormonalInsightsTab.jsx
 import React, { useState, useEffect } from "react";
 import {
   Thermometer,

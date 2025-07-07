@@ -1,4 +1,4 @@
-// src/components/goals/tabs/MentionTimelineTab.jsx
+// frontend/ src/components/goals/tabs/MentionTimelineTab.jsx
 import React, { useState } from "react";
 import {
   Calendar,

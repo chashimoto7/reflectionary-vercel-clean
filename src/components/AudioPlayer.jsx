@@ -1,4 +1,4 @@
-// src/components/AudioPlayer.jsx
+// frontend/ src/components/AudioPlayer.jsx
 import React, { useState, useRef, useEffect } from "react";
 import {
   Play,

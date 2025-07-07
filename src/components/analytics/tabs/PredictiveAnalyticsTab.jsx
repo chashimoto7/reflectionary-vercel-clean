@@ -1,4 +1,4 @@
-// src/components/analytics/tabs/PredictiveAnalyticsTab.jsx
+// frontend/ src/components/analytics/tabs/PredictiveAnalyticsTab.jsx
 import React, { useState } from "react";
 import {
   LineChart,

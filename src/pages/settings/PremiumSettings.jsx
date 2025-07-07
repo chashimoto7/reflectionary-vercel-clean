@@ -1,4 +1,4 @@
-// src/pages/settings/PremiumSettings.jsx
+// frontend/ src/pages/settings/PremiumSettings.jsx - user settings and data/analytics download for all features
 import React, { useState } from "react";
 import {
   Settings,

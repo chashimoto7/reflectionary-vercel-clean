@@ -1,4 +1,4 @@
-// src/services/encryptionService.js
+// frontend/ src/services/encryptionService.js
 
 class EncryptionService {
   constructor() {

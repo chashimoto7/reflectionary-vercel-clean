@@ -1,4 +1,4 @@
-// src/components/settings/advanced/SecurityTab.jsx
+// frontend/ src/components/settings/advanced/SecurityTab.jsx
 import React, { useState, useEffect } from "react";
 import {
   Shield,

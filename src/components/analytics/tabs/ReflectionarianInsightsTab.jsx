@@ -1,4 +1,4 @@
-// src/components/analytics/tabs/ReflectionarianInsightsTab.jsx
+// frontend/ src/components/analytics/tabs/ReflectionarianInsightsTab.jsx
 import React, { useState } from "react";
 import {
   BarChart,

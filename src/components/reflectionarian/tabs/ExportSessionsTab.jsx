@@ -1,4 +1,4 @@
-// src/components/reflectionarian/tabs/ExportSessionsTab.jsx
+// frontend/ src/components/reflectionarian/tabs/ExportSessionsTab.jsx
 import React, { useState, useEffect } from "react";
 import {
   Download,

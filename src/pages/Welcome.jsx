@@ -1,4 +1,4 @@
-// src/pages/Welcome.jsx - Dark Theme with Large SVG Logo
+// frontend/ src/pages/Welcome.jsx - logged in members routed here first
 import lightLogo from "../assets/BrightReflectionarySquare.svg";
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";

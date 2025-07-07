@@ -1,4 +1,4 @@
-// src/pages/GoalsRouter.jsx - Routes to correct goals tier
+// frontend/ src/pages/GoalsRouter.jsx - Routes to correct goals tier
 import React from "react";
 import { useMembership } from "../hooks/useMembership";
 

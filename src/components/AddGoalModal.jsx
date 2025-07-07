@@ -1,4 +1,4 @@
-// src/components/AddGoalModal.jsx
+// frontend/ src/components/AddGoalModal.jsx
 import React, { useState } from "react";
 import {
   X,

@@ -1,4 +1,4 @@
-// src/components/analytics/tabs/UnifiedDashboardTab.jsx
+// frontend/ src/components/analytics/tabs/UnifiedDashboardTab.jsx
 import React from "react";
 import {
   AreaChart,

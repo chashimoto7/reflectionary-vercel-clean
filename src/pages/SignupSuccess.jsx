@@ -1,4 +1,4 @@
-// src/pages/SignupSuccess.jsx
+// frontend/ src/pages/SignupSuccess.jsx
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";

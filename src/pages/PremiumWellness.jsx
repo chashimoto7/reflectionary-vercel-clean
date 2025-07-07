@@ -1,4 +1,4 @@
-// src/pages/PremiumWellness.jsx
+// frontend/ src/pages/PremiumWellness.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMembership } from "../hooks/useMembership";

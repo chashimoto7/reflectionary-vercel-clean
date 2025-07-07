@@ -1,4 +1,4 @@
-// src/components/goals/tabs/GoalComparisonTab.jsx
+// frontend/ src/components/goals/tabs/GoalComparisonTab.jsx
 import React, { useState } from "react";
 import {
   Users,

@@ -1,3 +1,5 @@
+// frontend/ src/components/EditMilestonesModal.jsx - allows users to edit goal milestones
+
 import React, { useState, useEffect } from "react";
 import { useSecurity } from "../contexts/SecurityContext";
 import { X, Trash2, PlusCircle } from "lucide-react";

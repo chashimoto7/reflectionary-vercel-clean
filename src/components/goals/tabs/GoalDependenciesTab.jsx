@@ -1,4 +1,4 @@
-// src/components/goals/tabs/GoalDependenciesTab.jsx
+// frontend/ src/components/goals/tabs/GoalDependenciesTab.jsx
 import React, { useState, useEffect, useRef } from "react";
 import {
   GitBranch,

@@ -1,4 +1,4 @@
-// src/pages/BasicAnalytics.jsx - Fixed to use backend API
+// frontend/ src/pages/BasicAnalytics.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";

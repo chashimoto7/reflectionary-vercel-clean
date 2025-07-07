@@ -1,4 +1,4 @@
-// src/pages/JournalingRouter.jsx - Routes to correct journaling tier
+// frontend/ src/pages/JournalingRouter.jsx - Routes to correct journaling tier
 import React from "react";
 import { useMembership } from "../hooks/useMembership";
 

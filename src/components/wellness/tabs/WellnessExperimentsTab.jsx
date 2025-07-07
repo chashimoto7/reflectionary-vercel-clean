@@ -1,4 +1,4 @@
-// src/components/wellness/tabs/WellnessExperimentsTab.jsx
+// frontend/ src/components/wellness/tabs/WellnessExperimentsTab.jsx
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import {

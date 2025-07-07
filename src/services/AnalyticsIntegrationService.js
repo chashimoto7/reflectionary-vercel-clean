@@ -1,4 +1,4 @@
-// AnalyticsIntegrationService.js - Integrates analytics with journal system
+// frontend/ src/services/AnalyticsIntegrationService.js - Integrates analytics with journal system
 import { supabase } from "../lib/supabase";
 import { AnalyticsService } from "./AnalyticsService";
 

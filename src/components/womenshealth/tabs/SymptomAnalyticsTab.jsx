@@ -1,4 +1,4 @@
-// src/components/womenshealth/tabs/SymptomAnalyticsTab.jsx
+// frontned/ src/components/womenshealth/tabs/SymptomAnalyticsTab.jsx
 import React, { useState, useEffect } from "react";
 import {
   Activity,

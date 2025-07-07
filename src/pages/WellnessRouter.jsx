@@ -1,4 +1,4 @@
-// src/pages/WellnessRouter.jsx - Routes to correct wellness tier
+// frontend/ src/pages/WellnessRouter.jsx - Routes to correct wellness tier
 import React from "react";
 import { useMembership } from "../hooks/useMembership";
 

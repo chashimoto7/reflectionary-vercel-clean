@@ -1,4 +1,4 @@
-// src/pages/ReflectionarianRouter.jsx - Routes to correct Reflectionarian tier
+// frontend/ src/pages/ReflectionarianRouter.jsx - Routes to correct Reflectionarian tier
 import React from "react";
 import { useMembership } from "../hooks/useMembership";
 

@@ -1,4 +1,4 @@
-// src/pages/settings/AdvancedSettings.jsx
+// frontend/ src/pages/settings/AdvancedSettings.jsx - user settings and download for all data/analytics
 import React, { useState } from "react";
 import {
   Settings,

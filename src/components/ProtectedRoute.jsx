@@ -1,4 +1,4 @@
-// src/components/ProtectedRoute.jsx
+// frontend/ src/components/ProtectedRoute.jsx
 import React from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Navigate } from "react-router-dom";

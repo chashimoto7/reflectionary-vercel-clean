@@ -1,4 +1,4 @@
-// src/pages/SignupCancelled.jsx
+// frontend/ src/pages/SignupCancelled.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/ReflectionaryLogoWelcome.png";

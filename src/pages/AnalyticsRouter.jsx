@@ -1,4 +1,4 @@
-// src/pages/AnalyticsRouter.jsx - Routes to correct analytics tier
+// frontend/ src/pages/AnalyticsRouter.jsx - Routes to correct analytics tier
 import React from "react";
 import { useMembership } from "../hooks/useMembership";
 

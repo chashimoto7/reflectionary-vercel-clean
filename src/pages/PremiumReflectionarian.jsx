@@ -1,4 +1,4 @@
-// src/pages/PremiumReflectionarian.jsx
+// frontend/ src/pages/PremiumReflectionarian.jsx
 import React, { useState, useEffect, useRef } from "react";
 import {
   MessageCircle,

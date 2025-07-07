@@ -1,4 +1,4 @@
-// src/pages/BasicHistory.jsx - Fixed to use backend API
+// frontend/ src/pages/BasicHistory.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";

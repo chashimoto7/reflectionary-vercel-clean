@@ -1,4 +1,4 @@
-// src/components/womenshealth/tabs/PredictiveInsightsTab.jsx
+// frontend/ src/components/womenshealth/tabs/PredictiveInsightsTab.jsx
 import React, { useState, useEffect } from "react";
 import {
   Brain,

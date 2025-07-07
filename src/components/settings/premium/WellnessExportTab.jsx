@@ -1,4 +1,4 @@
-// src/components/settings/premium/WellnessExportTab.jsx
+// frontend/ src/components/settings/premium/WellnessExportTab.jsx
 import React, { useState } from "react";
 import {
   Heart,

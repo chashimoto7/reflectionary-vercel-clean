@@ -1,4 +1,4 @@
-// BasicJournaling.jsx - Fixed to use backend encryption
+// frontend/ src/pages/BasicJournaling.jsx
 import React, { useState, useRef, useEffect } from "react";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";

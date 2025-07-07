@@ -1,4 +1,4 @@
-// src/components/analytics/tabs/GrowthVelocityTab.jsx
+// frontend/ src/components/analytics/tabs/GrowthVelocityTab.jsx
 import React, { useState } from "react";
 import {
   LineChart,

@@ -1,4 +1,4 @@
-// Enhanced AnalyticsService.js - Comprehensive journaling analytics
+// frontend/ src/services/Enhanced AnalyticsService.js - Comprehensive journaling analytics
 export class AnalyticsService {
   constructor() {
     // Sentiment analysis lexicons

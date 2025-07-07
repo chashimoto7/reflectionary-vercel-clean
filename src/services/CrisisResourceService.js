@@ -1,4 +1,4 @@
-// src/services/CrisisResourceService.js
+// frontend/ src/services/CrisisResourceService.js
 // Comprehensive crisis resource management with location-aware support
 
 export class CrisisResourceService {

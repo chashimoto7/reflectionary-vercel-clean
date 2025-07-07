@@ -1,4 +1,4 @@
-// src/pages/StandardReflectionarian.jsx - Fixed to use backend API
+// frontend/ src/pages/StandardReflectionarian.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMembership } from "../hooks/useMembership";

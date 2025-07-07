@@ -1,4 +1,4 @@
-// src/components/settings/premium/ReflectionarianTab.jsx
+// frontend/ src/components/settings/premium/ReflectionarianTab.jsx
 import React, { useState } from "react";
 import {
   MessageCircle,

@@ -1,4 +1,4 @@
-// src/pages/settings/StandardSettings.jsx
+// frontend/ src/pages/settings/StandardSettings.jsx
 import React, { useState, useEffect } from "react";
 import {
   Settings,

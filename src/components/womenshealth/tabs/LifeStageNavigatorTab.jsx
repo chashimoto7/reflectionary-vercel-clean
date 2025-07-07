@@ -1,4 +1,4 @@
-// src/components/womenshealth/tabs/LifeStageNavigatorTab.jsx
+// frontend/ src/components/womenshealth/tabs/LifeStageNavigatorTab.jsx
 import React, { useState, useEffect } from "react";
 import {
   Flower2,

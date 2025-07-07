@@ -1,4 +1,4 @@
-// src/components/analytics/tabs/JourneyTimelineTab.jsx
+// frontend/ src/components/analytics/tabs/JourneyTimelineTab.jsx
 import React, { useState } from "react";
 import {
   LineChart,

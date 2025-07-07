@@ -1,4 +1,4 @@
-// src/components/goals/tabs/IntelligenceOverviewTab.jsx
+// frontend/ src/components/goals/tabs/IntelligenceOverviewTab.jsx
 import React from "react";
 import {
   Target,

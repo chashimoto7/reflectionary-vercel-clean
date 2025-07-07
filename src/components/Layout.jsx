@@ -1,4 +1,4 @@
-// src/components/Layout.jsx - Dark Theme with Frosted Glass Sidebar
+// frontend/ src/components/Layout.jsx - Dark Theme with Frosted Glass UI
 import { Link, NavLink, useLocation } from "react-router-dom";
 import {
   Plus,

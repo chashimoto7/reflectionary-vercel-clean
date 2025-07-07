@@ -1,4 +1,4 @@
-// src/components/GoalJournalEntries.jsx
+// frontend/ src/components/GoalJournalEntries.jsx
 import React from "react";
 
 export default function GoalJournalEntries({ goal }) {

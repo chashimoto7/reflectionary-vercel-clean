@@ -1,4 +1,4 @@
-// src/components/EditGoalModal.jsx
+// frontend/ src/components/EditGoalModal.jsx - allows users to edit goals
 import React, { useState } from "react";
 import { X } from "lucide-react";
 

@@ -1,4 +1,4 @@
-// src/components/history/tabs/StarredPinnedTab.jsx
+// frontend/ src/components/history/tabs/StarredPinnedTab.jsx
 import React, { useState, useMemo } from "react";
 import AudioButton from "../../AudioButton";
 import AudioPlayer from "../../AudioPlayer";

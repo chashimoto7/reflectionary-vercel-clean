@@ -1,4 +1,4 @@
-// src/components/analytics/tabs/PatternRecognitionTab.jsx
+// frontend/ src/components/analytics/tabs/PatternRecognitionTab.jsx
 import React, { useState } from "react";
 import {
   ScatterChart,

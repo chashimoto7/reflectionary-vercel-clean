@@ -1,3 +1,4 @@
+// frontend/ src/components/UpgradePrompt.jsx
 import React from "react";
 import { Lock } from "lucide-react";
 

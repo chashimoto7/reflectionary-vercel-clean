@@ -1,4 +1,4 @@
-// src/components/goals/tabs/GoalHealthScoreTab.jsx
+// frontend/ src/components/goals/tabs/GoalHealthScoreTab.jsx
 import React, { useState } from "react";
 import {
   Gauge,

@@ -1,4 +1,4 @@
-// src/components/history/tabs/FoldersTab.jsx
+// frontend/ src/components/history/tabs/FoldersTab.jsx
 import React, { useState } from "react";
 import AudioButton from "../../AudioButton";
 import AudioPlayer from "../../AudioPlayer";

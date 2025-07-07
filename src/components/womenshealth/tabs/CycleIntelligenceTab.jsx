@@ -1,4 +1,4 @@
-// src/components/womenshealth/tabs/CycleIntelligenceTab.jsx
+// frontend/ src/components/womenshealth/tabs/CycleIntelligenceTab.jsx
 import React, { useState, useEffect } from "react";
 import {
   Moon,

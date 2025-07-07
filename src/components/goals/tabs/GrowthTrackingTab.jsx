@@ -1,4 +1,4 @@
-// src/components/goals/tabs/GrowthTrackingTab.jsx
+// frontend/ src/components/goals/tabs/GrowthTrackingTab.jsx
 import React, { useState } from "react";
 import {
   Sparkles,

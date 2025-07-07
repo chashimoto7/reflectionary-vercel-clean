@@ -1,4 +1,4 @@
-// src/components/settings/advanced/SubscriptionTab.jsx
+// frontend/ src/components/settings/advanced/SubscriptionTab.jsx
 import React, { useState, useEffect } from "react";
 import {
   CreditCard,

@@ -1,4 +1,4 @@
-// src/components/CrisisResourceModal.jsx
+// frontend/ src/components/CrisisResourceModal.jsx
 // Gentle, supportive crisis resource modal with location-aware help
 
 import React, { useState, useEffect } from "react";

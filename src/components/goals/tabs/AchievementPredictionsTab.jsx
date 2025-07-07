@@ -1,4 +1,4 @@
-// src/components/goals/tabs/AchievementPredictionsTab.jsx
+// frontend/ src/components/goals/tabs/AchievementPredictionsTab.jsx
 import React, { useState } from "react";
 import {
   TrendingUp,

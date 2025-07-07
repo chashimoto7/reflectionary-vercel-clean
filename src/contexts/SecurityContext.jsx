@@ -1,4 +1,4 @@
-//src/contexts/SecurityContext.jsx
+// frontend/ src/contexts/SecurityContext.jsx
 import React, {
   createContext,
   useContext,

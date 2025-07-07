@@ -1,4 +1,4 @@
-// src/components/womenshealth/MenopauseEntryModal.jsx
+// frontend/ src/components/womenshealth/tabs/MenopauseEntryModal.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useMembership } from "../../hooks/useMembership";

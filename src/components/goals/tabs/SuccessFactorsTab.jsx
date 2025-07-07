@@ -1,4 +1,4 @@
-// src/components/goals/tabs/SuccessFactorsTab.jsx
+// frontend/ src/components/goals/tabs/SuccessFactorsTab.jsx
 import React, { useState } from "react";
 import {
   Zap,

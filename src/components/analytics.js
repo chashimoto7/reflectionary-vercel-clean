@@ -1,3 +1,5 @@
+// frontend/ src/components/AnalyticsDashboard.jsx
+
 import React, { useState, useEffect } from "react";
 import {
   LineChart,

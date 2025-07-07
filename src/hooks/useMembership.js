@@ -1,4 +1,4 @@
-// src/hooks/useMembership - Simplified for new tier structure
+// frontend/ src/hooks/useMembership - Simplified for new tier structure
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";

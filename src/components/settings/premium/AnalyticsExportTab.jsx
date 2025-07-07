@@ -1,4 +1,4 @@
-// src/components/settings/premium/AnalyticsExportTab.jsx
+// frontend/ src/components/settings/premium/AnalyticsExportTab.jsx
 import React, { useState } from "react";
 import {
   BarChart3,

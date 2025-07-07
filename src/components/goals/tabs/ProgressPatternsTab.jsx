@@ -1,4 +1,4 @@
-// src/components/goals/tabs/ProgressPatternsTab.jsx
+// frontend/ src/components/goals/tabs/ProgressPatternsTab.jsx
 import React, { useState } from "react";
 import {
   BarChart3,

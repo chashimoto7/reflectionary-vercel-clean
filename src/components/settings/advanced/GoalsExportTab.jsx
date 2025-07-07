@@ -1,4 +1,4 @@
-// src/components/settings/advanced/GoalsExportTab.jsx
+// frontend/ src/components/settings/advanced/GoalsExportTab.jsx
 import React, { useState } from "react";
 import {
   Target,

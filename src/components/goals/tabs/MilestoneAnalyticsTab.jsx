@@ -1,4 +1,4 @@
-// src/components/goals/tabs/MilestoneAnalyticsTab.jsx
+// frontend/ src/components/goals/tabs/MilestoneAnalyticsTab.jsx
 import React, { useState } from "react";
 import {
   CheckCircle2,

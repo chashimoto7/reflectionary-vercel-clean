@@ -1,4 +1,4 @@
-// src/components/history/tabs/GoalConnectionsTab.jsx
+// frontend/ src/components/history/tabs/GoalConnectionsTab.jsx
 import React, { useState, useMemo } from "react";
 import {
   BarChart,

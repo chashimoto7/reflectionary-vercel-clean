@@ -1,4 +1,4 @@
-// src/components/womenshealth/tabs/WellnessCorrelationsTab.jsx
+// frontend/ src/components/womenshealth/tabs/WellnessCorrelationsTab.jsx
 import React, { useState, useEffect } from "react";
 import {
   Activity,

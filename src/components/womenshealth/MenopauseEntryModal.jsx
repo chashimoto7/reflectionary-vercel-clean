@@ -1,4 +1,4 @@
-// src/components/womenshealth/MenopauseEntryModal.jsx
+// frontend/ src/components/womenshealth/MenopauseEntryModal.jsx
 import React, { useState, useEffect } from "react";
 import {
   X,

@@ -1,4 +1,4 @@
-// src/components/history/tabs/JournalHealthMetricsTab.jsx
+// frontend/ src/components/history/tabs/JournalHealthMetricsTab.jsx
 import React, { useState, useMemo } from "react";
 import {
   RadialBarChart,

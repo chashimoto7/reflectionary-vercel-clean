@@ -1,4 +1,4 @@
-// src/pages/settings/FreeSettings.jsx
+// frontend/ src/pages/settings/FreeSettings.jsx
 import React, { useState, useEffect } from "react";
 import {
   Settings,

@@ -1,4 +1,4 @@
-// src/lib/supabase.js
+// frontend/ src/lib/supabase.js
 import { createClient } from "@supabase/supabase-js";
 
 // Determine which database to use based on demo mode

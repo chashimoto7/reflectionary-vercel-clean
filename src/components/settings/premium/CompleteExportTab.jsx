@@ -1,4 +1,4 @@
-// src/components/settings/premium/CompleteExportTab.jsx
+// frontend/ src/components/settings/premium/CompleteExportTab.jsx
 import React, { useState } from "react";
 import {
   Package,

@@ -1,4 +1,4 @@
-// src/services/ReflectionarianService.js
+// frontend/ src/services/ReflectionarianService.js
 import { supabase } from "../lib/supabase";
 import encryptionService from "./encryptionService";
 

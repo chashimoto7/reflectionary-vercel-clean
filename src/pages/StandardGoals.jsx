@@ -1,4 +1,4 @@
-// src/pages/StandardGoals.jsx - Fixed to use backend encryption
+// frontend/ src/pages/StandardGoals.jsx
 import React, { useState, useEffect } from "react";
 import {
   Plus,

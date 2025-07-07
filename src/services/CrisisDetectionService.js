@@ -1,4 +1,4 @@
-// src/services/CrisisDetectionService.js
+// frontend/ src/services/CrisisDetectionService.js
 // Intelligent crisis pattern detection with balanced sensitivity
 
 export class CrisisDetectionService {

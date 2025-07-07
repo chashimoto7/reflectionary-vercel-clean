@@ -1,4 +1,4 @@
-// src/components/analytics/tabs/WellnessHolisticTab.jsx
+// frontend/ src/components/analytics/tabs/WellnessHolisticTab.jsx
 import React, { useState } from "react";
 import {
   RadarChart,

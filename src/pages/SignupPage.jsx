@@ -1,4 +1,4 @@
-// src/pages/SignupPage.jsx
+// frontend/ src/pages/SignupPage.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";

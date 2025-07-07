@@ -1,5 +1,5 @@
-// src/hooks/useCrisisIntegration.js
-// Simple crisis integration that works with your existing backend
+// frontend/ src/hooks/useCrisisIntegration.js
+// Simple crisis integration that works with backend
 
 import { useState } from "react";
 

@@ -1,4 +1,4 @@
-// src/components/settings/advanced/AccountTab.jsx
+// frontend/ src/components/settings/advanced/AccountTab.jsx
 import React, { useState } from "react";
 import {
   User,

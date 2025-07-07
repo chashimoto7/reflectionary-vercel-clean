@@ -1,4 +1,4 @@
-// src/components/reflectionarian/tabs/SessionPromptsTab.jsx
+// frontend/ src/components/reflectionarian/tabs/SessionPromptsTab.jsx
 import React, { useState, useEffect } from "react";
 import {
   Lightbulb,

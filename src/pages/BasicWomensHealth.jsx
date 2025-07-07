@@ -1,4 +1,4 @@
-// src/pages/BasicWomensHealth.jsx - Fixed to use backend API
+// frontend/ src/pages/BasicWomensHealth.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";

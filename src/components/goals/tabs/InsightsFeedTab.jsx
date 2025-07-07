@@ -1,4 +1,4 @@
-// src/components/goals/tabs/InsightsFeedTab.jsx
+// frontend/ src/components/goals/tabs/InsightsFeedTab.jsx
 import React, { useState } from "react";
 import {
   Lightbulb,

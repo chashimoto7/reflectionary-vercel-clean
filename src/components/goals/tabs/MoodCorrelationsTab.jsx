@@ -1,4 +1,4 @@
-// src/components/goals/tabs/MoodCorrelationsTab.jsx
+// frontend/ src/components/goals/tabs/MoodCorrelationsTab.jsx
 import React, { useState } from "react";
 import {
   Heart,

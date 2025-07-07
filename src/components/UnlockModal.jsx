@@ -1,3 +1,5 @@
+//frontend/ src/components/UnlockModal.jsx
+
 import React, { useState } from "react";
 import { useSecurity } from "../contexts/SecurityContext";
 import { useAuth } from "../contexts/AuthContext";

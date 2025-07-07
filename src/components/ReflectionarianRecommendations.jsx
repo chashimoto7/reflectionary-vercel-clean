@@ -1,4 +1,4 @@
-// src/components/ReflectionarianRecommendations.jsx
+// frontend/ src/components/ReflectionarianRecommendations.jsx
 // Reusable component for managing Reflectionarian recommendations
 
 import React, { useState, useEffect } from "react";

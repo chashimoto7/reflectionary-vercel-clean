@@ -1,4 +1,4 @@
-// src/components/history/tabs/ContentAnalysisTab.jsx
+// frontend/ src/components/history/tabs/ContentAnalysisTab.jsx
 import React, { useState, useMemo } from "react";
 import {
   PieChart,

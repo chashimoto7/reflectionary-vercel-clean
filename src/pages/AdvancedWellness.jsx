@@ -1,4 +1,4 @@
-//src/pages/AdvancedWellness
+//frontend/ src/pages/AdvancedWellness.jsx
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";

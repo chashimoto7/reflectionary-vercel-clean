@@ -1,4 +1,4 @@
-// src/components/goals/tabs/GoalsOverviewTab.jsx
+// frontend/ src/components/goals/tabs/GoalsOverviewTab.jsx
 import React from "react";
 import {
   Target,

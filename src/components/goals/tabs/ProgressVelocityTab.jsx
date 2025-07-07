@@ -1,4 +1,4 @@
-// src/components/goals/tabs/ProgressVelocityTab.jsx
+// frontend/ src/components/goals/tabs/ProgressVelocityTab.jsx
 import React, { useState } from "react";
 import {
   LineChart as LineChartIcon,

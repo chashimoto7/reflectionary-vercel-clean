@@ -1,4 +1,4 @@
-// src/components/history/tabs/WritingPatternsTab.jsx
+// frontend/ src/components/history/tabs/WritingPatternsTab.jsx
 import React, { useState, useMemo } from "react";
 import {
   LineChart,
