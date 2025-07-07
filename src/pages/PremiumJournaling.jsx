@@ -1,4 +1,4 @@
-// frontend/ src/pages/PremiumJournaling.jsx
+// frontend/src/pages/PremiumJournaling.jsx
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -24,6 +24,10 @@ import {
   Pin,
   Target,
   MessageCircle,
+  ChevronDown,
+  X,
+  Check,
+  Trash2,
 } from "lucide-react";
 
 export default function PremiumJournaling() {
@@ -69,8 +73,6 @@ export default function PremiumJournaling() {
   const [currentTag, setCurrentTag] = useState("");
   const [isStarred, setIsStarred] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
-  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
-  const [attachments, setAttachments] = useState([]);
   const [connectedGoals, setConnectedGoals] = useState([]);
   const [showGoalSelector, setShowGoalSelector] = useState(false);
   const [userGoals, setUserGoals] = useState([]);
@@ -78,9 +80,9 @@ export default function PremiumJournaling() {
   const [guidedQuestions, setGuidedQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
-  // Reflectionarian prompts state
+  // Reflectionarian prompts state - Fixed to use dropdown
   const [reflectionarianPrompts, setReflectionarianPrompts] = useState([]);
-  const [showReflectionarianPrompts, setShowReflectionarianPrompts] =
+  const [showReflectionarianDropdown, setShowReflectionarianDropdown] =
     useState(false);
 
   const quillRef = useRef(null);
@@ -133,15 +135,26 @@ export default function PremiumJournaling() {
       if (prompt) {
         quillRef.current.root.setAttribute("data-placeholder", prompt);
       }
-
-      // Focus on the editor
-      setTimeout(() => {
-        if (quillRef.current) {
-          quillRef.current.focus();
-        }
-      }, 100);
     }
-  }, [prompt]);
+  }, []);
+
+  // Separate effect to handle prompt changes and focus
+  useEffect(() => {
+    if (quillRef.current) {
+      if (prompt) {
+        quillRef.current.root.setAttribute("data-placeholder", prompt);
+      }
+
+      // Focus the editor when prompt options are hidden
+      if (!showPromptOptions) {
+        setTimeout(() => {
+          if (quillRef.current) {
+            quillRef.current.focus();
+          }
+        }, 100);
+      }
+    }
+  }, [prompt, showPromptOptions]);
 
   const loadFolders = async () => {
     try {
@@ -185,36 +198,78 @@ export default function PremiumJournaling() {
 
   const loadReflectionarianPrompts = async () => {
     try {
-      // For now, skip this API call since it doesn't exist yet
-      // Just use some demo prompts if available
-      const demoPrompts = [
-        {
-          text: "What patterns have you noticed in your emotions this week?",
-          created_at: new Date().toISOString(),
-        },
-        {
-          text: "How have your relationships influenced your recent decisions?",
-          created_at: new Date().toISOString(),
-        },
-      ];
+      const response = await fetch(
+        `/api/reflectionarian-prompts?user_id=${user.id}`
+      );
 
-      // Only show if we have prompts
-      if (demoPrompts.length > 0) {
-        setReflectionarianPrompts(demoPrompts);
-        setShowReflectionarianPrompts(true);
+      if (!response.ok) {
+        console.error(
+          "Failed to load Reflectionarian prompts:",
+          response.status
+        );
+        return;
+      }
+
+      const data = await response.json();
+      if (data.prompts && data.prompts.length > 0) {
+        setReflectionarianPrompts(data.prompts);
       }
     } catch (error) {
       console.error("Error loading Reflectionarian prompts:", error);
+      // Continue without prompts - this is not critical
     }
   };
 
   const useReflectionarianPrompt = (promptText) => {
     setPrompt(promptText);
     setShowPromptOptions(false);
-    setShowReflectionarianPrompts(false);
+    setShowReflectionarianDropdown(false);
     if (quillRef.current) {
       quillRef.current.root.setAttribute("data-placeholder", promptText);
-      quillRef.current.focus();
+      setTimeout(() => quillRef.current.focus(), 100);
+    }
+  };
+
+  const markReflectionarianPromptDone = async (promptId) => {
+    try {
+      const response = await fetch(`/api/reflectionarian-prompts`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt_id: promptId,
+          user_id: user.id,
+          status: "completed",
+        }),
+      });
+
+      if (response.ok) {
+        // Remove from local state
+        setReflectionarianPrompts((prev) =>
+          prev.filter((p) => p.id !== promptId)
+        );
+      }
+    } catch (error) {
+      console.error("Error marking prompt as done:", error);
+    }
+  };
+
+  const deleteReflectionarianPrompt = async (promptId) => {
+    try {
+      const response = await fetch(
+        `/api/reflectionarian-prompts?prompt_id=${promptId}&user_id=${user.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (response.ok) {
+        // Remove from local state
+        setReflectionarianPrompts((prev) =>
+          prev.filter((p) => p.id !== promptId)
+        );
+      }
+    } catch (error) {
+      console.error("Error deleting prompt:", error);
     }
   };
 
@@ -241,22 +296,12 @@ export default function PremiumJournaling() {
           fallbackPrompts[Math.floor(Math.random() * fallbackPrompts.length)];
         setPrompt(randomPrompt);
         setShowPromptOptions(false);
-
-        if (quillRef.current) {
-          quillRef.current.root.setAttribute("data-placeholder", randomPrompt);
-          quillRef.current.focus();
-        }
         return;
       }
 
       const data = await response.json();
       setPrompt(data.prompt);
       setShowPromptOptions(false);
-
-      if (quillRef.current) {
-        quillRef.current.root.setAttribute("data-placeholder", data.prompt);
-        quillRef.current.focus();
-      }
     } catch (error) {
       console.error("Error generating prompt:", error);
       // Use fallback
@@ -270,11 +315,6 @@ export default function PremiumJournaling() {
         fallbackPrompts[Math.floor(Math.random() * fallbackPrompts.length)];
       setPrompt(randomPrompt);
       setShowPromptOptions(false);
-
-      if (quillRef.current) {
-        quillRef.current.root.setAttribute("data-placeholder", randomPrompt);
-        quillRef.current.focus();
-      }
     } finally {
       setLoadingPrompt(false);
     }
@@ -299,36 +339,18 @@ export default function PremiumJournaling() {
         const fallbackPrompt = `Take a moment to explore your thoughts and feelings about ${subject}. What comes up for you when you think about this?`;
         setPrompt(fallbackPrompt);
         setShowPromptOptions(false);
-
-        if (quillRef.current) {
-          quillRef.current.root.setAttribute(
-            "data-placeholder",
-            fallbackPrompt
-          );
-          quillRef.current.focus();
-        }
         return;
       }
 
       const data = await response.json();
       setPrompt(data.prompt);
       setShowPromptOptions(false);
-
-      if (quillRef.current) {
-        quillRef.current.root.setAttribute("data-placeholder", data.prompt);
-        quillRef.current.focus();
-      }
     } catch (error) {
       console.error("Error generating subject prompt:", error);
       // Use fallback
       const fallbackPrompt = `What role does ${subject.toLowerCase()} play in your life right now? How has your relationship with it evolved?`;
       setPrompt(fallbackPrompt);
       setShowPromptOptions(false);
-
-      if (quillRef.current) {
-        quillRef.current.root.setAttribute("data-placeholder", fallbackPrompt);
-        quillRef.current.focus();
-      }
     } finally {
       setLoadingPrompt(false);
       setSubjectPrompt(""); // Clear the input
@@ -357,7 +379,7 @@ export default function PremiumJournaling() {
           "data-placeholder",
           fallbackQuestions[0]
         );
-        quillRef.current.focus();
+        setTimeout(() => quillRef.current.focus(), 100);
       }
     } catch (error) {
       console.error("Error generating guided questions:", error);
@@ -391,8 +413,6 @@ export default function PremiumJournaling() {
         pinned: isPinned,
         connected_goals: connectedGoals.length > 0 ? connectedGoals : null,
         writing_mode: writingMode,
-        attachments:
-          attachments.length > 0 ? attachments.map((a) => a.name) : null,
         guided_questions: writingMode === "guided" ? guidedQuestions : null,
         current_question_index:
           writingMode === "guided" ? currentQuestionIndex : null,
@@ -423,8 +443,9 @@ export default function PremiumJournaling() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to save entry");
+        const errorText = await response.text();
+        console.error("Save error response:", errorText);
+        throw new Error(`Failed to save entry: ${response.status}`);
       }
 
       const result = await response.json();
@@ -447,7 +468,6 @@ export default function PremiumJournaling() {
       setIsStarred(false);
       setIsPinned(false);
       setConnectedGoals([]);
-      setAttachments([]);
       setWritingMode("free");
       setGuidedQuestions([]);
       setCurrentQuestionIndex(0);
@@ -492,7 +512,7 @@ export default function PremiumJournaling() {
             "data-placeholder",
             fallbackFollowUp
           );
-          quillRef.current.focus();
+          setTimeout(() => quillRef.current.focus(), 100);
         }
         return;
       }
@@ -505,7 +525,7 @@ export default function PremiumJournaling() {
       if (quillRef.current) {
         quillRef.current.setText("");
         quillRef.current.root.setAttribute("data-placeholder", data.prompt);
-        quillRef.current.focus();
+        setTimeout(() => quillRef.current.focus(), 100);
       }
 
       setEntryChain((prev) => [...prev, lastSavedEntry.id]);
@@ -527,7 +547,7 @@ export default function PremiumJournaling() {
           "data-placeholder",
           fallbackFollowUp
         );
-        quillRef.current.focus();
+        setTimeout(() => quillRef.current.focus(), 100);
       }
     } finally {
       setLoadingPrompt(false);
@@ -575,116 +595,151 @@ export default function PremiumJournaling() {
           Premium Journaling
         </h1>
 
-        {/* Main content area - Full width without sidebar */}
+        {/* Main content area - Reorganized layout */}
         <div className="space-y-6">
-          {/* Reflectionarian Prompts (if available) */}
-          {showReflectionarianPrompts && reflectionarianPrompts.length > 0 && (
-            <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-sm rounded-lg border border-purple-400/30 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="h-5 w-5 text-purple-400" />
-                  <h3 className="text-lg font-semibold">
-                    Reflectionarian Prompts
-                  </h3>
-                </div>
+          {/* Compact top section with prompts side by side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Reflectionarian Prompts - Compact Dropdown */}
+            {reflectionarianPrompts.length > 0 && (
+              <div className="relative">
                 <button
-                  onClick={() => setShowReflectionarianPrompts(false)}
-                  className="text-gray-400 hover:text-white"
+                  onClick={() =>
+                    setShowReflectionarianDropdown(!showReflectionarianDropdown)
+                  }
+                  className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-sm rounded-lg border border-purple-400/30 hover:border-purple-400/50 transition"
                 >
-                  ×
-                </button>
-              </div>
-              <div className="space-y-2">
-                {reflectionarianPrompts.map((prompt, index) => (
-                  <button
-                    key={index}
-                    onClick={() => useReflectionarianPrompt(prompt.text)}
-                    className="w-full text-left p-3 bg-white/10 hover:bg-white/20 rounded-lg transition"
-                  >
-                    <p className="text-sm">{prompt.text}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Prompt Options - Only show if not already writing */}
-          {showPromptOptions && (
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6">
-              <h3 className="text-lg font-semibold mb-4">
-                How would you like to start?
-              </h3>
-
-              <div className="space-y-3">
-                {/* Start Writing (no prompt) */}
-                <button
-                  onClick={() => {
-                    setShowPromptOptions(false);
-                    setTimeout(() => {
-                      if (quillRef.current) {
-                        quillRef.current.focus();
-                      }
-                    }, 100);
-                  }}
-                  className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-lg transition text-left px-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Start Writing</span>
-                    <span className="text-sm text-gray-400">
-                      Write freely without a prompt
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-5 w-5 text-purple-400" />
+                    <span className="font-medium">
+                      Reflectionarian Prompts ({reflectionarianPrompts.length})
                     </span>
                   </div>
-                </button>
-
-                {/* Generate AI Prompt */}
-                <button
-                  onClick={generatePrompt}
-                  disabled={loadingPrompt}
-                  className="w-full py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <Sparkles className="h-5 w-5" />
-                  {loadingPrompt ? "Generating..." : "Generate AI Prompt"}
-                </button>
-
-                {/* Topic-specific prompt */}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Or write about a specific topic..."
-                    value={subjectPrompt}
-                    onChange={(e) => setSubjectPrompt(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter" && subjectPrompt.trim()) {
-                        generateSubjectPrompt(subjectPrompt);
-                      }
-                    }}
-                    className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400"
+                  <ChevronDown
+                    className={`h-5 w-5 text-purple-400 transform transition-transform ${
+                      showReflectionarianDropdown ? "rotate-180" : ""
+                    }`}
                   />
+                </button>
+
+                {/* Dropdown overlay */}
+                {showReflectionarianDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800/95 backdrop-blur-sm border border-purple-400/30 rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto">
+                    {reflectionarianPrompts.map((prompt) => (
+                      <div
+                        key={prompt.id}
+                        className="flex items-center justify-between p-3 hover:bg-purple-600/20 border-b border-purple-400/20 last:border-b-0"
+                      >
+                        <button
+                          onClick={() => useReflectionarianPrompt(prompt.text)}
+                          className="flex-1 text-left text-sm text-purple-100 hover:text-white"
+                        >
+                          {prompt.text}
+                        </button>
+                        <div className="flex gap-1 ml-2">
+                          <button
+                            onClick={() =>
+                              markReflectionarianPromptDone(prompt.id)
+                            }
+                            className="p-1 text-green-400 hover:text-green-300 transition"
+                            title="Mark as done"
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() =>
+                              deleteReflectionarianPrompt(prompt.id)
+                            }
+                            className="p-1 text-red-400 hover:text-red-300 transition"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Prompt Options - Only show if not already writing */}
+            {showPromptOptions && (
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
+                <h3 className="text-lg font-semibold mb-3">
+                  How would you like to start?
+                </h3>
+
+                <div className="space-y-2">
+                  {/* Start Writing (no prompt) */}
                   <button
-                    onClick={() => generateSubjectPrompt(subjectPrompt)}
-                    disabled={!subjectPrompt.trim() || loadingPrompt}
-                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition disabled:opacity-50"
+                    onClick={() => {
+                      setShowPromptOptions(false);
+                      setTimeout(() => {
+                        if (quillRef.current) {
+                          quillRef.current.focus();
+                        }
+                      }, 100);
+                    }}
+                    className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg transition text-left px-3"
                   >
-                    Generate
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Start Writing</span>
+                      <span className="text-xs text-gray-400">
+                        Write freely without a prompt
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Generate AI Prompt */}
+                  <button
+                    onClick={generatePrompt}
+                    disabled={loadingPrompt}
+                    className="w-full py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    {loadingPrompt ? "Generating..." : "Generate AI Prompt"}
+                  </button>
+
+                  {/* Topic-specific prompt */}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Or write about a specific topic..."
+                      value={subjectPrompt}
+                      onChange={(e) => setSubjectPrompt(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter" && subjectPrompt.trim()) {
+                          generateSubjectPrompt(subjectPrompt);
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400"
+                    />
+                    <button
+                      onClick={() => generateSubjectPrompt(subjectPrompt)}
+                      disabled={!subjectPrompt.trim() || loadingPrompt}
+                      className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition disabled:opacity-50 text-sm"
+                    >
+                      Generate
+                    </button>
+                  </div>
+
+                  {/* Guided Questions */}
+                  <button
+                    onClick={() => generateGuidedQuestions("general")}
+                    disabled={loadingPrompt}
+                    className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg transition text-left px-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Guided Questions</span>
+                      <span className="text-xs text-gray-400">
+                        Answer structured prompts
+                      </span>
+                    </div>
                   </button>
                 </div>
-
-                {/* Guided Questions */}
-                <button
-                  onClick={() => generateGuidedQuestions("general")}
-                  disabled={loadingPrompt}
-                  className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-lg transition text-left px-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Guided Questions</span>
-                    <span className="text-sm text-gray-400">
-                      Answer structured prompts
-                    </span>
-                  </div>
-                </button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Current Prompt Display */}
           {prompt && !showPromptOptions && (
@@ -893,7 +948,7 @@ export default function PremiumJournaling() {
             )}
           </div>
 
-          {/* Editor with fixed height and scrollbar */}
+          {/* Editor with fixed height and scrollbar - Now higher up */}
           <div
             ref={editorContainerRef}
             className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden"
@@ -907,23 +962,16 @@ export default function PremiumJournaling() {
             />
           </div>
 
-          {/* Premium Tools Bar */}
+          {/* Simple Tools Bar - Simplified without photo/attach features for now */}
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => setShowVoiceRecorder(!showVoiceRecorder)}
+              onClick={() => alert("Voice recording feature coming soon!")}
               className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2"
             >
               <Mic className="h-4 w-4" />
               Voice Note
             </button>
-            <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2">
-              <Camera className="h-4 w-4" />
-              Add Photo
-            </button>
-            <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center gap-2">
-              <Paperclip className="h-4 w-4" />
-              Attach File
-            </button>
+            {/* Removing photo and attach file for now due to privacy concerns and complexity */}
           </div>
 
           {/* Action Buttons */}
