@@ -36,6 +36,7 @@ import {
   Target,
   BookOpen,
   Zap,
+  MessageCircle,
 } from "lucide-react";
 
 export default function PremiumJournaling() {
@@ -90,8 +91,14 @@ export default function PremiumJournaling() {
   const [guidedQuestions, setGuidedQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
+  // Reflectionarian prompts state
+  const [reflectionarianPrompts, setReflectionarianPrompts] = useState([]);
+  const [showReflectionarianPrompts, setShowReflectionarianPrompts] =
+    useState(false);
+
   const quillRef = useRef(null);
   const editorRef = useRef(null);
+  const editorContainerRef = useRef(null);
 
   // Redirect if locked
   useEffect(() => {
@@ -105,6 +112,7 @@ export default function PremiumJournaling() {
     if (user) {
       loadFolders();
       loadGoals();
+      loadReflectionarianPrompts();
     }
   }, [user]);
 
@@ -138,6 +146,9 @@ export default function PremiumJournaling() {
       if (prompt) {
         quillRef.current.root.setAttribute("data-placeholder", prompt);
       }
+
+      // Focus on the editor
+      quillRef.current.focus();
     }
   }, [prompt]);
 
@@ -167,10 +178,38 @@ export default function PremiumJournaling() {
     }
   };
 
+  const loadReflectionarianPrompts = async () => {
+    try {
+      // Check if user has any saved prompts from Reflectionarian sessions
+      const response = await fetch(
+        `/api/reflectionarian/saved-prompts?user_id=${user.id}`
+      );
+      if (!response.ok) return;
+
+      const data = await response.json();
+      if (data.prompts && data.prompts.length > 0) {
+        setReflectionarianPrompts(data.prompts);
+        setShowReflectionarianPrompts(true);
+      }
+    } catch (error) {
+      console.error("Error loading Reflectionarian prompts:", error);
+    }
+  };
+
+  const useReflectionarianPrompt = (promptText) => {
+    setPrompt(promptText);
+    setShowPromptOptions(false);
+    setShowReflectionarianPrompts(false);
+    if (quillRef.current) {
+      quillRef.current.root.setAttribute("data-placeholder", promptText);
+      quillRef.current.focus();
+    }
+  };
+
   const generatePrompt = async () => {
     setLoadingPrompt(true);
     try {
-      const response = await fetch("/api/generatePrompt", {
+      const response = await fetch("/api/generate-prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user.id }),
@@ -184,6 +223,7 @@ export default function PremiumJournaling() {
 
       if (quillRef.current) {
         quillRef.current.root.setAttribute("data-placeholder", data.prompt);
+        quillRef.current.focus();
       }
     } catch (error) {
       console.error("Error generating prompt:", error);
@@ -213,6 +253,7 @@ export default function PremiumJournaling() {
 
       if (quillRef.current) {
         quillRef.current.root.setAttribute("data-placeholder", data.prompt);
+        quillRef.current.focus();
       }
     } catch (error) {
       console.error("Error generating subject prompt:", error);
@@ -440,37 +481,67 @@ export default function PremiumJournaling() {
 
         {/* Main content area - Full width without sidebar */}
         <div className="space-y-6">
-          {/* Writing Mode Selector */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Writing Mode</h3>
-              <div className="flex gap-2">
+          {/* Reflectionarian Prompts (if available) */}
+          {showReflectionarianPrompts && reflectionarianPrompts.length > 0 && (
+            <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-sm rounded-lg border border-purple-400/30 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="h-5 w-5 text-purple-400" />
+                  <h3 className="text-lg font-semibold">
+                    Prompts from your Reflectionarian sessions
+                  </h3>
+                </div>
                 <button
-                  onClick={() => setWritingMode("free")}
-                  className={`px-4 py-2 rounded-lg transition ${
-                    writingMode === "free"
-                      ? "bg-purple-600"
-                      : "bg-white/10 hover:bg-white/20"
-                  }`}
+                  onClick={() => setShowReflectionarianPrompts(false)}
+                  className="text-gray-400 hover:text-white"
                 >
-                  Free Writing
-                </button>
-                <button
-                  onClick={() => generateGuidedQuestions("general")}
-                  className={`px-4 py-2 rounded-lg transition ${
-                    writingMode === "guided"
-                      ? "bg-purple-600"
-                      : "bg-white/10 hover:bg-white/20"
-                  }`}
-                >
-                  Guided
+                  ×
                 </button>
               </div>
+              <div className="space-y-2">
+                {reflectionarianPrompts.map((prompt, index) => (
+                  <button
+                    key={index}
+                    onClick={() => useReflectionarianPrompt(prompt.text)}
+                    className="w-full text-left p-3 bg-white/10 hover:bg-white/20 rounded-lg transition"
+                  >
+                    <p className="text-sm">{prompt.text}</p>
+                    <span className="text-xs text-gray-400">
+                      From {new Date(prompt.created_at).toLocaleDateString()}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
+          )}
 
-            {/* Prompt Options */}
-            {showPromptOptions && writingMode === "free" && (
+          {/* Prompt Options - Only show if not already writing */}
+          {showPromptOptions && (
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
+              <h3 className="text-lg font-semibold mb-4">
+                Choose how you'd like to start writing:
+              </h3>
+
               <div className="space-y-3">
+                {/* Start Writing (no prompt) */}
+                <button
+                  onClick={() => {
+                    setShowPromptOptions(false);
+                    if (quillRef.current) {
+                      quillRef.current.focus();
+                    }
+                  }}
+                  className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-lg transition text-left px-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <span>Start Writing</span>
+                    <span className="text-sm text-gray-400">
+                      Write freely without a prompt
+                    </span>
+                  </div>
+                </button>
+
+                {/* Generate AI Prompt */}
                 <button
                   onClick={generatePrompt}
                   disabled={loadingPrompt}
@@ -480,6 +551,7 @@ export default function PremiumJournaling() {
                   {loadingPrompt ? "Generating..." : "Generate AI Prompt"}
                 </button>
 
+                {/* Topic-specific prompt */}
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -501,40 +573,67 @@ export default function PremiumJournaling() {
                     Generate
                   </button>
                 </div>
-              </div>
-            )}
 
-            {/* Guided Questions Display */}
-            {writingMode === "guided" && guidedQuestions.length > 0 && (
-              <div className="mt-4 p-4 bg-white/5 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-400">
-                    Question {currentQuestionIndex + 1} of{" "}
-                    {guidedQuestions.length}
-                  </span>
-                  <button
-                    onClick={() =>
-                      setCurrentQuestionIndex(
-                        Math.min(
-                          currentQuestionIndex + 1,
-                          guidedQuestions.length - 1
-                        )
-                      )
-                    }
-                    disabled={
-                      currentQuestionIndex >= guidedQuestions.length - 1
-                    }
-                    className="text-sm text-purple-400 hover:text-purple-300 disabled:opacity-50"
-                  >
-                    Next Question →
-                  </button>
-                </div>
-                <p className="text-lg">
-                  {guidedQuestions[currentQuestionIndex]}
-                </p>
+                {/* Guided Questions */}
+                <button
+                  onClick={() => generateGuidedQuestions("general")}
+                  className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-lg transition text-left px-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <span>Guided Questions</span>
+                    <span className="text-sm text-gray-400">
+                      Answer structured prompts
+                    </span>
+                  </div>
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Current Prompt Display */}
+          {prompt && !showPromptOptions && (
+            <div className="bg-purple-600/20 backdrop-blur-sm rounded-lg border border-purple-400/30 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-purple-100">{prompt}</p>
+                <button
+                  onClick={() => {
+                    setPrompt("");
+                    setShowPromptOptions(true);
+                  }}
+                  className="text-sm text-purple-300 hover:text-white"
+                >
+                  Change prompt
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Guided Questions Display */}
+          {writingMode === "guided" && guidedQuestions.length > 0 && (
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-gray-400">
+                  Question {currentQuestionIndex + 1} of{" "}
+                  {guidedQuestions.length}
+                </span>
+                <button
+                  onClick={() =>
+                    setCurrentQuestionIndex(
+                      Math.min(
+                        currentQuestionIndex + 1,
+                        guidedQuestions.length - 1
+                      )
+                    )
+                  }
+                  disabled={currentQuestionIndex >= guidedQuestions.length - 1}
+                  className="text-sm text-purple-400 hover:text-purple-300 disabled:opacity-50"
+                >
+                  Next Question →
+                </button>
+              </div>
+              <p className="text-lg">{guidedQuestions[currentQuestionIndex]}</p>
+            </div>
+          )}
 
           {/* Premium Features Bar */}
           <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
@@ -607,10 +706,46 @@ export default function PremiumJournaling() {
                   <span>
                     {connectedGoals.length > 0
                       ? `${connectedGoals.length} Goals`
-                      : "Connect Goals"}
+                      : userGoals.length > 0
+                      ? "Connect Goals"
+                      : "No Goals Set"}
                   </span>
                   <Target className="h-4 w-4" />
                 </button>
+
+                {/* Goal Selector Dropdown */}
+                {showGoalSelector && (
+                  <div className="absolute mt-2 w-64 bg-slate-800 border border-white/20 rounded-lg shadow-xl p-3 z-10 right-0">
+                    {userGoals.length > 0 ? (
+                      <div className="space-y-2">
+                        {userGoals.map((goal) => (
+                          <label
+                            key={goal.id}
+                            className="flex items-center gap-2 text-sm cursor-pointer hover:text-purple-300"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={connectedGoals.includes(goal.id)}
+                              onChange={() => toggleGoal(goal.id)}
+                              className="rounded"
+                            />
+                            {goal.title}
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-400">
+                        <p className="mb-2">You haven't set any goals yet.</p>
+                        <button
+                          onClick={() => navigate("/goals")}
+                          className="text-purple-400 hover:text-purple-300"
+                        >
+                          Create your first goal →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -634,32 +769,13 @@ export default function PremiumJournaling() {
                 ))}
               </div>
             )}
-
-            {/* Goal Selector Dropdown */}
-            {showGoalSelector && userGoals.length > 0 && (
-              <div className="absolute mt-2 w-64 bg-slate-800 border border-white/20 rounded-lg shadow-xl p-3 z-10">
-                <div className="space-y-2">
-                  {userGoals.map((goal) => (
-                    <label
-                      key={goal.id}
-                      className="flex items-center gap-2 text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={connectedGoals.includes(goal.id)}
-                        onChange={() => toggleGoal(goal.id)}
-                        className="rounded"
-                      />
-                      {goal.title}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Editor with fixed height and scrollbar */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden">
+          <div
+            ref={editorContainerRef}
+            className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden"
+          >
             <div
               ref={editorRef}
               className="h-[500px] overflow-y-auto"
