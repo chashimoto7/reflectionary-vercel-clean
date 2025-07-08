@@ -96,62 +96,85 @@ export default function PremiumJournaling() {
     }
   }, [isLocked, navigate]);
 
-  // Load premium data
+  // Load premium data - Make this non-blocking for editor
   useEffect(() => {
     if (user) {
-      loadFolders();
-      loadGoals();
-      loadReflectionarianPrompts();
+      // Load data in background, don't block editor initialization
+      setTimeout(() => {
+        loadFolders();
+        loadGoals();
+        loadReflectionarianPrompts();
+      }, 100);
     }
   }, [user]);
 
-  // Initialize Quill editor - Fixed based on working version
+  // Initialize Quill editor - Make it more resilient and independent
   useEffect(() => {
-    if (isLocked || !editorRef.current || quillRef.current) return;
+    // Don't let other errors block editor initialization
+    const initializeEditor = () => {
+      if (isLocked || !editorRef.current || quillRef.current) return;
 
-    // Check if Quill is already initialized in this element
-    if (editorRef.current.classList.contains("ql-container")) {
-      return;
-    }
+      // Check if Quill is already initialized in this element
+      if (editorRef.current.classList.contains("ql-container")) {
+        return;
+      }
 
-    const toolbarOptions = [
-      ["bold", "italic", "underline", "strike"],
-      ["blockquote", "code-block"],
-      [{ header: 1 }, { header: 2 }],
-      [{ list: "ordered" }, { list: "bullet" }],
-      [{ script: "sub" }, { script: "super" }],
-      [{ indent: "-1" }, { indent: "+1" }],
-      [{ direction: "rtl" }],
-      [{ size: ["small", false, "large", "huge"] }],
-      [{ header: [1, 2, 3, 4, 5, 6, false] }],
-      [{ color: [] }, { background: [] }],
-      [{ font: [] }],
-      [{ align: [] }],
-      ["link", "image"],
-      ["clean"],
-    ];
+      try {
+        const toolbarOptions = [
+          ["bold", "italic", "underline", "strike"],
+          ["blockquote", "code-block"],
+          [{ header: 1 }, { header: 2 }],
+          [{ list: "ordered" }, { list: "bullet" }],
+          [{ script: "sub" }, { script: "super" }],
+          [{ indent: "-1" }, { indent: "+1" }],
+          [{ direction: "rtl" }],
+          [{ size: ["small", false, "large", "huge"] }],
+          [{ header: [1, 2, 3, 4, 5, 6, false] }],
+          [{ color: [] }, { background: [] }],
+          [{ font: [] }],
+          [{ align: [] }],
+          ["link", "image"],
+          ["clean"],
+        ];
 
-    const quill = new Quill(editorRef.current, {
-      theme: "snow",
-      modules: {
-        toolbar: toolbarOptions,
-      },
-      placeholder: "Start writing your thoughts...",
-    });
+        const quill = new Quill(editorRef.current, {
+          theme: "snow",
+          modules: {
+            toolbar: toolbarOptions,
+          },
+          placeholder: "Start writing your thoughts...",
+        });
 
-    quill.on("text-change", () => {
-      // You can add content change handling here if needed
-    });
+        quill.on("text-change", () => {
+          // You can add content change handling here if needed
+        });
 
-    quillRef.current = quill;
+        quillRef.current = quill;
+
+        // Force focus to make sure it's clickable
+        setTimeout(() => {
+          if (quillRef.current) {
+            quillRef.current.focus();
+          }
+        }, 200);
+
+        console.log("✅ Quill editor initialized successfully");
+      } catch (error) {
+        console.error("❌ Error initializing Quill editor:", error);
+      }
+    };
+
+    // Initialize editor with a slight delay to ensure DOM is ready
+    const timer = setTimeout(initializeEditor, 100);
 
     return () => {
+      clearTimeout(timer);
       // Clean up on unmount
       if (quillRef.current) {
         quillRef.current = null;
       }
     };
-  }, [isLocked, user]);
+  }, [isLocked]);
 
   // Separate effect to handle prompt changes
   useEffect(() => {
@@ -171,6 +194,13 @@ export default function PremiumJournaling() {
         return;
       }
 
+      // Check if response is actually JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        console.error("Folders API returned non-JSON response");
+        return;
+      }
+
       const data = await response.json();
       if (data.folders) {
         setFolders(data.folders);
@@ -178,6 +208,7 @@ export default function PremiumJournaling() {
     } catch (error) {
       console.error("Error loading folders:", error);
       // Don't show error to user, just continue without folders
+      setFolders([]);
     }
   };
 
@@ -190,6 +221,13 @@ export default function PremiumJournaling() {
         return;
       }
 
+      // Check if response is actually JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        console.error("Goals API returned non-JSON response");
+        return;
+      }
+
       const data = await response.json();
       if (data.goals) {
         setUserGoals(data.goals.filter((g) => g.status === "active"));
@@ -197,6 +235,7 @@ export default function PremiumJournaling() {
     } catch (error) {
       console.error("Error loading goals:", error);
       // Don't show error to user, just continue without goals
+      setUserGoals([]);
     }
   };
 
@@ -214,6 +253,13 @@ export default function PremiumJournaling() {
         return;
       }
 
+      // Check if response is actually JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        console.error("Reflectionarian prompts API returned non-JSON response");
+        return;
+      }
+
       const data = await response.json();
       if (data.prompts && data.prompts.length > 0) {
         setReflectionarianPrompts(data.prompts);
@@ -221,6 +267,7 @@ export default function PremiumJournaling() {
     } catch (error) {
       console.error("Error loading Reflectionarian prompts:", error);
       // Continue without prompts - this is not critical
+      setReflectionarianPrompts([]);
     }
   };
 
