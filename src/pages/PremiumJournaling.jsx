@@ -516,9 +516,14 @@ export default function PremiumJournaling() {
           writingMode === "guided" ? currentQuestionIndex : null,
       };
 
+      console.log("🚀 Attempting to save entry...");
+
       const response = await fetch("/api/save-entry", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         body: JSON.stringify({
           user_id: user.id,
           content: htmlContent,
@@ -537,10 +542,37 @@ export default function PremiumJournaling() {
         }),
       });
 
+      console.log("📡 Response status:", response.status, response.statusText);
+      console.log(
+        "📡 Response headers:",
+        Object.fromEntries(response.headers.entries())
+      );
+
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Save error response:", errorText);
-        throw new Error(`Failed to save entry: ${response.status}`);
+        const contentType = response.headers.get("content-type");
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+
+        if (contentType && contentType.includes("application/json")) {
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorData.message || errorMessage;
+            console.error("📡 Error data:", errorData);
+          } catch (e) {
+            console.error("📡 Failed to parse error JSON:", e);
+          }
+        } else {
+          try {
+            const errorText = await response.text();
+            console.error("📡 Error text:", errorText);
+            if (errorText) {
+              errorMessage = errorText;
+            }
+          } catch (e) {
+            console.error("📡 Failed to get error text:", e);
+          }
+        }
+
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
