@@ -209,6 +209,7 @@ export default function PremiumJournaling() {
 
   const quillRef = useRef(null);
   const editorRef = useRef(null);
+  const editorContainerRef = useRef(null); // Added back to prevent errors
   const stylesInjected = useRef(false);
 
   // Custom styles for Quill dark theme integration
