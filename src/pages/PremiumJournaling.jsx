@@ -1,4 +1,63 @@
-// frontend/src/pages/PremiumJournaling.jsx
+console.log("🚀 Attempting to save entry...");
+
+const response = await fetch(`${API_BASE}/api/save-entry`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
+  body: JSON.stringify({
+    user_id: user.id,
+    content: htmlContent,
+    title: `Entry from ${new Date().toLocaleDateString()}`,
+    prompt: prompt || null,
+    is_follow_up: false,
+    parent_entry_id: null,
+    thread_id: currentThreadId,
+    prompt_used: prompt ? "AI-generated" : "user-initiated",
+    folder_id: selectedFolder,
+    starred: isStarred,
+    pinned: isPinned,
+    tags: tags,
+    goal_ids: connectedGoals,
+    metadata: metadata,
+  }),
+});
+
+console.log("📡 Response status:", response.status, response.statusText);
+console.log(
+  "📡 Response headers:",
+  Object.fromEntries(response.headers.entries())
+);
+
+if (!response.ok) {
+  const contentType = response.headers.get("content-type");
+  let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+
+  if (contentType && contentType.includes("application/json")) {
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error || errorData.message || errorMessage;
+      console.error("📡 Error data:", errorData);
+    } catch (e) {
+      console.error("📡 Failed to parse error JSON:", e);
+    }
+  } else {
+    try {
+      const errorText = await response.text();
+      console.error("📡 Error text:", errorText);
+      if (errorText) {
+        errorMessage = errorText;
+      }
+    } catch (e) {
+      console.error("📡 Failed to get error text:", e);
+    }
+  }
+
+  throw new Error(errorMessage);
+}
+
+const result = await response.json(); // frontend/src/pages/PremiumJournaling.jsx
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -31,73 +90,15 @@ import {
   Lightbulb,
 } from "lucide-react";
 
-// Custom styles for Quill dark theme integration
-const quillStyles = `
-  .ql-editor {
-    color: white !important;
-    font-size: 16px;
-    line-height: 1.6;
-    min-height: 350px;
-  }
-
-  .ql-editor.ql-blank::before {
-    color: rgba(255, 255, 255, 0.6) !important;
-    font-style: italic;
-  }
-
-  .ql-toolbar {
-    background: rgba(255, 255, 255, 0.1) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
-    border-top: none !important;
-    border-left: none !important;
-    border-right: none !important;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-  }
-
-  .ql-toolbar .ql-stroke {
-    stroke: rgba(255, 255, 255, 0.8) !important;
-  }
-
-  .ql-toolbar .ql-fill {
-    fill: rgba(255, 255, 255, 0.8) !important;
-  }
-
-  .ql-toolbar button:hover {
-    background: rgba(255, 255, 255, 0.1) !important;
-  }
-
-  .ql-toolbar button.ql-active {
-    background: rgba(147, 51, 234, 0.3) !important;
-  }
-
-  .ql-container {
-    border: none !important;
-    font-family: inherit;
-    background: rgba(255, 255, 255, 0.05);
-    border-bottom-left-radius: 8px;
-    border-bottom-right-radius: 8px;
-  }
-
-  .ql-picker {
-    color: rgba(255, 255, 255, 0.8) !important;
-  }
-
-  .ql-picker-options {
-    background: rgba(30, 41, 59, 0.95) !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  }
-
-  .ql-picker-item:hover {
-    background: rgba(147, 51, 234, 0.2) !important;
-  }
-`;
-
 export default function PremiumJournaling() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isLocked } = useSecurity();
   const { hasAccess, tier, loading } = useMembership();
+
+  // API Base URL - Define once at the top
+  const API_BASE =
+    process.env.REACT_APP_API_URL || "https://reflectionary-api.vercel.app";
 
   // Feature access management
   const {
@@ -142,31 +143,14 @@ export default function PremiumJournaling() {
   const [guidedQuestions, setGuidedQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
-  // Reflectionarian prompts state
+  // Reflectionarian prompts state - Fixed to use dropdown
   const [reflectionarianPrompts, setReflectionarianPrompts] = useState([]);
   const [showReflectionarianDropdown, setShowReflectionarianDropdown] =
     useState(false);
 
   const quillRef = useRef(null);
   const editorRef = useRef(null);
-  const stylesInjected = useRef(false);
-
-  // Inject custom styles once
-  useEffect(() => {
-    if (!stylesInjected.current) {
-      const styleSheet = document.createElement("style");
-      styleSheet.textContent = quillStyles;
-      document.head.appendChild(styleSheet);
-      stylesInjected.current = true;
-
-      return () => {
-        // Clean up styles on unmount
-        if (styleSheet.parentNode) {
-          styleSheet.parentNode.removeChild(styleSheet);
-        }
-      };
-    }
-  }, []);
+  const editorContainerRef = useRef(null);
 
   // Redirect if locked
   useEffect(() => {
@@ -175,9 +159,10 @@ export default function PremiumJournaling() {
     }
   }, [isLocked, navigate]);
 
-  // Load premium data
+  // Load premium data - Make this non-blocking for editor
   useEffect(() => {
     if (user) {
+      // Load data in background, don't block editor initialization
       setTimeout(() => {
         loadFolders();
         loadGoals();
@@ -186,13 +171,16 @@ export default function PremiumJournaling() {
     }
   }, [user]);
 
-  // Initialize Quill editor - Fixed and more robust
+  // Initialize Quill editor - Make it more resilient and independent
   useEffect(() => {
+    // Don't let other errors block editor initialization
     const initializeEditor = () => {
       if (isLocked || !editorRef.current || quillRef.current) return;
 
-      // Clear any existing content
-      editorRef.current.innerHTML = "";
+      // Check if Quill is already initialized in this element
+      if (editorRef.current.classList.contains("ql-container")) {
+        return;
+      }
 
       try {
         const toolbarOptions = [
@@ -202,8 +190,12 @@ export default function PremiumJournaling() {
           [{ list: "ordered" }, { list: "bullet" }],
           [{ script: "sub" }, { script: "super" }],
           [{ indent: "-1" }, { indent: "+1" }],
+          [{ direction: "rtl" }],
           [{ size: ["small", false, "large", "huge"] }],
+          [{ header: [1, 2, 3, 4, 5, 6, false] }],
           [{ color: [] }, { background: [] }],
+          [{ font: [] }],
+          [{ align: [] }],
           ["link", "image"],
           ["clean"],
         ];
@@ -213,16 +205,16 @@ export default function PremiumJournaling() {
           modules: {
             toolbar: toolbarOptions,
           },
-          placeholder: prompt || "Start writing your thoughts...",
+          placeholder: "Start writing your thoughts...",
         });
 
         quill.on("text-change", () => {
-          // Handle content changes if needed
+          // You can add content change handling here if needed
         });
 
         quillRef.current = quill;
 
-        // Focus after initialization
+        // Force focus to make sure it's clickable
         setTimeout(() => {
           if (quillRef.current) {
             quillRef.current.focus();
@@ -235,17 +227,19 @@ export default function PremiumJournaling() {
       }
     };
 
-    const timer = setTimeout(initializeEditor, 150);
+    // Initialize editor with a slight delay to ensure DOM is ready
+    const timer = setTimeout(initializeEditor, 100);
 
     return () => {
       clearTimeout(timer);
+      // Clean up on unmount
       if (quillRef.current) {
         quillRef.current = null;
       }
     };
   }, [isLocked]);
 
-  // Update placeholder when prompt changes
+  // Separate effect to handle prompt changes
   useEffect(() => {
     if (quillRef.current && prompt) {
       quillRef.current.root.setAttribute("data-placeholder", prompt);
@@ -263,6 +257,7 @@ export default function PremiumJournaling() {
         return;
       }
 
+      // Check if response is actually JSON
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         console.error("Folders API returned non-JSON response");
@@ -275,6 +270,7 @@ export default function PremiumJournaling() {
       }
     } catch (error) {
       console.error("Error loading folders:", error);
+      // Don't show error to user, just continue without folders
       setFolders([]);
     }
   };
@@ -288,6 +284,7 @@ export default function PremiumJournaling() {
         return;
       }
 
+      // Check if response is actually JSON
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         console.error("Goals API returned non-JSON response");
@@ -300,6 +297,7 @@ export default function PremiumJournaling() {
       }
     } catch (error) {
       console.error("Error loading goals:", error);
+      // Don't show error to user, just continue without goals
       setUserGoals([]);
     }
   };
@@ -318,6 +316,7 @@ export default function PremiumJournaling() {
         return;
       }
 
+      // Check if response is actually JSON
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         console.error("Reflectionarian prompts API returned non-JSON response");
@@ -330,6 +329,7 @@ export default function PremiumJournaling() {
       }
     } catch (error) {
       console.error("Error loading Reflectionarian prompts:", error);
+      // Continue without prompts - this is not critical
       setReflectionarianPrompts([]);
     }
   };
@@ -356,6 +356,7 @@ export default function PremiumJournaling() {
       });
 
       if (response.ok) {
+        // Remove from local state
         setReflectionarianPrompts((prev) =>
           prev.filter((p) => p.id !== promptId)
         );
@@ -375,6 +376,7 @@ export default function PremiumJournaling() {
       );
 
       if (response.ok) {
+        // Remove from local state
         setReflectionarianPrompts((prev) =>
           prev.filter((p) => p.id !== promptId)
         );
@@ -394,6 +396,7 @@ export default function PremiumJournaling() {
       });
 
       if (!response.ok) {
+        // Fallback to local prompts
         const fallbackPrompts = [
           "What emotions have been most present for you today, and what might they be trying to tell you?",
           "Describe a moment from today that made you pause. What made it significant?",
@@ -412,6 +415,7 @@ export default function PremiumJournaling() {
       setPrompt(data.prompt);
     } catch (error) {
       console.error("Error generating prompt:", error);
+      // Use fallback
       const fallbackPrompts = [
         "What's on your mind today? Take a moment to reflect on your thoughts and feelings.",
         "How are you feeling in this moment? Explore what's behind those feelings.",
@@ -441,6 +445,7 @@ export default function PremiumJournaling() {
       });
 
       if (!response.ok) {
+        // Fallback prompt based on subject
         const fallbackPrompt = `Take a moment to explore your thoughts and feelings about ${subject}. What comes up for you when you think about this?`;
         setPrompt(fallbackPrompt);
         return;
@@ -450,17 +455,19 @@ export default function PremiumJournaling() {
       setPrompt(data.prompt);
     } catch (error) {
       console.error("Error generating subject prompt:", error);
+      // Use fallback
       const fallbackPrompt = `What role does ${subject.toLowerCase()} play in your life right now? How has your relationship with it evolved?`;
       setPrompt(fallbackPrompt);
     } finally {
       setLoadingPrompt(false);
-      setSubjectPrompt("");
+      setSubjectPrompt(""); // Clear the input
     }
   };
 
   const generateGuidedQuestions = async (topic) => {
     setLoadingPrompt(true);
     try {
+      // Always use fallback questions for now
       const fallbackQuestions = [
         "What brought this topic to mind today?",
         "How does this make you feel emotionally and physically?",
@@ -504,6 +511,7 @@ export default function PremiumJournaling() {
     setSaveLabel("Saving...");
 
     try {
+      // Prepare metadata for premium features
       const metadata = {
         folder_id: selectedFolder,
         tags: tags.length > 0 ? tags : null,
@@ -516,14 +524,10 @@ export default function PremiumJournaling() {
           writingMode === "guided" ? currentQuestionIndex : null,
       };
 
-      console.log("🚀 Attempting to save entry...");
-
+      // Send to backend for encryption and saving
       const response = await fetch("/api/save-entry", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: user.id,
           content: htmlContent,
@@ -533,6 +537,8 @@ export default function PremiumJournaling() {
           parent_entry_id: null,
           thread_id: currentThreadId,
           prompt_used: prompt ? "AI-generated" : "user-initiated",
+
+          // Premium metadata
           folder_id: selectedFolder,
           starred: isStarred,
           pinned: isPinned,
@@ -542,41 +548,15 @@ export default function PremiumJournaling() {
         }),
       });
 
-      console.log("📡 Response status:", response.status, response.statusText);
-      console.log(
-        "📡 Response headers:",
-        Object.fromEntries(response.headers.entries())
-      );
-
       if (!response.ok) {
-        const contentType = response.headers.get("content-type");
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-
-        if (contentType && contentType.includes("application/json")) {
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorData.message || errorMessage;
-            console.error("📡 Error data:", errorData);
-          } catch (e) {
-            console.error("📡 Failed to parse error JSON:", e);
-          }
-        } else {
-          try {
-            const errorText = await response.text();
-            console.error("📡 Error text:", errorText);
-            if (errorText) {
-              errorMessage = errorText;
-            }
-          } catch (e) {
-            console.error("📡 Failed to get error text:", e);
-          }
-        }
-
-        throw new Error(errorMessage);
+        const errorText = await response.text();
+        console.error("Save error response:", errorText);
+        throw new Error(`Failed to save entry: ${response.status}`);
       }
 
       const result = await response.json();
 
+      // Handle crisis detection result
       if (result.crisis_analysis && result.crisis_analysis.should_alert) {
         await triggerCrisisModal(plainText, result.crisis_analysis);
       }
@@ -597,6 +577,7 @@ export default function PremiumJournaling() {
       setGuidedQuestions([]);
       setCurrentQuestionIndex(0);
 
+      // Show confirmation
       setSaveConfirmation(true);
       setTimeout(() => setSaveConfirmation(false), 3000);
     } catch (error) {
@@ -623,6 +604,7 @@ export default function PremiumJournaling() {
       });
 
       if (!response.ok) {
+        // Use a generic follow-up prompt
         const fallbackFollowUp =
           "Let's dive deeper into what you just wrote. What else comes up for you when you sit with these thoughts?";
         setPrompt(fallbackFollowUp);
@@ -655,6 +637,7 @@ export default function PremiumJournaling() {
       }
     } catch (error) {
       console.error("Error generating follow-up:", error);
+      // Use fallback
       const fallbackFollowUp =
         "What would you like to explore further about what you just shared?";
       setPrompt(fallbackFollowUp);
@@ -714,15 +697,16 @@ export default function PremiumJournaling() {
           Premium Journaling
         </h1>
 
+        {/* Main content area - Reorganized layout */}
         <div className="space-y-6">
-          {/* Compact prompt section */}
+          {/* Compact prompt section with inline buttons */}
           <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
             <h3 className="text-lg font-semibold mb-3">
               How would you like to start?
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* Reflectionarian Prompts Dropdown */}
+              {/* Reflectionarian Prompts Dropdown - Replaces Start Writing */}
               <div className="relative">
                 <button
                   onClick={() =>
@@ -745,6 +729,7 @@ export default function PremiumJournaling() {
                   />
                 </button>
 
+                {/* Dropdown overlay */}
                 {showReflectionarianDropdown && (
                   <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800/95 backdrop-blur-sm border border-purple-400/30 rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto">
                     {reflectionarianPrompts.length > 0 ? (
@@ -804,7 +789,7 @@ export default function PremiumJournaling() {
                 </span>
               </button>
 
-              {/* Generate Subject Prompt */}
+              {/* Generate Subject Prompt - Inline */}
               <div className="flex gap-1">
                 <input
                   type="text"
@@ -905,10 +890,10 @@ export default function PremiumJournaling() {
             </div>
           )}
 
-          {/* Premium Features Bar */}
+          {/* Premium Features Bar - Reorganized inline: Voice Note, Folder, Tags, Star, Pin, Connect to Goals */}
           <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
             <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-              {/* Voice Note */}
+              {/* Voice Note - Smaller */}
               <div>
                 <label className="block text-sm text-gray-400 mb-1">
                   Voice Note
@@ -993,7 +978,7 @@ export default function PremiumJournaling() {
                 </button>
               </div>
 
-              {/* Connect to Goals */}
+              {/* Connect to Goals - Smaller */}
               <div className="relative">
                 <label className="block text-sm text-gray-400 mb-1">
                   Connect to Goals
@@ -1012,6 +997,7 @@ export default function PremiumJournaling() {
                   </span>
                 </button>
 
+                {/* Goal Selector Dropdown */}
                 {showGoalSelector && (
                   <div className="absolute mt-2 w-64 bg-slate-800 border border-white/20 rounded-lg shadow-xl p-3 z-10 right-0">
                     {userGoals.length > 0 ? (
@@ -1069,9 +1055,16 @@ export default function PremiumJournaling() {
             )}
           </div>
 
-          {/* Fixed Editor Container */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden">
-            <div ref={editorRef} style={{ minHeight: "400px" }} />
+          {/* Editor with fixed height and scrollbar - Now higher up with always-visible toolbar */}
+          <div
+            ref={editorContainerRef}
+            className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden"
+          >
+            <div
+              ref={editorRef}
+              className="border border-gray-300 rounded-lg"
+              style={{ minHeight: "400px" }}
+            />
           </div>
 
           {/* Action Buttons */}
@@ -1085,6 +1078,7 @@ export default function PremiumJournaling() {
               {saveLabel}
             </button>
 
+            {/* Follow-up Options */}
             {showFollowUpButtons && (
               <button
                 onClick={generateFollowUp}
