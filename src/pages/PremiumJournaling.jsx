@@ -209,7 +209,86 @@ export default function PremiumJournaling() {
 
   const quillRef = useRef(null);
   const editorRef = useRef(null);
-  const editorContainerRef = useRef(null);
+  const stylesInjected = useRef(false);
+
+  // Custom styles for Quill dark theme integration
+  const quillStyles = `
+    .ql-editor {
+      color: white !important;
+      font-size: 16px;
+      line-height: 1.6;
+      min-height: 350px;
+    }
+
+    .ql-editor.ql-blank::before {
+      color: rgba(255, 255, 255, 0.6) !important;
+      font-style: italic;
+    }
+
+    .ql-toolbar {
+      background: rgba(255, 255, 255, 0.1) !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+      border-top: none !important;
+      border-left: none !important;
+      border-right: none !important;
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+    }
+
+    .ql-toolbar .ql-stroke {
+      stroke: rgba(255, 255, 255, 0.8) !important;
+    }
+
+    .ql-toolbar .ql-fill {
+      fill: rgba(255, 255, 255, 0.8) !important;
+    }
+
+    .ql-toolbar button:hover {
+      background: rgba(255, 255, 255, 0.1) !important;
+    }
+
+    .ql-toolbar button.ql-active {
+      background: rgba(147, 51, 234, 0.3) !important;
+    }
+
+    .ql-container {
+      border: none !important;
+      font-family: inherit;
+      background: rgba(255, 255, 255, 0.05);
+      border-bottom-left-radius: 8px;
+      border-bottom-right-radius: 8px;
+    }
+
+    .ql-picker {
+      color: rgba(255, 255, 255, 0.8) !important;
+    }
+
+    .ql-picker-options {
+      background: rgba(30, 41, 59, 0.95) !important;
+      border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    }
+
+    .ql-picker-item:hover {
+      background: rgba(147, 51, 234, 0.2) !important;
+    }
+  `;
+
+  // Inject custom styles once
+  useEffect(() => {
+    if (!stylesInjected.current) {
+      const styleSheet = document.createElement("style");
+      styleSheet.textContent = quillStyles;
+      document.head.appendChild(styleSheet);
+      stylesInjected.current = true;
+
+      return () => {
+        // Clean up styles on unmount
+        if (styleSheet.parentNode) {
+          styleSheet.parentNode.removeChild(styleSheet);
+        }
+      };
+    }
+  }, []);
 
   // Redirect if locked
   useEffect(() => {
@@ -230,16 +309,13 @@ export default function PremiumJournaling() {
     }
   }, [user]);
 
-  // Initialize Quill editor - Make it more resilient and independent
+  // Initialize Quill editor - Fixed and more robust from working version
   useEffect(() => {
-    // Don't let other errors block editor initialization
     const initializeEditor = () => {
       if (isLocked || !editorRef.current || quillRef.current) return;
 
-      // Check if Quill is already initialized in this element
-      if (editorRef.current.classList.contains("ql-container")) {
-        return;
-      }
+      // Clear any existing content
+      editorRef.current.innerHTML = "";
 
       try {
         const toolbarOptions = [
@@ -249,12 +325,8 @@ export default function PremiumJournaling() {
           [{ list: "ordered" }, { list: "bullet" }],
           [{ script: "sub" }, { script: "super" }],
           [{ indent: "-1" }, { indent: "+1" }],
-          [{ direction: "rtl" }],
           [{ size: ["small", false, "large", "huge"] }],
-          [{ header: [1, 2, 3, 4, 5, 6, false] }],
           [{ color: [] }, { background: [] }],
-          [{ font: [] }],
-          [{ align: [] }],
           ["link", "image"],
           ["clean"],
         ];
@@ -264,16 +336,16 @@ export default function PremiumJournaling() {
           modules: {
             toolbar: toolbarOptions,
           },
-          placeholder: "Start writing your thoughts...",
+          placeholder: prompt || "Start writing your thoughts...",
         });
 
         quill.on("text-change", () => {
-          // You can add content change handling here if needed
+          // Handle content changes if needed
         });
 
         quillRef.current = quill;
 
-        // Force focus to make sure it's clickable
+        // Focus after initialization
         setTimeout(() => {
           if (quillRef.current) {
             quillRef.current.focus();
@@ -286,19 +358,17 @@ export default function PremiumJournaling() {
       }
     };
 
-    // Initialize editor with a slight delay to ensure DOM is ready
-    const timer = setTimeout(initializeEditor, 100);
+    const timer = setTimeout(initializeEditor, 150);
 
     return () => {
       clearTimeout(timer);
-      // Clean up on unmount
       if (quillRef.current) {
         quillRef.current = null;
       }
     };
   }, [isLocked]);
 
-  // Separate effect to handle prompt changes
+  // Update placeholder when prompt changes
   useEffect(() => {
     if (quillRef.current && prompt) {
       quillRef.current.root.setAttribute("data-placeholder", prompt);
