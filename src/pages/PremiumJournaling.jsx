@@ -1,63 +1,122 @@
-console.log("🚀 Attempting to save entry...");
-
-const response = await fetch(`${API_BASE}/api/save-entry`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Accept: "application/json",
-  },
-  body: JSON.stringify({
-    user_id: user.id,
-    content: htmlContent,
-    title: `Entry from ${new Date().toLocaleDateString()}`,
-    prompt: prompt || null,
-    is_follow_up: false,
-    parent_entry_id: null,
-    thread_id: currentThreadId,
-    prompt_used: prompt ? "AI-generated" : "user-initiated",
-    folder_id: selectedFolder,
-    starred: isStarred,
-    pinned: isPinned,
-    tags: tags,
-    goal_ids: connectedGoals,
-    metadata: metadata,
-  }),
-});
-
-console.log("📡 Response status:", response.status, response.statusText);
-console.log(
-  "📡 Response headers:",
-  Object.fromEntries(response.headers.entries())
-);
-
-if (!response.ok) {
-  const contentType = response.headers.get("content-type");
-  let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-
-  if (contentType && contentType.includes("application/json")) {
-    try {
-      const errorData = await response.json();
-      errorMessage = errorData.error || errorData.message || errorMessage;
-      console.error("📡 Error data:", errorData);
-    } catch (e) {
-      console.error("📡 Failed to parse error JSON:", e);
-    }
-  } else {
-    try {
-      const errorText = await response.text();
-      console.error("📡 Error text:", errorText);
-      if (errorText) {
-        errorMessage = errorText;
-      }
-    } catch (e) {
-      console.error("📡 Failed to get error text:", e);
-    }
+const saveJournalEntry = async () => {
+  if (!quillRef.current || !user) {
+    alert("Unable to save. Please try again.");
+    return;
   }
 
-  throw new Error(errorMessage);
-}
+  const htmlContent = quillRef.current.root.innerHTML;
+  const plainText = quillRef.current.getText().trim();
 
-const result = await response.json(); // frontend/src/pages/PremiumJournaling.jsx
+  if (!plainText || plainText.length < 10) {
+    alert("Please write a bit more before saving.");
+    return;
+  }
+
+  setSaveLabel("Saving...");
+
+  try {
+    const metadata = {
+      folder_id: selectedFolder,
+      tags: tags.length > 0 ? tags : null,
+      starred: isStarred,
+      pinned: isPinned,
+      connected_goals: connectedGoals.length > 0 ? connectedGoals : null,
+      writing_mode: writingMode,
+      guided_questions: writingMode === "guided" ? guidedQuestions : null,
+      current_question_index:
+        writingMode === "guided" ? currentQuestionIndex : null,
+    };
+
+    console.log("🚀 Attempting to save entry...");
+
+    const response = await fetch(`${API_BASE}/api/save-entry`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        user_id: user.id,
+        content: htmlContent,
+        title: `Entry from ${new Date().toLocaleDateString()}`,
+        prompt: prompt || null,
+        is_follow_up: false,
+        parent_entry_id: null,
+        thread_id: currentThreadId,
+        prompt_used: prompt ? "AI-generated" : "user-initiated",
+        folder_id: selectedFolder,
+        starred: isStarred,
+        pinned: isPinned,
+        tags: tags,
+        goal_ids: connectedGoals,
+        metadata: metadata,
+      }),
+    });
+
+    console.log("📡 Response status:", response.status, response.statusText);
+    console.log(
+      "📡 Response headers:",
+      Object.fromEntries(response.headers.entries())
+    );
+
+    if (!response.ok) {
+      const contentType = response.headers.get("content-type");
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+
+      if (contentType && contentType.includes("application/json")) {
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+          console.error("📡 Error data:", errorData);
+        } catch (e) {
+          console.error("📡 Failed to parse error JSON:", e);
+        }
+      } else {
+        try {
+          const errorText = await response.text();
+          console.error("📡 Error text:", errorText);
+          if (errorText) {
+            errorMessage = errorText;
+          }
+        } catch (e) {
+          console.error("📡 Failed to get error text:", e);
+        }
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+
+    if (result.crisis_analysis && result.crisis_analysis.should_alert) {
+      await triggerCrisisModal(plainText, result.crisis_analysis);
+    }
+
+    // Reset form after successful save
+    quillRef.current.setText("");
+    setPrompt("");
+    setSaveLabel("Save Entry");
+    setLastSavedEntry(result.entry);
+    setShowFollowUpButtons(true);
+
+    // Reset premium features
+    setTags([]);
+    setIsStarred(false);
+    setIsPinned(false);
+    setConnectedGoals([]);
+    setWritingMode("free");
+    setGuidedQuestions([]);
+    setCurrentQuestionIndex(0);
+
+    setSaveConfirmation(true);
+    setTimeout(() => setSaveConfirmation(false), 3000);
+  } catch (error) {
+    console.error("Save error:", error);
+    alert(error.message || "Failed to save entry. Please try again.");
+  } finally {
+    setSaveLabel("Save Entry");
+  }
+}; // frontend/src/pages/PremiumJournaling.jsx
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
