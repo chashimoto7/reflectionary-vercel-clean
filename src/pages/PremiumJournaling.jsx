@@ -696,6 +696,61 @@ export default function PremiumJournaling() {
     }
   };
 
+  const handleFollowUpYes = async () => {
+    if (!lastSavedEntry) return;
+
+    setFollowUpLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/generate-followup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          parent_entry_id: lastSavedEntry.id,
+          thread_id: currentThreadId || lastSavedEntry.id,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate follow-up");
+      }
+
+      const data = await response.json();
+
+      // Set the follow-up prompt and close modal
+      setPrompt(data.prompt);
+      setShowFollowUpModal(false);
+
+      // Clear the editor and set the new prompt
+      if (quillRef.current) {
+        quillRef.current.setText("");
+        quillRef.current.root.setAttribute("data-placeholder", data.prompt);
+        setTimeout(() => quillRef.current.focus(), 100);
+      }
+
+      // Set up for follow-up entry
+      setEntryChain((prev) => (prev.length === 0 ? [lastSavedEntry.id] : prev));
+      if (!currentThreadId) {
+        setCurrentThreadId(lastSavedEntry.id);
+      }
+    } catch (error) {
+      console.error("Error generating follow-up:", error);
+      // Use fallback prompt
+      const fallbackPrompt =
+        "What else comes up for you when you sit with these thoughts?";
+      setPrompt(fallbackPrompt);
+      setShowFollowUpModal(false);
+
+      if (quillRef.current) {
+        quillRef.current.setText("");
+        quillRef.current.root.setAttribute("data-placeholder", fallbackPrompt);
+        setTimeout(() => quillRef.current.focus(), 100);
+      }
+    } finally {
+      setFollowUpLoading(false);
+    }
+  };
+
   const handleFollowUpNo = () => {
     setShowFollowUpModal(false);
 
