@@ -9,6 +9,7 @@ import "quill/dist/quill.snow.css";
 import { useFeatureAccess } from "../hooks/useFeatureAccess";
 import { useCrisisIntegration } from "../hooks/useCrisisIntegration";
 import CrisisResourceModal from "../components/CrisisResourceModal";
+import FollowUpModal from "../components/FollowUpModal";
 import {
   Save,
   RefreshCw,
@@ -83,6 +84,8 @@ export default function PremiumJournaling() {
   const [writingMode, setWritingMode] = useState("free");
   const [guidedQuestions, setGuidedQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+  const [followUpLoading, setFollowUpLoading] = useState(false);
 
   // Reflectionarian prompts state
   const [reflectionarianPrompts, setReflectionarianPrompts] = useState([]);
@@ -544,8 +547,8 @@ export default function PremiumJournaling() {
         content: htmlContent,
         title: `Entry from ${new Date().toLocaleDateString()}`,
         prompt: prompt || null,
-        is_follow_up: false,
-        parent_entry_id: null,
+        is_follow_up: !!entryChain.length, // True if this is a follow-up
+        parent_entry_id: entryChain.length > 0 ? entryChain[0] : null, // First entry in chain
         thread_id: currentThreadId,
         prompt_used: prompt ? "AI-generated" : "user-initiated",
         folder_id: selectedFolder,
@@ -613,21 +616,12 @@ export default function PremiumJournaling() {
         await triggerCrisisModal(plainText, result.crisis_analysis);
       }
 
-      // Reset form after successful save
-      quillRef.current.setText("");
-      setPrompt("");
-      setSaveLabel("Save Entry");
+      // Set the saved entry and show follow-up modal
       setLastSavedEntry(result.entry);
-      setShowFollowUpButtons(true);
+      setSaveLabel("Save Entry");
 
-      // Reset premium features
-      setTags([]);
-      setIsStarred(false);
-      setIsPinned(false);
-      setConnectedGoals([]);
-      setWritingMode("free");
-      setGuidedQuestions([]);
-      setCurrentQuestionIndex(0);
+      // Show the follow-up modal instead of clearing immediately
+      setShowFollowUpModal(true);
 
       setSaveConfirmation(true);
       setTimeout(() => setSaveConfirmation(false), 3000);
@@ -658,7 +652,6 @@ export default function PremiumJournaling() {
         const fallbackFollowUp =
           "Let's dive deeper into what you just wrote. What else comes up for you when you sit with these thoughts?";
         setPrompt(fallbackFollowUp);
-        setShowFollowUpButtons(false);
 
         if (quillRef.current) {
           quillRef.current.setText("");
@@ -673,7 +666,6 @@ export default function PremiumJournaling() {
 
       const data = await response.json();
       setPrompt(data.prompt);
-      setShowFollowUpButtons(false);
 
       if (quillRef.current) {
         quillRef.current.setText("");
@@ -690,7 +682,6 @@ export default function PremiumJournaling() {
       const fallbackFollowUp =
         "What would you like to explore further about what you just shared?";
       setPrompt(fallbackFollowUp);
-      setShowFollowUpButtons(false);
 
       if (quillRef.current) {
         quillRef.current.setText("");
@@ -703,6 +694,31 @@ export default function PremiumJournaling() {
     } finally {
       setLoadingPrompt(false);
     }
+  };
+
+  const handleFollowUpNo = () => {
+    setShowFollowUpModal(false);
+
+    // Clear the form as usual
+    if (quillRef.current) {
+      quillRef.current.setText("");
+    }
+    setPrompt("");
+
+    // Reset premium features
+    setTags([]);
+    setIsStarred(false);
+    setIsPinned(false);
+    setConnectedGoals([]);
+    setWritingMode("free");
+    setGuidedQuestions([]);
+    setCurrentQuestionIndex(0);
+
+    // Reset follow-up state
+    setLastSavedEntry(null);
+    setShowFollowUpButtons(false);
+    setCurrentThreadId(null);
+    setEntryChain([]);
   };
 
   const addTag = (e) => {
@@ -1147,6 +1163,14 @@ export default function PremiumJournaling() {
           showResources={showCrisisResources}
         />
       )}
+
+      <FollowUpModal
+        isOpen={showFollowUpModal}
+        onClose={() => setShowFollowUpModal(false)}
+        onYes={handleFollowUpYes}
+        onNo={handleFollowUpNo}
+        loading={followUpLoading}
+      />
     </div>
   );
 }
