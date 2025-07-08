@@ -28,7 +28,7 @@ const saveJournalEntry = async () => {
     };
 
     console.log("🚀 Attempting to save entry...");
-
+    const API_BASE = "https://reflectionary-api.vercel.app";
     const response = await fetch(`${API_BASE}/api/save-entry`, {
       method: "POST",
       headers: {
