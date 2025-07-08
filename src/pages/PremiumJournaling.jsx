@@ -28,7 +28,10 @@ const saveJournalEntry = async () => {
     };
 
     console.log("🚀 Attempting to save entry...");
+    console.log("🔍 API_BASE value:", API_BASE);
+    console.log("🔍 Full URL will be:", `${API_BASE}/api/save-entry`);
 
+    // TEMPORARY: Hardcode the URL to test
     const response = await fetch(
       "https://reflectionary-api.vercel.app/api/save-entry",
       {
