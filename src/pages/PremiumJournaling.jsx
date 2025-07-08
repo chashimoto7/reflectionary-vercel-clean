@@ -29,29 +29,32 @@ const saveJournalEntry = async () => {
 
     console.log("🚀 Attempting to save entry...");
 
-    const response = await fetch("https://reflectionary-api.vercel.app", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        user_id: user.id,
-        content: htmlContent,
-        title: `Entry from ${new Date().toLocaleDateString()}`,
-        prompt: prompt || null,
-        is_follow_up: false,
-        parent_entry_id: null,
-        thread_id: currentThreadId,
-        prompt_used: prompt ? "AI-generated" : "user-initiated",
-        folder_id: selectedFolder,
-        starred: isStarred,
-        pinned: isPinned,
-        tags: tags,
-        goal_ids: connectedGoals,
-        metadata: metadata,
-      }),
-    });
+    const response = await fetch(
+      "https://reflectionary-api.vercel.app/api/save-entry",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          content: htmlContent,
+          title: `Entry from ${new Date().toLocaleDateString()}`,
+          prompt: prompt || null,
+          is_follow_up: false,
+          parent_entry_id: null,
+          thread_id: currentThreadId,
+          prompt_used: prompt ? "AI-generated" : "user-initiated",
+          folder_id: selectedFolder,
+          starred: isStarred,
+          pinned: isPinned,
+          tags: tags,
+          goal_ids: connectedGoals,
+          metadata: metadata,
+        }),
+      }
+    );
 
     console.log("📡 Response status:", response.status, response.statusText);
     console.log(
