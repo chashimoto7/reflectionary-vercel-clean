@@ -28,8 +28,8 @@ const saveJournalEntry = async () => {
     };
 
     console.log("🚀 Attempting to save entry...");
-    const API_BASE = "https://reflectionary-api.vercel.app";
-    const response = await fetch(`${API_BASE}/api/save-entry`, {
+
+    const response = await fetch("https://reflectionary-api.vercel.app", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -155,9 +155,9 @@ export default function PremiumJournaling() {
   const { isLocked } = useSecurity();
   const { hasAccess, tier, loading } = useMembership();
 
-  // API Base URL - Define once at the top
+  // API Base URL - Define once at the top - FIXED for Vite
   const API_BASE =
-    process.env.REACT_APP_API_URL || "https://reflectionary-api.vercel.app";
+    import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app";
 
   // Feature access management
   const {
