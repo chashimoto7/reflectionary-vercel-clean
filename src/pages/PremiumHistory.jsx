@@ -100,6 +100,9 @@ const AdvancedHistory = () => {
     ],
   };
 
+  const API_BASE =
+    import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app";
+
   // Updated tabs structure - 10 tabs in two rows matching your exact requirements
   const advancedTabs = [
     {
@@ -204,18 +207,33 @@ const AdvancedHistory = () => {
           startDate.setMonth(startDate.getMonth() - 3);
       }
 
+      console.log("🔍 Loading history data with params:", {
+        user_id: user.id,
+        date_range: dateRange,
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+      });
+
       // Use backend API to get decrypted entries with analytics
       const historyResponse = await fetch(
-        `/api/history?user_id=${
-          user.id
-        }&date_from=${startDate.toISOString()}&date_to=${endDate.toISOString()}&include_analytics=true&include_followups=true`
+        `${API_BASE}/api/history?user_id=${user.id}&page=1&limit=50&date_range=${dateRange}&include_analytics=true&include_folders=true&include_goals=true`
       );
 
+      console.log("📡 History response status:", historyResponse.status);
+
       if (!historyResponse.ok) {
-        throw new Error("Failed to fetch history");
+        const errorText = await historyResponse.text();
+        console.error("❌ History API error:", errorText);
+        throw new Error(`Failed to fetch history: ${historyResponse.status}`);
       }
 
       const historyData = await historyResponse.json();
+      console.log("✅ History data received:", {
+        entries_count: historyData.entries?.length || 0,
+        has_analytics: !!historyData.analytics,
+        has_folders: !!historyData.folders,
+        has_goals: !!historyData.goals,
+      });
 
       setEntries(historyData.entries || []);
 
@@ -227,34 +245,52 @@ const AdvancedHistory = () => {
         }));
       }
 
-      // Load folders using backend API
-      const foldersResponse = await fetch(
-        `/api/folders?user_id=${user.id}&include_entry_count=true`
-      );
+      // Set folders if provided by backend
+      if (historyData.folders) {
+        setFolders(historyData.folders);
+      } else {
+        // Fallback: Load folders separately if not included
+        try {
+          const foldersResponse = await fetch(
+            `${API_BASE}/api/folders?user_id=${user.id}&include_entry_count=true`
+          );
 
-      if (!foldersResponse.ok) {
-        throw new Error("Failed to fetch folders");
+          if (foldersResponse.ok) {
+            const foldersData = await foldersResponse.json();
+            setFolders(foldersData.folders || []);
+          }
+        } catch (folderError) {
+          console.warn("⚠️ Failed to load folders:", folderError);
+          setFolders([]);
+        }
       }
 
-      const foldersData = await foldersResponse.json();
-      setFolders(foldersData.folders || []);
+      // Set goals if provided by backend
+      if (historyData.goals) {
+        setGoals(historyData.goals);
+      } else {
+        // Fallback: Load goals separately if not included
+        try {
+          const goalsResponse = await fetch(
+            `${API_BASE}/api/goals?user_id=${user.id}`
+          );
 
-      // Load goals using backend API
-      const goalsResponse = await fetch(`/api/goals?user_id=${user.id}`);
-
-      if (!goalsResponse.ok) {
-        throw new Error("Failed to fetch goals");
+          if (goalsResponse.ok) {
+            const goalsData = await goalsResponse.json();
+            setGoals(goalsData.goals || []);
+          }
+        } catch (goalError) {
+          console.warn("⚠️ Failed to load goals:", goalError);
+          setGoals([]);
+        }
       }
-
-      const goalsData = await goalsResponse.json();
-      setGoals(goalsData.goals || []);
 
       // Calculate additional analytics if not provided by backend
       if (!historyData.analytics) {
         calculateAnalytics(historyData.entries || []);
       }
     } catch (error) {
-      console.error("Error loading history data:", error);
+      console.error("❌ Error loading history data:", error);
       setError("Failed to load your journal history. Please try again.");
     } finally {
       setLoading(false);
@@ -365,32 +401,46 @@ const AdvancedHistory = () => {
 
     try {
       setLoading(true);
-      const searchResponse = await fetch("/api/search-entries", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          user_id: user.id,
-          query: query,
-          date_from: dateRange
-            ? new Date(
-                new Date().setMonth(new Date().getMonth() - parseInt(dateRange))
-              ).toISOString()
-            : undefined,
-          filters: filters,
-        }),
-      });
 
-      if (!searchResponse.ok) {
-        throw new Error("Search failed");
+      // Check if search-entries endpoint exists, otherwise fallback to filtering
+      try {
+        const searchResponse = await fetch(`${API_BASE}/api/search-entries`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            query: query,
+            date_range: dateRange,
+            filters: filters,
+          }),
+        });
+
+        if (searchResponse.ok) {
+          const searchData = await searchResponse.json();
+          setEntries(searchData.entries || []);
+          calculateAnalytics(searchData.entries || []);
+        } else {
+          throw new Error("Search endpoint not available");
+        }
+      } catch (searchError) {
+        console.warn(
+          "⚠️ Search API not available, using client-side filtering"
+        );
+
+        // Fallback: Filter entries client-side
+        const filtered = entries.filter(
+          (entry) =>
+            entry.content.toLowerCase().includes(query.toLowerCase()) ||
+            (entry.prompt &&
+              entry.prompt.toLowerCase().includes(query.toLowerCase()))
+        );
+        setEntries(filtered);
+        calculateAnalytics(filtered);
       }
-
-      const searchData = await searchResponse.json();
-      setEntries(searchData.entries || []);
-      calculateAnalytics(searchData.entries || []);
     } catch (error) {
-      console.error("Search error:", error);
+      console.error("❌ Search error:", error);
       setError("Search failed. Please try again.");
     } finally {
       setLoading(false);
