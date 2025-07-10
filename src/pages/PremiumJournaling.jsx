@@ -760,10 +760,17 @@ export default function PremiumJournaling() {
   const handleFollowUpNo = () => {
     setShowFollowUpModal(false);
 
-    // Clear the form as usual
+    // Clear the form completely - both content AND placeholder
     if (quillRef.current) {
       quillRef.current.setText("");
+      // Clear the placeholder back to default
+      quillRef.current.root.setAttribute(
+        "data-placeholder",
+        "Start writing your thoughts..."
+      );
     }
+
+    // Clear the prompt state (this removes the prompt display below buttons)
     setPrompt("");
 
     // Reset premium features
