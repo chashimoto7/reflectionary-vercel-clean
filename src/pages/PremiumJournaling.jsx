@@ -198,9 +198,12 @@ export default function PremiumJournaling() {
   // Initialize Quill editor - Fixed and more robust from working version
   useEffect(() => {
     const initializeEditor = () => {
-      if (isLocked || !editorRef.current || quillRef.current) return;
+      if (isLocked || !editorRef.current) return;
 
-      // Clear any existing content
+      // Clear any existing content and destroy existing quill instance
+      if (quillRef.current) {
+        quillRef.current = null;
+      }
       editorRef.current.innerHTML = "";
 
       try {
@@ -238,7 +241,10 @@ export default function PremiumJournaling() {
           }
         }, 200);
 
-        console.log("✅ Quill editor initialized successfully");
+        console.log(
+          "✅ Quill editor initialized successfully with placeholder:",
+          prompt || "default"
+        );
       } catch (error) {
         console.error("❌ Error initializing Quill editor:", error);
       }
@@ -248,18 +254,8 @@ export default function PremiumJournaling() {
 
     return () => {
       clearTimeout(timer);
-      if (quillRef.current) {
-        quillRef.current = null;
-      }
     };
-  }, [isLocked]);
-
-  // Update placeholder when prompt changes
-  useEffect(() => {
-    if (quillRef.current && prompt) {
-      quillRef.current.root.setAttribute("data-placeholder", prompt);
-    }
-  }, [prompt]);
+  }, [isLocked, prompt]);
 
   const loadFolders = async () => {
     try {
