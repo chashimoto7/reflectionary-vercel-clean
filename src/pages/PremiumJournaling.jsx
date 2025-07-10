@@ -200,60 +200,91 @@ export default function PremiumJournaling() {
     const initializeEditor = () => {
       if (isLocked || !editorRef.current) return;
 
-      // Clear any existing content and destroy existing quill instance
+      // PROPERLY destroy existing quill instance
       if (quillRef.current) {
-        quillRef.current = null;
+        try {
+          // Remove all event listeners
+          quillRef.current.off("text-change");
+
+          // Get the Quill container and remove all its children
+          const container = quillRef.current.container;
+          if (container && container.parentNode) {
+            // Clear the entire container
+            while (container.firstChild) {
+              container.removeChild(container.firstChild);
+            }
+          }
+
+          quillRef.current = null;
+        } catch (error) {
+          console.warn("Error cleaning up Quill:", error);
+          quillRef.current = null;
+        }
       }
+
+      // Clear the editor div completely
       editorRef.current.innerHTML = "";
 
-      try {
-        const toolbarOptions = [
-          ["bold", "italic", "underline", "strike"],
-          ["blockquote", "code-block"],
-          [{ header: 1 }, { header: 2 }],
-          [{ list: "ordered" }, { list: "bullet" }],
-          [{ script: "sub" }, { script: "super" }],
-          [{ indent: "-1" }, { indent: "+1" }],
-          [{ size: ["small", false, "large", "huge"] }],
-          [{ color: [] }, { background: [] }],
-          ["link", "image"],
-          ["clean"],
-        ];
+      // Small delay to ensure cleanup is complete
+      setTimeout(() => {
+        try {
+          const toolbarOptions = [
+            ["bold", "italic", "underline", "strike"],
+            ["blockquote", "code-block"],
+            [{ header: 1 }, { header: 2 }],
+            [{ list: "ordered" }, { list: "bullet" }],
+            [{ script: "sub" }, { script: "super" }],
+            [{ indent: "-1" }, { indent: "+1" }],
+            [{ size: ["small", false, "large", "huge"] }],
+            [{ color: [] }, { background: [] }],
+            ["link", "image"],
+            ["clean"],
+          ];
 
-        const quill = new Quill(editorRef.current, {
-          theme: "snow",
-          modules: {
-            toolbar: toolbarOptions,
-          },
-          placeholder: prompt || "Start writing your thoughts...",
-        });
+          const quill = new Quill(editorRef.current, {
+            theme: "snow",
+            modules: {
+              toolbar: toolbarOptions,
+            },
+            placeholder: prompt || "Start writing your thoughts...",
+          });
 
-        quill.on("text-change", () => {
-          // Handle content changes if needed
-        });
+          quill.on("text-change", () => {
+            // Handle content changes if needed
+          });
 
-        quillRef.current = quill;
+          quillRef.current = quill;
 
-        // Focus after initialization
-        setTimeout(() => {
-          if (quillRef.current) {
-            quillRef.current.focus();
-          }
-        }, 200);
+          // Focus after initialization
+          setTimeout(() => {
+            if (quillRef.current) {
+              quillRef.current.focus();
+            }
+          }, 200);
 
-        console.log(
-          "✅ Quill editor initialized successfully with placeholder:",
-          prompt || "default"
-        );
-      } catch (error) {
-        console.error("❌ Error initializing Quill editor:", error);
-      }
+          console.log(
+            "✅ Quill editor initialized successfully with placeholder:",
+            prompt || "default"
+          );
+        } catch (error) {
+          console.error("❌ Error initializing Quill editor:", error);
+        }
+      }, 50); // Small delay for cleanup
     };
 
     const timer = setTimeout(initializeEditor, 150);
 
     return () => {
       clearTimeout(timer);
+      // Clean up on unmount
+      if (quillRef.current) {
+        try {
+          quillRef.current.off("text-change");
+          quillRef.current = null;
+        } catch (error) {
+          console.warn("Cleanup error:", error);
+        }
+      }
     };
   }, [isLocked, prompt]);
 
