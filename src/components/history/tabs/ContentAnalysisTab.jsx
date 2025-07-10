@@ -35,7 +35,7 @@ import {
   FileText,
 } from "lucide-react";
 
-const ContentAnalysisTab = ({ entries, analytics, colors }) => {
+const ContentAnalysisTab = ({ entries = [], analytics = {}, colors = {} }) => {
   const [analysisView, setAnalysisView] = useState("overview"); // overview, topics, depth, evolution
   const [timeRange, setTimeRange] = useState("all");
   const [showComplexityInfo, setShowComplexityInfo] = useState(false);

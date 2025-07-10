@@ -24,7 +24,7 @@ import { supabase } from "../../../lib/supabase";
 import encryptionService from "../../../services/encryptionService";
 import { useAuth } from "../../../contexts/AuthContext";
 
-const FoldersTab = ({ entries, folders, colors, onRefresh }) => {
+const FoldersTab = ({ entries = [], folders = [], colors = {}, onRefresh }) => {
   const { user } = useAuth();
   const [selectedFolder, setSelectedFolder] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);

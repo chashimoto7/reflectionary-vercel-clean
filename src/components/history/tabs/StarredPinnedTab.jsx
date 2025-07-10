@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 
-const StarredPinnedTab = ({ entries, colors, onRefresh }) => {
+const StarredPinnedTab = ({ entries = [], colors = {}, onRefresh }) => {
   const [audioEntry, setAudioEntry] = useState(null);
   const [activeView, setActiveView] = useState("starred"); // "starred" or "pinned"
   const [selectedEntry, setSelectedEntry] = useState(null);

@@ -22,14 +22,14 @@ import {
 } from "lucide-react";
 
 const SearchFilterTab = ({
-  entries,
-  folders,
-  goals,
-  searchQuery,
+  entries = [],
+  folders = [],
+  goals = [],
+  searchQuery = "",
   setSearchQuery,
-  filters,
+  filters = {},
   setFilters,
-  colors,
+  colors = {},
 }) => {
   const [audioEntry, setAudioEntry] = useState(null);
   const [viewMode, setViewMode] = useState("list"); // "list" or "grid"

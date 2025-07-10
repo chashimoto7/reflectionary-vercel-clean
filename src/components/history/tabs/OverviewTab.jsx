@@ -30,7 +30,13 @@ import {
   Activity,
 } from "lucide-react";
 
-const OverviewTab = ({ entries, analytics, folders, goals, colors }) => {
+const OverviewTab = ({
+  entries = [],
+  analytics = {},
+  folders = [],
+  goals = [],
+  colors = {},
+}) => {
   // Calculate quick stats
   const stats = useMemo(() => {
     const totalWords = entries.reduce((total, entry) => {

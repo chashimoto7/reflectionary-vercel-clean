@@ -32,7 +32,11 @@ import {
   Info,
 } from "lucide-react";
 
-const WritingStyleEvolutionTab = ({ entries, analytics, colors }) => {
+const WritingStyleEvolutionTab = ({
+  entries = [],
+  analytics = {},
+  colors = {},
+}) => {
   const [timeScale, setTimeScale] = useState("monthly"); // weekly, monthly, quarterly
   const [selectedMetric, setSelectedMetric] = useState("vocabulary");
   const [showVocabularyInfo, setShowVocabularyInfo] = useState(false);

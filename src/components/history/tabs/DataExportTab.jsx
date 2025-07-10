@@ -19,7 +19,12 @@ import {
   Share2,
 } from "lucide-react";
 
-const DataExportTab = ({ entries, analytics, folders, colors }) => {
+const DataExportTab = ({
+  entries = [],
+  analytics = {},
+  folders = [],
+  colors = {},
+}) => {
   const [exportSettings, setExportSettings] = useState({
     format: "pdf", // pdf, docx, txt, json, csv
     dateRange: "all", // all, last30, last90, last365, custom

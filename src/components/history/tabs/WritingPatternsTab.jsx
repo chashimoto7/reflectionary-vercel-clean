@@ -28,7 +28,7 @@ import {
   BarChart3,
 } from "lucide-react";
 
-const WritingPatternsTab = ({ entries, analytics, colors }) => {
+const WritingPatternsTab = ({ entries = [], analytics = {}, colors = {} }) => {
   const [timeScale, setTimeScale] = useState("weekly"); // daily, weekly, monthly
   const [selectedMetric, setSelectedMetric] = useState("frequency"); // frequency, velocity, consistency
   const [selectedTimeRange, setSelectedTimeRange] = useState("3months");

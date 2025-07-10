@@ -33,7 +33,11 @@ import {
   Info,
 } from "lucide-react";
 
-const JournalHealthMetricsTab = ({ entries, analytics, colors }) => {
+const JournalHealthMetricsTab = ({
+  entries = [],
+  analytics = {},
+  colors = {},
+}) => {
   const [selectedTimeframe, setSelectedTimeframe] = useState("month");
   const [selectedHealthMetric, setSelectedHealthMetric] = useState("overall");
   const [showComponentsInfo, setShowComponentsInfo] = useState(false);

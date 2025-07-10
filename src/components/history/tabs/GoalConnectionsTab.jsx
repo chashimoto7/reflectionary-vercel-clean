@@ -27,7 +27,7 @@ import {
   Award,
 } from "lucide-react";
 
-const GoalConnectionsTab = ({ entries, goals, colors }) => {
+const GoalConnectionsTab = ({ entries = [], goals = [], colors = {} }) => {
   const [selectedGoal, setSelectedGoal] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState("overview"); // overview, detailed, timeline

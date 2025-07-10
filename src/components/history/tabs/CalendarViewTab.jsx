@@ -17,7 +17,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-const CalendarViewTab = ({ entries, colors, onEntrySelect }) => {
+const CalendarViewTab = ({ entries = [], colors = {}, onEntrySelect }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [selectedDayEntries, setSelectedDayEntries] = useState([]);
