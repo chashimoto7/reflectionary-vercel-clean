@@ -1,7 +1,6 @@
 // frontend/ src/pages/PremiumHistory.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useMembership } from "../hooks/useMembership";
 import {
   Calendar,
   Search,
@@ -47,7 +46,6 @@ import JournalHealthMetricsTab from "../components/history/tabs/JournalHealthMet
 
 const AdvancedHistory = () => {
   const { user } = useAuth();
-  const { hasAccess, tier, loading: membershipLoading } = useMembership();
   const [entries, setEntries] = useState([]);
   const [folders, setFolders] = useState([]);
   const [goals, setGoals] = useState([]);
@@ -169,17 +167,12 @@ const AdvancedHistory = () => {
 
   // Check access control
   useEffect(() => {
-    if (!user || membershipLoading) {
+    if (!user) {
       return;
     }
 
-    const userHasAccess = hasAccess("advanced_history");
-
-    if (userHasAccess) {
-      loadHistoryData();
-    } else {
-      setLoading(false);
-    }
+    console.log("🎯 PremiumHistory: User authenticated, loading data...");
+    loadHistoryData();
   }, [user, dateRange, tier, membershipLoading]);
 
   const loadHistoryData = async () => {
@@ -455,38 +448,6 @@ const AdvancedHistory = () => {
       setLoading(false);
     }
   };
-
-  // Access control check
-  if (!user || membershipLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your journal history...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!hasAccess("advanced_history")) {
-    return (
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="text-center py-12">
-          <Shield className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Advanced History Access Required
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Upgrade to Premium to unlock the Advanced Journal History with
-            advanced search, mood analysis, calendar views, and more.
-          </p>
-          <button className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
-            Upgrade to Premium
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   if (loading) {
     return (
