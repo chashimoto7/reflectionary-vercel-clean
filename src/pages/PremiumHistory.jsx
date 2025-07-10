@@ -165,6 +165,16 @@ const AdvancedHistory = () => {
     },
   ];
 
+  // Check access control
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    console.log("🎯 PremiumHistory: User authenticated, loading data...");
+    loadHistoryData();
+  }, [user, dateRange]);
+
   const loadHistoryData = async () => {
     try {
       setLoading(true);
