@@ -195,38 +195,49 @@ export default function PremiumJournaling() {
     }
   }, [user]);
 
-  // Initialize Quill editor - Fixed and more robust from working version
+  // Initialize Quill editor - AGGRESSIVE CLEANUP VERSION
   useEffect(() => {
     const initializeEditor = () => {
       if (isLocked || !editorRef.current) return;
 
-      // PROPERLY destroy existing quill instance
+      console.log("🔄 Initializing editor with prompt:", prompt);
+
+      // STEP 1: Nuclear cleanup - destroy everything
       if (quillRef.current) {
         try {
           // Remove all event listeners
-          quillRef.current.off("text-change");
+          quillRef.current.off();
 
-          // Get the Quill container and remove all its children
-          const container = quillRef.current.container;
-          if (container && container.parentNode) {
-            // Clear the entire container
-            while (container.firstChild) {
-              container.removeChild(container.firstChild);
-            }
+          // Get references before destroying
+          const toolbar = editorRef.current.querySelector(".ql-toolbar");
+          const container = editorRef.current.querySelector(".ql-container");
+
+          // Remove toolbar and container if they exist
+          if (toolbar) {
+            toolbar.remove();
+          }
+          if (container) {
+            container.remove();
           }
 
+          // Set ref to null
           quillRef.current = null;
         } catch (error) {
-          console.warn("Error cleaning up Quill:", error);
+          console.warn("⚠️ Error during Quill cleanup:", error);
           quillRef.current = null;
         }
       }
 
-      // Clear the editor div completely
+      // STEP 2: Clear the entire editor div
       editorRef.current.innerHTML = "";
 
-      // Small delay to ensure cleanup is complete
+      // STEP 3: Remove any leftover Quill classes
+      editorRef.current.className = "";
+
+      // STEP 4: Wait for cleanup to complete, then initialize
       setTimeout(() => {
+        if (!editorRef.current || isLocked) return;
+
         try {
           const toolbarOptions = [
             ["bold", "italic", "underline", "strike"],
@@ -240,6 +251,8 @@ export default function PremiumJournaling() {
             ["link", "image"],
             ["clean"],
           ];
+
+          console.log("🚀 Creating new Quill instance...");
 
           const quill = new Quill(editorRef.current, {
             theme: "snow",
@@ -255,38 +268,40 @@ export default function PremiumJournaling() {
 
           quillRef.current = quill;
 
-          // Focus after initialization
+          // Focus after a longer delay to ensure everything is ready
           setTimeout(() => {
             if (quillRef.current) {
               quillRef.current.focus();
             }
-          }, 200);
+          }, 300);
 
-          console.log(
-            "✅ Quill editor initialized successfully with placeholder:",
-            prompt || "default"
-          );
+          console.log("✅ Quill editor initialized successfully");
+
+          // Debug: Log how many toolbars exist
+          const toolbars = document.querySelectorAll(".ql-toolbar");
+          console.log(`📊 Total toolbars on page: ${toolbars.length}`);
         } catch (error) {
           console.error("❌ Error initializing Quill editor:", error);
         }
-      }, 50); // Small delay for cleanup
+      }, 100); // Longer delay for thorough cleanup
     };
 
-    const timer = setTimeout(initializeEditor, 150);
+    // Longer initial delay to ensure previous cleanup is complete
+    const timer = setTimeout(initializeEditor, 200);
 
     return () => {
       clearTimeout(timer);
-      // Clean up on unmount
+      // Cleanup on unmount
       if (quillRef.current) {
         try {
-          quillRef.current.off("text-change");
+          quillRef.current.off();
           quillRef.current = null;
         } catch (error) {
-          console.warn("Cleanup error:", error);
+          console.warn("⚠️ Cleanup error:", error);
         }
       }
     };
-  }, [isLocked, prompt]);
+  }, [isLocked, prompt]); // Dependency on prompt will trigger reinit
 
   const loadFolders = async () => {
     try {
