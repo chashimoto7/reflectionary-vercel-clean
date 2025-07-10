@@ -195,113 +195,77 @@ export default function PremiumJournaling() {
     }
   }, [user]);
 
-  // Initialize Quill editor - AGGRESSIVE CLEANUP VERSION
+  // FALLBACK APPROACH: Initialize once, update placeholder only
   useEffect(() => {
     const initializeEditor = () => {
-      if (isLocked || !editorRef.current) return;
+      if (isLocked || !editorRef.current || quillRef.current) return;
 
-      console.log("🔄 Initializing editor with prompt:", prompt);
+      try {
+        const toolbarOptions = [
+          ["bold", "italic", "underline", "strike"],
+          ["blockquote", "code-block"],
+          [{ header: 1 }, { header: 2 }],
+          [{ list: "ordered" }, { list: "bullet" }],
+          [{ script: "sub" }, { script: "super" }],
+          [{ indent: "-1" }, { indent: "+1" }],
+          [{ size: ["small", false, "large", "huge"] }],
+          [{ color: [] }, { background: [] }],
+          ["link", "image"],
+          ["clean"],
+        ];
 
-      // STEP 1: Nuclear cleanup - destroy everything
-      if (quillRef.current) {
-        try {
-          // Remove all event listeners
-          quillRef.current.off();
+        const quill = new Quill(editorRef.current, {
+          theme: "snow",
+          modules: {
+            toolbar: toolbarOptions,
+          },
+          placeholder: "Start writing your thoughts...",
+        });
 
-          // Get references before destroying
-          const toolbar = editorRef.current.querySelector(".ql-toolbar");
-          const container = editorRef.current.querySelector(".ql-container");
+        quill.on("text-change", () => {
+          // Handle content changes if needed
+        });
 
-          // Remove toolbar and container if they exist
-          if (toolbar) {
-            toolbar.remove();
+        quillRef.current = quill;
+
+        setTimeout(() => {
+          if (quillRef.current) {
+            quillRef.current.focus();
           }
-          if (container) {
-            container.remove();
-          }
+        }, 200);
 
-          // Set ref to null
-          quillRef.current = null;
-        } catch (error) {
-          console.warn("⚠️ Error during Quill cleanup:", error);
-          quillRef.current = null;
-        }
+        console.log("✅ Quill editor initialized once");
+      } catch (error) {
+        console.error("❌ Error initializing Quill editor:", error);
       }
-
-      // STEP 2: Clear the entire editor div
-      editorRef.current.innerHTML = "";
-
-      // STEP 3: Remove any leftover Quill classes
-      editorRef.current.className = "";
-
-      // STEP 4: Wait for cleanup to complete, then initialize
-      setTimeout(() => {
-        if (!editorRef.current || isLocked) return;
-
-        try {
-          const toolbarOptions = [
-            ["bold", "italic", "underline", "strike"],
-            ["blockquote", "code-block"],
-            [{ header: 1 }, { header: 2 }],
-            [{ list: "ordered" }, { list: "bullet" }],
-            [{ script: "sub" }, { script: "super" }],
-            [{ indent: "-1" }, { indent: "+1" }],
-            [{ size: ["small", false, "large", "huge"] }],
-            [{ color: [] }, { background: [] }],
-            ["link", "image"],
-            ["clean"],
-          ];
-
-          console.log("🚀 Creating new Quill instance...");
-
-          const quill = new Quill(editorRef.current, {
-            theme: "snow",
-            modules: {
-              toolbar: toolbarOptions,
-            },
-            placeholder: prompt || "Start writing your thoughts...",
-          });
-
-          quill.on("text-change", () => {
-            // Handle content changes if needed
-          });
-
-          quillRef.current = quill;
-
-          // Focus after a longer delay to ensure everything is ready
-          setTimeout(() => {
-            if (quillRef.current) {
-              quillRef.current.focus();
-            }
-          }, 300);
-
-          console.log("✅ Quill editor initialized successfully");
-
-          // Debug: Log how many toolbars exist
-          const toolbars = document.querySelectorAll(".ql-toolbar");
-          console.log(`📊 Total toolbars on page: ${toolbars.length}`);
-        } catch (error) {
-          console.error("❌ Error initializing Quill editor:", error);
-        }
-      }, 100); // Longer delay for thorough cleanup
     };
 
-    // Longer initial delay to ensure previous cleanup is complete
-    const timer = setTimeout(initializeEditor, 200);
+    const timer = setTimeout(initializeEditor, 150);
 
     return () => {
       clearTimeout(timer);
-      // Cleanup on unmount
       if (quillRef.current) {
-        try {
-          quillRef.current.off();
-          quillRef.current = null;
-        } catch (error) {
-          console.warn("⚠️ Cleanup error:", error);
-        }
+        quillRef.current = null;
       }
     };
-  }, [isLocked, prompt]); // Dependency on prompt will trigger reinit
+  }, [isLocked]); // ONLY depend on isLocked, not prompt
+
+  // Separate effect to update placeholder when prompt changes
+  useEffect(() => {
+    if (quillRef.current && prompt) {
+      // Clear content and update placeholder
+      quillRef.current.setText("");
+      quillRef.current.root.setAttribute("data-placeholder", prompt);
+      // Force a re-render of the placeholder
+      quillRef.current.blur();
+      setTimeout(() => {
+        if (quillRef.current) {
+          quillRef.current.focus();
+        }
+      }, 50);
+      console.log("📝 Updated placeholder to:", prompt);
+    }
+  }, [prompt]); // Only update placeholder, don't reinitialize
 
   const loadFolders = async () => {
     try {
