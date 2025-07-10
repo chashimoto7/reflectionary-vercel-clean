@@ -1,4 +1,4 @@
-// frontend/ src/pages/PremiumHistory.jsx
+// frontend/src/pages/PremiumHistory.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -43,8 +43,9 @@ import ContentAnalysisTab from "../components/history/tabs/ContentAnalysisTab";
 import GoalConnectionsTab from "../components/history/tabs/GoalConnectionsTab";
 import WritingStyleEvolutionTab from "../components/history/tabs/WritingStyleEvolutionTab";
 import JournalHealthMetricsTab from "../components/history/tabs/JournalHealthMetricsTab";
+import DataExportTab from "../components/history/tabs/DataExportTab";
 
-const AdvancedHistory = () => {
+const PremiumHistory = () => {
   const { user } = useAuth();
   const [entries, setEntries] = useState([]);
   const [folders, setFolders] = useState([]);
@@ -64,11 +65,15 @@ const AdvancedHistory = () => {
     pinned: false,
   });
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
+  const [databaseEnvironment, setDatabaseEnvironment] = useState(null);
   const [analytics, setAnalytics] = useState({
     totalEntries: 0,
     moodDistribution: [],
     themeFrequency: [],
     entryTrends: [],
+    averageWordCount: 0,
+    topTopics: [],
+    topEmotions: [],
     // Add new analytics properties for the new tabs
     writingPatterns: null,
     contentAnalysis: null,
@@ -101,7 +106,7 @@ const AdvancedHistory = () => {
   const API_BASE =
     import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app";
 
-  // Updated tabs structure - 10 tabs in two rows matching your exact requirements
+  // Updated tabs structure - 11 tabs including data export
   const advancedTabs = [
     {
       id: "overview",
@@ -163,6 +168,12 @@ const AdvancedHistory = () => {
       icon: Heart,
       component: JournalHealthMetricsTab,
     },
+    {
+      id: "data-export",
+      label: "Export & Reports",
+      icon: Download,
+      component: DataExportTab,
+    },
   ];
 
   // Check access control
@@ -182,9 +193,9 @@ const AdvancedHistory = () => {
 
       console.log("🔍 Loading history data for user:", user.id);
 
-      // Simpler API call first - just get the entries
+      // Load entries with the new API
       const historyResponse = await fetch(
-        `${API_BASE}/api/history?user_id=${user.id}&page=1&limit=50&date_range=${dateRange}&include_analytics=true`
+        `${API_BASE}/api/history?user_id=${user.id}&page=1&limit=100&date_range=${dateRange}&include_analytics=true`
       );
 
       console.log("📡 History response status:", historyResponse.status);
@@ -203,15 +214,18 @@ const AdvancedHistory = () => {
       const historyData = await historyResponse.json();
       console.log("📊 Raw history data received:", historyData);
 
-      // Safely extract entries with fallback
-      const entriesArray = Array.isArray(historyData.entries)
-        ? historyData.entries
-        : [];
-      console.log("✅ Entries extracted:", entriesArray.length);
+      // Track which database is being used
+      if (historyData.database) {
+        setDatabaseEnvironment(historyData.database);
+        console.log(`🗄️ Using ${historyData.database} database`);
+      }
 
-      setEntries(entriesArray);
+      // Process entries to ensure they have the expected structure
+      const processedEntries = processEntries(historyData.entries || []);
+      console.log("✅ Processed entries:", processedEntries.length);
+      setEntries(processedEntries);
 
-      // Safely handle analytics
+      // Handle analytics
       if (historyData.analytics && typeof historyData.analytics === "object") {
         console.log("📈 Analytics data found:", historyData.analytics);
         setAnalytics((prevAnalytics) => ({
@@ -220,23 +234,21 @@ const AdvancedHistory = () => {
         }));
       } else {
         console.log("📈 No analytics from backend, calculating locally...");
-        calculateAnalytics(entriesArray);
+        calculateAnalytics(processedEntries);
       }
 
-      // Load folders separately to avoid complexity
+      // Load folders separately
       try {
         console.log("📁 Loading folders...");
         const foldersResponse = await fetch(
-          `${API_BASE}/api/folders?user_id=${user.id}&include_entry_count=true`
+          `${API_BASE}/api/folders?user_id=${user.id}`
         );
 
         if (foldersResponse.ok) {
           const foldersData = await foldersResponse.json();
-          const foldersArray = Array.isArray(foldersData.folders)
-            ? foldersData.folders
-            : [];
-          setFolders(foldersArray);
-          console.log("✅ Folders loaded:", foldersArray.length);
+          const processedFolders = processFolders(foldersData.folders || []);
+          setFolders(processedFolders);
+          console.log("✅ Folders loaded:", processedFolders.length);
         } else {
           console.warn("⚠️ Folders API failed:", foldersResponse.status);
           setFolders([]);
@@ -255,11 +267,9 @@ const AdvancedHistory = () => {
 
         if (goalsResponse.ok) {
           const goalsData = await goalsResponse.json();
-          const goalsArray = Array.isArray(goalsData.goals)
-            ? goalsData.goals
-            : [];
-          setGoals(goalsArray);
-          console.log("✅ Goals loaded:", goalsArray.length);
+          const processedGoals = processGoals(goalsData.goals || []);
+          setGoals(processedGoals);
+          console.log("✅ Goals loaded:", processedGoals.length);
         } else {
           console.warn("⚠️ Goals API failed:", goalsResponse.status);
           setGoals([]);
@@ -274,6 +284,64 @@ const AdvancedHistory = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Process entries to ensure they have the expected decrypted fields
+  const processEntries = (rawEntries) => {
+    return rawEntries.map((entry) => {
+      // Ensure the entry has all expected fields for the tab components
+      return {
+        ...entry,
+        // Map decrypted fields from backend response
+        decryptedContent: entry.content || entry.decryptedContent || "",
+        decryptedPrompt: entry.prompt || entry.decryptedPrompt || "",
+        decryptedFollowUps: processFollowUps(
+          entry.followUps || entry.follow_ups || []
+        ),
+        // Ensure other expected fields exist
+        created_at: entry.created_at || entry.createdAt,
+        updated_at: entry.updated_at || entry.updatedAt,
+        starred: entry.starred || false,
+        pinned: entry.pinned || false,
+        folder_id: entry.folder_id || entry.folderId || null,
+        mood: entry.mood || "neutral",
+        theme: entry.theme || "",
+        tone: entry.tone || "",
+        topics: entry.topics || [],
+        emotions: entry.emotions || [],
+      };
+    });
+  };
+
+  // Process follow-ups to ensure they have the expected structure
+  const processFollowUps = (followUps) => {
+    if (!Array.isArray(followUps)) return [];
+
+    return followUps.map((fu) => ({
+      ...fu,
+      decryptedQuestion: fu.question || fu.decryptedQuestion || "",
+      decryptedResponse: fu.response || fu.decryptedResponse || "",
+      created_at: fu.created_at || fu.createdAt,
+    }));
+  };
+
+  // Process folders to ensure they have decrypted names
+  const processFolders = (rawFolders) => {
+    return rawFolders.map((folder) => ({
+      ...folder,
+      decryptedName: folder.name || folder.decryptedName || "Untitled Folder",
+      decryptedDescription:
+        folder.description || folder.decryptedDescription || "",
+    }));
+  };
+
+  // Process goals to ensure they have decrypted titles
+  const processGoals = (rawGoals) => {
+    return rawGoals.map((goal) => ({
+      ...goal,
+      decryptedTitle: goal.title || goal.decryptedTitle || "Untitled Goal",
+      decryptedDescription: goal.description || goal.decryptedDescription || "",
+    }));
   };
 
   const calculateAnalytics = (entriesData) => {
@@ -292,13 +360,20 @@ const AdvancedHistory = () => {
       // Basic analytics calculations with safe property access
       const totalEntries = entriesData.length;
 
+      // Calculate average word count
+      const totalWords = entriesData.reduce((sum, entry) => {
+        const content = entry.decryptedContent || "";
+        return (
+          sum + content.split(/\s+/).filter((word) => word.length > 0).length
+        );
+      }, 0);
+      const averageWordCount = Math.round(totalWords / totalEntries);
+
       // Mood distribution with safe access
       const moodCounts = {};
       entriesData.forEach((entry) => {
-        if (entry && typeof entry === "object") {
-          const mood = entry.mood || "neutral";
-          moodCounts[mood] = (moodCounts[mood] || 0) + 1;
-        }
+        const mood = entry.mood || "neutral";
+        moodCounts[mood] = (moodCounts[mood] || 0) + 1;
       });
 
       const moodDistribution = Object.entries(moodCounts).map(
@@ -312,10 +387,8 @@ const AdvancedHistory = () => {
       // Theme frequency with safe access
       const themeCounts = {};
       entriesData.forEach((entry) => {
-        if (entry && typeof entry === "object") {
-          const theme = entry.theme || entry.topics?.[0] || "general";
-          themeCounts[theme] = (themeCounts[theme] || 0) + 1;
-        }
+        const theme = entry.theme || "general";
+        themeCounts[theme] = (themeCounts[theme] || 0) + 1;
       });
 
       const themeFrequency = Object.entries(themeCounts)
@@ -327,13 +400,42 @@ const AdvancedHistory = () => {
         .sort((a, b) => b.count - a.count)
         .slice(0, 10);
 
+      // Top topics
+      const topicCounts = {};
+      entriesData.forEach((entry) => {
+        (entry.topics || []).forEach((topic) => {
+          topicCounts[topic] = (topicCounts[topic] || 0) + 1;
+        });
+      });
+
+      const topTopics = Object.entries(topicCounts)
+        .map(([topic, count]) => ({ topic, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+      // Top emotions
+      const emotionCounts = {};
+      entriesData.forEach((entry) => {
+        (entry.emotions || []).forEach((emotion) => {
+          emotionCounts[emotion] = (emotionCounts[emotion] || 0) + 1;
+        });
+      });
+
+      const topEmotions = Object.entries(emotionCounts)
+        .map(([emotion, count]) => ({ emotion, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
       // Entry trends (weekly) with safe access
       const entryTrends = calculateWeeklyTrends(entriesData);
 
       const calculatedAnalytics = {
         totalEntries,
+        averageWordCount,
         moodDistribution,
         themeFrequency,
+        topTopics,
+        topEmotions,
         entryTrends,
       };
 
@@ -394,59 +496,9 @@ const AdvancedHistory = () => {
       .slice(-12); // Last 12 weeks
   };
 
-  // Search functionality using backend
-  const handleSearch = async (query) => {
-    if (!query.trim()) {
-      loadHistoryData(); // Reload all data
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      // Check if search-entries endpoint exists, otherwise fallback to filtering
-      try {
-        const searchResponse = await fetch(`${API_BASE}/api/search-entries`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            user_id: user.id,
-            query: query,
-            date_range: dateRange,
-            filters: filters,
-          }),
-        });
-
-        if (searchResponse.ok) {
-          const searchData = await searchResponse.json();
-          setEntries(searchData.entries || []);
-          calculateAnalytics(searchData.entries || []);
-        } else {
-          throw new Error("Search endpoint not available");
-        }
-      } catch (searchError) {
-        console.warn(
-          "⚠️ Search API not available, using client-side filtering"
-        );
-
-        // Fallback: Filter entries client-side
-        const filtered = entries.filter(
-          (entry) =>
-            entry.content.toLowerCase().includes(query.toLowerCase()) ||
-            (entry.prompt &&
-              entry.prompt.toLowerCase().includes(query.toLowerCase()))
-        );
-        setEntries(filtered);
-        calculateAnalytics(filtered);
-      }
-    } catch (error) {
-      console.error("❌ Search error:", error);
-      setError("Search failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+  // Handler for refreshing data (used by tabs)
+  const handleRefresh = () => {
+    loadHistoryData();
   };
 
   if (loading) {
@@ -485,7 +537,10 @@ const AdvancedHistory = () => {
       <p className="text-gray-300 mb-6">
         Start journaling to see your entries, insights, and patterns here.
       </p>
-      <button className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+      <button
+        onClick={() => (window.location.href = "/journal")}
+        className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+      >
         Write Your First Entry
       </button>
     </div>
@@ -499,11 +554,16 @@ const AdvancedHistory = () => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-white mb-2">
-                Advanced Journal History
+                Premium Journal History
               </h1>
               <p className="text-gray-400">
                 Explore patterns, insights, and connections in your journaling
                 journey
+                {databaseEnvironment && (
+                  <span className="ml-2 text-xs text-purple-400">
+                    ({databaseEnvironment} data)
+                  </span>
+                )}
               </p>
             </div>
 
@@ -545,12 +605,19 @@ const AdvancedHistory = () => {
                 <option value="3months">Last 3 Months</option>
                 <option value="6months">Last 6 Months</option>
                 <option value="1year">Last Year</option>
+                <option value="all">All Time</option>
               </select>
             </div>
 
-            <div className="flex items-center gap-2 text-sm text-emerald-400">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-              AI History Analysis Active
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-2 text-gray-300">
+                <BookOpen className="h-4 w-4 text-purple-400" />
+                <span>{analytics.totalEntries} entries</span>
+              </div>
+              <div className="flex items-center gap-2 text-emerald-400">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                AI History Analysis Active
+              </div>
             </div>
           </div>
         </div>
@@ -559,20 +626,18 @@ const AdvancedHistory = () => {
           <EmptyHistoryState />
         ) : (
           <>
-            {/* Advanced Tabs - 2x5 Grid */}
+            {/* Premium Tabs Grid */}
             <div className="mb-8">
-              <div className="grid grid-cols-5 gap-2">
-                {advancedTabs.map((tab, index) => {
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                {advancedTabs.map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.id;
-                  const rowClass = index < 5 ? "row-start-1" : "row-start-2";
 
                   return (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
                       className={`
-                        ${rowClass}
                         flex flex-col items-center justify-center p-4 rounded-lg transition-all
                         ${
                           isActive
@@ -597,21 +662,29 @@ const AdvancedHistory = () => {
                 <OverviewTab
                   entries={entries}
                   analytics={analytics}
+                  folders={folders}
+                  goals={goals}
                   colors={colors}
                 />
               )}
               {activeTab === "calendar" && (
-                <CalendarViewTab entries={entries} colors={colors} />
+                <CalendarViewTab
+                  entries={entries}
+                  colors={colors}
+                  onEntrySelect={(entry) =>
+                    console.log("Selected entry:", entry)
+                  }
+                />
               )}
               {activeTab === "search-filter" && (
                 <SearchFilterTab
                   entries={entries}
-                  setEntries={setEntries}
-                  filters={filters}
-                  setFilters={setFilters}
+                  folders={folders}
+                  goals={goals}
                   searchQuery={searchQuery}
                   setSearchQuery={setSearchQuery}
-                  onSearch={handleSearch}
+                  filters={filters}
+                  setFilters={setFilters}
                   colors={colors}
                 />
               )}
@@ -620,10 +693,15 @@ const AdvancedHistory = () => {
                   entries={entries}
                   folders={folders}
                   colors={colors}
+                  onRefresh={handleRefresh}
                 />
               )}
               {activeTab === "starred-pinned" && (
-                <StarredPinnedTab entries={entries} colors={colors} />
+                <StarredPinnedTab
+                  entries={entries}
+                  colors={colors}
+                  onRefresh={handleRefresh}
+                />
               )}
               {activeTab === "writing-patterns" && (
                 <WritingPatternsTab
@@ -660,6 +738,14 @@ const AdvancedHistory = () => {
                   colors={colors}
                 />
               )}
+              {activeTab === "data-export" && (
+                <DataExportTab
+                  entries={entries}
+                  analytics={analytics}
+                  folders={folders}
+                  colors={colors}
+                />
+              )}
             </div>
           </>
         )}
@@ -668,4 +754,4 @@ const AdvancedHistory = () => {
   );
 };
 
-export default AdvancedHistory;
+export default PremiumHistory;
