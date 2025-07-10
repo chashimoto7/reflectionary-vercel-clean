@@ -187,163 +187,172 @@ const AdvancedHistory = () => {
       setLoading(true);
       setError(null);
 
-      // Calculate date range
-      const endDate = new Date();
-      const startDate = new Date();
-      switch (dateRange) {
-        case "1month":
-          startDate.setMonth(startDate.getMonth() - 1);
-          break;
-        case "3months":
-          startDate.setMonth(startDate.getMonth() - 3);
-          break;
-        case "6months":
-          startDate.setMonth(startDate.getMonth() - 6);
-          break;
-        case "1year":
-          startDate.setFullYear(startDate.getFullYear() - 1);
-          break;
-        default:
-          startDate.setMonth(startDate.getMonth() - 3);
-      }
+      console.log("🔍 Loading history data for user:", user.id);
 
-      console.log("🔍 Loading history data with params:", {
-        user_id: user.id,
-        date_range: dateRange,
-        start_date: startDate.toISOString(),
-        end_date: endDate.toISOString(),
-      });
-
-      // Use backend API to get decrypted entries with analytics
+      // Simpler API call first - just get the entries
       const historyResponse = await fetch(
-        `${API_BASE}/api/history?user_id=${user.id}&page=1&limit=50&date_range=${dateRange}&include_analytics=true&include_folders=true&include_goals=true`
+        `${API_BASE}/api/history?user_id=${user.id}&page=1&limit=50&date_range=${dateRange}&include_analytics=true`
       );
 
       console.log("📡 History response status:", historyResponse.status);
 
       if (!historyResponse.ok) {
         const errorText = await historyResponse.text();
-        console.error("❌ History API error:", errorText);
-        throw new Error(`Failed to fetch history: ${historyResponse.status}`);
+        console.error("❌ History API error response:", errorText);
+        throw new Error(
+          `API returned ${historyResponse.status}: ${errorText.substring(
+            0,
+            100
+          )}`
+        );
       }
 
       const historyData = await historyResponse.json();
-      console.log("✅ History data received:", {
-        entries_count: historyData.entries?.length || 0,
-        has_analytics: !!historyData.analytics,
-        has_folders: !!historyData.folders,
-        has_goals: !!historyData.goals,
-      });
+      console.log("📊 Raw history data received:", historyData);
 
-      setEntries(historyData.entries || []);
+      // Safely extract entries with fallback
+      const entriesArray = Array.isArray(historyData.entries)
+        ? historyData.entries
+        : [];
+      console.log("✅ Entries extracted:", entriesArray.length);
 
-      // Set analytics if provided by backend
-      if (historyData.analytics) {
+      setEntries(entriesArray);
+
+      // Safely handle analytics
+      if (historyData.analytics && typeof historyData.analytics === "object") {
+        console.log("📈 Analytics data found:", historyData.analytics);
         setAnalytics((prevAnalytics) => ({
           ...prevAnalytics,
           ...historyData.analytics,
         }));
+      } else {
+        console.log("📈 No analytics from backend, calculating locally...");
+        calculateAnalytics(entriesArray);
       }
 
-      // Set folders if provided by backend
-      if (historyData.folders) {
-        setFolders(historyData.folders);
-      } else {
-        // Fallback: Load folders separately if not included
-        try {
-          const foldersResponse = await fetch(
-            `${API_BASE}/api/folders?user_id=${user.id}&include_entry_count=true`
-          );
+      // Load folders separately to avoid complexity
+      try {
+        console.log("📁 Loading folders...");
+        const foldersResponse = await fetch(
+          `${API_BASE}/api/folders?user_id=${user.id}&include_entry_count=true`
+        );
 
-          if (foldersResponse.ok) {
-            const foldersData = await foldersResponse.json();
-            setFolders(foldersData.folders || []);
-          }
-        } catch (folderError) {
-          console.warn("⚠️ Failed to load folders:", folderError);
+        if (foldersResponse.ok) {
+          const foldersData = await foldersResponse.json();
+          const foldersArray = Array.isArray(foldersData.folders)
+            ? foldersData.folders
+            : [];
+          setFolders(foldersArray);
+          console.log("✅ Folders loaded:", foldersArray.length);
+        } else {
+          console.warn("⚠️ Folders API failed:", foldersResponse.status);
           setFolders([]);
         }
+      } catch (folderError) {
+        console.warn("⚠️ Failed to load folders:", folderError.message);
+        setFolders([]);
       }
 
-      // Set goals if provided by backend
-      if (historyData.goals) {
-        setGoals(historyData.goals);
-      } else {
-        // Fallback: Load goals separately if not included
-        try {
-          const goalsResponse = await fetch(
-            `${API_BASE}/api/goals?user_id=${user.id}`
-          );
+      // Load goals separately
+      try {
+        console.log("🎯 Loading goals...");
+        const goalsResponse = await fetch(
+          `${API_BASE}/api/goals?user_id=${user.id}`
+        );
 
-          if (goalsResponse.ok) {
-            const goalsData = await goalsResponse.json();
-            setGoals(goalsData.goals || []);
-          }
-        } catch (goalError) {
-          console.warn("⚠️ Failed to load goals:", goalError);
+        if (goalsResponse.ok) {
+          const goalsData = await goalsResponse.json();
+          const goalsArray = Array.isArray(goalsData.goals)
+            ? goalsData.goals
+            : [];
+          setGoals(goalsArray);
+          console.log("✅ Goals loaded:", goalsArray.length);
+        } else {
+          console.warn("⚠️ Goals API failed:", goalsResponse.status);
           setGoals([]);
         }
-      }
-
-      // Calculate additional analytics if not provided by backend
-      if (!historyData.analytics) {
-        calculateAnalytics(historyData.entries || []);
+      } catch (goalError) {
+        console.warn("⚠️ Failed to load goals:", goalError.message);
+        setGoals([]);
       }
     } catch (error) {
       console.error("❌ Error loading history data:", error);
-      setError("Failed to load your journal history. Please try again.");
+      setError(`Failed to load journal history: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   const calculateAnalytics = (entriesData) => {
-    if (!entriesData || entriesData.length === 0) return;
+    try {
+      console.log(
+        "📊 Calculating analytics for",
+        entriesData?.length || 0,
+        "entries"
+      );
 
-    // Basic analytics calculations
-    const totalEntries = entriesData.length;
+      if (!Array.isArray(entriesData) || entriesData.length === 0) {
+        console.log("📊 No entries to analyze");
+        return;
+      }
 
-    // Mood distribution
-    const moodCounts = {};
-    entriesData.forEach((entry) => {
-      const mood = entry.mood || "neutral";
-      moodCounts[mood] = (moodCounts[mood] || 0) + 1;
-    });
+      // Basic analytics calculations with safe property access
+      const totalEntries = entriesData.length;
 
-    const moodDistribution = Object.entries(moodCounts).map(
-      ([mood, count]) => ({
-        mood,
-        count,
-        percentage: Math.round((count / totalEntries) * 100),
-      })
-    );
+      // Mood distribution with safe access
+      const moodCounts = {};
+      entriesData.forEach((entry) => {
+        if (entry && typeof entry === "object") {
+          const mood = entry.mood || "neutral";
+          moodCounts[mood] = (moodCounts[mood] || 0) + 1;
+        }
+      });
 
-    // Theme frequency
-    const themeCounts = {};
-    entriesData.forEach((entry) => {
-      const theme = entry.theme || "general";
-      themeCounts[theme] = (themeCounts[theme] || 0) + 1;
-    });
+      const moodDistribution = Object.entries(moodCounts).map(
+        ([mood, count]) => ({
+          mood,
+          count,
+          percentage: Math.round((count / totalEntries) * 100),
+        })
+      );
 
-    const themeFrequency = Object.entries(themeCounts)
-      .map(([theme, count]) => ({
-        theme,
-        count,
-        percentage: Math.round((count / totalEntries) * 100),
-      }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+      // Theme frequency with safe access
+      const themeCounts = {};
+      entriesData.forEach((entry) => {
+        if (entry && typeof entry === "object") {
+          const theme = entry.theme || entry.topics?.[0] || "general";
+          themeCounts[theme] = (themeCounts[theme] || 0) + 1;
+        }
+      });
 
-    // Entry trends (weekly)
-    const entryTrends = calculateWeeklyTrends(entriesData);
+      const themeFrequency = Object.entries(themeCounts)
+        .map(([theme, count]) => ({
+          theme,
+          count,
+          percentage: Math.round((count / totalEntries) * 100),
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
 
-    setAnalytics((prev) => ({
-      ...prev,
-      totalEntries,
-      moodDistribution,
-      themeFrequency,
-      entryTrends,
-    }));
+      // Entry trends (weekly) with safe access
+      const entryTrends = calculateWeeklyTrends(entriesData);
+
+      const calculatedAnalytics = {
+        totalEntries,
+        moodDistribution,
+        themeFrequency,
+        entryTrends,
+      };
+
+      console.log("📈 Analytics calculated:", calculatedAnalytics);
+
+      setAnalytics((prev) => ({
+        ...prev,
+        ...calculatedAnalytics,
+      }));
+    } catch (analyticsError) {
+      console.error("❌ Error calculating analytics:", analyticsError);
+    }
   };
 
   const calculateWeeklyTrends = (entriesData) => {
