@@ -1,7 +1,7 @@
-// frontend/ src/pages/PremiumGoals.jsx
+// frontend/src/pages/PremiumGoals.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useMembership } from "../hooks/useMembership";
+import ReactConfetti from "react-confetti"; // Added missing import
 import {
   Calendar,
   Search,
@@ -69,7 +69,6 @@ import GoalTips from "../components/GoalTips";
 
 const PremiumGoals = () => {
   const { user } = useAuth();
-  const { hasAccess, tier, loading: membershipLoading } = useMembership();
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -77,6 +76,7 @@ const PremiumGoals = () => {
   const [dateRange, setDateRange] = useState("3months");
   const [selectedGoalId, setSelectedGoalId] = useState(null);
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
+  const [databaseEnvironment, setDatabaseEnvironment] = useState(null);
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
@@ -204,20 +204,19 @@ const PremiumGoals = () => {
     },
   ];
 
-  // Check access control
+  // Get backend URL
+  const getBackendUrl = () => {
+    return import.meta.env.VITE_BACKEND_URL || "https://www.reflectionary.ca";
+  };
+
+  // Load data when user is available
   useEffect(() => {
-    if (!user || membershipLoading) {
+    if (!user) {
       return;
     }
 
-    const userHasAccess = hasAccess("premium_goals");
-
-    if (userHasAccess) {
-      loadGoalsAndAnalytics();
-    } else {
-      setLoading(false);
-    }
-  }, [user, dateRange, tier, membershipLoading]);
+    loadGoalsAndAnalytics();
+  }, [user, dateRange]);
 
   const loadGoalsAndAnalytics = async () => {
     setLoading(true);
@@ -238,10 +237,19 @@ const PremiumGoals = () => {
     }
   };
 
-  // Data loading functions - NOW USING BACKEND API
+  // Data loading functions - Using proper backend URLs
   const loadGoals = async () => {
     try {
-      const response = await fetch(`/api/goals?user_id=${user.id}`);
+      const response = await fetch(
+        `${getBackendUrl()}/api/goals?user_id=${user.id}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch goals");
@@ -249,6 +257,12 @@ const PremiumGoals = () => {
 
       const data = await response.json();
       setGoals(data.goals || []);
+
+      // Track which database is being used
+      if (data.database) {
+        setDatabaseEnvironment(data.database);
+        console.log(`🎯 Using ${data.database} database for goals`);
+      }
 
       // Select first goal if none selected
       if (data.goals && data.goals.length > 0 && !selectedGoalId) {
@@ -262,36 +276,54 @@ const PremiumGoals = () => {
 
   const loadAnalyticsData = async () => {
     try {
-      // Fetch goal analytics from backend
-      const response = await fetch(
-        `/api/goal-analytics?user_id=${user.id}&date_range=${dateRange}`
-      );
+      // For now, calculate analytics client-side since the endpoint might not exist yet
+      // In the future, this should call the backend API
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch analytics");
-      }
+      const activeGoals = goals.filter((g) => g.status === "active");
+      const completedGoals = goals.filter((g) => g.status === "completed");
+      const pausedGoals = goals.filter((g) => g.status === "paused");
 
-      const data = await response.json();
+      // Calculate average progress
+      let totalProgress = 0;
+      let goalsWithProgress = 0;
+
+      goals.forEach((goal) => {
+        if (goal.progress && goal.progress.data) {
+          const progressData = goal.progress.data;
+          if (goal.progress.type === "milestones") {
+            const completed = progressData.filter((m) => m.completed).length;
+            const total = progressData.length;
+            if (total > 0) {
+              totalProgress += (completed / total) * 100;
+              goalsWithProgress++;
+            }
+          } else if (goal.progress.type === "tiers") {
+            // Handle tier-based progress
+            const currentTier = progressData.findIndex((t) => !t.completed);
+            if (currentTier > 0) {
+              totalProgress += (currentTier / progressData.length) * 100;
+              goalsWithProgress++;
+            }
+          }
+        }
+      });
 
       setAnalyticsData({
         overview: {
-          totalGoals: data.totalGoals || goals.length,
-          activeGoals:
-            data.activeGoals ||
-            goals.filter((g) => g.status === "active").length,
-          completedGoals:
-            data.completedGoals ||
-            goals.filter((g) => g.status === "completed").length,
-          pausedGoals:
-            data.pausedGoals ||
-            goals.filter((g) => g.status === "paused").length,
-          averageProgress: data.averageProgress || 0,
-          streak: data.streak || 0,
+          totalGoals: goals.length,
+          activeGoals: activeGoals.length,
+          completedGoals: completedGoals.length,
+          pausedGoals: pausedGoals.length,
+          averageProgress:
+            goalsWithProgress > 0
+              ? Math.round(totalProgress / goalsWithProgress)
+              : 0,
+          streak: 0, // Would need journal entries to calculate
         },
       });
     } catch (error) {
       console.error("Error loading analytics:", error);
-      // Set default values if API fails
+      // Set default values if calculation fails
       setAnalyticsData({
         overview: {
           totalGoals: goals.length,
@@ -307,7 +339,16 @@ const PremiumGoals = () => {
 
   const loadInsights = async () => {
     try {
-      const response = await fetch(`/api/goal-insights?user_id=${user.id}`);
+      const response = await fetch(
+        `${getBackendUrl()}/api/goal-insights?user_id=${user.id}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch insights");
@@ -322,9 +363,8 @@ const PremiumGoals = () => {
         {
           id: 1,
           type: "success",
-          title: "Strong Progress on Fitness Goals",
-          description:
-            "You've maintained consistent progress on your fitness goals for 3 weeks.",
+          title: "Strong Progress on Goals",
+          description: "Keep up the momentum on your active goals.",
           goalId: null,
           date: new Date().toISOString(),
         },
@@ -334,8 +374,18 @@ const PremiumGoals = () => {
 
   const loadProgressPatterns = async () => {
     try {
+      // This endpoint might not exist yet, so we'll handle the error gracefully
       const response = await fetch(
-        `/api/goal-patterns?user_id=${user.id}&date_range=${dateRange}`
+        `${getBackendUrl()}/api/goal-patterns?user_id=${
+          user.id
+        }&date_range=${dateRange}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        }
       );
 
       if (response.ok) {
@@ -344,13 +394,24 @@ const PremiumGoals = () => {
       }
     } catch (error) {
       console.error("Error loading progress patterns:", error);
+      setProgressPatterns([]);
     }
   };
 
   const loadGoalMentions = async () => {
     try {
+      // This endpoint might not exist yet, so we'll handle the error gracefully
       const response = await fetch(
-        `/api/goal-mentions?user_id=${user.id}&date_range=${dateRange}`
+        `${getBackendUrl()}/api/goal-mentions?user_id=${
+          user.id
+        }&date_range=${dateRange}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        }
       );
 
       if (response.ok) {
@@ -359,13 +420,24 @@ const PremiumGoals = () => {
       }
     } catch (error) {
       console.error("Error loading goal mentions:", error);
+      setGoalMentions([]);
     }
   };
 
   const loadMoodCorrelations = async () => {
     try {
+      // This endpoint might not exist yet, so we'll handle the error gracefully
       const response = await fetch(
-        `/api/goal-mood-correlations?user_id=${user.id}&date_range=${dateRange}`
+        `${getBackendUrl()}/api/goal-mood-correlations?user_id=${
+          user.id
+        }&date_range=${dateRange}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        }
       );
 
       if (response.ok) {
@@ -374,17 +446,19 @@ const PremiumGoals = () => {
       }
     } catch (error) {
       console.error("Error loading mood correlations:", error);
+      setMoodCorrelations([]);
     }
   };
 
   // Goal CRUD operations using backend
   const handleAddGoal = async (goalData) => {
     try {
-      const response = await fetch("/api/goals", {
+      const response = await fetch(`${getBackendUrl()}/api/goals`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           user_id: user.id,
           ...goalData,
@@ -406,11 +480,12 @@ const PremiumGoals = () => {
 
   const handleEditGoal = async (goalId, updatedData) => {
     try {
-      const response = await fetch("/api/goals", {
+      const response = await fetch(`${getBackendUrl()}/api/goals`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           goal_id: goalId,
           user_id: user.id,
@@ -438,9 +513,13 @@ const PremiumGoals = () => {
 
     try {
       const response = await fetch(
-        `/api/goals?goal_id=${goalId}&user_id=${user.id}`,
+        `${getBackendUrl()}/api/goals?goal_id=${goalId}&user_id=${user.id}`,
         {
           method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
         }
       );
 
@@ -462,11 +541,12 @@ const PremiumGoals = () => {
 
   const handleStatusChange = async (goalId, newStatus) => {
     try {
-      const response = await fetch("/api/goals", {
+      const response = await fetch(`${getBackendUrl()}/api/goals`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           goal_id: goalId,
           user_id: user.id,
@@ -491,34 +571,13 @@ const PremiumGoals = () => {
     }
   };
 
-  // Access control check
-  if (!user || membershipLoading) {
+  // Loading state
+  if (!user) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading your goals...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!hasAccess("premium_goals")) {
-    return (
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="text-center py-12">
-          <Shield className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Premium Goals Access Required
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Upgrade to Premium to unlock advanced goal tracking with AI
-            insights, progress patterns, mood correlations, and comprehensive
-            analytics.
-          </p>
-          <button className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
-            Upgrade to Premium
-          </button>
         </div>
       </div>
     );
@@ -577,6 +636,11 @@ const PremiumGoals = () => {
               </h1>
               <p className="text-gray-400">
                 Advanced goal analytics with AI-powered insights
+                {databaseEnvironment && (
+                  <span className="ml-2 text-xs text-purple-400">
+                    ({databaseEnvironment} data)
+                  </span>
+                )}
               </p>
             </div>
 
