@@ -186,6 +186,7 @@ const EntryModal = ({ entry, onClose, onAudioPlay }) => {
   // Parse HTML content
   const parseContent = (content) => {
     if (!content) return "";
+    // Remove HTML tags and decode entities
     return content
       .replace(/<p>/g, "")
       .replace(/<\/p>/g, "\n\n")
@@ -195,7 +196,7 @@ const EntryModal = ({ entry, onClose, onAudioPlay }) => {
       .replace(/&gt;/g, ">")
       .replace(/&quot;/g, '"')
       .replace(/&#039;/g, "'")
-      .replace(/\n\n+/g, "\n\n")
+      .replace(/\n\n+/g, "\n\n") // Remove extra line breaks
       .trim();
   };
 
