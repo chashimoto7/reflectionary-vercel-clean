@@ -1,4 +1,4 @@
-// frontend/ src/components/history/tabs/SearchFilterTab.jsx
+// frontend/src/components/history/tabs/SearchFilterTab.jsx
 import React, { useState, useMemo } from "react";
 import AudioButton from "../../AudioButton";
 import AudioPlayer from "../../AudioPlayer";
@@ -183,13 +183,30 @@ const SearchFilterTab = ({
   const EntryModal = () => {
     if (!selectedEntry) return null;
 
+    // Function to parse HTML content
+    const parseContent = (content) => {
+      if (!content) return "";
+      // Remove HTML tags and decode entities
+      return content
+        .replace(/<p>/g, "")
+        .replace(/<\/p>/g, "\n\n")
+        .replace(/<br\s*\/?>/g, "\n")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#039;/g, "'")
+        .replace(/\n\n+/g, "\n\n") // Remove extra line breaks
+        .trim();
+    };
+
     return (
       <div
         className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
         onClick={() => setShowEntryModal(false)}
       >
         <div
-          className="bg-slate-800 border border-white/20 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+          className="bg-slate-800 border border-white/20 rounded-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between mb-4">
@@ -210,20 +227,60 @@ const SearchFilterTab = ({
           </div>
 
           <div className="space-y-4">
+            {/* Prompt */}
             {selectedEntry.decryptedPrompt && (
               <div className="p-4 bg-purple-600/20 rounded-lg border border-purple-500/30">
-                <p className="text-sm text-purple-300 mb-1">Prompt</p>
-                <p className="text-white">{selectedEntry.decryptedPrompt}</p>
+                <p className="text-sm text-purple-300 mb-1 font-medium">
+                  Prompt
+                </p>
+                <p className="text-white">
+                  {parseContent(selectedEntry.decryptedPrompt)}
+                </p>
               </div>
             )}
 
-            <div className="p-4 bg-white/10 rounded-lg">
+            {/* Main Entry Content */}
+            <div className="p-4 bg-slate-700/50 rounded-lg">
               <p className="text-white whitespace-pre-wrap">
-                {selectedEntry.decryptedContent}
+                {parseContent(selectedEntry.decryptedContent)}
               </p>
             </div>
 
-            <div className="flex items-center gap-4 text-sm text-gray-400">
+            {/* Follow-ups */}
+            {selectedEntry.decryptedFollowUps &&
+              selectedEntry.decryptedFollowUps.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-gray-300">
+                    Follow-up Questions
+                  </h4>
+                  {selectedEntry.decryptedFollowUps.map((followUp, index) => (
+                    <div
+                      key={index}
+                      className="space-y-2 pl-4 border-l-2 border-purple-500/30"
+                    >
+                      <div className="p-3 bg-purple-600/10 rounded-lg">
+                        <p className="text-sm text-purple-300 mb-1">
+                          Question {index + 1}
+                        </p>
+                        <p className="text-white">
+                          {parseContent(followUp.decryptedQuestion)}
+                        </p>
+                      </div>
+                      {followUp.decryptedResponse && (
+                        <div className="p-3 bg-slate-700/30 rounded-lg ml-4">
+                          <p className="text-sm text-gray-400 mb-1">Response</p>
+                          <p className="text-white whitespace-pre-wrap">
+                            {parseContent(followUp.decryptedResponse)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+            {/* Footer */}
+            <div className="flex items-center gap-4 text-sm text-gray-400 pt-4 border-t border-white/10">
               <span>
                 {selectedEntry.decryptedContent?.split(" ").length || 0} words
               </span>
