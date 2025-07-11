@@ -6,7 +6,6 @@ import { useSecurity } from "../contexts/SecurityContext";
 import { useMembership } from "../hooks/useMembership";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
-import { useFeatureAccess } from "../hooks/useFeatureAccess";
 import UpgradePrompt from "../components/UpgradePrompt";
 import { useCrisisIntegration } from "../hooks/useCrisisIntegration";
 import CrisisResourceModal from "../components/CrisisResourceModal";
