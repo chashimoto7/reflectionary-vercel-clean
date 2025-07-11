@@ -1,5 +1,5 @@
-// frontend/ src/components/history/tabs/FoldersTab.jsx
-import React, { useState } from "react";
+// frontend/src/components/history/tabs/FoldersTab.jsx
+import React, { useState, useCallback } from "react";
 import AudioButton from "../../AudioButton";
 import AudioPlayer from "../../AudioPlayer";
 import {
@@ -19,13 +19,307 @@ import {
   Archive,
   Download,
   Share2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-import { supabase } from "../../../lib/supabase";
-import encryptionService from "../../../services/encryptionService";
 import { useAuth } from "../../../contexts/AuthContext";
+
+// Move modal components outside to prevent recreation
+const CreateFolderModal = ({
+  show,
+  onClose,
+  folderName,
+  setFolderName,
+  folderDescription,
+  setFolderDescription,
+  onSubmit,
+  loading,
+}) => {
+  if (!show) return null;
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-slate-800 border border-white/20 rounded-lg p-6 max-w-md w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-xl font-semibold text-white mb-4">
+          Create New Folder
+        </h3>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">
+              Folder Name
+            </label>
+            <input
+              type="text"
+              value={folderName}
+              onChange={(e) => setFolderName(e.target.value)}
+              placeholder="Enter folder name..."
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">
+              Description (Optional)
+            </label>
+            <textarea
+              value={folderDescription}
+              onChange={(e) => setFolderDescription(e.target.value)}
+              placeholder="What will you store in this folder?"
+              rows={3}
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-400 hover:text-white"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onSubmit}
+            disabled={!folderName.trim() || loading}
+            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+          >
+            {loading ? "Creating..." : "Create Folder"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const EditFolderModal = ({
+  show,
+  onClose,
+  folderName,
+  setFolderName,
+  folderDescription,
+  setFolderDescription,
+  onSubmit,
+  onDelete,
+  loading,
+}) => {
+  if (!show) return null;
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-slate-800 border border-white/20 rounded-lg p-6 max-w-md w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-xl font-semibold text-white mb-4">Edit Folder</h3>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">
+              Folder Name
+            </label>
+            <input
+              type="text"
+              value={folderName}
+              onChange={(e) => setFolderName(e.target.value)}
+              placeholder="Enter folder name..."
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">
+              Description (Optional)
+            </label>
+            <textarea
+              value={folderDescription}
+              onChange={(e) => setFolderDescription(e.target.value)}
+              placeholder="What will you store in this folder?"
+              rows={3}
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mt-6">
+          <button
+            onClick={onDelete}
+            className="px-4 py-2 text-red-400 hover:text-red-300"
+          >
+            Delete Folder
+          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-gray-400 hover:text-white"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onSubmit}
+              disabled={!folderName.trim() || loading}
+              className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const EntryModal = ({ entry, onClose, onAudioPlay }) => {
+  if (!entry) return null;
+
+  // Parse HTML content
+  const parseContent = (content) => {
+    if (!content) return "";
+    return content
+      .replace(/<p>/g, "")
+      .replace(/<\/p>/g, "\n\n")
+      .replace(/<br\s*\/?>/g, "\n")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'")
+      .replace(/\n\n+/g, "\n\n")
+      .trim();
+  };
+
+  const followUps = entry.follow_ups || entry.decryptedFollowUps || [];
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-slate-800 border border-white/20 rounded-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-xl font-semibold text-white">
+              {new Date(entry.created_at).toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </h3>
+            <p className="text-sm text-gray-400 mt-1">
+              {new Date(entry.created_at).toLocaleTimeString("en-US", {
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+              })}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {/* Prompt */}
+          {(entry.decryptedPrompt || entry.prompt) && (
+            <div className="p-4 bg-purple-600/20 rounded-lg border border-purple-500/30">
+              <p className="text-sm text-purple-300 mb-1 font-medium">Prompt</p>
+              <p className="text-white">
+                {parseContent(entry.decryptedPrompt || entry.prompt)}
+              </p>
+            </div>
+          )}
+
+          {/* Main Entry Content */}
+          <div className="p-4 bg-slate-700/50 rounded-lg">
+            <p className="text-white whitespace-pre-wrap">
+              {parseContent(entry.decryptedContent || entry.content)}
+            </p>
+          </div>
+
+          {/* Follow-ups */}
+          {followUps.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-gray-300">
+                Follow-up Questions
+              </h4>
+              {followUps.map((followUp, index) => (
+                <div
+                  key={followUp.id || index}
+                  className="space-y-2 pl-4 border-l-2 border-purple-500/30"
+                >
+                  {followUp.decryptedQuestion && (
+                    <div className="p-3 bg-purple-600/10 rounded-lg">
+                      <p className="text-sm text-purple-300 mb-1">
+                        Follow-up Question {index + 1}
+                      </p>
+                      <p className="text-white">
+                        {parseContent(followUp.decryptedQuestion)}
+                      </p>
+                    </div>
+                  )}
+                  {followUp.decryptedResponse && (
+                    <div className="p-3 bg-slate-700/30 rounded-lg ml-4">
+                      <p className="text-sm text-gray-400 mb-1">Response</p>
+                      <p className="text-white whitespace-pre-wrap">
+                        {parseContent(followUp.decryptedResponse)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="flex items-center gap-4 text-sm text-gray-400 pt-4 border-t border-white/10">
+            <span>
+              {(entry.decryptedContent || entry.content)?.split(" ").length ||
+                0}{" "}
+              words
+            </span>
+            {entry.starred && (
+              <span className="flex items-center gap-1">
+                <Star className="h-4 w-4 text-yellow-400" />
+                Starred
+              </span>
+            )}
+            {entry.pinned && (
+              <span className="flex items-center gap-1">
+                <Pin className="h-4 w-4 text-blue-400" />
+                Pinned
+              </span>
+            )}
+            <AudioButton
+              onClick={() => onAudioPlay(entry)}
+              size="medium"
+              className="ml-auto"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const FoldersTab = ({ entries = [], folders = [], colors = {}, onRefresh }) => {
   const { user } = useAuth();
+
+  // State
   const [selectedFolder, setSelectedFolder] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -35,8 +329,13 @@ const FoldersTab = ({ entries = [], folders = [], colors = {}, onRefresh }) => {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [audioEntry, setAudioEntry] = useState(null);
+  const [selectedEntry, setSelectedEntry] = useState(null);
+  const [showEntryModal, setShowEntryModal] = useState(false);
 
-  // Get entries for each folder
+  const API_BASE =
+    import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app";
+
+  // Helper functions
   const getFolderStats = (folderId) => {
     const folderEntries = entries.filter(
       (entry) => entry.folder_id === folderId
@@ -57,68 +356,81 @@ const FoldersTab = ({ entries = [], folders = [], colors = {}, onRefresh }) => {
       lastEntry: folderEntries.sort(
         (a, b) => new Date(b.created_at) - new Date(a.created_at)
       )[0],
+      entries: folderEntries,
     };
   };
 
-  // Get unorganized entries (no folder)
   const unorganizedEntries = entries.filter((entry) => !entry.folder_id);
 
+  const resetForm = useCallback(() => {
+    setNewFolderName("");
+    setNewFolderDescription("");
+  }, []);
+
+  // API functions
   const createFolder = async () => {
-    if (!newFolderName.trim()) return;
+    if (!newFolderName.trim() || !user) return;
 
     setLoading(true);
     try {
-      const encryptedName = await encryptionService.encrypt(newFolderName);
-      const encryptedDescription = newFolderDescription.trim()
-        ? await encryptionService.encrypt(newFolderDescription)
-        : null;
-
-      const { error } = await supabase.from("folders").insert({
-        user_id: user.id,
-        name: encryptedName,
-        description: encryptedDescription,
+      const response = await fetch(`${API_BASE}/api/folders`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          name: newFolderName.trim(),
+          description: newFolderDescription.trim() || null,
+        }),
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create folder");
+      }
 
-      setNewFolderName("");
-      setNewFolderDescription("");
+      resetForm();
       setShowCreateModal(false);
       onRefresh && onRefresh();
     } catch (error) {
       console.error("Error creating folder:", error);
+      alert(error.message || "Failed to create folder");
     } finally {
       setLoading(false);
     }
   };
 
   const updateFolder = async () => {
-    if (!editingFolder || !newFolderName.trim()) return;
+    if (!editingFolder || !newFolderName.trim() || !user) return;
 
     setLoading(true);
     try {
-      const encryptedName = await encryptionService.encrypt(newFolderName);
-      const encryptedDescription = newFolderDescription.trim()
-        ? await encryptionService.encrypt(newFolderDescription)
-        : null;
+      const response = await fetch(`${API_BASE}/api/folders`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          folder_id: editingFolder.id,
+          user_id: user.id,
+          name: newFolderName.trim(),
+          description: newFolderDescription.trim() || null,
+        }),
+      });
 
-      const { error } = await supabase
-        .from("folders")
-        .update({
-          name: encryptedName,
-          description: encryptedDescription,
-        })
-        .eq("id", editingFolder.id);
-
-      if (error) throw error;
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update folder");
+      }
 
       setEditingFolder(null);
-      setNewFolderName("");
-      setNewFolderDescription("");
+      resetForm();
       setShowEditModal(false);
       onRefresh && onRefresh();
     } catch (error) {
       console.error("Error updating folder:", error);
+      alert(error.message || "Failed to update folder");
     } finally {
       setLoading(false);
     }
@@ -135,20 +447,62 @@ const FoldersTab = ({ entries = [], folders = [], colors = {}, onRefresh }) => {
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from("folders")
-        .delete()
-        .eq("id", folderId);
+      const response = await fetch(
+        `${API_BASE}/api/folders?folder_id=${folderId}&user_id=${user.id}&move_entries_to=unfiled`,
+        {
+          method: "DELETE",
+        }
+      );
 
-      if (error) throw error;
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete folder");
+      }
+
+      setShowEditModal(false);
+      setEditingFolder(null);
+      resetForm();
       onRefresh && onRefresh();
     } catch (error) {
       console.error("Error deleting folder:", error);
+      alert(error.message || "Failed to delete folder");
     } finally {
       setLoading(false);
     }
   };
 
+  // Event handlers
+  const handleCloseCreateModal = () => {
+    resetForm();
+    setShowCreateModal(false);
+  };
+
+  const handleCloseEditModal = () => {
+    resetForm();
+    setShowEditModal(false);
+    setEditingFolder(null);
+  };
+
+  const handleEditFolder = (folder) => {
+    setEditingFolder(folder);
+    setNewFolderName(folder.name || folder.decryptedName || "");
+    setNewFolderDescription(
+      folder.description || folder.decryptedDescription || ""
+    );
+    setShowEditModal(true);
+  };
+
+  const handleEntryClick = (entry) => {
+    setSelectedEntry(entry);
+    setShowEntryModal(true);
+  };
+
+  const handleAudioPlay = (entry) => {
+    setAudioEntry(entry);
+    setShowEntryModal(false);
+  };
+
+  // Components
   const FolderCard = ({ folder, stats }) => (
     <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-6 hover:border-purple-500/50 transition-all">
       <div className="flex items-start justify-between mb-4">
@@ -157,20 +511,24 @@ const FoldersTab = ({ entries = [], folders = [], colors = {}, onRefresh }) => {
             <Folder className="h-6 w-6 text-purple-400" />
           </div>
           <div>
-            <h3 className="font-semibold text-white">{folder.decryptedName}</h3>
-            {folder.decryptedDescription && (
+            <h3 className="font-semibold text-white">
+              {folder.name || folder.decryptedName}
+            </h3>
+            {(folder.description || folder.decryptedDescription) && (
               <p className="text-sm text-gray-400 mt-1">
-                {folder.decryptedDescription}
+                {folder.description || folder.decryptedDescription}
               </p>
             )}
           </div>
         </div>
 
-        <div className="relative">
-          <button className="text-gray-400 hover:text-white">
-            <MoreHorizontal className="h-5 w-5" />
-          </button>
-        </div>
+        <button
+          onClick={() => handleEditFolder(folder)}
+          className="text-gray-400 hover:text-white"
+          title="Edit folder"
+        >
+          <Edit3 className="h-5 w-5" />
+        </button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-4">
@@ -266,20 +624,28 @@ const FoldersTab = ({ entries = [], folders = [], colors = {}, onRefresh }) => {
             </p>
           </div>
         </div>
+
+        <button
+          onClick={() => setSelectedFolder({ id: null, name: "Unorganized" })}
+          className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1"
+        >
+          <Eye className="h-3 w-3" />
+          View Entries
+        </button>
       </div>
     );
   };
 
   const FolderEntries = ({ folder }) => {
-    const folderEntries = entries.filter(
-      (entry) => entry.folder_id === folder.id
-    );
+    const folderEntries = folder.id
+      ? entries.filter((entry) => entry.folder_id === folder.id)
+      : unorganizedEntries;
 
     return (
       <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-white">
-            Entries in "{folder.decryptedName}"
+            Entries in "{folder.name}"
           </h3>
           <button
             onClick={() => setSelectedFolder(null)}
@@ -290,168 +656,51 @@ const FoldersTab = ({ entries = [], folders = [], colors = {}, onRefresh }) => {
         </div>
 
         <div className="space-y-3 max-h-96 overflow-y-auto">
-          {folderEntries.map((entry) => (
-            <div
-              key={entry.id}
-              className="p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-medium text-gray-300">
-                      {new Date(entry.created_at).toLocaleDateString()}
-                    </span>
-                    {entry.starred && (
-                      <Star className="h-3 w-3 text-yellow-400" />
-                    )}
-                    {entry.pinned && <Pin className="h-3 w-3 text-blue-400" />}
+          {folderEntries.length === 0 ? (
+            <p className="text-gray-400 text-center py-8">
+              No entries in this folder yet
+            </p>
+          ) : (
+            folderEntries.map((entry) => (
+              <div
+                key={entry.id}
+                className="p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                onClick={() => handleEntryClick(entry)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-medium text-gray-300">
+                        {new Date(entry.created_at).toLocaleDateString()}
+                      </span>
+                      {entry.starred && (
+                        <Star className="h-3 w-3 text-yellow-400" />
+                      )}
+                      {entry.pinned && (
+                        <Pin className="h-3 w-3 text-blue-400" />
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-400 line-clamp-2">
+                      {entry.decryptedContent}
+                    </p>
                   </div>
-                  <p className="text-sm text-gray-400 line-clamp-2">
-                    {entry.decryptedContent}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 ml-2">
-                  <AudioButton
-                    onClick={() => setAudioEntry(entry)}
-                    size="small"
-                  />
-                  <button className="text-xs text-purple-400 hover:text-purple-300">
-                    <Eye className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center gap-2 ml-2">
+                    <AudioButton
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAudioEntry(entry);
+                      }}
+                      size="small"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     );
   };
-
-  const CreateFolderModal = () => (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={() => setShowCreateModal(false)}
-    >
-      <div
-        className="bg-slate-800 border border-white/20 rounded-lg p-6 max-w-md w-full"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-xl font-semibold text-white mb-4">
-          Create New Folder
-        </h3>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">
-              Folder Name
-            </label>
-            <input
-              type="text"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              placeholder="Enter folder name..."
-              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">
-              Description (Optional)
-            </label>
-            <textarea
-              value={newFolderDescription}
-              onChange={(e) => setNewFolderDescription(e.target.value)}
-              placeholder="What will you store in this folder?"
-              rows={3}
-              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-3 mt-6">
-          <button
-            onClick={() => setShowCreateModal(false)}
-            className="px-4 py-2 text-gray-400 hover:text-white"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={createFolder}
-            disabled={!newFolderName.trim() || loading}
-            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? "Creating..." : "Create Folder"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const EditFolderModal = () => (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={() => setShowEditModal(false)}
-    >
-      <div
-        className="bg-slate-800 border border-white/20 rounded-lg p-6 max-w-md w-full"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-xl font-semibold text-white mb-4">Edit Folder</h3>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">
-              Folder Name
-            </label>
-            <input
-              type="text"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              placeholder="Enter folder name..."
-              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">
-              Description (Optional)
-            </label>
-            <textarea
-              value={newFolderDescription}
-              onChange={(e) => setNewFolderDescription(e.target.value)}
-              placeholder="What will you store in this folder?"
-              rows={3}
-              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between mt-6">
-          <button
-            onClick={() => deleteFolder(editingFolder.id)}
-            className="px-4 py-2 text-red-400 hover:text-red-300"
-          >
-            Delete Folder
-          </button>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowEditModal(false)}
-              className="px-4 py-2 text-gray-400 hover:text-white"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={updateFolder}
-              disabled={!newFolderName.trim() || loading}
-              className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? "Saving..." : "Save Changes"}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="space-y-6 text-white">
@@ -497,10 +746,10 @@ const FoldersTab = ({ entries = [], folders = [], colors = {}, onRefresh }) => {
           .filter(
             (folder) =>
               !searchQuery ||
-              folder.decryptedName
+              (folder.name || folder.decryptedName || "")
                 .toLowerCase()
                 .includes(searchQuery.toLowerCase()) ||
-              folder.decryptedDescription
+              (folder.description || folder.decryptedDescription || "")
                 ?.toLowerCase()
                 .includes(searchQuery.toLowerCase())
           )
@@ -530,16 +779,47 @@ const FoldersTab = ({ entries = [], folders = [], colors = {}, onRefresh }) => {
       {selectedFolder && <FolderEntries folder={selectedFolder} />}
 
       {/* Modals */}
-      {showCreateModal && <CreateFolderModal />}
-      {showEditModal && <EditFolderModal />}
+      <CreateFolderModal
+        show={showCreateModal}
+        onClose={handleCloseCreateModal}
+        folderName={newFolderName}
+        setFolderName={setNewFolderName}
+        folderDescription={newFolderDescription}
+        setFolderDescription={setNewFolderDescription}
+        onSubmit={createFolder}
+        loading={loading}
+      />
+
+      <EditFolderModal
+        show={showEditModal}
+        onClose={handleCloseEditModal}
+        folderName={newFolderName}
+        setFolderName={setNewFolderName}
+        folderDescription={newFolderDescription}
+        setFolderDescription={setNewFolderDescription}
+        onSubmit={updateFolder}
+        onDelete={() => deleteFolder(editingFolder.id)}
+        loading={loading}
+      />
+
+      {/* Entry Modal */}
+      {showEntryModal && (
+        <EntryModal
+          entry={selectedEntry}
+          onClose={() => setShowEntryModal(false)}
+          onAudioPlay={handleAudioPlay}
+        />
+      )}
+
+      {/* Audio Player */}
+      {audioEntry && (
+        <AudioPlayer
+          entry={audioEntry}
+          onClose={() => setAudioEntry(null)}
+          position="bottom-right"
+        />
+      )}
     </div>
-  );
-  audioEntry && (
-    <AudioPlayer
-      entry={audioEntry}
-      onClose={() => setAudioEntry(null)}
-      position="bottom-right"
-    />
   );
 };
 

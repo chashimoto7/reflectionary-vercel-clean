@@ -3,10 +3,8 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
-import { useMembership } from "../hooks/useMembership";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
-import { useFeatureAccess } from "../hooks/useFeatureAccess";
 import { useCrisisIntegration } from "../hooks/useCrisisIntegration";
 import CrisisResourceModal from "../components/CrisisResourceModal";
 import FollowUpModal from "../components/FollowUpModal";
@@ -30,26 +28,17 @@ import {
   Check,
   Trash2,
   Lightbulb,
+  Plus,
 } from "lucide-react";
 
 export default function PremiumJournaling() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isLocked } = useSecurity();
-  const { hasAccess, tier, loading } = useMembership();
 
-  // API Base URL - Define once at the top - FIXED for Vite
+  // API Base URL
   const API_BASE =
     import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app";
-
-  // Feature access management
-  const {
-    checkFeatureAccess,
-    showUpgradePrompt,
-    requestedFeature,
-    handleUpgrade,
-    closeUpgradePrompt,
-  } = useFeatureAccess(tier);
 
   // Crisis integration
   const {
@@ -74,6 +63,10 @@ export default function PremiumJournaling() {
   // Premium features state
   const [selectedFolder, setSelectedFolder] = useState(null);
   const [folders, setFolders] = useState([]);
+  const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderDescription, setNewFolderDescription] = useState("");
+  const [folderLoading, setFolderLoading] = useState(false);
   const [tags, setTags] = useState([]);
   const [currentTag, setCurrentTag] = useState("");
   const [isStarred, setIsStarred] = useState(false);
@@ -94,7 +87,6 @@ export default function PremiumJournaling() {
 
   const quillRef = useRef(null);
   const editorRef = useRef(null);
-  const editorContainerRef = useRef(null);
   const stylesInjected = useRef(false);
 
   // Custom styles for Quill dark theme integration
@@ -183,7 +175,7 @@ export default function PremiumJournaling() {
     }
   }, [isLocked, navigate]);
 
-  // Load premium data - Make this non-blocking for editor
+  // Load premium data
   useEffect(() => {
     if (user) {
       // Load data in background, don't block editor initialization
@@ -195,7 +187,7 @@ export default function PremiumJournaling() {
     }
   }, [user]);
 
-  // FALLBACK APPROACH: Initialize once, update placeholder only
+  // Initialize Quill editor
   useEffect(() => {
     const initializeEditor = () => {
       if (isLocked || !editorRef.current || quillRef.current) return;
@@ -346,6 +338,50 @@ export default function PremiumJournaling() {
     } catch (error) {
       console.error("Error loading Reflectionarian prompts:", error);
       setReflectionarianPrompts([]);
+    }
+  };
+
+  const createFolder = async () => {
+    if (!newFolderName.trim() || !user) return;
+
+    setFolderLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/folders`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          name: newFolderName.trim(),
+          description: newFolderDescription.trim() || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create folder");
+      }
+
+      const data = await response.json();
+
+      // Refresh folders list
+      await loadFolders();
+
+      // Select the newly created folder
+      if (data.folder) {
+        setSelectedFolder(data.folder.id);
+      }
+
+      // Reset form and close modal
+      setNewFolderName("");
+      setNewFolderDescription("");
+      setShowCreateFolderModal(false);
+    } catch (error) {
+      console.error("Error creating folder:", error);
+      alert(error.message || "Failed to create folder");
+    } finally {
+      setFolderLoading(false);
     }
   };
 
@@ -810,18 +846,79 @@ export default function PremiumJournaling() {
     }
   };
 
-  if (loading) {
+  // Create Folder Modal Component
+  const CreateFolderModal = () => {
+    if (!showCreateFolderModal) return null;
+
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-white">Loading...</div>
+      <div
+        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+        onClick={() => {
+          setShowCreateFolderModal(false);
+          setNewFolderName("");
+          setNewFolderDescription("");
+        }}
+      >
+        <div
+          className="bg-slate-800 border border-white/20 rounded-lg p-6 max-w-md w-full"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h3 className="text-xl font-semibold text-white mb-4">
+            Create New Folder
+          </h3>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">
+                Folder Name
+              </label>
+              <input
+                type="text"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="Enter folder name..."
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">
+                Description (Optional)
+              </label>
+              <textarea
+                value={newFolderDescription}
+                onChange={(e) => setNewFolderDescription(e.target.value)}
+                placeholder="What will you store in this folder?"
+                rows={3}
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 mt-6">
+            <button
+              onClick={() => {
+                setShowCreateFolderModal(false);
+                setNewFolderName("");
+                setNewFolderDescription("");
+              }}
+              className="px-4 py-2 text-gray-400 hover:text-white"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={createFolder}
+              disabled={!newFolderName.trim() || folderLoading}
+              className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+            >
+              {folderLoading ? "Creating..." : "Create Folder"}
+            </button>
+          </div>
+        </div>
       </div>
     );
-  }
-
-  if (!hasAccess) {
-    navigate("/journaling");
-    return null;
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
@@ -1045,15 +1142,27 @@ export default function PremiumJournaling() {
                 </label>
                 <select
                   value={selectedFolder || ""}
-                  onChange={(e) => setSelectedFolder(e.target.value || null)}
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 text-sm"
+                  onChange={(e) => {
+                    if (e.target.value === "create-new") {
+                      setShowCreateFolderModal(true);
+                    } else {
+                      setSelectedFolder(e.target.value || null);
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 text-sm appearance-none cursor-pointer"
                 >
                   <option value="">No Folder</option>
                   {folders.map((folder) => (
                     <option key={folder.id} value={folder.id}>
-                      {folder.name}
+                      {folder.name} ({folder.entry_count || 0})
                     </option>
                   ))}
+                  <option
+                    value="create-new"
+                    className="font-semibold text-purple-300"
+                  >
+                    + Create New Folder
+                  </option>
                 </select>
               </div>
 
@@ -1221,6 +1330,9 @@ export default function PremiumJournaling() {
           )}
         </div>
       </div>
+
+      {/* Create Folder Modal */}
+      <CreateFolderModal />
 
       {/* Crisis Resource Modal */}
       {showCrisisModal && (
