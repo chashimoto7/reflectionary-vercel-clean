@@ -1,4 +1,4 @@
-// frontend/ src/components/AudioPlayer.jsx
+// frontend/src/components/AudioPlayer.jsx
 import React, { useState, useRef, useEffect } from "react";
 import {
   Play,
@@ -9,9 +9,8 @@ import {
   Loader,
   AlertCircle,
 } from "lucide-react";
-import { supabase } from "../lib/supabase";
 
-const AudioPlayer = ({ entry, onClose, position = "bottom-right" }) => {
+const AudioPlayer = ({ entryId, onClose, position = "bottom-right" }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -20,11 +19,11 @@ const AudioPlayer = ({ entry, onClose, position = "bottom-right" }) => {
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [speed, setSpeed] = useState(1);
-  const [voice, setVoice] = useState("nova"); // OpenAI voices: alloy, echo, fable, onyx, nova, shimmer
+  const [voice, setVoice] = useState("nova");
+  const [textStats, setTextStats] = useState(null);
 
   const audioRef = useRef(null);
   const audioUrlRef = useRef(null);
-  const progressInterval = useRef(null);
 
   // OpenAI TTS voices with descriptions
   const voices = [
@@ -52,44 +51,53 @@ const AudioPlayer = ({ entry, onClose, position = "bottom-right" }) => {
     center: "top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2",
   };
 
-  // Generate audio using OpenAI TTS via Supabase Edge Function
-  const generateAudio = async (text, voiceId) => {
+  // Generate audio using backend endpoints
+  const generateAudio = async (voiceId) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Get the current session
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      // First, get the prepared text from backend
+      const backendUrl =
+        import.meta.env.VITE_API_URL ||
+        "https://reflectionary-api.vercel.app/api";
+      const textResponse = await fetch(`${backendUrl}/api/tts/prepare-text`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ entryId }),
+      });
 
-      if (!session) {
-        throw new Error("No active session");
+      if (!textResponse.ok) {
+        const errorData = await textResponse.json();
+        throw new Error(errorData.error || "Failed to prepare text");
       }
 
-      // Call Supabase Edge Function
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-audio`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            text,
-            voice: voiceId,
-            model: "tts-1", // or "tts-1-hd" for higher quality
-          }),
-        }
-      );
+      const { text, wordCount, characterCount } = await textResponse.json();
+      setTextStats({ wordCount, characterCount });
 
-      if (!response.ok) {
-        const errorData = await response.json();
+      // Then generate audio with the text
+      const audioResponse = await fetch(`${backendUrl}/api/tts/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({
+          text,
+          voice: voiceId,
+          model: "tts-1", // or 'tts-1-hd' for higher quality
+        }),
+      });
+
+      if (!audioResponse.ok) {
+        const errorData = await audioResponse.json();
         throw new Error(errorData.error || "Failed to generate audio");
       }
 
-      const audioBlob = await response.blob();
+      const audioBlob = await audioResponse.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
 
       // Clean up previous audio URL
@@ -108,33 +116,10 @@ const AudioPlayer = ({ entry, onClose, position = "bottom-right" }) => {
     }
   };
 
-  // Prepare text for TTS
-  const prepareText = () => {
-    const parts = [];
-
-    if (entry.decryptedPrompt) {
-      parts.push(`Prompt: ${entry.decryptedPrompt}`);
-    }
-
-    parts.push(entry.decryptedContent);
-
-    if (entry.decryptedFollowUps && entry.decryptedFollowUps.length > 0) {
-      entry.decryptedFollowUps.forEach((fu, index) => {
-        parts.push(`Follow-up question ${index + 1}: ${fu.decryptedQuestion}`);
-        if (fu.decryptedResponse) {
-          parts.push(`Response: ${fu.decryptedResponse}`);
-        }
-      });
-    }
-
-    return parts.join(". ");
-  };
-
   // Initialize audio
   useEffect(() => {
     const initAudio = async () => {
-      const text = prepareText();
-      const audioUrl = await generateAudio(text, voice);
+      const audioUrl = await generateAudio(voice);
 
       if (audioUrl && audioRef.current) {
         audioRef.current.src = audioUrl;
@@ -149,11 +134,8 @@ const AudioPlayer = ({ entry, onClose, position = "bottom-right" }) => {
       if (audioUrlRef.current) {
         URL.revokeObjectURL(audioUrlRef.current);
       }
-      if (progressInterval.current) {
-        clearInterval(progressInterval.current);
-      }
     };
-  }, [entry, voice]);
+  }, [entryId]); // Only re-init when entry changes
 
   // Update playback speed
   useEffect(() => {
@@ -220,16 +202,22 @@ const AudioPlayer = ({ entry, onClose, position = "bottom-right" }) => {
   // Regenerate audio with new voice
   const handleVoiceChange = async (newVoice) => {
     setVoice(newVoice);
-    const text = prepareText();
-    const audioUrl = await generateAudio(text, newVoice);
+    const wasPlaying = isPlaying;
+
+    if (wasPlaying && audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
+
+    const audioUrl = await generateAudio(newVoice);
 
     if (audioUrl && audioRef.current) {
-      const wasPlaying = isPlaying;
       audioRef.current.src = audioUrl;
       audioRef.current.playbackRate = speed;
 
       if (wasPlaying) {
         audioRef.current.play();
+        setIsPlaying(true);
       }
     }
   };
@@ -250,7 +238,15 @@ const AudioPlayer = ({ entry, onClose, position = "bottom-right" }) => {
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-white">Audio Player</h3>
+          <div>
+            <h3 className="text-sm font-medium text-white">Audio Player</h3>
+            {textStats && (
+              <p className="text-xs text-gray-400 mt-0.5">
+                {textStats.wordCount} words • ~
+                {Math.ceil(textStats.wordCount / 150)} min
+              </p>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-white transition-colors"
@@ -262,8 +258,8 @@ const AudioPlayer = ({ entry, onClose, position = "bottom-right" }) => {
         {/* Error State */}
         {error && (
           <div className="mb-3 p-2 bg-red-500/20 border border-red-500/30 rounded text-red-300 text-xs flex items-center gap-2">
-            <AlertCircle className="h-3 w-3" />
-            {error}
+            <AlertCircle className="h-3 w-3 flex-shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
@@ -356,22 +352,11 @@ const AudioPlayer = ({ entry, onClose, position = "bottom-right" }) => {
               <select
                 value={voice}
                 onChange={(e) => handleVoiceChange(e.target.value)}
-                className="flex-1 px-2 py-1 text-xs bg-slate-700 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
-                style={{
-                  // Additional styling to ensure options are visible
-                  backgroundColor: "#475569",
-                  color: "#ffffff",
-                }}
+                disabled={isLoading}
+                className="flex-1 px-2 py-1 text-xs bg-slate-700 border border-white/20 rounded text-white focus:outline-none focus:ring-1 focus:ring-purple-500 disabled:opacity-50"
               >
                 {voices.map((v) => (
-                  <option
-                    key={v.id}
-                    value={v.id}
-                    style={{
-                      backgroundColor: "#475569",
-                      color: "#ffffff",
-                    }}
-                  >
+                  <option key={v.id} value={v.id}>
                     {v.name}
                   </option>
                 ))}

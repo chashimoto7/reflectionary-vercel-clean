@@ -1,8 +1,7 @@
 // api.js - Reflectionary API Service
 // This file handles all communication with your backend API
 
-const API_BASE_URL =
-  "https://reflectionary-api-christines-projects-f96499fa.vercel.app/api";
+const API_BASE_URL = "https://https://reflectionary-api.vercel.app/api";
 
 // Helper function for making API requests
 async function apiRequest(endpoint, options = {}) {
