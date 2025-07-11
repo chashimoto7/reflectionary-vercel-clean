@@ -621,7 +621,8 @@ const PremiumHistory = () => {
           <>
             {/* Premium Tabs Grid */}
             <div className="mb-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+              {/* Tab Navigation Grid - 5x2 layout */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8">
                 {advancedTabs.map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.id;
