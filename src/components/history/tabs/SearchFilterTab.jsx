@@ -180,9 +180,6 @@ const SearchFilterTab = ({
     );
   };
 
-  const followUps =
-    selectedEntry.follow_ups || selectedEntry.decryptedFollowUps || [];
-
   const EntryModal = () => {
     if (!selectedEntry) return null;
 
@@ -202,6 +199,9 @@ const SearchFilterTab = ({
         .replace(/\n\n+/g, "\n\n") // Remove extra line breaks
         .trim();
     };
+
+    const followUps =
+      selectedEntry.follow_ups || selectedEntry.decryptedFollowUps || [];
 
     return (
       <div
