@@ -36,9 +36,6 @@ const StarredPinnedTab = ({ entries = [], colors = {}, onRefresh }) => {
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [entries, activeView]);
 
-  const followUps =
-    selectedEntry.follow_ups || selectedEntry.decryptedFollowUps || [];
-
   // Get statistics
   const stats = useMemo(() => {
     const starredEntries = entries.filter((e) => e.starred);
@@ -214,6 +211,9 @@ const StarredPinnedTab = ({ entries = [], colors = {}, onRefresh }) => {
         .replace(/\n\n+/g, "\n\n") // Remove extra line breaks
         .trim();
     };
+
+    const followUps =
+      selectedEntry.follow_ups || selectedEntry.decryptedFollowUps || [];
 
     return (
       <div
