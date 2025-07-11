@@ -9,7 +9,7 @@ import {
   Star,
   Pin,
   FolderOpen,
-  Calendar as CalendarIcon,
+  Calendar,
   X,
   Eye,
   Edit3,
@@ -180,6 +180,10 @@ const CalendarViewTab = ({ entries = [], colors = {}, onEntrySelect }) => {
         .trim();
     };
 
+    // Get follow-ups from the correct property
+    const followUps =
+      selectedEntry.follow_ups || selectedEntry.decryptedFollowUps || [];
+
     return (
       <div
         className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -249,13 +253,15 @@ const CalendarViewTab = ({ entries = [], colors = {}, onEntrySelect }) => {
 
           <div className="space-y-4">
             {/* Prompt */}
-            {selectedEntry.decryptedPrompt && (
+            {(selectedEntry.decryptedPrompt || selectedEntry.prompt) && (
               <div className="p-4 bg-purple-600/20 rounded-lg border border-purple-500/30">
                 <p className="text-sm text-purple-300 mb-1 font-medium">
                   Prompt
                 </p>
                 <p className="text-white">
-                  {parseContent(selectedEntry.decryptedPrompt)}
+                  {parseContent(
+                    selectedEntry.decryptedPrompt || selectedEntry.prompt
+                  )}
                 </p>
               </div>
             )}
@@ -263,47 +269,55 @@ const CalendarViewTab = ({ entries = [], colors = {}, onEntrySelect }) => {
             {/* Main Entry Content */}
             <div className="p-4 bg-slate-700/50 rounded-lg">
               <p className="text-white whitespace-pre-wrap">
-                {parseContent(selectedEntry.decryptedContent)}
+                {parseContent(
+                  selectedEntry.decryptedContent || selectedEntry.content
+                )}
               </p>
             </div>
 
             {/* Follow-ups */}
-            {selectedEntry.decryptedFollowUps &&
-              selectedEntry.decryptedFollowUps.length > 0 && (
-                <div className="space-y-3">
-                  <h4 className="text-sm font-medium text-gray-300">
-                    Follow-up Questions
-                  </h4>
-                  {selectedEntry.decryptedFollowUps.map((followUp, index) => (
-                    <div
-                      key={index}
-                      className="space-y-2 pl-4 border-l-2 border-purple-500/30"
-                    >
+            {followUps.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-gray-300">
+                  Follow-up Questions
+                </h4>
+                {followUps.map((followUp, index) => (
+                  <div
+                    key={followUp.id || index}
+                    className="space-y-2 pl-4 border-l-2 border-purple-500/30"
+                  >
+                    {/* Follow-up Prompt */}
+                    {followUp.prompt && (
                       <div className="p-3 bg-purple-600/10 rounded-lg">
                         <p className="text-sm text-purple-300 mb-1">
-                          Question {index + 1}
+                          Follow-up Question {index + 1}
                         </p>
                         <p className="text-white">
-                          {parseContent(followUp.decryptedQuestion)}
+                          {parseContent(followUp.prompt)}
                         </p>
                       </div>
-                      {followUp.decryptedResponse && (
-                        <div className="p-3 bg-slate-700/30 rounded-lg ml-4">
-                          <p className="text-sm text-gray-400 mb-1">Response</p>
-                          <p className="text-white whitespace-pre-wrap">
-                            {parseContent(followUp.decryptedResponse)}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+                    )}
+                    {/* Follow-up Response */}
+                    {followUp.content && (
+                      <div className="p-3 bg-slate-700/30 rounded-lg ml-4">
+                        <p className="text-sm text-gray-400 mb-1">Response</p>
+                        <p className="text-white whitespace-pre-wrap">
+                          {parseContent(followUp.content)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Footer */}
             <div className="flex items-center gap-4 text-sm text-gray-400 pt-4 border-t border-white/10">
               <span>
-                {selectedEntry.decryptedContent?.split(" ").length || 0} words
+                {(
+                  selectedEntry.decryptedContent || selectedEntry.content
+                )?.split(" ").length || 0}{" "}
+                words
               </span>
               {selectedEntry.starred && (
                 <span className="flex items-center gap-1">
@@ -375,7 +389,7 @@ const CalendarViewTab = ({ entries = [], colors = {}, onEntrySelect }) => {
                 {monthStats.daysWithEntries}
               </p>
             </div>
-            <CalendarIcon className="h-8 w-8 text-purple-400" />
+            <Calendar className="h-8 w-8 text-purple-400" />
           </div>
         </div>
 
