@@ -183,7 +183,7 @@ const EditFolderModal = ({
 const EntryModal = ({ entry, onClose, onAudioPlay }) => {
   if (!entry) return null;
 
-  // Parse HTML content
+  // Function to parse HTML content - EXACT SAME AS CALENDAR VIEW
   const parseContent = (content) => {
     if (!content) return "";
     // Remove HTML tags and decode entities
@@ -200,6 +200,7 @@ const EntryModal = ({ entry, onClose, onAudioPlay }) => {
       .trim();
   };
 
+  // Get follow-ups from the correct property - EXACT SAME AS CALENDAR VIEW
   const followUps = entry.follow_ups || entry.decryptedFollowUps || [];
 
   return (
@@ -235,7 +236,7 @@ const EntryModal = ({ entry, onClose, onAudioPlay }) => {
         </div>
 
         <div className="space-y-4">
-          {/* Prompt */}
+          {/* Prompt - EXACT SAME AS CALENDAR VIEW */}
           {(entry.decryptedPrompt || entry.prompt) && (
             <div className="p-4 bg-purple-600/20 rounded-lg border border-purple-500/30">
               <p className="text-sm text-purple-300 mb-1 font-medium">Prompt</p>
@@ -245,14 +246,14 @@ const EntryModal = ({ entry, onClose, onAudioPlay }) => {
             </div>
           )}
 
-          {/* Main Entry Content */}
+          {/* Main Entry Content - EXACT SAME AS CALENDAR VIEW */}
           <div className="p-4 bg-slate-700/50 rounded-lg">
             <p className="text-white whitespace-pre-wrap">
               {parseContent(entry.decryptedContent || entry.content)}
             </p>
           </div>
 
-          {/* Follow-ups */}
+          {/* Follow-ups - EXACT SAME AS CALENDAR VIEW */}
           {followUps.length > 0 && (
             <div className="space-y-3">
               <h4 className="text-sm font-medium text-gray-300">
@@ -263,21 +264,23 @@ const EntryModal = ({ entry, onClose, onAudioPlay }) => {
                   key={followUp.id || index}
                   className="space-y-2 pl-4 border-l-2 border-purple-500/30"
                 >
-                  {followUp.decryptedQuestion && (
+                  {/* Follow-up Prompt */}
+                  {followUp.prompt && (
                     <div className="p-3 bg-purple-600/10 rounded-lg">
                       <p className="text-sm text-purple-300 mb-1">
                         Follow-up Question {index + 1}
                       </p>
                       <p className="text-white">
-                        {parseContent(followUp.decryptedQuestion)}
+                        {parseContent(followUp.prompt)}
                       </p>
                     </div>
                   )}
-                  {followUp.decryptedResponse && (
+                  {/* Follow-up Response */}
+                  {followUp.content && (
                     <div className="p-3 bg-slate-700/30 rounded-lg ml-4">
                       <p className="text-sm text-gray-400 mb-1">Response</p>
                       <p className="text-white whitespace-pre-wrap">
-                        {parseContent(followUp.decryptedResponse)}
+                        {parseContent(followUp.content)}
                       </p>
                     </div>
                   )}
@@ -503,6 +506,23 @@ const FoldersTab = ({ entries = [], folders = [], colors = {}, onRefresh }) => {
     setShowEntryModal(false);
   };
 
+  // Function to parse HTML content for entry previews - EXACT SAME AS CALENDAR VIEW
+  const parseContent = (content) => {
+    if (!content) return "";
+    // Remove HTML tags and decode entities
+    return content
+      .replace(/<p>/g, "")
+      .replace(/<\/p>/g, "\n\n")
+      .replace(/<br\s*\/?>/g, "\n")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'")
+      .replace(/\n\n+/g, "\n\n") // Remove extra line breaks
+      .trim();
+  };
+
   // Components
   const FolderCard = ({ folder, stats }) => (
     <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-6 hover:border-purple-500/50 transition-all">
@@ -686,7 +706,7 @@ const FoldersTab = ({ entries = [], folders = [], colors = {}, onRefresh }) => {
                       )}
                     </div>
                     <p className="text-sm text-gray-400 line-clamp-2">
-                      {entry.decryptedContent}
+                      {parseContent(entry.decryptedContent || entry.content)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 ml-2">
