@@ -43,9 +43,6 @@ const SearchFilterTab = ({
   const filteredEntries = useMemo(() => {
     let filtered = entries;
 
-    const followUps =
-      selectedEntry.follow_ups || selectedEntry.decryptedFollowUps || [];
-
     // Text search
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
