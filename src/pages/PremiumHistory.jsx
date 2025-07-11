@@ -43,7 +43,6 @@ import ContentAnalysisTab from "../components/history/tabs/ContentAnalysisTab";
 import GoalConnectionsTab from "../components/history/tabs/GoalConnectionsTab";
 import WritingStyleEvolutionTab from "../components/history/tabs/WritingStyleEvolutionTab";
 import JournalHealthMetricsTab from "../components/history/tabs/JournalHealthMetricsTab";
-import DataExportTab from "../components/history/tabs/DataExportTab";
 
 const PremiumHistory = () => {
   const { user } = useAuth();
@@ -167,12 +166,6 @@ const PremiumHistory = () => {
       label: "Journal Health Metrics",
       icon: Heart,
       component: JournalHealthMetricsTab,
-    },
-    {
-      id: "data-export",
-      label: "Export & Reports",
-      icon: Download,
-      component: DataExportTab,
     },
   ];
 
@@ -628,7 +621,7 @@ const PremiumHistory = () => {
           <>
             {/* Premium Tabs Grid */}
             <div className="mb-8">
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                 {advancedTabs.map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.id;
