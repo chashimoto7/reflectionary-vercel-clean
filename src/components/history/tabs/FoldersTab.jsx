@@ -655,6 +655,10 @@ const FoldersTab = ({ entries = [], folders = [], colors = {}, onRefresh }) => {
           </button>
         </div>
 
+        <p className="text-xs text-gray-400 mb-3">
+          Sorted by most recent first
+        </p>
+
         <div className="space-y-3 max-h-96 overflow-y-auto">
           {folderEntries.length === 0 ? (
             <p className="text-gray-400 text-center py-8">
