@@ -180,6 +180,9 @@ const SearchFilterTab = ({
     );
   };
 
+  const followUps =
+    selectedEntry.follow_ups || selectedEntry.decryptedFollowUps || [];
+
   const EntryModal = () => {
     if (!selectedEntry) return null;
 
