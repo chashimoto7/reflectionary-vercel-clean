@@ -206,7 +206,9 @@ const PremiumGoals = () => {
 
   // Get backend URL
   const getBackendUrl = () => {
-    return import.meta.env.VITE_BACKEND_URL || "https://www.reflectionary.ca";
+    return (
+      import.meta.env.VITE_BACKEND_URL || "https://reflectionary-api.vercel.app"
+    );
   };
 
   // Load data when user is available
