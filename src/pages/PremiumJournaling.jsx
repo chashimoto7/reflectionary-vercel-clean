@@ -15,6 +15,8 @@ import {
   Sparkles,
   FileText,
   Mic,
+  MicOff,
+  Volume2,
   Camera,
   Paperclip,
   Tag,
@@ -29,6 +31,8 @@ import {
   Trash2,
   Lightbulb,
   Plus,
+  Square,
+  Loader2,
 } from "lucide-react";
 
 export default function PremiumJournaling() {
@@ -59,6 +63,23 @@ export default function PremiumJournaling() {
   const [saveConfirmation, setSaveConfirmation] = useState(false);
   const [entryChain, setEntryChain] = useState([]);
   const [currentThreadId, setCurrentThreadId] = useState(null);
+
+  // Voice recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [transcriptionLoading, setTranscriptionLoading] = useState(false);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const recognitionRef = useRef(null);
+  const recordingIntervalRef = useRef(null);
+  const interimTranscriptRef = useRef("");
+  const finalTranscriptRef = useRef("");
+
+  // TTS (Text-to-Speech) state
+  const [ttsLoading, setTtsLoading] = useState(false);
+  const [audioUrl, setAudioUrl] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef(null);
 
   // Premium features state
   const [selectedFolder, setSelectedFolder] = useState(null);
@@ -168,6 +189,13 @@ export default function PremiumJournaling() {
     }
   }, []);
 
+  // Check for Web Speech API support
+  useEffect(() => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    setVoiceSupported(!!SpeechRecognition);
+  }, []);
+
   // Redirect if locked
   useEffect(() => {
     if (isLocked) {
@@ -258,6 +286,213 @@ export default function PremiumJournaling() {
       console.log("📝 Updated placeholder to:", prompt);
     }
   }, [prompt]); // Only update placeholder, don't reinitialize
+
+  // Voice recording functions
+  const initializeRecognition = () => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return null;
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onstart = () => {
+      console.log("🎤 Speech recognition started");
+      interimTranscriptRef.current = "";
+      finalTranscriptRef.current = "";
+    };
+
+    recognition.onresult = (event) => {
+      let interimTranscript = "";
+      let finalTranscript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + " ";
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      interimTranscriptRef.current = interimTranscript;
+      finalTranscriptRef.current += finalTranscript;
+
+      // Update Quill editor with the combined transcript
+      if (quillRef.current) {
+        const currentContent =
+          finalTranscriptRef.current + interimTranscriptRef.current;
+        quillRef.current.setText(currentContent);
+        // Move cursor to end
+        const length = quillRef.current.getLength();
+        quillRef.current.setSelection(length - 1);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      console.error("🎤 Speech recognition error:", event.error);
+      if (event.error === "no-speech") {
+        // Continue recording even if no speech detected
+        return;
+      }
+      stopRecording();
+      alert(`Voice recording error: ${event.error}. Please try again.`);
+    };
+
+    recognition.onend = () => {
+      console.log("🎤 Speech recognition ended");
+      // Restart if still recording
+      if (isRecording && recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch (error) {
+          console.error("Failed to restart recognition:", error);
+        }
+      }
+    };
+
+    return recognition;
+  };
+
+  const startRecording = () => {
+    if (!voiceSupported) {
+      alert(
+        "Voice recording is not supported in your browser. Please use Chrome or Edge."
+      );
+      return;
+    }
+
+    // Request microphone permission
+    navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .then(() => {
+        const recognition = initializeRecognition();
+        if (!recognition) return;
+
+        recognitionRef.current = recognition;
+        setIsRecording(true);
+        setRecordingTime(0);
+        setShowVoiceModal(true);
+
+        try {
+          recognition.start();
+        } catch (error) {
+          console.error("Failed to start recognition:", error);
+          alert("Failed to start voice recording. Please try again.");
+          return;
+        }
+
+        // Start recording timer
+        recordingIntervalRef.current = setInterval(() => {
+          setRecordingTime((prev) => prev + 1);
+        }, 1000);
+      })
+      .catch((error) => {
+        console.error("Microphone permission denied:", error);
+        alert(
+          "Microphone access is required for voice recording. Please allow microphone access and try again."
+        );
+      });
+  };
+
+  const stopRecording = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
+
+    setIsRecording(false);
+    setShowVoiceModal(false);
+    setRecordingTime(0);
+  };
+
+  const formatRecordingTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  // TTS functions
+  const generateAudio = async () => {
+    if (!lastSavedEntry) {
+      alert("Please save an entry first before generating audio.");
+      return;
+    }
+
+    setTtsLoading(true);
+    try {
+      // First, prepare the text
+      const prepareResponse = await fetch(`${API_BASE}/api/tts/prepare-text`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        },
+        body: JSON.stringify({
+          entryId: lastSavedEntry.id,
+        }),
+      });
+
+      if (!prepareResponse.ok) {
+        throw new Error("Failed to prepare text");
+      }
+
+      const { text } = await prepareResponse.json();
+
+      // Then generate the audio
+      const audioResponse = await fetch(`${API_BASE}/api/tts/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        },
+        body: JSON.stringify({
+          text: text,
+          voice: "nova", // You can make this configurable
+          model: "tts-1",
+        }),
+      });
+
+      if (!audioResponse.ok) {
+        throw new Error("Failed to generate audio");
+      }
+
+      // Create blob URL for audio playback
+      const audioBlob = await audioResponse.blob();
+      const url = URL.createObjectURL(audioBlob);
+      setAudioUrl(url);
+
+      // Play the audio
+      if (audioRef.current) {
+        audioRef.current.src = url;
+        audioRef.current.play();
+        setIsPlaying(true);
+      }
+    } catch (error) {
+      console.error("TTS error:", error);
+      alert("Failed to generate audio. Please try again.");
+    } finally {
+      setTtsLoading(false);
+    }
+  };
+
+  const togglePlayPause = () => {
+    if (!audioRef.current || !audioUrl) return;
+
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
 
   const loadFolders = async () => {
     try {
@@ -846,6 +1081,46 @@ export default function PremiumJournaling() {
     }
   };
 
+  // Voice Recording Modal
+  const VoiceRecordingModal = () => {
+    if (!showVoiceModal) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-slate-800 border border-white/20 rounded-lg p-8 max-w-md w-full">
+          <div className="text-center">
+            <div className="relative inline-flex items-center justify-center mb-6">
+              <div className="absolute inset-0 bg-red-500/20 rounded-full animate-ping"></div>
+              <div className="relative bg-red-500 p-6 rounded-full">
+                <Mic className="h-8 w-8 text-white" />
+              </div>
+            </div>
+
+            <h3 className="text-2xl font-semibold text-white mb-2">
+              Recording...
+            </h3>
+            <p className="text-4xl font-mono text-red-400 mb-4">
+              {formatRecordingTime(recordingTime)}
+            </p>
+
+            <p className="text-gray-400 mb-6">
+              Speak clearly and naturally. Your words will appear in the editor
+              as you speak.
+            </p>
+
+            <button
+              onClick={stopRecording}
+              className="px-8 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition flex items-center gap-2 mx-auto"
+            >
+              <Square className="h-5 w-5" />
+              Stop Recording
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Create Folder Modal Component
   const CreateFolderModal = () => {
     if (!showCreateFolderModal) return null;
@@ -1127,11 +1402,34 @@ export default function PremiumJournaling() {
                   Voice Note
                 </label>
                 <button
-                  onClick={() => alert("Voice recording feature coming soon!")}
-                  className="w-full px-2 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition flex items-center justify-center gap-1"
+                  onClick={isRecording ? stopRecording : startRecording}
+                  disabled={!voiceSupported}
+                  className={`w-full px-2 py-2 rounded-lg transition flex items-center justify-center gap-1 ${
+                    isRecording
+                      ? "bg-red-500 hover:bg-red-600 text-white"
+                      : voiceSupported
+                      ? "bg-white/10 hover:bg-white/20"
+                      : "bg-gray-600 cursor-not-allowed opacity-50"
+                  }`}
+                  title={
+                    voiceSupported
+                      ? isRecording
+                        ? "Stop recording"
+                        : "Start recording"
+                      : "Voice recording not supported"
+                  }
                 >
-                  <Mic className="h-4 w-4" />
-                  <span className="text-xs">Record</span>
+                  {isRecording ? (
+                    <>
+                      <MicOff className="h-4 w-4" />
+                      <span className="text-xs">Stop</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="h-4 w-4" />
+                      <span className="text-xs">Record</span>
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -1320,7 +1618,42 @@ export default function PremiumJournaling() {
                 Follow-up
               </button>
             )}
+
+            {/* TTS Button - only show after saving */}
+            {lastSavedEntry && (
+              <button
+                onClick={generateAudio}
+                disabled={ttsLoading}
+                className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg transition flex items-center gap-2 disabled:opacity-50"
+                title="Listen to your entry"
+              >
+                {ttsLoading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Generating...</span>
+                  </>
+                ) : isPlaying ? (
+                  <>
+                    <Volume2 className="h-5 w-5" />
+                    <span>Playing</span>
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="h-5 w-5" />
+                    <span>Listen</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
+
+          {/* Audio Player (hidden but functional) */}
+          <audio
+            ref={audioRef}
+            onEnded={() => setIsPlaying(false)}
+            onPause={() => setIsPlaying(false)}
+            onPlay={() => setIsPlaying(true)}
+          />
 
           {/* Save Confirmation */}
           {saveConfirmation && (
@@ -1330,6 +1663,9 @@ export default function PremiumJournaling() {
           )}
         </div>
       </div>
+
+      {/* Voice Recording Modal */}
+      <VoiceRecordingModal />
 
       {/* Create Folder Modal */}
       <CreateFolderModal />
