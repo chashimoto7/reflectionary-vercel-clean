@@ -17,6 +17,7 @@ import {
   Mic,
   MicOff,
   Volume2,
+  VolumeX,
   Camera,
   Paperclip,
   Tag,
@@ -175,7 +176,6 @@ export default function PremiumJournaling() {
     }
   `;
 
-  // Remove the old formatTranscript function
   // Inject custom styles once
   useEffect(() => {
     if (!stylesInjected.current) {
@@ -199,6 +199,15 @@ export default function PremiumJournaling() {
       window.SpeechRecognition || window.webkitSpeechRecognition;
     setVoiceSupported(!!SpeechRecognition);
   }, []);
+
+  // Clean up audio URL on unmount
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
 
   // Redirect if locked
   useEffect(() => {
@@ -492,35 +501,28 @@ export default function PremiumJournaling() {
 
   // TTS functions
   const generateAudio = async () => {
-    if (!lastSavedEntry) {
-      alert("Please save an entry first before generating audio.");
+    // Get the current editor content
+    if (!quillRef.current) {
+      alert("No content to convert to audio.");
+      return;
+    }
+
+    const plainText = quillRef.current.getText().trim();
+
+    if (!plainText || plainText.length < 10) {
+      alert("Please write some content before generating audio.");
       return;
     }
 
     setTtsLoading(true);
     try {
-      // First, prepare the text
-      const prepareResponse = await fetch(`${API_BASE}/api/tts/prepare-text`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${
-            localStorage.getItem("authToken") || localStorage.getItem("token")
-          }`,
-        },
-        body: JSON.stringify({
-          entryId: lastSavedEntry.id,
-          userId: user.id, // Pass userId in body since we're not decoding JWT
-        }),
-      });
-
-      if (!prepareResponse.ok) {
-        throw new Error("Failed to prepare text");
+      // Prepare the text with prompt if present
+      let fullText = plainText;
+      if (prompt) {
+        fullText = `Prompt: ${prompt}. ${plainText}`;
       }
 
-      const { text } = await prepareResponse.json();
-
-      // Then generate the audio
+      // Generate audio directly from the current text
       const audioResponse = await fetch(`${API_BASE}/api/tts/generate`, {
         method: "POST",
         headers: {
@@ -530,7 +532,7 @@ export default function PremiumJournaling() {
           }`,
         },
         body: JSON.stringify({
-          text: text,
+          text: fullText,
           voice: "nova", // You can make this configurable
           model: "tts-1",
         }),
@@ -972,6 +974,9 @@ export default function PremiumJournaling() {
       // Set the saved entry and show follow-up modal
       setLastSavedEntry(result.entry);
       setSaveLabel("Save Entry");
+
+      // Debug log to see what we're getting
+      console.log("📝 Saved entry result:", result.entry);
 
       // Show the follow-up modal instead of clearing immediately
       setShowFollowUpModal(true);
@@ -1755,32 +1760,33 @@ export default function PremiumJournaling() {
               </button>
             )}
 
-            {/* TTS Button - only show after saving */}
-            {lastSavedEntry && (
-              <button
-                onClick={generateAudio}
-                disabled={ttsLoading}
-                className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg transition flex items-center gap-2 disabled:opacity-50"
-                title="Listen to your entry"
-              >
-                {ttsLoading ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>Generating...</span>
-                  </>
-                ) : isPlaying ? (
-                  <>
-                    <Volume2 className="h-5 w-5" />
-                    <span>Playing</span>
-                  </>
-                ) : (
-                  <>
-                    <Volume2 className="h-5 w-5" />
-                    <span>Listen</span>
-                  </>
-                )}
-              </button>
-            )}
+            {/* TTS Button - shows when there's content in editor */}
+            {quillRef.current &&
+              quillRef.current.getText().trim().length > 10 && (
+                <button
+                  onClick={generateAudio}
+                  disabled={ttsLoading}
+                  className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg transition flex items-center gap-2 disabled:opacity-50"
+                  title="Listen to your entry"
+                >
+                  {ttsLoading ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>Generating...</span>
+                    </>
+                  ) : isPlaying ? (
+                    <>
+                      <Volume2 className="h-5 w-5" />
+                      <span>Playing</span>
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="h-5 w-5" />
+                      <span>Listen</span>
+                    </>
+                  )}
+                </button>
+              )}
           </div>
 
           {/* Audio Player (hidden but functional) */}
