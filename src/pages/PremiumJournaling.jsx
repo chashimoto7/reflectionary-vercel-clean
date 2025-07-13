@@ -172,6 +172,106 @@ export default function PremiumJournaling() {
     }
   `;
 
+  // Intelligent transcript formatting
+  const formatTranscript = (text) => {
+    if (!text) return text;
+
+    // Trim and ensure first letter is capitalized
+    let formatted = text.trim();
+    if (formatted.length === 0) return "";
+
+    formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+
+    // Add periods before common sentence starters (with proper spacing)
+    const sentenceStarters = [
+      "and then",
+      "after that",
+      "so ",
+      "but ",
+      "however",
+      "therefore",
+      "additionally",
+      "furthermore",
+      "meanwhile",
+      "suddenly",
+      "finally",
+      "first ",
+      "second ",
+      "third ",
+      "next ",
+      "lastly",
+      "also ",
+      "anyway",
+      "besides",
+      "still",
+      "yet",
+      "now ",
+      "well ",
+      "i think",
+      "i feel",
+      "i believe",
+      "i mean",
+      "i guess",
+      "you know",
+      "basically",
+      "actually",
+      "honestly",
+      "frankly",
+    ];
+
+    for (const starter of sentenceStarters) {
+      const regex = new RegExp(`\\s+(${starter})`, "gi");
+      formatted = formatted.replace(regex, (match, p1) => {
+        return ". " + p1.charAt(0).toUpperCase() + p1.slice(1);
+      });
+    }
+
+    // Add commas before common conjunctions (if not already preceded by punctuation)
+    const conjunctions = [
+      " but ",
+      " and ",
+      " or ",
+      " yet ",
+      " so ",
+      " for ",
+      " nor ",
+      " although ",
+      " because ",
+      " since ",
+      " unless ",
+      " while ",
+      " which ",
+      " that ",
+      " who ",
+      " whom ",
+      " whose ",
+    ];
+
+    for (const conj of conjunctions) {
+      // Only add comma if there's substantial text before the conjunction
+      const regex = new RegExp(`([a-z]{4,})${conj}`, "gi");
+      formatted = formatted.replace(regex, `$1,${conj}`);
+    }
+
+    // Clean up any double punctuation
+    formatted = formatted.replace(/\.\s*\./g, ".");
+    formatted = formatted.replace(/,\s*,/g, ",");
+    formatted = formatted.replace(/\.\s*,/g, ".");
+    formatted = formatted.replace(/,\s*\./g, ".");
+
+    // Ensure it ends with a period if it doesn't end with punctuation
+    if (!/[.!?]$/.test(formatted)) {
+      formatted += ".";
+    }
+
+    // Capitalize first letter after periods
+    formatted = formatted.replace(/\.\s+([a-z])/g, (match, p1) => {
+      return ". " + p1.toUpperCase();
+    });
+
+    return formatted;
+  };
+
   // Inject custom styles once
   useEffect(() => {
     if (!stylesInjected.current) {
@@ -311,7 +411,8 @@ export default function PremiumJournaling() {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += transcript + " ";
+          // Apply intelligent formatting to final results
+          finalTranscript += formatTranscript(transcript) + " ";
         } else {
           interimTranscript += transcript;
         }
