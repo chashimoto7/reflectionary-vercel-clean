@@ -442,7 +442,9 @@ export default function PremiumJournaling() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${await user.getIdToken()}`,
+          Authorization: `Bearer ${
+            localStorage.getItem("authToken") || localStorage.getItem("token")
+          }`,
         },
         body: JSON.stringify({
           transcript: rawTranscriptRef.current.trim(),
@@ -502,7 +504,9 @@ export default function PremiumJournaling() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${await user.getIdToken()}`,
+          Authorization: `Bearer ${
+            localStorage.getItem("authToken") || localStorage.getItem("token")
+          }`,
         },
         body: JSON.stringify({
           entryId: lastSavedEntry.id,
@@ -521,7 +525,9 @@ export default function PremiumJournaling() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${await user.getIdToken()}`,
+          Authorization: `Bearer ${
+            localStorage.getItem("authToken") || localStorage.getItem("token")
+          }`,
         },
         body: JSON.stringify({
           text: text,
