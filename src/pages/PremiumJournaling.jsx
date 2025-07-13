@@ -70,10 +70,13 @@ export default function PremiumJournaling() {
   const [transcriptionLoading, setTranscriptionLoading] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
+  const [isFormatting, setIsFormatting] = useState(false);
+  const [showFormatButton, setShowFormatButton] = useState(false);
   const recognitionRef = useRef(null);
   const recordingIntervalRef = useRef(null);
   const interimTranscriptRef = useRef("");
   const finalTranscriptRef = useRef("");
+  const rawTranscriptRef = useRef("");
 
   // TTS (Text-to-Speech) state
   const [ttsLoading, setTtsLoading] = useState(false);
@@ -172,106 +175,7 @@ export default function PremiumJournaling() {
     }
   `;
 
-  // Intelligent transcript formatting
-  const formatTranscript = (text) => {
-    if (!text) return text;
-
-    // Trim and ensure first letter is capitalized
-    let formatted = text.trim();
-    if (formatted.length === 0) return "";
-
-    formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
-
-    // Add periods before common sentence starters (with proper spacing)
-    const sentenceStarters = [
-      "and then",
-      "after that",
-      "so ",
-      "but ",
-      "however",
-      "therefore",
-      "additionally",
-      "furthermore",
-      "meanwhile",
-      "suddenly",
-      "finally",
-      "first ",
-      "second ",
-      "third ",
-      "next ",
-      "lastly",
-      "also ",
-      "anyway",
-      "besides",
-      "still",
-      "yet",
-      "now ",
-      "well ",
-      "i think",
-      "i feel",
-      "i believe",
-      "i mean",
-      "i guess",
-      "you know",
-      "basically",
-      "actually",
-      "honestly",
-      "frankly",
-    ];
-
-    for (const starter of sentenceStarters) {
-      const regex = new RegExp(`\\s+(${starter})`, "gi");
-      formatted = formatted.replace(regex, (match, p1) => {
-        return ". " + p1.charAt(0).toUpperCase() + p1.slice(1);
-      });
-    }
-
-    // Add commas before common conjunctions (if not already preceded by punctuation)
-    const conjunctions = [
-      " but ",
-      " and ",
-      " or ",
-      " yet ",
-      " so ",
-      " for ",
-      " nor ",
-      " although ",
-      " because ",
-      " since ",
-      " unless ",
-      " while ",
-      " which ",
-      " that ",
-      " who ",
-      " whom ",
-      " whose ",
-    ];
-
-    for (const conj of conjunctions) {
-      // Only add comma if there's substantial text before the conjunction
-      const regex = new RegExp(`([a-z]{4,})${conj}`, "gi");
-      formatted = formatted.replace(regex, `$1,${conj}`);
-    }
-
-    // Clean up any double punctuation
-    formatted = formatted.replace(/\.\s*\./g, ".");
-    formatted = formatted.replace(/,\s*,/g, ",");
-    formatted = formatted.replace(/\.\s*,/g, ".");
-    formatted = formatted.replace(/,\s*\./g, ".");
-
-    // Ensure it ends with a period if it doesn't end with punctuation
-    if (!/[.!?]$/.test(formatted)) {
-      formatted += ".";
-    }
-
-    // Capitalize first letter after periods
-    formatted = formatted.replace(/\.\s+([a-z])/g, (match, p1) => {
-      return ". " + p1.toUpperCase();
-    });
-
-    return formatted;
-  };
-
+  // Remove the old formatTranscript function
   // Inject custom styles once
   useEffect(() => {
     if (!stylesInjected.current) {
@@ -411,8 +315,7 @@ export default function PremiumJournaling() {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          // Apply intelligent formatting to final results
-          finalTranscript += formatTranscript(transcript) + " ";
+          finalTranscript += transcript + " ";
         } else {
           interimTranscript += transcript;
         }
@@ -421,7 +324,11 @@ export default function PremiumJournaling() {
       interimTranscriptRef.current = interimTranscript;
       finalTranscriptRef.current += finalTranscript;
 
-      // Update Quill editor with the combined transcript
+      // Store raw transcript for AI formatting
+      rawTranscriptRef.current =
+        finalTranscriptRef.current + interimTranscriptRef.current;
+
+      // Update Quill editor with the raw transcript (real-time feedback)
       if (quillRef.current) {
         const currentContent =
           finalTranscriptRef.current + interimTranscriptRef.current;
@@ -512,6 +419,67 @@ export default function PremiumJournaling() {
     setIsRecording(false);
     setShowVoiceModal(false);
     setRecordingTime(0);
+
+    // Show format button if we have content
+    if (rawTranscriptRef.current.trim().length > 20) {
+      setShowFormatButton(true);
+    }
+  };
+
+  const formatWithAI = async () => {
+    if (
+      !rawTranscriptRef.current ||
+      rawTranscriptRef.current.trim().length < 10
+    ) {
+      return;
+    }
+
+    setIsFormatting(true);
+    setShowFormatButton(false);
+
+    try {
+      const response = await fetch(`${API_BASE}/api/format-transcript`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        },
+        body: JSON.stringify({
+          transcript: rawTranscriptRef.current.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to format transcript");
+      }
+
+      const data = await response.json();
+
+      if (data.formattedText && quillRef.current) {
+        // Replace the content with formatted version
+        quillRef.current.setText(data.formattedText);
+
+        // Move cursor to end
+        const length = quillRef.current.getLength();
+        quillRef.current.setSelection(length - 1);
+
+        // Clear the raw transcript reference
+        rawTranscriptRef.current = "";
+
+        // Show success briefly
+        setTimeout(() => {
+          if (quillRef.current) {
+            quillRef.current.focus();
+          }
+        }, 100);
+      }
+    } catch (error) {
+      console.error("Format error:", error);
+      // Keep the original text if formatting fails
+      alert("Unable to format with AI. You can continue editing manually.");
+    } finally {
+      setIsFormatting(false);
+    }
   };
 
   const formatRecordingTime = (seconds) => {
@@ -1697,6 +1665,47 @@ export default function PremiumJournaling() {
           <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden">
             <div ref={editorRef} style={{ minHeight: "400px" }} />
           </div>
+
+          {/* AI Format Button - shows after voice recording */}
+          {showFormatButton && (
+            <div className="bg-purple-600/20 backdrop-blur-sm rounded-lg border border-purple-400/30 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-purple-100 font-medium mb-1">
+                    Voice recording complete!
+                  </p>
+                  <p className="text-sm text-purple-200">
+                    Would you like AI to add punctuation and formatting?
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowFormatButton(false)}
+                    className="px-4 py-2 text-purple-300 hover:text-white transition"
+                  >
+                    Keep as is
+                  </button>
+                  <button
+                    onClick={formatWithAI}
+                    disabled={isFormatting}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {isFormatting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Formatting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4" />
+                        <span>Format with AI</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-4">
