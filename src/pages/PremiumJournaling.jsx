@@ -1669,8 +1669,27 @@ export default function PremiumJournaling() {
           </div>
 
           {/* Fixed Editor Container */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden">
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden relative">
             <div ref={editorRef} style={{ minHeight: "400px" }} />
+
+            {/* Formatting Overlay */}
+            {isFormatting && (
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 rounded-lg">
+                <div className="bg-slate-800/95 backdrop-blur-xl rounded-lg p-6 border border-purple-400/30 shadow-xl">
+                  <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+                    <div className="text-center">
+                      <p className="text-white font-semibold text-lg">
+                        Formatting with AI
+                      </p>
+                      <p className="text-purple-200 text-sm mt-1">
+                        Adding punctuation and structure...
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* AI Format Button - shows after voice recording */}
