@@ -506,6 +506,7 @@ export default function PremiumJournaling() {
         },
         body: JSON.stringify({
           entryId: lastSavedEntry.id,
+          userId: user.id, // Pass userId in body since we're not decoding JWT
         }),
       });
 
