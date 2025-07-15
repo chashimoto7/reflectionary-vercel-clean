@@ -163,29 +163,62 @@ const PremiumGoals = () => {
     }
 
     console.log("🎯 PremiumGoals: User authenticated, loading data...");
-    loadGoalsAndAnalytics();
+    loadGoalsData();
   }, [user, dateRange]);
 
-  const loadGoalsAndAnalytics = async () => {
-    setLoading(true);
-    setError(null);
-
+  const loadGoalsData = async () => {
     try {
+      setLoading(true);
+      setError(null);
+
       console.log("🔍 Loading goals data for user:", user.id);
 
-      // Load goals first, then use that data for analytics
-      const goalsData = await loadGoals();
+      // Load goals with the new API pattern (similar to PremiumHistory)
+      const goalsResponse = await fetch(
+        `${API_BASE}/api/goals?user_id=${user.id}`
+      );
 
-      // Now load analytics with the actual goals data
-      await Promise.all([
-        loadAnalyticsData(goalsData),
-        loadInsights(),
-        loadProgressPatterns(),
-        loadGoalMentions(),
-        loadMoodCorrelations(),
-      ]);
+      console.log("📡 Goals response status:", goalsResponse.status);
+
+      if (!goalsResponse.ok) {
+        const errorText = await goalsResponse.text();
+        console.error("❌ Goals API error response:", errorText);
+        throw new Error(
+          `API returned ${goalsResponse.status}: ${errorText.substring(0, 100)}`
+        );
+      }
+
+      const goalsData = await goalsResponse.json();
+      console.log("📊 Raw goals data received:", goalsData);
+
+      // Track which database is being used
+      if (goalsData.database) {
+        setDatabaseEnvironment(goalsData.database);
+        console.log(`🗄️ Using ${goalsData.database} database for goals`);
+      }
+
+      // Process goals to ensure they have the expected structure
+      const processedGoals = processGoals(goalsData.goals || []);
+      console.log("✅ Processed goals:", processedGoals.length);
+      setGoals(processedGoals);
+
+      // Select first goal if none selected
+      if (processedGoals.length > 0 && !selectedGoalId) {
+        setSelectedGoalId(processedGoals[0].id);
+      }
+
+      // Calculate analytics with the processed goals data
+      calculateAnalytics(processedGoals);
+
+      // Load insights separately (with error handling)
+      await loadInsights(processedGoals);
+
+      // Generate other analytics locally (like PremiumHistory does)
+      generateProgressPatterns(processedGoals);
+      generateGoalMentions(processedGoals);
+      generateMoodCorrelations();
     } catch (error) {
-      console.error("❌ Error loading goals and analytics:", error);
+      console.error("❌ Error loading goals data:", error);
       setError(`Failed to load goals data: ${error.message}`);
     } finally {
       setLoading(false);
@@ -204,8 +237,6 @@ const PremiumGoals = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          credentials: "include",
-          mode: "cors",
         }
       );
 
@@ -264,24 +295,38 @@ const PremiumGoals = () => {
     }));
   };
 
-  const loadAnalyticsData = async (goalsData = []) => {
+  const calculateAnalytics = (goalsData) => {
     try {
-      console.log("📈 Loading analytics data...");
-
-      // Use the provided goalsData or fall back to state
-      const dataToAnalyze = goalsData.length > 0 ? goalsData : goals;
-
-      const activeGoals = dataToAnalyze.filter((g) => g.status === "active");
-      const completedGoals = dataToAnalyze.filter(
-        (g) => g.status === "completed"
+      console.log(
+        "📈 Calculating analytics for",
+        goalsData?.length || 0,
+        "goals"
       );
-      const pausedGoals = dataToAnalyze.filter((g) => g.status === "paused");
+
+      if (!Array.isArray(goalsData) || goalsData.length === 0) {
+        console.log("📊 No goals to analyze");
+        setAnalyticsData({
+          overview: {
+            totalGoals: 0,
+            activeGoals: 0,
+            completedGoals: 0,
+            pausedGoals: 0,
+            averageProgress: 0,
+            streak: 0,
+          },
+        });
+        return;
+      }
+
+      const activeGoals = goalsData.filter((g) => g.status === "active");
+      const completedGoals = goalsData.filter((g) => g.status === "completed");
+      const pausedGoals = goalsData.filter((g) => g.status === "paused");
 
       // Calculate average progress
       let totalProgress = 0;
       let goalsWithProgress = 0;
 
-      dataToAnalyze.forEach((goal) => {
+      goalsData.forEach((goal) => {
         if (goal.progress && goal.progress.data) {
           const progressData = goal.progress.data;
           if (goal.progress.type === "milestones") {
@@ -301,9 +346,9 @@ const PremiumGoals = () => {
         }
       });
 
-      setAnalyticsData({
+      const calculatedAnalytics = {
         overview: {
-          totalGoals: dataToAnalyze.length,
+          totalGoals: goalsData.length,
           activeGoals: activeGoals.length,
           completedGoals: completedGoals.length,
           pausedGoals: pausedGoals.length,
@@ -313,9 +358,12 @@ const PremiumGoals = () => {
               : 0,
           streak: 0,
         },
-      });
-    } catch (error) {
-      console.error("❌ Error loading analytics:", error);
+      };
+
+      console.log("📈 Analytics calculated:", calculatedAnalytics);
+      setAnalyticsData(calculatedAnalytics);
+    } catch (analyticsError) {
+      console.error("❌ Error calculating analytics:", analyticsError);
       setAnalyticsData({
         overview: {
           totalGoals: 0,
@@ -340,8 +388,6 @@ const PremiumGoals = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          credentials: "include",
-          mode: "cors",
         }
       );
 
@@ -522,8 +568,6 @@ const PremiumGoals = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include",
-        mode: "cors",
         body: JSON.stringify({
           user_id: user.id,
           ...goalData,
@@ -540,7 +584,7 @@ const PremiumGoals = () => {
       const data = await response.json();
       console.log("✅ Goal created successfully");
 
-      await loadGoalsAndAnalytics(); // Reload all data
+      await loadGoalsData(); // Reload all data
       setShowAddModal(false);
     } catch (error) {
       console.error("❌ Error adding goal:", error);
@@ -557,8 +601,6 @@ const PremiumGoals = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include",
-        mode: "cors",
         body: JSON.stringify({
           goal_id: goalId,
           user_id: user.id,
@@ -576,7 +618,7 @@ const PremiumGoals = () => {
       const data = await response.json();
       console.log("✅ Goal updated successfully");
 
-      await loadGoalsAndAnalytics(); // Reload all data
+      await loadGoalsData(); // Reload all data
       setShowEditModal(false);
     } catch (error) {
       console.error("❌ Error updating goal:", error);
@@ -599,8 +641,6 @@ const PremiumGoals = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          credentials: "include",
-          mode: "cors",
         }
       );
 
@@ -612,7 +652,7 @@ const PremiumGoals = () => {
 
       console.log("✅ Goal deleted successfully");
 
-      await loadGoalsAndAnalytics(); // Reload all data
+      await loadGoalsData(); // Reload all data
 
       // Clear selected goal if it was deleted
       if (selectedGoalId === goalId) {
@@ -633,8 +673,6 @@ const PremiumGoals = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include",
-        mode: "cors",
         body: JSON.stringify({
           goal_id: goalId,
           user_id: user.id,
@@ -650,7 +688,7 @@ const PremiumGoals = () => {
 
       console.log("✅ Goal status updated successfully");
 
-      await loadGoalsAndAnalytics(); // Reload all data
+      await loadGoalsData(); // Reload all data
 
       // Show celebration if goal is completed
       if (newStatus === "completed") {
@@ -692,7 +730,7 @@ const PremiumGoals = () => {
         <div className="text-center py-12">
           <div className="text-red-500 text-xl mb-4">{error}</div>
           <button
-            onClick={loadGoalsAndAnalytics}
+            onClick={loadGoalsData}
             className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
           >
             Try Again
