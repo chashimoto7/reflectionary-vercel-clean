@@ -154,7 +154,7 @@ const PremiumGoals = () => {
 
   // API Base URL
   const API_BASE =
-    import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app";
+    import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app/";
 
   // Load data when user is available
   useEffect(() => {
