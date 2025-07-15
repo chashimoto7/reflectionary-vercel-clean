@@ -152,14 +152,9 @@ const PremiumGoals = () => {
     },
   ];
 
-  // Get backend URL
-  const getBackendUrl = () => {
-    return (
-      import.meta.env.VITE_BACKEND_URL ||
-      import.meta.env.VITE_API_URL ||
-      "https://reflectionary-api.vercel.app"
-    );
-  };
+  // API Base URL
+  const API_BASE =
+    import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app";
 
   // Load data when user is available
   useEffect(() => {
@@ -202,17 +197,14 @@ const PremiumGoals = () => {
     try {
       console.log("🎯 Loading goals...");
 
-      const response = await fetch(
-        `${getBackendUrl()}/api/goals?user_id=${user.id}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          mode: "cors",
-        }
-      );
+      const response = await fetch(`${API_BASE}/api/goals?user_id=${user.id}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        mode: "cors",
+      });
 
       console.log("📡 Goals response status:", response.status);
 
@@ -339,7 +331,7 @@ const PremiumGoals = () => {
       console.log("💡 Loading insights...");
 
       const response = await fetch(
-        `${getBackendUrl()}/api/goal-insights?user_id=${user.id}`,
+        `${API_BASE}/api/goal-insights?user_id=${user.id}`,
         {
           method: "GET",
           headers: {
@@ -522,7 +514,7 @@ const PremiumGoals = () => {
     try {
       console.log("➕ Adding new goal...");
 
-      const response = await fetch(`${getBackendUrl()}/api/goals`, {
+      const response = await fetch(`${API_BASE}/api/goals`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -557,7 +549,7 @@ const PremiumGoals = () => {
     try {
       console.log("✏️ Updating goal:", goalId);
 
-      const response = await fetch(`${getBackendUrl()}/api/goals`, {
+      const response = await fetch(`${API_BASE}/api/goals`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -598,7 +590,7 @@ const PremiumGoals = () => {
       console.log("🗑️ Deleting goal:", goalId);
 
       const response = await fetch(
-        `${getBackendUrl()}/api/goals?goal_id=${goalId}&user_id=${user.id}`,
+        `${API_BASE}/api/goals?goal_id=${goalId}&user_id=${user.id}`,
         {
           method: "DELETE",
           headers: {
@@ -633,7 +625,7 @@ const PremiumGoals = () => {
     try {
       console.log("🔄 Updating goal status:", goalId, newStatus);
 
-      const response = await fetch(`${getBackendUrl()}/api/goals`, {
+      const response = await fetch(`${API_BASE}/api/goals`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
