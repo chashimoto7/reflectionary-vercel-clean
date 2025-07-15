@@ -1,4 +1,4 @@
-// frontend/ src/components/goals/tabs/GoalHealthScoreTab.jsx
+// frontend/src/components/goals/tabs/GoalHealthTab.jsx
 import React, { useState } from "react";
 import {
   Gauge,
@@ -13,6 +13,11 @@ import {
   Shield,
   Award,
   BarChart3,
+  Zap,
+  Brain,
+  Calendar,
+  Clock,
+  Users,
 } from "lucide-react";
 import {
   RadialBarChart,
@@ -32,18 +37,18 @@ import {
   Cell,
   LineChart,
   Line,
-  PieChart,
-  Pie,
+  RadarChart,
+  Radar,
 } from "recharts";
 
-const GoalHealthScoreTab = ({ goals, colors }) => {
+const GoalHealthTab = ({ goals, analytics, colors }) => {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [timeframe, setTimeframe] = useState("current");
 
   // Calculate overall health score
   const overallHealthScore = calculateOverallHealth(goals);
 
-  // Health categories
+  // Health categories with success factors integrated
   const healthCategories = [
     {
       category: "Balance",
@@ -55,6 +60,7 @@ const GoalHealthScoreTab = ({ goals, colors }) => {
         "No overconcentration",
         "Life balance maintained",
       ],
+      successFactorScore: 0.85,
     },
     {
       category: "Momentum",
@@ -66,6 +72,7 @@ const GoalHealthScoreTab = ({ goals, colors }) => {
         "Consistent engagement",
         "Positive trajectory",
       ],
+      successFactorScore: 0.92,
     },
     {
       category: "Clarity",
@@ -77,17 +84,19 @@ const GoalHealthScoreTab = ({ goals, colors }) => {
         "Missing milestones",
         "Unclear success criteria",
       ],
+      successFactorScore: 0.78,
     },
     {
-      category: "Sustainability",
-      score: 75,
-      description: "Long-term viability",
+      category: "Resources",
+      score: 82,
+      description: "Tools and support availability",
       status: "good",
       factors: [
-        "Realistic timelines",
-        "Resource availability",
-        "Manageable workload",
+        "Well-resourced goals",
+        "Digital tools available",
+        "Time allocated",
       ],
+      successFactorScore: 0.75,
     },
     {
       category: "Engagement",
@@ -95,6 +104,7 @@ const GoalHealthScoreTab = ({ goals, colors }) => {
       description: "Active participation",
       status: "excellent",
       factors: ["Daily check-ins", "Regular updates", "High interaction"],
+      successFactorScore: 0.82,
     },
   ];
 
@@ -105,7 +115,7 @@ const GoalHealthScoreTab = ({ goals, colors }) => {
     balance: Math.floor(Math.random() * 30) + 70,
     momentum: Math.floor(Math.random() * 35) + 65,
     clarity: Math.floor(Math.random() * 25) + 75,
-    sustainability: Math.floor(Math.random() * 30) + 70,
+    resources: Math.floor(Math.random() * 30) + 70,
     engagement: Math.floor(Math.random() * 40) + 60,
     risk: Math.random() > 0.7 ? "high" : Math.random() > 0.4 ? "medium" : "low",
   }));
@@ -199,16 +209,24 @@ const GoalHealthScoreTab = ({ goals, colors }) => {
     },
   ];
 
+  // Radar data for success factors
+  const successFactorRadarData = healthCategories.map((cat) => ({
+    factor: cat.category,
+    current: cat.score,
+    optimal: 90,
+    impact: cat.successFactorScore * 100,
+  }));
+
   return (
     <div className="p-6">
       {/* Header */}
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-white flex items-center gap-2 mb-2">
           <Gauge className="h-5 w-5 text-purple-400" />
-          Goal Portfolio Health Score
+          Goal Health & Success Factors
         </h3>
         <p className="text-sm text-gray-300">
-          Comprehensive assessment of your goal ecosystem health
+          Comprehensive health assessment and success factor analysis
         </p>
       </div>
 
@@ -223,7 +241,7 @@ const GoalHealthScoreTab = ({ goals, colors }) => {
           <option value="balance">Balance</option>
           <option value="momentum">Momentum</option>
           <option value="clarity">Clarity</option>
-          <option value="sustainability">Sustainability</option>
+          <option value="resources">Resources</option>
           <option value="engagement">Engagement</option>
         </select>
         <select
@@ -237,7 +255,7 @@ const GoalHealthScoreTab = ({ goals, colors }) => {
         </select>
       </div>
 
-      {/* Main Health Score */}
+      {/* Main Health Score and Success Factors */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         {/* Overall Score */}
         <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-6">
@@ -289,20 +307,72 @@ const GoalHealthScoreTab = ({ goals, colors }) => {
           </div>
         </div>
 
-        {/* Category Breakdown */}
+        {/* Success Factor Profile */}
         <div className="lg:col-span-2 bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-4">
           <h4 className="text-md font-semibold text-white mb-4">
-            Health Categories
+            Success Factor Profile
           </h4>
-          <div className="space-y-3">
-            {healthCategories.map((category, index) => (
-              <HealthCategoryBar
-                key={index}
-                category={category}
-                colors={colors}
-              />
-            ))}
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart data={successFactorRadarData}>
+                <PolarGrid stroke="rgba(255,255,255,0.1)" />
+                <PolarAngleAxis
+                  dataKey="factor"
+                  tick={{ fill: "#9CA3AF", fontSize: 10 }}
+                />
+                <PolarRadiusAxis
+                  angle={90}
+                  domain={[0, 100]}
+                  tick={{ fill: "#9CA3AF" }}
+                />
+                <Radar
+                  name="Current Score"
+                  dataKey="current"
+                  stroke={colors.primary}
+                  fill={colors.primary}
+                  fillOpacity={0.3}
+                />
+                <Radar
+                  name="Optimal Score"
+                  dataKey="optimal"
+                  stroke={colors.secondary}
+                  fill={colors.secondary}
+                  fillOpacity={0.1}
+                  strokeDasharray="5 5"
+                />
+                <Radar
+                  name="Impact Weight"
+                  dataKey="impact"
+                  stroke={colors.accent}
+                  fill={colors.accent}
+                  fillOpacity={0.2}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "rgba(0,0,0,0.8)",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    borderRadius: "8px",
+                  }}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
           </div>
+        </div>
+      </div>
+
+      {/* Health Categories with Success Factors */}
+      <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-4 mb-6">
+        <h4 className="text-md font-semibold text-white mb-4">
+          Health Categories & Success Factors
+        </h4>
+        <div className="space-y-3">
+          {healthCategories.map((category, index) => (
+            <HealthCategoryBar
+              key={index}
+              category={category}
+              colors={colors}
+            />
+          ))}
         </div>
       </div>
 
@@ -404,7 +474,7 @@ const GoalHealthScoreTab = ({ goals, colors }) => {
         </div>
       </div>
 
-      {/* Portfolio Risks */}
+      {/* Portfolio Risks and Success Strategies */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-4">
           <h4 className="text-md font-semibold text-white mb-4 flex items-center gap-2">
@@ -418,32 +488,36 @@ const GoalHealthScoreTab = ({ goals, colors }) => {
           </div>
         </div>
 
-        {/* Health Recommendations */}
+        {/* Success Strategies */}
         <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 backdrop-blur-md rounded-lg border border-purple-400/30 p-4">
           <h4 className="text-md font-semibold text-white mb-3 flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-purple-400" />
-            Health Improvement Plan
+            Success Enhancement Strategies
           </h4>
           <div className="space-y-3">
-            <RecommendationItem
-              priority="high"
-              action="Define clear milestones for vague goals"
-              impact="Improve clarity score by 15 points"
+            <StrategyCard
+              title="Boost Consistency"
+              description="Set up daily reminders and track streaks"
+              impact="Expected: +25% completion rate"
+              icon={Activity}
             />
-            <RecommendationItem
-              priority="medium"
-              action="Balance portfolio with personal goals"
-              impact="Enhance life balance by 20%"
+            <StrategyCard
+              title="Optimize Time Blocks"
+              description="Schedule goal work during peak hours (6-8 AM)"
+              impact="Expected: +40% productivity"
+              icon={Clock}
             />
-            <RecommendationItem
-              priority="medium"
-              action="Schedule weekly goal reviews"
-              impact="Boost momentum by 10 points"
+            <StrategyCard
+              title="Strengthen Milestones"
+              description="Break down vague goals into weekly targets"
+              impact="Expected: +35% clarity"
+              icon={Target}
             />
-            <RecommendationItem
-              priority="low"
-              action="Celebrate recent completions"
-              impact="Maintain high engagement levels"
+            <StrategyCard
+              title="Build Support Network"
+              description="Share 2 goals publicly for accountability"
+              impact="Expected: +30% motivation"
+              icon={Users}
             />
           </div>
         </div>
@@ -524,7 +598,16 @@ const HealthCategoryBar = ({ category, colors }) => {
           </span>
           <p className="text-xs text-gray-400">{category.description}</p>
         </div>
-        <span className="text-sm font-bold text-white">{category.score}</span>
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <span className="text-sm font-bold text-white">
+              {category.score}
+            </span>
+            <p className="text-xs text-gray-400">
+              Impact: {(category.successFactorScore * 100).toFixed(0)}%
+            </p>
+          </div>
+        </div>
       </div>
       <div className="w-full bg-gray-700/50 rounded-full h-2 mb-2">
         <div
@@ -650,26 +733,17 @@ const RiskCard = ({ risk, colors }) => {
   );
 };
 
-const RecommendationItem = ({ priority, action, impact }) => {
-  const priorityColor =
-    priority === "high"
-      ? "#EF4444"
-      : priority === "medium"
-      ? "#F59E0B"
-      : "#10B981";
-
-  return (
+const StrategyCard = ({ title, description, impact, icon: Icon }) => (
+  <div className="p-4 bg-white/5 rounded-lg">
     <div className="flex items-start gap-3">
-      <div
-        className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
-        style={{ backgroundColor: priorityColor }}
-      />
+      <Icon className="h-5 w-5 text-purple-400 flex-shrink-0" />
       <div>
-        <p className="text-sm text-white">{action}</p>
-        <p className="text-xs text-purple-400 mt-1">{impact}</p>
+        <h5 className="font-medium text-white text-sm mb-1">{title}</h5>
+        <p className="text-xs text-gray-300 mb-2">{description}</p>
+        <p className="text-xs text-purple-400 font-medium">{impact}</p>
       </div>
     </div>
-  );
-};
+  </div>
+);
 
-export default GoalHealthScoreTab;
+export default GoalHealthTab;

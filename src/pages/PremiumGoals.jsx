@@ -1,7 +1,7 @@
 // frontend/src/pages/PremiumGoals.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import ReactConfetti from "react-confetti"; // Added missing import
+import ReactConfetti from "react-confetti";
 import {
   Calendar,
   Search,
@@ -43,23 +43,14 @@ import {
   Sparkles,
 } from "lucide-react";
 
-// Import separate tab components
+// Import consolidated tab components
 import GoalsOverviewTab from "../components/goals/tabs/GoalsOverviewTab";
-import IntelligenceOverviewTab from "../components/goals/tabs/IntelligenceOverviewTab";
-import ProgressPatternsTab from "../components/goals/tabs/ProgressPatternsTab";
-import GoalInsightsTab from "../components/goals/tabs/GoalInsightsTab";
-import GoalComparisonTab from "../components/goals/tabs/GoalComparisonTab";
-import MoodCorrelationsTab from "../components/goals/tabs/MoodCorrelationsTab";
-import GrowthTrackingTab from "../components/goals/tabs/GrowthTrackingTab";
-import MentionTimelineTab from "../components/goals/tabs/MentionTimelineTab";
-import InsightsFeedTab from "../components/goals/tabs/InsightsFeedTab";
-// New tab components to be created
-import AchievementPredictionsTab from "../components/goals/tabs/AchievementPredictionsTab";
-import MilestoneAnalyticsTab from "../components/goals/tabs/MilestoneAnalyticsTab";
-import GoalDependenciesTab from "../components/goals/tabs/GoalDependenciesTab";
-import SuccessFactorsTab from "../components/goals/tabs/SuccessFactorsTab";
-import GoalHealthScoreTab from "../components/goals/tabs/GoalHealthScoreTab";
-import ProgressVelocityTab from "../components/goals/tabs/ProgressVelocityTab";
+import IntelligenceDashboardTab from "../components/goals/tabs/IntelligenceDashboardTab";
+import ProgressAnalyticsTab from "../components/goals/tabs/ProgressAnalyticsTab";
+import GoalHealthTab from "../components/goals/tabs/GoalHealthTab";
+import MoodImpactTab from "../components/goals/tabs/MoodImpactTab";
+import PredictionsTab from "../components/goals/tabs/PredictionsTab";
+import DependenciesTab from "../components/goals/tabs/DependenciesTab";
 
 // Import modals
 import AddGoalModal from "../components/AddGoalModal";
@@ -122,92 +113,51 @@ const PremiumGoals = () => {
     ],
   };
 
-  // Updated tabs structure - 15 tabs in three rows (3x5)
+  // Consolidated tabs - 7 total (3 top, 4 bottom)
   const advancedTabs = [
-    // Row 1 - Core Overview & Analytics
     {
       id: "goals-overview",
       label: "Goals Overview",
       icon: Target,
     },
     {
-      id: "intelligence-overview",
-      label: "Intelligence Overview",
+      id: "intelligence-dashboard",
+      label: "AI Intelligence",
       icon: Brain,
     },
     {
-      id: "progress-patterns",
-      label: "Progress Patterns",
+      id: "progress-analytics",
+      label: "Progress Analytics",
       icon: BarChart3,
     },
     {
-      id: "goal-insights",
-      label: "Goal Insights",
-      icon: Lightbulb,
-    },
-    {
-      id: "goal-comparison",
-      label: "Goal Comparison",
-      icon: Users,
-    },
-    // Row 2 - Advanced Analytics
-    {
-      id: "achievement-predictions",
-      label: "Achievement Predictions",
-      icon: TrendingUp,
-    },
-    {
-      id: "milestone-analytics",
-      label: "Milestone Analytics",
-      icon: CheckCircle2,
-    },
-    {
-      id: "goal-dependencies",
-      label: "Goal Dependencies",
-      icon: GitBranch,
-    },
-    {
-      id: "success-factors",
-      label: "Success Factors",
-      icon: Zap,
-    },
-    {
-      id: "goal-health-score",
-      label: "Goal Health Score",
+      id: "health-score",
+      label: "Goal Health",
       icon: Gauge,
     },
-    // Row 3 - Correlations & Tracking
     {
-      id: "mood-correlations",
-      label: "Mood Correlations",
+      id: "mood-impact",
+      label: "Mood Impact",
       icon: Heart,
     },
     {
-      id: "growth-tracking",
-      label: "Growth Tracking",
-      icon: Sparkles,
+      id: "predictions",
+      label: "Predictions",
+      icon: TrendingUp,
     },
     {
-      id: "mention-analytics",
-      label: "Mention Analytics",
-      icon: Calendar,
-    },
-    {
-      id: "progress-velocity",
-      label: "Progress Velocity",
-      icon: LineChart,
-    },
-    {
-      id: "ai-insights",
-      label: "AI Insights Feed",
-      icon: Brain,
+      id: "dependencies",
+      label: "Dependencies & Milestones",
+      icon: GitBranch,
     },
   ];
 
   // Get backend URL
   const getBackendUrl = () => {
     return (
-      import.meta.env.VITE_BACKEND_URL || "https://reflectionary-api.vercel.app"
+      import.meta.env.VITE_BACKEND_URL ||
+      import.meta.env.VITE_API_URL ||
+      "https://reflectionary-api.vercel.app"
     );
   };
 
@@ -217,12 +167,17 @@ const PremiumGoals = () => {
       return;
     }
 
+    console.log("🎯 PremiumGoals: User authenticated, loading data...");
     loadGoalsAndAnalytics();
   }, [user, dateRange]);
 
   const loadGoalsAndAnalytics = async () => {
     setLoading(true);
+    setError(null);
+
     try {
+      console.log("🔍 Loading goals data for user:", user.id);
+
       await Promise.all([
         loadGoals(),
         loadAnalyticsData(),
@@ -232,16 +187,18 @@ const PremiumGoals = () => {
         loadMoodCorrelations(),
       ]);
     } catch (error) {
-      console.error("Error loading goals and analytics:", error);
-      setError("Failed to load goals data. Please try again.");
+      console.error("❌ Error loading goals and analytics:", error);
+      setError(`Failed to load goals data: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Data loading functions - Using proper backend URLs
+  // Data loading functions - Following PremiumHistory pattern
   const loadGoals = async () => {
     try {
+      console.log("🎯 Loading goals...");
+
       const response = await fetch(
         `${getBackendUrl()}/api/goals?user_id=${user.id}`,
         {
@@ -250,37 +207,67 @@ const PremiumGoals = () => {
             "Content-Type": "application/json",
           },
           credentials: "include",
+          mode: "cors",
         }
       );
 
+      console.log("📡 Goals response status:", response.status);
+
       if (!response.ok) {
-        throw new Error("Failed to fetch goals");
+        const errorText = await response.text();
+        console.error("❌ Goals API error response:", errorText);
+        throw new Error(
+          `API returned ${response.status}: ${errorText.substring(0, 100)}`
+        );
       }
 
       const data = await response.json();
-      setGoals(data.goals || []);
+      console.log("📊 Raw goals data received:", data);
 
       // Track which database is being used
       if (data.database) {
         setDatabaseEnvironment(data.database);
-        console.log(`🎯 Using ${data.database} database for goals`);
+        console.log(`🗄️ Using ${data.database} database for goals`);
       }
 
+      // Process goals to ensure they have the expected structure
+      const processedGoals = processGoals(data.goals || []);
+      console.log("✅ Processed goals:", processedGoals.length);
+      setGoals(processedGoals);
+
       // Select first goal if none selected
-      if (data.goals && data.goals.length > 0 && !selectedGoalId) {
-        setSelectedGoalId(data.goals[0].id);
+      if (processedGoals.length > 0 && !selectedGoalId) {
+        setSelectedGoalId(processedGoals[0].id);
       }
     } catch (error) {
-      console.error("Error loading goals:", error);
+      console.error("❌ Error loading goals:", error);
       throw error;
     }
   };
 
+  // Process goals to ensure they have the expected decrypted fields
+  const processGoals = (rawGoals) => {
+    return rawGoals.map((goal) => ({
+      ...goal,
+      // Map decrypted fields from backend response
+      decryptedTitle: goal.title || goal.decryptedTitle || "Untitled Goal",
+      decryptedDescription: goal.description || goal.decryptedDescription || "",
+      // Ensure other expected fields exist
+      created_at: goal.created_at || goal.createdAt,
+      updated_at: goal.updated_at || goal.updatedAt,
+      status: goal.status || "active",
+      progress: goal.progress || 0,
+      milestones: goal.milestones || [],
+      dueDate: goal.due_date || goal.dueDate,
+      category: goal.category || "general",
+    }));
+  };
+
   const loadAnalyticsData = async () => {
     try {
-      // For now, calculate analytics client-side since the endpoint might not exist yet
-      // In the future, this should call the backend API
+      console.log("📈 Loading analytics data...");
 
+      // For now, calculate analytics client-side
       const activeGoals = goals.filter((g) => g.status === "active");
       const completedGoals = goals.filter((g) => g.status === "completed");
       const pausedGoals = goals.filter((g) => g.status === "paused");
@@ -300,7 +287,6 @@ const PremiumGoals = () => {
               goalsWithProgress++;
             }
           } else if (goal.progress.type === "tiers") {
-            // Handle tier-based progress
             const currentTier = progressData.findIndex((t) => !t.completed);
             if (currentTier > 0) {
               totalProgress += (currentTier / progressData.length) * 100;
@@ -320,12 +306,11 @@ const PremiumGoals = () => {
             goalsWithProgress > 0
               ? Math.round(totalProgress / goalsWithProgress)
               : 0,
-          streak: 0, // Would need journal entries to calculate
+          streak: 0,
         },
       });
     } catch (error) {
-      console.error("Error loading analytics:", error);
-      // Set default values if calculation fails
+      console.error("❌ Error loading analytics:", error);
       setAnalyticsData({
         overview: {
           totalGoals: goals.length,
@@ -341,6 +326,8 @@ const PremiumGoals = () => {
 
   const loadInsights = async () => {
     try {
+      console.log("💡 Loading insights...");
+
       const response = await fetch(
         `${getBackendUrl()}/api/goal-insights?user_id=${user.id}`,
         {
@@ -349,34 +336,37 @@ const PremiumGoals = () => {
             "Content-Type": "application/json",
           },
           credentials: "include",
+          mode: "cors",
         }
       );
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch insights");
+      if (response.ok) {
+        const data = await response.json();
+        setInsights(data.goalInsights || []);
+        console.log("✅ Insights loaded:", data.goalInsights?.length || 0);
+      } else {
+        console.warn("⚠️ Insights API failed:", response.status);
+        setInsights([
+          {
+            id: 1,
+            type: "success",
+            title: "Strong Progress on Goals",
+            description: "Keep up the momentum on your active goals.",
+            goalId: null,
+            date: new Date().toISOString(),
+          },
+        ]);
       }
-
-      const data = await response.json();
-      setInsights(data.goalInsights || []);
     } catch (error) {
-      console.error("Error loading insights:", error);
-      // Set default insights
-      setInsights([
-        {
-          id: 1,
-          type: "success",
-          title: "Strong Progress on Goals",
-          description: "Keep up the momentum on your active goals.",
-          goalId: null,
-          date: new Date().toISOString(),
-        },
-      ]);
+      console.error("⚠️ Error loading insights:", error);
+      setInsights([]);
     }
   };
 
   const loadProgressPatterns = async () => {
     try {
-      // This endpoint might not exist yet, so we'll handle the error gracefully
+      console.log("📊 Loading progress patterns...");
+
       const response = await fetch(
         `${getBackendUrl()}/api/goal-patterns?user_id=${
           user.id
@@ -387,22 +377,27 @@ const PremiumGoals = () => {
             "Content-Type": "application/json",
           },
           credentials: "include",
+          mode: "cors",
         }
       );
 
       if (response.ok) {
         const data = await response.json();
         setProgressPatterns(data.patterns || []);
+        console.log("✅ Progress patterns loaded:", data.patterns?.length || 0);
+      } else {
+        console.warn("⚠️ Progress patterns API failed:", response.status);
       }
     } catch (error) {
-      console.error("Error loading progress patterns:", error);
+      console.error("⚠️ Error loading progress patterns:", error);
       setProgressPatterns([]);
     }
   };
 
   const loadGoalMentions = async () => {
     try {
-      // This endpoint might not exist yet, so we'll handle the error gracefully
+      console.log("💬 Loading goal mentions...");
+
       const response = await fetch(
         `${getBackendUrl()}/api/goal-mentions?user_id=${
           user.id
@@ -413,22 +408,27 @@ const PremiumGoals = () => {
             "Content-Type": "application/json",
           },
           credentials: "include",
+          mode: "cors",
         }
       );
 
       if (response.ok) {
         const data = await response.json();
         setGoalMentions(data.mentions || []);
+        console.log("✅ Goal mentions loaded:", data.mentions?.length || 0);
+      } else {
+        console.warn("⚠️ Goal mentions API failed:", response.status);
       }
     } catch (error) {
-      console.error("Error loading goal mentions:", error);
+      console.error("⚠️ Error loading goal mentions:", error);
       setGoalMentions([]);
     }
   };
 
   const loadMoodCorrelations = async () => {
     try {
-      // This endpoint might not exist yet, so we'll handle the error gracefully
+      console.log("😊 Loading mood correlations...");
+
       const response = await fetch(
         `${getBackendUrl()}/api/goal-mood-correlations?user_id=${
           user.id
@@ -439,15 +439,22 @@ const PremiumGoals = () => {
             "Content-Type": "application/json",
           },
           credentials: "include",
+          mode: "cors",
         }
       );
 
       if (response.ok) {
         const data = await response.json();
         setMoodCorrelations(data.correlations || []);
+        console.log(
+          "✅ Mood correlations loaded:",
+          data.correlations?.length || 0
+        );
+      } else {
+        console.warn("⚠️ Mood correlations API failed:", response.status);
       }
     } catch (error) {
-      console.error("Error loading mood correlations:", error);
+      console.error("⚠️ Error loading mood correlations:", error);
       setMoodCorrelations([]);
     }
   };
@@ -455,55 +462,71 @@ const PremiumGoals = () => {
   // Goal CRUD operations using backend
   const handleAddGoal = async (goalData) => {
     try {
+      console.log("➕ Adding new goal...");
+
       const response = await fetch(`${getBackendUrl()}/api/goals`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
+        mode: "cors",
         body: JSON.stringify({
           user_id: user.id,
           ...goalData,
+          // Send plain text - backend handles encryption
         }),
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ Failed to create goal:", errorText);
         throw new Error("Failed to create goal");
       }
 
       const data = await response.json();
+      console.log("✅ Goal created successfully");
+
       await loadGoalsAndAnalytics(); // Reload all data
       setShowAddModal(false);
     } catch (error) {
-      console.error("Error adding goal:", error);
+      console.error("❌ Error adding goal:", error);
       alert("Failed to add goal. Please try again.");
     }
   };
 
   const handleEditGoal = async (goalId, updatedData) => {
     try {
+      console.log("✏️ Updating goal:", goalId);
+
       const response = await fetch(`${getBackendUrl()}/api/goals`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
+        mode: "cors",
         body: JSON.stringify({
           goal_id: goalId,
           user_id: user.id,
           ...updatedData,
+          // Send plain text - backend handles encryption
         }),
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ Failed to update goal:", errorText);
         throw new Error("Failed to update goal");
       }
 
       const data = await response.json();
+      console.log("✅ Goal updated successfully");
+
       await loadGoalsAndAnalytics(); // Reload all data
       setShowEditModal(false);
     } catch (error) {
-      console.error("Error updating goal:", error);
+      console.error("❌ Error updating goal:", error);
       alert("Failed to update goal. Please try again.");
     }
   };
@@ -514,6 +537,8 @@ const PremiumGoals = () => {
     }
 
     try {
+      console.log("🗑️ Deleting goal:", goalId);
+
       const response = await fetch(
         `${getBackendUrl()}/api/goals?goal_id=${goalId}&user_id=${user.id}`,
         {
@@ -522,12 +547,17 @@ const PremiumGoals = () => {
             "Content-Type": "application/json",
           },
           credentials: "include",
+          mode: "cors",
         }
       );
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ Failed to delete goal:", errorText);
         throw new Error("Failed to delete goal");
       }
+
+      console.log("✅ Goal deleted successfully");
 
       await loadGoalsAndAnalytics(); // Reload all data
 
@@ -536,19 +566,22 @@ const PremiumGoals = () => {
         setSelectedGoalId(goals.find((g) => g.id !== goalId)?.id || null);
       }
     } catch (error) {
-      console.error("Error deleting goal:", error);
+      console.error("❌ Error deleting goal:", error);
       alert("Failed to delete goal. Please try again.");
     }
   };
 
   const handleStatusChange = async (goalId, newStatus) => {
     try {
+      console.log("🔄 Updating goal status:", goalId, newStatus);
+
       const response = await fetch(`${getBackendUrl()}/api/goals`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
+        mode: "cors",
         body: JSON.stringify({
           goal_id: goalId,
           user_id: user.id,
@@ -557,8 +590,12 @@ const PremiumGoals = () => {
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ Failed to update status:", errorText);
         throw new Error("Failed to update status");
       }
+
+      console.log("✅ Goal status updated successfully");
 
       await loadGoalsAndAnalytics(); // Reload all data
 
@@ -568,7 +605,7 @@ const PremiumGoals = () => {
         setTimeout(() => setShowCelebration(false), 5000);
       }
     } catch (error) {
-      console.error("Error updating goal status:", error);
+      console.error("❌ Error updating goal status:", error);
       alert("Failed to update goal status. Please try again.");
     }
   };
@@ -720,38 +757,60 @@ const PremiumGoals = () => {
           </div>
         </div>
 
-        {/* Premium Tabs - 3x5 Grid */}
+        {/* Premium Tabs - 2 rows (3 top, 4 bottom) with inline layout */}
         <div className="mb-8">
-          <div className="grid grid-cols-5 gap-2">
-            {advancedTabs.map((tab, index) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
+          <div className="space-y-4">
+            {/* Top row - 3 tabs */}
+            <div className="grid grid-cols-3 gap-4">
+              {advancedTabs.slice(0, 3).map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
 
-              // Determine row based on index
-              const row = Math.floor(index / 5) + 1;
-              const rowClass = `row-start-${row}`;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`
+                      flex items-center justify-center gap-3 px-6 py-3 rounded-lg transition-all
+                      ${
+                        isActive
+                          ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg scale-105"
+                          : "bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white"
+                      }
+                    `}
+                  >
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    <span className="text-sm font-medium">{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`
-                    ${rowClass}
-                    flex flex-col items-center justify-center p-4 rounded-lg transition-all
-                    ${
-                      isActive
-                        ? "bg-gradient-to-br from-purple-600 to-pink-600 text-white shadow-lg scale-105"
-                        : "bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white"
-                    }
-                  `}
-                >
-                  <Icon className="h-6 w-6 mb-2" />
-                  <span className="text-xs font-medium text-center">
-                    {tab.label}
-                  </span>
-                </button>
-              );
-            })}
+            {/* Bottom row - 4 tabs */}
+            <div className="grid grid-cols-4 gap-4">
+              {advancedTabs.slice(3).map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`
+                      flex items-center justify-center gap-3 px-6 py-3 rounded-lg transition-all
+                      ${
+                        isActive
+                          ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg scale-105"
+                          : "bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white"
+                      }
+                    `}
+                  >
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    <span className="text-sm font-medium">{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -771,92 +830,44 @@ const PremiumGoals = () => {
               colors={colors}
             />
           )}
-          {activeTab === "intelligence-overview" && (
-            <IntelligenceOverviewTab
+          {activeTab === "intelligence-dashboard" && (
+            <IntelligenceDashboardTab
               goals={goals}
               analytics={analyticsData}
               insights={insights}
               colors={colors}
             />
           )}
-          {activeTab === "progress-patterns" && (
-            <ProgressPatternsTab
+          {activeTab === "progress-analytics" && (
+            <ProgressAnalyticsTab
               goals={goals}
               patterns={progressPatterns}
               colors={colors}
             />
           )}
-          {activeTab === "goal-insights" && (
-            <GoalInsightsTab
-              goals={goals}
-              insights={insights}
-              colors={colors}
-            />
-          )}
-          {activeTab === "goal-comparison" && (
-            <GoalComparisonTab goals={goals} colors={colors} />
-          )}
-          {activeTab === "achievement-predictions" && (
-            <AchievementPredictionsTab
+          {activeTab === "health-score" && (
+            <GoalHealthTab
               goals={goals}
               analytics={analyticsData}
               colors={colors}
             />
           )}
-          {activeTab === "milestone-analytics" && (
-            <MilestoneAnalyticsTab goals={goals} colors={colors} />
-          )}
-          {activeTab === "goal-dependencies" && (
-            <GoalDependenciesTab goals={goals} colors={colors} />
-          )}
-          {activeTab === "success-factors" && (
-            <SuccessFactorsTab
-              goals={goals}
-              analytics={analyticsData}
-              colors={colors}
-            />
-          )}
-          {activeTab === "goal-health-score" && (
-            <GoalHealthScoreTab
-              goals={goals}
-              analytics={analyticsData}
-              colors={colors}
-            />
-          )}
-          {activeTab === "mood-correlations" && (
-            <MoodCorrelationsTab
+          {activeTab === "mood-impact" && (
+            <MoodImpactTab
               goals={goals}
               correlations={moodCorrelations}
               colors={colors}
             />
           )}
-          {activeTab === "growth-tracking" && (
-            <GrowthTrackingTab
+          {activeTab === "predictions" && (
+            <PredictionsTab
               goals={goals}
               analytics={analyticsData}
               colors={colors}
             />
           )}
-          {activeTab === "mention-analytics" && (
-            <MentionTimelineTab
-              goals={goals}
-              mentions={goalMentions}
-              colors={colors}
-            />
-          )}
-          {activeTab === "progress-velocity" && (
-            <ProgressVelocityTab
-              goals={goals}
-              analytics={analyticsData}
-              colors={colors}
-            />
-          )}
-          {activeTab === "ai-insights" && (
-            <InsightsFeedTab
-              insights={insights}
-              goals={goals}
-              colors={colors}
-            />
+          {activeTab === "dependencies" && (
+            <DependenciesTab goals={goals} colors={colors} />
           )}
         </div>
 
