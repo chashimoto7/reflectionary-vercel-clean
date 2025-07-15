@@ -178,9 +178,12 @@ const PremiumGoals = () => {
     try {
       console.log("🔍 Loading goals data for user:", user.id);
 
+      // Load goals first, then use that data for analytics
+      const goalsData = await loadGoals();
+
+      // Now load analytics with the actual goals data
       await Promise.all([
-        loadGoals(),
-        loadAnalyticsData(),
+        loadAnalyticsData(goalsData),
         loadInsights(),
         loadProgressPatterns(),
         loadGoalMentions(),
@@ -263,20 +266,24 @@ const PremiumGoals = () => {
     }));
   };
 
-  const loadAnalyticsData = async () => {
+  const loadAnalyticsData = async (goalsData = []) => {
     try {
       console.log("📈 Loading analytics data...");
 
-      // For now, calculate analytics client-side
-      const activeGoals = goals.filter((g) => g.status === "active");
-      const completedGoals = goals.filter((g) => g.status === "completed");
-      const pausedGoals = goals.filter((g) => g.status === "paused");
+      // Use the provided goalsData or fall back to state
+      const dataToAnalyze = goalsData.length > 0 ? goalsData : goals;
+
+      const activeGoals = dataToAnalyze.filter((g) => g.status === "active");
+      const completedGoals = dataToAnalyze.filter(
+        (g) => g.status === "completed"
+      );
+      const pausedGoals = dataToAnalyze.filter((g) => g.status === "paused");
 
       // Calculate average progress
       let totalProgress = 0;
       let goalsWithProgress = 0;
 
-      goals.forEach((goal) => {
+      dataToAnalyze.forEach((goal) => {
         if (goal.progress && goal.progress.data) {
           const progressData = goal.progress.data;
           if (goal.progress.type === "milestones") {
@@ -298,7 +305,7 @@ const PremiumGoals = () => {
 
       setAnalyticsData({
         overview: {
-          totalGoals: goals.length,
+          totalGoals: dataToAnalyze.length,
           activeGoals: activeGoals.length,
           completedGoals: completedGoals.length,
           pausedGoals: pausedGoals.length,
@@ -313,10 +320,10 @@ const PremiumGoals = () => {
       console.error("❌ Error loading analytics:", error);
       setAnalyticsData({
         overview: {
-          totalGoals: goals.length,
-          activeGoals: goals.filter((g) => g.status === "active").length,
-          completedGoals: goals.filter((g) => g.status === "completed").length,
-          pausedGoals: goals.filter((g) => g.status === "paused").length,
+          totalGoals: 0,
+          activeGoals: 0,
+          completedGoals: 0,
+          pausedGoals: 0,
           averageProgress: 0,
           streak: 0,
         },
