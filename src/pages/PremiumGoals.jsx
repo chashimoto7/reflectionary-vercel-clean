@@ -214,9 +214,9 @@ const PremiumGoals = () => {
       await loadInsights(processedGoals);
 
       // Generate other analytics locally (like PremiumHistory does)
-      generateProgressPatterns(processedGoals);
-      generateGoalMentions(processedGoals);
-      generateMoodCorrelations();
+      loadProgressPatterns(processedGoals);
+      loadGoalMentions(processedGoals);
+      loadMoodCorrelations();
     } catch (error) {
       console.error("❌ Error loading goals data:", error);
       setError(`Failed to load goals data: ${error.message}`);
@@ -581,7 +581,7 @@ const PremiumGoals = () => {
       const data = await response.json();
       console.log("✅ Goal created successfully");
 
-      await loadGoalsData(); // Reload all data
+      await loadInsights(); // Reload all data
       setShowAddModal(false);
     } catch (error) {
       console.error("❌ Error adding goal:", error);
