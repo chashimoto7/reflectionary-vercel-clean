@@ -242,6 +242,9 @@ const PremiumGoals = () => {
       if (processedGoals.length > 0 && !selectedGoalId) {
         setSelectedGoalId(processedGoals[0].id);
       }
+
+      // CRITICAL: Return the processed goals for use in analytics
+      return processedGoals;
     } catch (error) {
       console.error("❌ Error loading goals:", error);
       throw error;
