@@ -1,4 +1,4 @@
-// frontend/ src/components/wellness/tabs/WellnessForecastTab.jsx
+// frontend/src/components/wellness/tabs/WellnessForecastTab.jsx
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import {
@@ -29,6 +29,7 @@ import {
   Thermometer,
   Eye,
   BarChart3,
+  X,
 } from "lucide-react";
 import {
   format,
@@ -52,10 +53,10 @@ import {
   BarChart,
   Bar,
   ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
   Legend,
   Cell,
   ReferenceLine,
@@ -80,9 +81,12 @@ const WellnessForecastTab = ({ colors, user }) => {
   });
   const [historicalAccuracy, setHistoricalAccuracy] = useState(null);
   const [weatherData, setWeatherData] = useState(null);
+  const [hasData, setHasData] = useState(false);
 
   useEffect(() => {
-    loadForecastData();
+    if (user) {
+      loadForecastData();
+    }
   }, [user]);
 
   const loadForecastData = async () => {
@@ -94,7 +98,7 @@ const WellnessForecastTab = ({ colors, user }) => {
         .toISOString()
         .split("T")[0];
       const { data: entries, error } = await supabase
-        .from("wellness_entries")
+        .from("wellness_entries_decrypted")
         .select("*")
         .eq("user_id", user.id)
         .gte("date", ninetyDaysAgo)
@@ -102,8 +106,9 @@ const WellnessForecastTab = ({ colors, user }) => {
 
       if (error) throw error;
 
-      if (entries && entries.length > 0) {
+      if (entries && entries.length >= 7) {
         setWellnessData(entries);
+        setHasData(true);
 
         // Generate forecasts
         const forecasts = generateForecasts(entries);
@@ -111,12 +116,17 @@ const WellnessForecastTab = ({ colors, user }) => {
 
         // Calculate historical accuracy if we have past predictions
         calculateHistoricalAccuracy(entries);
+      } else {
+        setWellnessData(entries || []);
+        setHasData(false);
       }
 
       // Mock weather data (in production, integrate with weather API)
       loadWeatherForecast();
     } catch (error) {
       console.error("Error loading forecast data:", error);
+      setWellnessData([]);
+      setHasData(false);
     } finally {
       setLoading(false);
     }
@@ -868,31 +878,6 @@ const WellnessForecastTab = ({ colors, user }) => {
       });
     }
 
-    // Check for patterns around this date in previous months
-    const sameMonthDay = historicalData.filter((d) => {
-      const entryDate = new Date(d.date);
-      return entryDate.getDate() === date.getDate();
-    });
-
-    if (sameMonthDay.length >= 2) {
-      const avgScore = average(
-        sameMonthDay.map((d) => calculateWellnessScore(d))
-      );
-      if (avgScore > 70) {
-        factors.push({
-          type: "recurring",
-          impact: 0.3,
-          description: "Historically good day",
-        });
-      } else if (avgScore < 40) {
-        factors.push({
-          type: "recurring",
-          impact: -0.3,
-          description: "Historically challenging",
-        });
-      }
-    }
-
     return factors;
   };
 
@@ -921,6 +906,28 @@ const WellnessForecastTab = ({ colors, user }) => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-300"></div>
+      </div>
+    );
+  }
+
+  // No data state
+  if (!hasData) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-12 border border-white/20 text-center">
+          <Calendar className="w-16 h-16 text-purple-400 mx-auto mb-4" />
+          <h3 className="text-2xl font-semibold text-white mb-2">
+            Insufficient Data for Forecasting
+          </h3>
+          <p className="text-purple-200 mb-6">
+            Wellness forecasting requires at least 7 days of tracking data to
+            generate accurate predictions.
+          </p>
+          <div className="text-purple-300 text-sm">
+            <p>Days tracked: {wellnessData ? wellnessData.length : 0}/7</p>
+            <p className="mt-2">Keep tracking daily to unlock forecasting!</p>
+          </div>
+        </div>
       </div>
     );
   }

@@ -1,6 +1,5 @@
-// frontend/ src/components/wellness/tabs/WellnessExperimentsTab.jsx
+// frontend/src/components/wellness/tabs/WellnessExperimentsTab.jsx
 import React, { useState, useEffect } from "react";
-import { supabase } from "../../../lib/supabase";
 import {
   Sparkles,
   Beaker,
@@ -36,6 +35,10 @@ import {
   MessageSquare,
   Filter,
   Search,
+  Sun,
+  Droplets,
+  Eye,
+  Flame,
 } from "lucide-react";
 import {
   format,
@@ -79,6 +82,7 @@ const WellnessExperimentsTab = ({ colors, user }) => {
   const [showNewExperiment, setShowNewExperiment] = useState(false);
   const [experimentFilter, setExperimentFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [wellnessData, setWellnessData] = useState([]);
 
   // New experiment form
   const [newExperiment, setNewExperiment] = useState({
@@ -92,6 +96,9 @@ const WellnessExperimentsTab = ({ colors, user }) => {
     isPublic: false,
   });
 
+  const backendUrl =
+    process.env.REACT_APP_BACKEND_URL || "https://backend.reflectionary.ca";
+
   useEffect(() => {
     loadExperiments();
   }, [user]);
@@ -100,45 +107,94 @@ const WellnessExperimentsTab = ({ colors, user }) => {
     try {
       setLoading(true);
 
-      // Load user's experiments
-      const { data: userExperiments, error: expError } = await supabase
-        .from("wellness_experiments")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+      // Load user's experiments from backend
+      const experimentsResponse = await fetch(
+        `${backendUrl}/api/wellness/experiments?user_id=${user.id}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-      if (expError) throw expError;
+      if (experimentsResponse.ok) {
+        const experimentsData = await experimentsResponse.json();
+
+        // Process experiments
+        const processed = processExperiments(experimentsData.experiments || []);
+
+        setExperiments((prevState) => ({
+          ...prevState,
+          active: processed.active,
+          completed: processed.completed,
+        }));
+      }
 
       // Load wellness data for analysis
       const thirtyDaysAgo = addDays(new Date(), -30)
         .toISOString()
         .split("T")[0];
-      const { data: wellnessData, error: wellnessError } = await supabase
-        .from("wellness_entries")
-        .select("*")
-        .eq("user_id", user.id)
-        .gte("date", thirtyDaysAgo)
-        .order("date", { ascending: true });
 
-      if (wellnessError) throw wellnessError;
+      const wellnessResponse = await fetch(
+        `${backendUrl}/api/wellness?user_id=${user.id}&date_from=${thirtyDaysAgo}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-      // Process experiments
-      const processed = processExperiments(userExperiments || []);
+      if (wellnessResponse.ok) {
+        const wellnessData = await wellnessResponse.json();
 
-      // Generate suggested experiments
-      const suggested = generateSuggestedExperiments(wellnessData || []);
+        if (wellnessData.entries && wellnessData.entries.length > 0) {
+          // Transform the data for experiments
+          const transformedData = wellnessData.entries.map((entry) => ({
+            id: entry.id,
+            date: entry.date,
+            mood: entry.data.mood?.overall || 0,
+            energy: entry.data.mood?.energy || 0,
+            stress: entry.data.mood?.stress || 0,
+            sleep_hours: entry.data.sleep?.duration || 0,
+            sleep_quality: entry.data.sleep?.quality || 0,
+            exercise_minutes: entry.data.exercise?.duration || 0,
+            water_glasses: entry.data.nutrition?.water || 0,
+          }));
+
+          setWellnessData(transformedData);
+
+          // Generate suggested experiments
+          const suggested = generateSuggestedExperiments(transformedData);
+          setExperiments((prevState) => ({
+            ...prevState,
+            suggested: suggested,
+          }));
+        } else {
+          // No wellness data - show default suggestions
+          setExperiments((prevState) => ({
+            ...prevState,
+            suggested: getDefaultSuggestions(),
+          }));
+        }
+      }
 
       // Load community experiments (mock for now)
       const community = loadCommunityExperiments();
-
-      setExperiments({
-        active: processed.active,
-        suggested: suggested,
-        completed: processed.completed,
+      setExperiments((prevState) => ({
+        ...prevState,
         community: community,
-      });
+      }));
     } catch (error) {
       console.error("Error loading experiments:", error);
+      // Show default suggestions on error
+      setExperiments({
+        active: [],
+        suggested: getDefaultSuggestions(),
+        completed: [],
+        community: loadCommunityExperiments(),
+      });
     } finally {
       setLoading(false);
     }
@@ -349,6 +405,13 @@ const WellnessExperimentsTab = ({ colors, user }) => {
         metrics: ["sleep_hours", "energy", "mood"],
         icon: Moon,
         color: colors.indigo,
+        expectedImprovement: 20,
+        successCriteria: "Identify optimal sleep duration",
+        tips: [
+          "Keep consistent wake time",
+          "Avoid caffeine after 2pm",
+          "Track in the morning for accuracy",
+        ],
       },
       {
         id: "starter-baseline",
@@ -366,6 +429,13 @@ const WellnessExperimentsTab = ({ colors, user }) => {
         metrics: ["mood", "energy", "stress", "sleep_hours"],
         icon: BarChart3,
         color: colors.purple,
+        expectedImprovement: 0,
+        successCriteria: "Complete 7 days of tracking",
+        tips: [
+          "Set a daily reminder",
+          "Track at the same time each day",
+          "Don't judge - just observe",
+        ],
       },
     ];
   };
@@ -437,16 +507,19 @@ const WellnessExperimentsTab = ({ colors, user }) => {
         start_date: new Date().toISOString().split("T")[0],
         status: "active",
         is_public: experiment.isPublic || false,
-        created_at: new Date().toISOString(),
       };
 
-      const { data, error } = await supabase
-        .from("wellness_experiments")
-        .insert([experimentData])
-        .select()
-        .single();
+      const response = await fetch(`${backendUrl}/api/wellness/experiments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(experimentData),
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error("Failed to start experiment");
+      }
 
       // Reload experiments
       await loadExperiments();
@@ -460,15 +533,23 @@ const WellnessExperimentsTab = ({ colors, user }) => {
 
   const updateExperimentProgress = async (experimentId, progressData) => {
     try {
-      const { error } = await supabase
-        .from("wellness_experiments")
-        .update({
-          progress: progressData,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", experimentId);
+      const response = await fetch(
+        `${backendUrl}/api/wellness/experiments/${experimentId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            progress: progressData,
+          }),
+        }
+      );
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error("Failed to update experiment progress");
+      }
 
       await loadExperiments();
     } catch (error) {
@@ -480,16 +561,25 @@ const WellnessExperimentsTab = ({ colors, user }) => {
     try {
       const results = await calculateDetailedResults(experiment);
 
-      const { error } = await supabase
-        .from("wellness_experiments")
-        .update({
-          status: "completed",
-          results: results,
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", experiment.id);
+      const response = await fetch(
+        `${backendUrl}/api/wellness/experiments/${experiment.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            status: "completed",
+            results: results,
+            completed_at: new Date().toISOString(),
+          }),
+        }
+      );
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error("Failed to complete experiment");
+      }
 
       await loadExperiments();
     } catch (error) {
@@ -499,19 +589,20 @@ const WellnessExperimentsTab = ({ colors, user }) => {
 
   const calculateDetailedResults = async (experiment) => {
     // Fetch relevant wellness data during experiment period
-    const { data: wellnessData } = await supabase
-      .from("wellness_entries")
-      .select("*")
-      .eq("user_id", user.id)
-      .gte("date", experiment.start_date)
-      .lte(
-        "date",
-        format(
-          addDays(new Date(experiment.start_date), experiment.duration),
-          "yyyy-MM-dd"
-        )
-      )
-      .order("date", { ascending: true });
+    const endDate = format(
+      addDays(new Date(experiment.start_date), experiment.duration),
+      "yyyy-MM-dd"
+    );
+
+    const response = await fetch(
+      `${backendUrl}/api/wellness?user_id=${user.id}&date_from=${experiment.start_date}&date_to=${endDate}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
     const results = {
       success: false,
@@ -520,14 +611,48 @@ const WellnessExperimentsTab = ({ colors, user }) => {
       chartData: [],
     };
 
-    if (!wellnessData || wellnessData.length === 0) return results;
+    if (!response.ok) {
+      return results;
+    }
+
+    const data = await response.json();
+    const wellnessData = data.entries || [];
+
+    if (wellnessData.length === 0) return results;
 
     // Calculate improvements for each metric
     experiment.metrics.forEach((metric) => {
       const baseline = experiment.baseline?.[metric] || 0;
-      const values = wellnessData
-        .map((d) => d[metric] || 0)
-        .filter((v) => v > 0);
+      let values = [];
+
+      // Map metrics to wellness data structure
+      wellnessData.forEach((entry) => {
+        switch (metric) {
+          case "mood":
+            values.push(entry.data.mood?.overall || 0);
+            break;
+          case "energy":
+            values.push(entry.data.mood?.energy || 0);
+            break;
+          case "stress":
+            values.push(entry.data.mood?.stress || 0);
+            break;
+          case "sleep_hours":
+            values.push(entry.data.sleep?.duration || 0);
+            break;
+          case "sleep_quality":
+            values.push(entry.data.sleep?.quality || 0);
+            break;
+          case "exercise_minutes":
+            values.push(entry.data.exercise?.duration || 0);
+            break;
+          case "water_glasses":
+            values.push(entry.data.nutrition?.water || 0);
+            break;
+        }
+      });
+
+      values = values.filter((v) => v > 0);
 
       if (values.length > 0) {
         const avgValue = average(values);
@@ -547,7 +672,29 @@ const WellnessExperimentsTab = ({ colors, user }) => {
     results.chartData = wellnessData.map((entry) => {
       const dataPoint = { date: format(new Date(entry.date), "MMM d") };
       experiment.metrics.forEach((metric) => {
-        dataPoint[metric] = entry[metric] || 0;
+        switch (metric) {
+          case "mood":
+            dataPoint[metric] = entry.data.mood?.overall || 0;
+            break;
+          case "energy":
+            dataPoint[metric] = entry.data.mood?.energy || 0;
+            break;
+          case "stress":
+            dataPoint[metric] = entry.data.mood?.stress || 0;
+            break;
+          case "sleep_hours":
+            dataPoint[metric] = entry.data.sleep?.duration || 0;
+            break;
+          case "sleep_quality":
+            dataPoint[metric] = entry.data.sleep?.quality || 0;
+            break;
+          case "exercise_minutes":
+            dataPoint[metric] = entry.data.exercise?.duration || 0;
+            break;
+          case "water_glasses":
+            dataPoint[metric] = entry.data.nutrition?.water || 0;
+            break;
+        }
       });
       return dataPoint;
     });
@@ -639,12 +786,12 @@ const WellnessExperimentsTab = ({ colors, user }) => {
   };
 
   const getDifficultyColor = (difficulty) => {
-    const colors = {
+    const colorMap = {
       easy: "text-emerald-400",
       medium: "text-amber-400",
       hard: "text-red-400",
     };
-    return colors[difficulty] || "text-gray-400";
+    return colorMap[difficulty] || "text-gray-400";
   };
 
   if (loading) {
@@ -860,8 +1007,9 @@ const WellnessExperimentsTab = ({ colors, user }) => {
           <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-md rounded-xl p-4 border border-white/20 mb-4">
             <p className="text-purple-200 text-sm flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-yellow-400" />
-              These experiments are personalized based on your wellness patterns
-              and areas for improvement
+              {wellnessData.length > 0
+                ? "These experiments are personalized based on your wellness patterns and areas for improvement"
+                : "Start with these beginner-friendly experiments to establish your wellness baseline"}
             </p>
           </div>
 
@@ -1071,7 +1219,7 @@ const WellnessExperimentsTab = ({ colors, user }) => {
                             className="bg-white/5 rounded-lg p-3"
                           >
                             <div className="text-xs text-purple-400 capitalize mb-1">
-                              {metric}
+                              {metric.replace("_", " ")}
                             </div>
                             <div className="flex items-baseline gap-2">
                               <span className="text-lg font-bold text-white">
@@ -1604,46 +1752,47 @@ const WellnessExperimentsTab = ({ colors, user }) => {
             </div>
 
             {/* Results Chart */}
-            {selectedExperiment.results?.chartData && (
-              <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 mb-6">
-                <h4 className="text-lg font-semibold text-white mb-4">
-                  Progress Over Time
-                </h4>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={selectedExperiment.results.chartData}>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="rgba(255,255,255,0.1)"
-                    />
-                    <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" />
-                    <YAxis stroke="rgba(255,255,255,0.5)" />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "rgba(17, 24, 39, 0.9)",
-                        border: "1px solid rgba(255,255,255,0.2)",
-                        borderRadius: "8px",
-                      }}
-                    />
-                    <Legend />
-                    {selectedExperiment.metrics.map((metric, index) => (
-                      <Line
-                        key={metric}
-                        type="monotone"
-                        dataKey={metric}
-                        stroke={
-                          Object.values(colors)[
-                            index % Object.values(colors).length
-                          ]
-                        }
-                        strokeWidth={2}
-                        dot={{ r: 4 }}
-                        name={metric.replace("_", " ")}
+            {selectedExperiment.results?.chartData &&
+              selectedExperiment.results.chartData.length > 0 && (
+                <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 mb-6">
+                  <h4 className="text-lg font-semibold text-white mb-4">
+                    Progress Over Time
+                  </h4>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={selectedExperiment.results.chartData}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="rgba(255,255,255,0.1)"
                       />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            )}
+                      <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" />
+                      <YAxis stroke="rgba(255,255,255,0.5)" />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "rgba(17, 24, 39, 0.9)",
+                          border: "1px solid rgba(255,255,255,0.2)",
+                          borderRadius: "8px",
+                        }}
+                      />
+                      <Legend />
+                      {selectedExperiment.metrics.map((metric, index) => (
+                        <Line
+                          key={metric}
+                          type="monotone"
+                          dataKey={metric}
+                          stroke={
+                            Object.values(colors)[
+                              index % Object.values(colors).length
+                            ]
+                          }
+                          strokeWidth={2}
+                          dot={{ r: 4 }}
+                          name={metric.replace("_", " ")}
+                        />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
 
             {/* Detailed Results */}
             {selectedExperiment.results && (

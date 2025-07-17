@@ -1,6 +1,5 @@
-// frontend/ src/components/wellness/tabs/WellnessInsightsTab.jsx
+// frontend/src/components/wellness/tabs/WellnessInsightsTab.jsx
 import React, { useState, useEffect } from "react";
-import { supabase } from "../../../lib/supabase";
 import {
   Brain,
   Sparkles,
@@ -31,6 +30,10 @@ import {
   Info,
   CheckCircle,
   XCircle,
+  X,
+  Sun,
+  Flame,
+  TrendingDown,
 } from "lucide-react";
 import { format, subDays, differenceInDays } from "date-fns";
 import {
@@ -67,47 +70,80 @@ const WellnessInsightsTab = ({ colors, user }) => {
   const [wellnessData, setWellnessData] = useState([]);
   const [insightView, setInsightView] = useState("overview");
   const [selectedInsight, setSelectedInsight] = useState(null);
+  const [hasData, setHasData] = useState(false);
 
   useEffect(() => {
-    loadInsightsData();
+    if (user) {
+      loadInsightsData();
+    }
   }, [user]);
 
   const loadInsightsData = async () => {
     try {
       setLoading(true);
 
-      // Load wellness data for analysis
+      // Load wellness data from backend API
       const thirtyDaysAgo = subDays(new Date(), 30).toISOString().split("T")[0];
-      const { data: entries, error } = await supabase
-        .from("wellness_entries")
-        .select("*")
-        .eq("user_id", user.id)
-        .gte("date", thirtyDaysAgo)
-        .order("date", { ascending: true });
 
-      if (error) throw error;
-
-      if (entries && entries.length > 0) {
-        setWellnessData(entries);
-
-        // Check for existing insights
-        const today = new Date().toISOString().split("T")[0];
-        const { data: existingInsights } = await supabase
-          .from("wellness_insights")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("date", today)
-          .single();
-
-        if (existingInsights) {
-          setInsights(existingInsights.insights);
-        } else {
-          // Generate new insights
-          await generateInsights(entries);
+      const response = await fetch(
+        `${
+          process.env.REACT_APP_BACKEND_URL ||
+          "https://backend.reflectionary.ca"
+        }/api/wellness?` +
+          `user_id=${user.id}&date_from=${thirtyDaysAgo}&include_stats=true`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch wellness data");
+      }
+
+      const data = await response.json();
+
+      if (data.entries && data.entries.length > 0) {
+        // Transform the data to match the expected format
+        const transformedData = data.entries.map((entry) => ({
+          id: entry.id,
+          date: entry.date,
+          mood: entry.data.mood?.overall || 0,
+          energy: entry.data.mood?.energy || 0,
+          stress: entry.data.mood?.stress || 0,
+          sleep_hours: entry.data.sleep?.duration || 0,
+          sleep_quality: entry.data.sleep?.quality || 0,
+          exercise_minutes: entry.data.exercise?.duration || 0,
+          water_glasses: entry.data.nutrition?.water || 0,
+          created_at: entry.created_at,
+          updated_at: entry.updated_at,
+        }));
+
+        setWellnessData(transformedData);
+        setHasData(true);
+
+        // Generate insights from the data
+        await generateInsights(transformedData);
+      } else {
+        setWellnessData([]);
+        setHasData(false);
+        setInsights({
+          summary: null,
+          keyInsights: [],
+          recommendations: [],
+          alerts: [],
+          achievements: [],
+          predictions: [],
+          experiments: [],
+          reflectionPrompts: [],
+        });
       }
     } catch (error) {
       console.error("Error loading insights:", error);
+      setWellnessData([]);
+      setHasData(false);
     } finally {
       setLoading(false);
     }
@@ -116,19 +152,10 @@ const WellnessInsightsTab = ({ colors, user }) => {
   const generateInsights = async (data) => {
     setGenerating(true);
     try {
-      // In production, this would call your OpenAI API
-      // For now, we'll use sophisticated mock analysis
+      // For now, use client-side analysis
+      // In production, this could call an AI API endpoint
       const insights = performAIAnalysis(data);
       setInsights(insights);
-
-      // Save insights to database
-      const today = new Date().toISOString().split("T")[0];
-      await supabase.from("wellness_insights").upsert({
-        user_id: user.id,
-        date: today,
-        insights: insights,
-        created_at: new Date().toISOString(),
-      });
     } catch (error) {
       console.error("Error generating insights:", error);
     } finally {
@@ -204,7 +231,10 @@ const WellnessInsightsTab = ({ colors, user }) => {
     const previousScore = average(
       previous.map((d) => calculateWellnessScore(d))
     );
-    const change = ((recentScore - previousScore) / previousScore) * 100;
+    const change =
+      previousScore > 0
+        ? ((recentScore - previousScore) / previousScore) * 100
+        : 0;
 
     return {
       direction: change > 5 ? "up" : change < -5 ? "down" : "stable",
@@ -621,24 +651,26 @@ const WellnessInsightsTab = ({ colors, user }) => {
     }
 
     // Improvement milestone
-    const firstWeekScore = average(
-      data.slice(0, 7).map((d) => calculateWellnessScore(d))
-    );
-    const lastWeekScore = average(
-      lastWeek.map((d) => calculateWellnessScore(d))
-    );
+    if (data.length >= 14) {
+      const firstWeekScore = average(
+        data.slice(0, 7).map((d) => calculateWellnessScore(d))
+      );
+      const lastWeekScore = average(
+        lastWeek.map((d) => calculateWellnessScore(d))
+      );
 
-    if (lastWeekScore > firstWeekScore * 1.2) {
-      achievements.push({
-        id: "major-improvement",
-        title: "Major Progress",
-        description: `Wellness score improved by ${Math.round(
-          ((lastWeekScore - firstWeekScore) / firstWeekScore) * 100
-        )}%`,
-        icon: TrendingUp,
-        color: colors.emerald,
-        date: new Date().toISOString(),
-      });
+      if (lastWeekScore > firstWeekScore * 1.2) {
+        achievements.push({
+          id: "major-improvement",
+          title: "Major Progress",
+          description: `Wellness score improved by ${Math.round(
+            ((lastWeekScore - firstWeekScore) / firstWeekScore) * 100
+          )}%`,
+          icon: TrendingUp,
+          color: colors.emerald,
+          date: new Date().toISOString(),
+        });
+      }
     }
 
     return achievements;
@@ -903,6 +935,28 @@ const WellnessInsightsTab = ({ colors, user }) => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-300"></div>
+      </div>
+    );
+  }
+
+  // No data state
+  if (!hasData) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-12 border border-white/20 text-center">
+          <Brain className="w-16 h-16 text-purple-400 mx-auto mb-4" />
+          <h3 className="text-2xl font-semibold text-white mb-2">
+            No Data for AI Insights Yet
+          </h3>
+          <p className="text-purple-200 mb-6">
+            Your AI-powered insights will appear here once you start tracking
+            your wellness.
+          </p>
+          <p className="text-purple-300 text-sm">
+            Track for at least 3 days to receive personalized insights and
+            recommendations.
+          </p>
+        </div>
       </div>
     );
   }
@@ -1477,7 +1531,7 @@ const WellnessInsightsTab = ({ colors, user }) => {
                 onClick={() => setSelectedInsight(null)}
                 className="text-purple-300 hover:text-white"
               >
-                <XCircle className="w-6 h-6" />
+                <X className="w-6 h-6" />
               </button>
             </div>
             <p className="text-purple-200 mb-4">

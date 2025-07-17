@@ -1,4 +1,4 @@
-// frontend/ src/components/wellness/tabs/WellnessDashboardTab.jsx
+// frontend/src/components/wellness/tabs/WellnessDashboardTab.jsx
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import {
@@ -20,6 +20,7 @@ import {
   Award,
   Clock,
   Flame,
+  X,
 } from "lucide-react";
 import { format, subDays, startOfWeek, differenceInDays } from "date-fns";
 import {
@@ -56,9 +57,12 @@ const WellnessDashboardTab = ({ colors, user }) => {
     exercise_minutes: 0,
     water_glasses: 0,
   });
+  const [hasData, setHasData] = useState(false);
 
   useEffect(() => {
-    loadDashboardData();
+    if (user) {
+      loadDashboardData();
+    }
   }, [user]);
 
   const loadDashboardData = async () => {
@@ -68,7 +72,7 @@ const WellnessDashboardTab = ({ colors, user }) => {
       // Load today's data
       const today = new Date().toISOString().split("T")[0];
       const { data: todayEntry } = await supabase
-        .from("wellness_entries")
+        .from("wellness_entries_decrypted")
         .select("*")
         .eq("user_id", user.id)
         .eq("date", today)
@@ -81,16 +85,19 @@ const WellnessDashboardTab = ({ colors, user }) => {
       // Load week data for trends
       const weekAgo = subDays(new Date(), 7).toISOString().split("T")[0];
       const { data: weekEntries } = await supabase
-        .from("wellness_entries")
+        .from("wellness_entries_decrypted")
         .select("*")
         .eq("user_id", user.id)
         .gte("date", weekAgo)
         .order("date", { ascending: true });
 
-      if (weekEntries) {
+      if (weekEntries && weekEntries.length > 0) {
         setWeekData(weekEntries);
+        setHasData(true);
         calculateWellnessScore(weekEntries);
         calculateStreaks(weekEntries);
+      } else {
+        setHasData(false);
       }
 
       // Generate AI recommendations (mock for now)
@@ -250,11 +257,11 @@ const WellnessDashboardTab = ({ colors, user }) => {
     try {
       const today = new Date().toISOString().split("T")[0];
 
-      const { error } = await supabase.from("wellness_entries").upsert({
+      const { error } = await supabase.from("wellness_entries").insert({
         user_id: user.id,
         date: today,
         ...quickEntryData,
-        updated_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
       });
 
       if (error) throw error;
@@ -333,6 +340,40 @@ const WellnessDashboardTab = ({ colors, user }) => {
     );
   }
 
+  // No data state
+  if (!hasData && !loading) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-12 border border-white/20 text-center">
+          <Activity className="w-16 h-16 text-purple-400 mx-auto mb-4" />
+          <h3 className="text-2xl font-semibold text-white mb-2">
+            Welcome to Your Wellness Journey!
+          </h3>
+          <p className="text-purple-200 mb-6">
+            Start tracking your wellness metrics to see insights and patterns.
+          </p>
+          <button
+            onClick={() => setShowQuickEntry(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium inline-flex items-center gap-2 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Track Your First Day
+          </button>
+        </div>
+
+        {/* Quick Entry Modal */}
+        {showQuickEntry && (
+          <QuickEntryModal
+            quickEntryData={quickEntryData}
+            setQuickEntryData={setQuickEntryData}
+            handleQuickEntry={handleQuickEntry}
+            setShowQuickEntry={setShowQuickEntry}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Wellness Score Card */}
@@ -375,18 +416,20 @@ const WellnessDashboardTab = ({ colors, user }) => {
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
                     <div className="text-5xl font-bold text-white">
-                      {wellnessScore || "--"}
+                      {wellnessScore || "N/A"}
                     </div>
                     <div className="text-purple-200 text-sm">out of 100</div>
                   </div>
                 </div>
               </div>
               <p className="text-center text-purple-200 mt-4">
-                {wellnessScore > 70
-                  ? "You're thriving! 🌟"
-                  : wellnessScore > 40
-                  ? "Room for improvement 💪"
-                  : "Let's focus on self-care 💙"}
+                {wellnessScore
+                  ? wellnessScore > 70
+                    ? "You're thriving! 🌟"
+                    : wellnessScore > 40
+                    ? "Room for improvement 💪"
+                    : "Let's focus on self-care 💙"
+                  : "Track more days to see your score"}
               </p>
             </div>
           </div>
@@ -400,14 +443,16 @@ const WellnessDashboardTab = ({ colors, user }) => {
                 <span className="text-purple-200 text-sm">Energy</span>
               </div>
               <div className="text-2xl font-bold text-white">
-                {todayData?.energy || "--"}/10
+                {todayData?.energy || "N/A"}/10
               </div>
               <div className="text-xs text-purple-300 mt-1">
-                {todayData?.energy > 7
-                  ? "High"
-                  : todayData?.energy > 4
-                  ? "Moderate"
-                  : "Low"}
+                {todayData?.energy
+                  ? todayData.energy > 7
+                    ? "High"
+                    : todayData.energy > 4
+                    ? "Moderate"
+                    : "Low"
+                  : "Not tracked"}
               </div>
             </div>
 
@@ -417,14 +462,16 @@ const WellnessDashboardTab = ({ colors, user }) => {
                 <span className="text-purple-200 text-sm">Mood</span>
               </div>
               <div className="text-2xl font-bold text-white">
-                {todayData?.mood || "--"}/10
+                {todayData?.mood || "N/A"}/10
               </div>
               <div className="text-xs text-purple-300 mt-1">
-                {todayData?.mood > 7
-                  ? "Great"
-                  : todayData?.mood > 4
-                  ? "Good"
-                  : "Low"}
+                {todayData?.mood
+                  ? todayData.mood > 7
+                    ? "Great"
+                    : todayData.mood > 4
+                    ? "Good"
+                    : "Low"
+                  : "Not tracked"}
               </div>
             </div>
 
@@ -434,14 +481,16 @@ const WellnessDashboardTab = ({ colors, user }) => {
                 <span className="text-purple-200 text-sm">Stress</span>
               </div>
               <div className="text-2xl font-bold text-white">
-                {todayData?.stress || "--"}/10
+                {todayData?.stress || "N/A"}/10
               </div>
               <div className="text-xs text-purple-300 mt-1">
-                {todayData?.stress < 4
-                  ? "Low"
-                  : todayData?.stress < 7
-                  ? "Moderate"
-                  : "High"}
+                {todayData?.stress
+                  ? todayData.stress < 4
+                    ? "Low"
+                    : todayData.stress < 7
+                    ? "Moderate"
+                    : "High"
+                  : "Not tracked"}
               </div>
             </div>
 
@@ -451,10 +500,10 @@ const WellnessDashboardTab = ({ colors, user }) => {
                 <span className="text-purple-200 text-sm">Sleep</span>
               </div>
               <div className="text-2xl font-bold text-white">
-                {todayData?.sleep_hours || "--"}h
+                {todayData?.sleep_hours || "N/A"}h
               </div>
               <div className="text-xs text-purple-300 mt-1">
-                Quality: {todayData?.sleep_quality || "--"}/10
+                Quality: {todayData?.sleep_quality || "N/A"}/10
               </div>
             </div>
 
@@ -513,90 +562,92 @@ const WellnessDashboardTab = ({ colors, user }) => {
       )}
 
       {/* Week Trends */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Line Chart */}
-        <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-          <h3 className="text-lg font-semibold text-white mb-4">
-            7-Day Trends
-          </h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={getWeekChartData()}>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="rgba(255,255,255,0.1)"
-              />
-              <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" />
-              <YAxis domain={[0, 10]} stroke="rgba(255,255,255,0.5)" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "rgba(17, 24, 39, 0.9)",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  borderRadius: "8px",
-                }}
-                labelStyle={{ color: "#fff" }}
-              />
-              <Line
-                type="monotone"
-                dataKey="mood"
-                stroke={colors.rose}
-                strokeWidth={2}
-                dot={{ fill: colors.rose, r: 4 }}
-                name="Mood"
-              />
-              <Line
-                type="monotone"
-                dataKey="energy"
-                stroke={colors.amber}
-                strokeWidth={2}
-                dot={{ fill: colors.amber, r: 4 }}
-                name="Energy"
-              />
-              <Line
-                type="monotone"
-                dataKey="stress"
-                stroke={colors.cyan}
-                strokeWidth={2}
-                dot={{ fill: colors.cyan, r: 4 }}
-                name="Stress"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+      {weekData.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Line Chart */}
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              7-Day Trends
+            </h3>
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={getWeekChartData()}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255,255,255,0.1)"
+                />
+                <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" />
+                <YAxis domain={[0, 10]} stroke="rgba(255,255,255,0.5)" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "rgba(17, 24, 39, 0.9)",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    borderRadius: "8px",
+                  }}
+                  labelStyle={{ color: "#fff" }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="mood"
+                  stroke={colors.rose}
+                  strokeWidth={2}
+                  dot={{ fill: colors.rose, r: 4 }}
+                  name="Mood"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="energy"
+                  stroke={colors.amber}
+                  strokeWidth={2}
+                  dot={{ fill: colors.amber, r: 4 }}
+                  name="Energy"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="stress"
+                  stroke={colors.cyan}
+                  strokeWidth={2}
+                  dot={{ fill: colors.cyan, r: 4 }}
+                  name="Stress"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
 
-        {/* Wellness Radar */}
-        <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-          <h3 className="text-lg font-semibold text-white mb-4">
-            Wellness Balance
-          </h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <RadarChart data={getRadarData()}>
-              <PolarGrid stroke="rgba(255,255,255,0.2)" />
-              <PolarAngleAxis
-                dataKey="dimension"
-                stroke="rgba(255,255,255,0.5)"
-              />
-              <PolarRadiusAxis
-                domain={[0, 10]}
-                stroke="rgba(255,255,255,0.2)"
-              />
-              <Radar
-                name="Score"
-                dataKey="score"
-                stroke={colors.purple}
-                fill={colors.purple}
-                fillOpacity={0.3}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "rgba(17, 24, 39, 0.9)",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  borderRadius: "8px",
-                }}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
+          {/* Wellness Radar */}
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              Wellness Balance
+            </h3>
+            <ResponsiveContainer width="100%" height={250}>
+              <RadarChart data={getRadarData()}>
+                <PolarGrid stroke="rgba(255,255,255,0.2)" />
+                <PolarAngleAxis
+                  dataKey="dimension"
+                  stroke="rgba(255,255,255,0.5)"
+                />
+                <PolarRadiusAxis
+                  domain={[0, 10]}
+                  stroke="rgba(255,255,255,0.2)"
+                />
+                <Radar
+                  name="Score"
+                  dataKey="score"
+                  stroke={colors.purple}
+                  fill={colors.purple}
+                  fillOpacity={0.3}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "rgba(17, 24, 39, 0.9)",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    borderRadius: "8px",
+                  }}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Streaks */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -650,261 +701,282 @@ const WellnessDashboardTab = ({ colors, user }) => {
       </div>
 
       {/* AI Recommendations */}
-      <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-yellow-400" />
-            AI Insights & Recommendations
-          </h3>
-          <button className="text-purple-300 hover:text-white text-sm flex items-center gap-1 transition-colors">
-            View All
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {recommendations.map((rec) => {
-            const Icon = rec.icon;
-            return (
-              <div
-                key={rec.id}
-                className="bg-white/5 rounded-lg p-4 border border-white/10 hover:border-white/20 transition-colors"
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`p-2 rounded-lg bg-white/10`}>
-                    <Icon className="w-5 h-5" style={{ color: rec.color }} />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-medium text-white mb-1">{rec.title}</h4>
-                    <p className="text-purple-200 text-sm">{rec.message}</p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Reflectionarian Prompt */}
-        <div className="mt-4 p-4 bg-purple-600/20 rounded-lg border border-purple-500/30">
-          <div className="flex items-center gap-3">
-            <MessageSquare className="w-5 h-5 text-purple-300" />
-            <div className="flex-1">
-              <p className="text-purple-200 text-sm">
-                The Reflectionarian suggests exploring: "What activities gave
-                you the most energy this week?"
-              </p>
-            </div>
-            <button className="text-purple-300 hover:text-white">
-              <ChevronRight className="w-5 h-5" />
+      {hasData && (
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-yellow-400" />
+              AI Insights & Recommendations
+            </h3>
+            <button className="text-purple-300 hover:text-white text-sm flex items-center gap-1 transition-colors">
+              View All
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
-        </div>
-      </div>
 
-      {/* Quick Entry Modal */}
-      {showQuickEntry && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-purple-900 rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-white">
-                Quick Wellness Entry
-              </h3>
-              <button
-                onClick={() => setShowQuickEntry(false)}
-                className="text-purple-300 hover:text-white"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="space-y-6">
-              {/* Energy */}
-              <div>
-                <label className="block text-purple-200 text-sm font-medium mb-2">
-                  Energy Level
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="text-purple-300">Low</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={quickEntryData.energy}
-                    onChange={(e) =>
-                      setQuickEntryData({
-                        ...quickEntryData,
-                        energy: parseInt(e.target.value),
-                      })
-                    }
-                    className="flex-1 accent-purple-500"
-                  />
-                  <span className="text-purple-300">High</span>
-                  <span className="text-white font-bold ml-2 w-8">
-                    {quickEntryData.energy}
-                  </span>
+          <div className="space-y-3">
+            {recommendations.map((rec) => {
+              const Icon = rec.icon;
+              return (
+                <div
+                  key={rec.id}
+                  className="bg-white/5 rounded-lg p-4 border border-white/10 hover:border-white/20 transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-lg bg-white/10`}>
+                      <Icon className="w-5 h-5" style={{ color: rec.color }} />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-white mb-1">
+                        {rec.title}
+                      </h4>
+                      <p className="text-purple-200 text-sm">{rec.message}</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              );
+            })}
+          </div>
 
-              {/* Mood */}
-              <div>
-                <label className="block text-purple-200 text-sm font-medium mb-2">
-                  Mood
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="text-purple-300">😔</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={quickEntryData.mood}
-                    onChange={(e) =>
-                      setQuickEntryData({
-                        ...quickEntryData,
-                        mood: parseInt(e.target.value),
-                      })
-                    }
-                    className="flex-1 accent-purple-500"
-                  />
-                  <span className="text-purple-300">😄</span>
-                  <span className="text-white font-bold ml-2 w-8">
-                    {quickEntryData.mood}
-                  </span>
-                </div>
+          {/* Reflectionarian Prompt */}
+          <div className="mt-4 p-4 bg-purple-600/20 rounded-lg border border-purple-500/30">
+            <div className="flex items-center gap-3">
+              <MessageSquare className="w-5 h-5 text-purple-300" />
+              <div className="flex-1">
+                <p className="text-purple-200 text-sm">
+                  The Reflectionarian suggests exploring: "What activities gave
+                  you the most energy this week?"
+                </p>
               </div>
-
-              {/* Stress */}
-              <div>
-                <label className="block text-purple-200 text-sm font-medium mb-2">
-                  Stress Level
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="text-purple-300">Calm</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={quickEntryData.stress}
-                    onChange={(e) =>
-                      setQuickEntryData({
-                        ...quickEntryData,
-                        stress: parseInt(e.target.value),
-                      })
-                    }
-                    className="flex-1 accent-purple-500"
-                  />
-                  <span className="text-purple-300">Stressed</span>
-                  <span className="text-white font-bold ml-2 w-8">
-                    {quickEntryData.stress}
-                  </span>
-                </div>
-              </div>
-
-              {/* Sleep */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-purple-200 text-sm font-medium mb-2">
-                    Sleep Hours
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="24"
-                    step="0.5"
-                    value={quickEntryData.sleep_hours}
-                    onChange={(e) =>
-                      setQuickEntryData({
-                        ...quickEntryData,
-                        sleep_hours: parseFloat(e.target.value),
-                      })
-                    }
-                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-purple-200 text-sm font-medium mb-2">
-                    Sleep Quality
-                  </label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={quickEntryData.sleep_quality}
-                    onChange={(e) =>
-                      setQuickEntryData({
-                        ...quickEntryData,
-                        sleep_quality: parseInt(e.target.value),
-                      })
-                    }
-                    className="w-full accent-purple-500"
-                  />
-                </div>
-              </div>
-
-              {/* Exercise */}
-              <div>
-                <label className="block text-purple-200 text-sm font-medium mb-2">
-                  Exercise Minutes
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="300"
-                  value={quickEntryData.exercise_minutes}
-                  onChange={(e) =>
-                    setQuickEntryData({
-                      ...quickEntryData,
-                      exercise_minutes: parseInt(e.target.value),
-                    })
-                  }
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
-                />
-              </div>
-
-              {/* Water */}
-              <div>
-                <label className="block text-purple-200 text-sm font-medium mb-2">
-                  Water (glasses)
-                </label>
-                <div className="flex gap-2">
-                  {[...Array(10)].map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={() =>
-                        setQuickEntryData({
-                          ...quickEntryData,
-                          water_glasses: i + 1,
-                        })
-                      }
-                      className={`p-2 rounded ${
-                        quickEntryData.water_glasses >= i + 1
-                          ? "bg-cyan-500 text-white"
-                          : "bg-white/10 text-purple-300"
-                      }`}
-                    >
-                      <Droplets className="w-4 h-4" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={handleQuickEntry}
-                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-medium transition-colors"
-              >
-                Save Entry
-              </button>
-              <button
-                onClick={() => setShowQuickEntry(false)}
-                className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium transition-colors"
-              >
-                Cancel
+              <button className="text-purple-300 hover:text-white">
+                <ChevronRight className="w-5 h-5" />
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Quick Entry Modal */}
+      {showQuickEntry && (
+        <QuickEntryModal
+          quickEntryData={quickEntryData}
+          setQuickEntryData={setQuickEntryData}
+          handleQuickEntry={handleQuickEntry}
+          setShowQuickEntry={setShowQuickEntry}
+        />
+      )}
+    </div>
+  );
+};
+
+// Quick Entry Modal Component
+const QuickEntryModal = ({
+  quickEntryData,
+  setQuickEntryData,
+  handleQuickEntry,
+  setShowQuickEntry,
+}) => {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-purple-900 rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-2xl font-bold text-white">
+            Quick Wellness Entry
+          </h3>
+          <button
+            onClick={() => setShowQuickEntry(false)}
+            className="text-purple-300 hover:text-white"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="space-y-6">
+          {/* Energy */}
+          <div>
+            <label className="block text-purple-200 text-sm font-medium mb-2">
+              Energy Level
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-purple-300">Low</span>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={quickEntryData.energy}
+                onChange={(e) =>
+                  setQuickEntryData({
+                    ...quickEntryData,
+                    energy: parseInt(e.target.value),
+                  })
+                }
+                className="flex-1 accent-purple-500"
+              />
+              <span className="text-purple-300">High</span>
+              <span className="text-white font-bold ml-2 w-8">
+                {quickEntryData.energy}
+              </span>
+            </div>
+          </div>
+
+          {/* Mood */}
+          <div>
+            <label className="block text-purple-200 text-sm font-medium mb-2">
+              Mood
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-purple-300">😔</span>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={quickEntryData.mood}
+                onChange={(e) =>
+                  setQuickEntryData({
+                    ...quickEntryData,
+                    mood: parseInt(e.target.value),
+                  })
+                }
+                className="flex-1 accent-purple-500"
+              />
+              <span className="text-purple-300">😄</span>
+              <span className="text-white font-bold ml-2 w-8">
+                {quickEntryData.mood}
+              </span>
+            </div>
+          </div>
+
+          {/* Stress */}
+          <div>
+            <label className="block text-purple-200 text-sm font-medium mb-2">
+              Stress Level
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-purple-300">Calm</span>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={quickEntryData.stress}
+                onChange={(e) =>
+                  setQuickEntryData({
+                    ...quickEntryData,
+                    stress: parseInt(e.target.value),
+                  })
+                }
+                className="flex-1 accent-purple-500"
+              />
+              <span className="text-purple-300">Stressed</span>
+              <span className="text-white font-bold ml-2 w-8">
+                {quickEntryData.stress}
+              </span>
+            </div>
+          </div>
+
+          {/* Sleep */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-purple-200 text-sm font-medium mb-2">
+                Sleep Hours
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="24"
+                step="0.5"
+                value={quickEntryData.sleep_hours}
+                onChange={(e) =>
+                  setQuickEntryData({
+                    ...quickEntryData,
+                    sleep_hours: parseFloat(e.target.value),
+                  })
+                }
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-purple-200 text-sm font-medium mb-2">
+                Sleep Quality
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={quickEntryData.sleep_quality}
+                onChange={(e) =>
+                  setQuickEntryData({
+                    ...quickEntryData,
+                    sleep_quality: parseInt(e.target.value),
+                  })
+                }
+                className="w-full accent-purple-500"
+              />
+            </div>
+          </div>
+
+          {/* Exercise */}
+          <div>
+            <label className="block text-purple-200 text-sm font-medium mb-2">
+              Exercise Minutes
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="300"
+              value={quickEntryData.exercise_minutes}
+              onChange={(e) =>
+                setQuickEntryData({
+                  ...quickEntryData,
+                  exercise_minutes: parseInt(e.target.value),
+                })
+              }
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+            />
+          </div>
+
+          {/* Water */}
+          <div>
+            <label className="block text-purple-200 text-sm font-medium mb-2">
+              Water (glasses)
+            </label>
+            <div className="flex gap-2">
+              {[...Array(10)].map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() =>
+                    setQuickEntryData({
+                      ...quickEntryData,
+                      water_glasses: i + 1,
+                    })
+                  }
+                  className={`p-2 rounded ${
+                    quickEntryData.water_glasses >= i + 1
+                      ? "bg-cyan-500 text-white"
+                      : "bg-white/10 text-purple-300"
+                  }`}
+                >
+                  <Droplets className="w-4 h-4" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={handleQuickEntry}
+            className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-medium transition-colors"
+          >
+            Save Entry
+          </button>
+          <button
+            onClick={() => setShowQuickEntry(false)}
+            className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

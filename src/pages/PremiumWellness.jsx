@@ -1,6 +1,5 @@
-// frontend/ src/pages/PremiumWellness.jsx
+// frontend/src/pages/PremiumWellness.jsx
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../contexts/AuthContext";
 import { useMembership } from "../hooks/useMembership";
 import {
   Activity,
@@ -14,8 +13,9 @@ import {
   Zap,
   Calendar,
   Sparkles,
-  ChevronLeft,
-  ChevronRight,
+  Shield,
+  Info,
+  X,
 } from "lucide-react";
 
 // Import tab components
@@ -27,12 +27,10 @@ import WellnessForecastTab from "../components/wellness/tabs/WellnessForecastTab
 import WellnessExperimentsTab from "../components/wellness/tabs/WellnessExperimentsTab";
 
 const PremiumWellness = () => {
-  const { user } = useAuth();
-  const { tier } = useMembership();
+  const { tier, user } = useMembership();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [loading, setLoading] = useState(true);
-  const [showLeftArrow, setShowLeftArrow] = useState(false);
-  const [showRightArrow, setShowRightArrow] = useState(true);
+  const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
 
   // Color palette matching the premium theme
   const colors = {
@@ -53,31 +51,31 @@ const PremiumWellness = () => {
   const tabs = [
     {
       id: "dashboard",
-      label: "Wellness Dashboard",
+      label: "Dashboard",
       icon: BarChart3,
       component: WellnessDashboardTab,
     },
     {
       id: "tracking",
-      label: "Track Wellness",
+      label: "Track",
       icon: Activity,
       component: WellnessTrackingTab,
     },
     {
       id: "patterns",
-      label: "My Patterns",
+      label: "Patterns",
       icon: TrendingUp,
       component: WellnessPatternsTab,
     },
     {
       id: "insights",
-      label: "AI Insights",
+      label: "Insights",
       icon: Brain,
       component: WellnessInsightsTab,
     },
     {
       id: "forecast",
-      label: "Wellness Forecast",
+      label: "Forecast",
       icon: Calendar,
       component: WellnessForecastTab,
     },
@@ -93,30 +91,10 @@ const PremiumWellness = () => {
     // Simulate loading
     const timer = setTimeout(() => {
       setLoading(false);
-    }, 1000);
+    }, 500);
 
     return () => clearTimeout(timer);
   }, []);
-
-  // Handle tab scroll visibility
-  const handleTabScroll = (e) => {
-    const container = e.target;
-    setShowLeftArrow(container.scrollLeft > 0);
-    setShowRightArrow(
-      container.scrollLeft < container.scrollWidth - container.clientWidth - 10
-    );
-  };
-
-  const scrollTabs = (direction) => {
-    const container = document.getElementById("tab-container");
-    const scrollAmount = 200;
-    if (container) {
-      container.scrollBy({
-        left: direction === "left" ? -scrollAmount : scrollAmount,
-        behavior: "smooth",
-      });
-    }
-  };
 
   if (loading) {
     return (
@@ -161,61 +139,45 @@ const PremiumWellness = () => {
           </div>
         </div>
 
-        {/* Tab Navigation with Arrows */}
+        {/* Privacy Info Button */}
+        <div className="mb-6 flex justify-end">
+          <button
+            onClick={() => setShowPrivacyInfo(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-700/50 hover:bg-purple-700/70 text-purple-200 rounded-lg transition-colors"
+          >
+            <Shield className="w-4 h-4" />
+            Privacy Info
+            <Info className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Tab Navigation */}
         <div className="mb-8">
-          <div className="relative">
-            {/* Left Arrow */}
-            {showLeftArrow && (
-              <button
-                onClick={() => scrollTabs("left")}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-purple-800/80 backdrop-blur-sm text-white p-2 rounded-full shadow-lg hover:bg-purple-700/80 transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-            )}
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-2">
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+              {tabs.map((tab) => {
+                const IconComponent = tab.icon;
+                const isActive = activeTab === tab.id;
 
-            {/* Right Arrow */}
-            {showRightArrow && (
-              <button
-                onClick={() => scrollTabs("right")}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-purple-800/80 backdrop-blur-sm text-white p-2 rounded-full shadow-lg hover:bg-purple-700/80 transition-colors"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            )}
-
-            {/* Tab Container */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-2">
-              <div
-                id="tab-container"
-                className="flex gap-2 overflow-x-auto scrollbar-hide"
-                onScroll={handleTabScroll}
-                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-              >
-                {tabs.map((tab) => {
-                  const IconComponent = tab.icon;
-                  const isActive = activeTab === tab.id;
-
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`
-                        flex items-center gap-2 px-4 py-3 rounded-lg font-medium text-sm
-                        whitespace-nowrap transition-all flex-shrink-0
-                        ${
-                          isActive
-                            ? "bg-purple-600 text-white shadow-lg"
-                            : "text-purple-200 hover:text-white hover:bg-white/10"
-                        }
-                      `}
-                    >
-                      <IconComponent className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`
+                      flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium text-sm
+                      transition-all
+                      ${
+                        isActive
+                          ? "bg-purple-600 text-white shadow-lg"
+                          : "text-purple-200 hover:text-white hover:bg-white/10"
+                      }
+                    `}
+                  >
+                    <IconComponent className="w-4 h-4" />
+                    <span className="hidden sm:inline">{tab.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -227,6 +189,38 @@ const PremiumWellness = () => {
           )}
         </div>
       </div>
+
+      {/* Privacy Info Modal */}
+      {showPrivacyInfo && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-purple-900 rounded-xl p-6 max-w-md w-full border border-purple-600/30">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                <Shield className="w-5 h-5 text-purple-400" />
+                Privacy Information
+              </h3>
+              <button
+                onClick={() => setShowPrivacyInfo(false)}
+                className="text-purple-300 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-purple-200 leading-relaxed">
+              All analytics are generated from anonymized data. No personally
+              identifying information is <strong>ever</strong> accessed or
+              shared. Your information remains encrypted on our servers and is
+              only accessible by you.
+            </p>
+            <button
+              onClick={() => setShowPrivacyInfo(false)}
+              className="mt-6 w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-medium transition-colors"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

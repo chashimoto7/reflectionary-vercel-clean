@@ -1,4 +1,4 @@
-// frontend/ src/components/wellness/tabs/WellnessTrackingTab.jsx
+// frontend/src/components/wellness/tabs/WellnessTrackingTab.jsx
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import {
@@ -169,23 +169,25 @@ const WellnessTrackingTab = ({ colors, user }) => {
   ];
 
   useEffect(() => {
-    loadDayData();
+    if (user) {
+      loadDayData();
+    }
   }, [selectedDate, user]);
 
   useEffect(() => {
     // Autosave every 30 seconds if enabled
-    if (autosaveEnabled) {
+    if (autosaveEnabled && user) {
       const interval = setInterval(() => {
         saveData(true); // silent save
       }, 30000);
       return () => clearInterval(interval);
     }
-  }, [wellnessData, autosaveEnabled]);
+  }, [wellnessData, autosaveEnabled, user]);
 
   const loadDayData = async () => {
     try {
       const { data, error } = await supabase
-        .from("wellness_entries")
+        .from("wellness_entries_decrypted")
         .select("*")
         .eq("user_id", user.id)
         .eq("date", selectedDate)
@@ -211,6 +213,7 @@ const WellnessTrackingTab = ({ colors, user }) => {
     try {
       setSaving(true);
 
+      // Data will be encrypted on the backend automatically
       const { error } = await supabase.from("wellness_entries").upsert({
         user_id: user.id,
         date: selectedDate,
@@ -268,6 +271,33 @@ const WellnessTrackingTab = ({ colors, user }) => {
       const duration = (wakeTime - sleepTime) / (1000 * 60 * 60);
       updateData("sleep_hours", Math.round(duration * 10) / 10);
     }
+  };
+
+  const calculateDailyScore = () => {
+    let score = 50;
+
+    // Core metrics (40% weight)
+    score += (wellnessData.mood - 5) * 2;
+    score += (wellnessData.energy - 5) * 2;
+    score += (5 - wellnessData.stress) * 2;
+
+    // Sleep (20% weight)
+    if (wellnessData.sleep_hours >= 7 && wellnessData.sleep_hours <= 9) {
+      score += 10;
+    }
+    score += wellnessData.sleep_quality - 5;
+
+    // Physical (20% weight)
+    score += Math.min(wellnessData.exercise_minutes / 3, 10);
+
+    // Hydration (10% weight)
+    score += Math.min(wellnessData.water_glasses, 8) * 1.25;
+
+    // Mental/Social (10% weight)
+    if (wellnessData.meditation_minutes > 0) score += 5;
+    if (wellnessData.positive_activities.length > 0) score += 5;
+
+    return Math.min(100, Math.max(0, Math.round(score)));
   };
 
   return (
@@ -1185,33 +1215,6 @@ const WellnessTrackingTab = ({ colors, user }) => {
       </div>
     </div>
   );
-
-  function calculateDailyScore() {
-    let score = 50;
-
-    // Core metrics (40% weight)
-    score += (wellnessData.mood - 5) * 2;
-    score += (wellnessData.energy - 5) * 2;
-    score += (5 - wellnessData.stress) * 2;
-
-    // Sleep (20% weight)
-    if (wellnessData.sleep_hours >= 7 && wellnessData.sleep_hours <= 9) {
-      score += 10;
-    }
-    score += wellnessData.sleep_quality - 5;
-
-    // Physical (20% weight)
-    score += Math.min(wellnessData.exercise_minutes / 3, 10);
-
-    // Hydration (10% weight)
-    score += Math.min(wellnessData.water_glasses, 8) * 1.25;
-
-    // Mental/Social (10% weight)
-    if (wellnessData.meditation_minutes > 0) score += 5;
-    if (wellnessData.positive_activities.length > 0) score += 5;
-
-    return Math.min(100, Math.max(0, Math.round(score)));
-  }
 };
 
 export default WellnessTrackingTab;

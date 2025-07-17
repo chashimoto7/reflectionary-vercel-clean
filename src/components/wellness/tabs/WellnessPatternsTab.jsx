@@ -1,4 +1,4 @@
-// frontend/ src/components/wellness/tabs/WellnessPatternsTab.jsx
+// frontend/src/components/wellness/tabs/WellnessPatternsTab.jsx
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import {
@@ -71,9 +71,12 @@ const WellnessPatternsTab = ({ colors, user }) => {
     warnings: [],
   });
   const [selectedPattern, setSelectedPattern] = useState("overview");
+  const [hasData, setHasData] = useState(false);
 
   useEffect(() => {
-    loadPatternData();
+    if (user) {
+      loadPatternData();
+    }
   }, [user, dateRange]);
 
   const loadPatternData = async () => {
@@ -82,7 +85,7 @@ const WellnessPatternsTab = ({ colors, user }) => {
 
       const startDate = subDays(new Date(), parseInt(dateRange));
       const { data, error } = await supabase
-        .from("wellness_entries")
+        .from("wellness_entries_decrypted")
         .select("*")
         .eq("user_id", user.id)
         .gte("date", startDate.toISOString().split("T")[0])
@@ -92,10 +95,24 @@ const WellnessPatternsTab = ({ colors, user }) => {
 
       if (data && data.length > 0) {
         setWellnessData(data);
+        setHasData(true);
         analyzePatterns(data);
+      } else {
+        setWellnessData([]);
+        setHasData(false);
+        setPatterns({
+          daily: {},
+          weekly: {},
+          correlations: [],
+          triggers: [],
+          optimal: {},
+          warnings: [],
+        });
       }
     } catch (error) {
       console.error("Error loading pattern data:", error);
+      setWellnessData([]);
+      setHasData(false);
     } finally {
       setLoading(false);
     }
@@ -297,22 +314,6 @@ const WellnessPatternsTab = ({ colors, user }) => {
       });
     }
 
-    // Social vs Mood
-    const socialMoodCorr = calculateCorrelation(
-      data.map((d) => d.social_interactions || 0),
-      data.map((d) => d.mood || 0)
-    );
-    if (Math.abs(socialMoodCorr) > 0.3) {
-      correlations.push({
-        factors: ["Social Interactions", "Mood"],
-        strength: socialMoodCorr,
-        relationship: socialMoodCorr > 0 ? "positive" : "negative",
-        insight: `Social interactions ${
-          socialMoodCorr > 0 ? "improve" : "impact"
-        } mood significantly`,
-      });
-    }
-
     return correlations.sort(
       (a, b) => Math.abs(b.strength) - Math.abs(a.strength)
     );
@@ -335,9 +336,6 @@ const WellnessPatternsTab = ({ colors, user }) => {
         sleep: average(goodDays.map((d) => d.sleep_hours || 0)),
         exercise: average(goodDays.map((d) => d.exercise_minutes || 0)),
         water: average(goodDays.map((d) => d.water_glasses || 0)),
-        social: average(goodDays.map((d) => d.social_interactions || 0)),
-        meditation: average(goodDays.map((d) => d.meditation_minutes || 0)),
-        outdoors: average(goodDays.map((d) => d.outdoors_minutes || 0)),
       };
 
       if (avgGoodDay.sleep > 7.5) {
@@ -358,13 +356,11 @@ const WellnessPatternsTab = ({ colors, user }) => {
           impact: "high",
         });
       }
-      if (avgGoodDay.social > 2) {
+      if (avgGoodDay.water > 6) {
         triggers.positive.push({
-          factor: "Social Connection",
-          icon: Heart,
-          description: `${Math.round(
-            avgGoodDay.social
-          )} meaningful interactions`,
+          factor: "Good Hydration",
+          icon: Droplets,
+          description: `${Math.round(avgGoodDay.water)} glasses of water`,
           impact: "medium",
         });
       }
@@ -375,8 +371,6 @@ const WellnessPatternsTab = ({ colors, user }) => {
       const avgBadDay = {
         sleep: average(badDays.map((d) => d.sleep_hours || 0)),
         stress: average(badDays.map((d) => d.stress || 0)),
-        screen: average(badDays.map((d) => d.screen_time_hours || 0)),
-        caffeine: average(badDays.map((d) => d.caffeine_cups || 0)),
       };
 
       if (avgBadDay.sleep < 6) {
@@ -393,14 +387,6 @@ const WellnessPatternsTab = ({ colors, user }) => {
           icon: AlertCircle,
           description: `Stress level ${avgBadDay.stress.toFixed(1)}/10`,
           impact: "high",
-        });
-      }
-      if (avgBadDay.screen > 8) {
-        triggers.negative.push({
-          factor: "Excessive Screen Time",
-          icon: Brain,
-          description: `${avgBadDay.screen.toFixed(1)}+ hours daily`,
-          impact: "medium",
         });
       }
     }
@@ -438,7 +424,6 @@ const WellnessPatternsTab = ({ colors, user }) => {
         optimal: average(topDays.map((d) => d.stress || 5)),
         maximum: Math.max(...topDays.map((d) => d.stress || 5)),
       },
-      activities: getMostCommonActivities(topDays),
     };
   };
 
@@ -476,18 +461,6 @@ const WellnessPatternsTab = ({ colors, user }) => {
             "Prioritize sleep hygiene and consider reducing evening activities",
         });
       }
-    }
-
-    // Check for missing data
-    const missingDays = 7 - recentData.length;
-    if (missingDays > 3) {
-      warnings.push({
-        type: "tracking",
-        severity: "low",
-        title: "Inconsistent Tracking",
-        description: `${missingDays} days of missing data in the past week`,
-        suggestion: "Regular tracking helps identify patterns more accurately",
-      });
     }
 
     // Check for high stress persistence
@@ -555,29 +528,31 @@ const WellnessPatternsTab = ({ colors, user }) => {
     return Math.min(100, Math.max(0, score));
   };
 
-  const getMostCommonActivities = (entries) => {
-    const activityCount = {};
-    entries.forEach((entry) => {
-      if (entry.positive_activities) {
-        entry.positive_activities.forEach((activity) => {
-          activityCount[activity] = (activityCount[activity] || 0) + 1;
-        });
-      }
-    });
-
-    return Object.entries(activityCount)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([activity, count]) => ({
-        activity,
-        frequency: ((count / entries.length) * 100).toFixed(0) + "%",
-      }));
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-300"></div>
+      </div>
+    );
+  }
+
+  // No data state
+  if (!hasData) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-12 border border-white/20 text-center">
+          <TrendingUp className="w-16 h-16 text-purple-400 mx-auto mb-4" />
+          <h3 className="text-2xl font-semibold text-white mb-2">
+            No Wellness Data Yet
+          </h3>
+          <p className="text-purple-200 mb-6">
+            Start tracking your wellness to discover patterns and trends in your
+            data.
+          </p>
+          <p className="text-purple-300 text-sm">
+            Track at least 7 days to see meaningful patterns emerge.
+          </p>
+        </div>
       </div>
     );
   }
@@ -817,240 +792,253 @@ const WellnessPatternsTab = ({ colors, user }) => {
         </div>
       )}
 
-      {selectedPattern === "daily" && patterns.daily.hourlyAverages && (
-        <div className="space-y-6">
-          {/* Energy Throughout the Day */}
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-            <h4 className="text-lg font-semibold text-white mb-4">
-              Daily Energy Patterns
-            </h4>
-            <ResponsiveContainer width="100%" height={300}>
-              <ComposedChart data={patterns.daily.hourlyAverages}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="rgba(255,255,255,0.1)"
-                />
-                <XAxis dataKey="time" stroke="rgba(255,255,255,0.5)" />
-                <YAxis domain={[0, 10]} stroke="rgba(255,255,255,0.5)" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "rgba(17, 24, 39, 0.9)",
-                    border: "1px solid rgba(255,255,255,0.2)",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="energy"
-                  fill={colors.amber}
-                  fillOpacity={0.3}
-                  stroke={colors.amber}
-                  strokeWidth={2}
-                  name="Energy"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="mood"
-                  stroke={colors.rose}
-                  strokeWidth={2}
-                  dot={{ fill: colors.rose }}
-                  name="Mood"
-                />
-                <Bar
-                  dataKey="entries"
-                  fill={colors.purple}
-                  fillOpacity={0.3}
-                  name="Entries"
-                  yAxisId="right"
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
+      {selectedPattern === "daily" &&
+        patterns.daily.hourlyAverages &&
+        patterns.daily.hourlyAverages.length > 0 && (
+          <div className="space-y-6">
+            {/* Energy Throughout the Day */}
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+              <h4 className="text-lg font-semibold text-white mb-4">
+                Daily Energy Patterns
+              </h4>
+              {patterns.daily.hourlyAverages.length > 0 ? (
+                <>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <ComposedChart data={patterns.daily.hourlyAverages}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="rgba(255,255,255,0.1)"
+                      />
+                      <XAxis dataKey="time" stroke="rgba(255,255,255,0.5)" />
+                      <YAxis domain={[0, 10]} stroke="rgba(255,255,255,0.5)" />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "rgba(17, 24, 39, 0.9)",
+                          border: "1px solid rgba(255,255,255,0.2)",
+                          borderRadius: "8px",
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="energy"
+                        fill={colors.amber}
+                        fillOpacity={0.3}
+                        stroke={colors.amber}
+                        strokeWidth={2}
+                        name="Energy"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="mood"
+                        stroke={colors.rose}
+                        strokeWidth={2}
+                        dot={{ fill: colors.rose }}
+                        name="Mood"
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
 
-            {patterns.daily.peakEnergyTime && (
-              <div className="mt-4 p-4 bg-emerald-500/20 rounded-lg border border-emerald-500/30">
-                <p className="text-white">
-                  <Zap className="w-4 h-4 inline mr-2 text-emerald-400" />
-                  Peak energy typically at{" "}
-                  <strong>{patterns.daily.peakEnergyTime.time}</strong>(
-                  {patterns.daily.peakEnergyTime.energy.toFixed(1)}/10)
+                  {patterns.daily.peakEnergyTime && (
+                    <div className="mt-4 p-4 bg-emerald-500/20 rounded-lg border border-emerald-500/30">
+                      <p className="text-white">
+                        <Zap className="w-4 h-4 inline mr-2 text-emerald-400" />
+                        Peak energy typically at{" "}
+                        <strong>{patterns.daily.peakEnergyTime.time}</strong> (
+                        {patterns.daily.peakEnergyTime.energy.toFixed(1)}/10)
+                      </p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-purple-300 text-center py-8">
+                  Not enough data to show daily patterns yet.
                 </p>
-              </div>
-            )}
-          </div>
-
-          {/* Stress Patterns */}
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-            <h4 className="text-lg font-semibold text-white mb-4">
-              Stress Throughout the Day
-            </h4>
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={patterns.daily.hourlyAverages}>
-                <defs>
-                  <linearGradient
-                    id="stressGradient"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="5%"
-                      stopColor={colors.danger}
-                      stopOpacity={0.8}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor={colors.danger}
-                      stopOpacity={0.1}
-                    />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="rgba(255,255,255,0.1)"
-                />
-                <XAxis dataKey="time" stroke="rgba(255,255,255,0.5)" />
-                <YAxis domain={[0, 10]} stroke="rgba(255,255,255,0.5)" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "rgba(17, 24, 39, 0.9)",
-                    border: "1px solid rgba(255,255,255,0.2)",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="stress"
-                  stroke={colors.danger}
-                  fill="url(#stressGradient)"
-                  strokeWidth={2}
-                />
-                <ReferenceLine
-                  y={5}
-                  stroke="rgba(255,255,255,0.3)"
-                  strokeDasharray="5 5"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
-
-      {selectedPattern === "weekly" && patterns.weekly.weeklyAverages && (
-        <div className="space-y-6">
-          {/* Weekly Pattern Chart */}
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-            <h4 className="text-lg font-semibold text-white mb-4">
-              Weekly Wellness Patterns
-            </h4>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={patterns.weekly.weeklyAverages}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="rgba(255,255,255,0.1)"
-                />
-                <XAxis dataKey="day" stroke="rgba(255,255,255,0.5)" />
-                <YAxis domain={[0, 100]} stroke="rgba(255,255,255,0.5)" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "rgba(17, 24, 39, 0.9)",
-                    border: "1px solid rgba(255,255,255,0.2)",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Bar dataKey="wellnessScore" name="Wellness Score">
-                  {patterns.weekly.weeklyAverages.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={
-                        entry.wellnessScore > 70
-                          ? colors.emerald
-                          : entry.wellnessScore > 40
-                          ? colors.amber
-                          : colors.danger
-                      }
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-
-            {/* Best and Worst Days */}
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              {patterns.weekly.bestDay && (
-                <div className="p-4 bg-emerald-500/20 rounded-lg border border-emerald-500/30">
-                  <h5 className="font-semibold text-white mb-1">Best Day</h5>
-                  <p className="text-emerald-300">
-                    {patterns.weekly.bestDay.day}
-                  </p>
-                  <p className="text-sm text-purple-200">
-                    Score: {patterns.weekly.bestDay.wellnessScore.toFixed(0)}
-                    /100
-                  </p>
-                </div>
               )}
-              {patterns.weekly.worstDay && (
-                <div className="p-4 bg-red-500/20 rounded-lg border border-red-500/30">
-                  <h5 className="font-semibold text-white mb-1">
-                    Challenging Day
-                  </h5>
-                  <p className="text-red-300">{patterns.weekly.worstDay.day}</p>
-                  <p className="text-sm text-purple-200">
-                    Score: {patterns.weekly.worstDay.wellnessScore.toFixed(0)}
-                    /100
-                  </p>
-                </div>
+            </div>
+
+            {/* Stress Patterns */}
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+              <h4 className="text-lg font-semibold text-white mb-4">
+                Stress Throughout the Day
+              </h4>
+              {patterns.daily.hourlyAverages.length > 0 ? (
+                <ResponsiveContainer width="100%" height={250}>
+                  <AreaChart data={patterns.daily.hourlyAverages}>
+                    <defs>
+                      <linearGradient
+                        id="stressGradient"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor={colors.danger}
+                          stopOpacity={0.8}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor={colors.danger}
+                          stopOpacity={0.1}
+                        />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="rgba(255,255,255,0.1)"
+                    />
+                    <XAxis dataKey="time" stroke="rgba(255,255,255,0.5)" />
+                    <YAxis domain={[0, 10]} stroke="rgba(255,255,255,0.5)" />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "rgba(17, 24, 39, 0.9)",
+                        border: "1px solid rgba(255,255,255,0.2)",
+                        borderRadius: "8px",
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="stress"
+                      stroke={colors.danger}
+                      fill="url(#stressGradient)"
+                      strokeWidth={2}
+                    />
+                    <ReferenceLine
+                      y={5}
+                      stroke="rgba(255,255,255,0.3)"
+                      strokeDasharray="5 5"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-purple-300 text-center py-8">
+                  Not enough data to show stress patterns yet.
+                </p>
               )}
             </div>
           </div>
+        )}
 
-          {/* Weekly Metrics Breakdown */}
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-            <h4 className="text-lg font-semibold text-white mb-4">
-              Metrics by Day of Week
-            </h4>
-            <div className="space-y-3">
-              {patterns.weekly.weeklyAverages.map((day) => (
-                <div key={day.day} className="flex items-center gap-4">
-                  <span className="text-purple-300 w-24">{day.day}</span>
-                  <div className="flex-1 grid grid-cols-5 gap-2 text-sm">
-                    <div className="text-center">
-                      <div className="text-white font-semibold">
-                        {day.avgEnergy.toFixed(1)}
+      {selectedPattern === "weekly" &&
+        patterns.weekly.weeklyAverages &&
+        patterns.weekly.weeklyAverages.length > 0 && (
+          <div className="space-y-6">
+            {/* Weekly Pattern Chart */}
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+              <h4 className="text-lg font-semibold text-white mb-4">
+                Weekly Wellness Patterns
+              </h4>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={patterns.weekly.weeklyAverages}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(255,255,255,0.1)"
+                  />
+                  <XAxis dataKey="day" stroke="rgba(255,255,255,0.5)" />
+                  <YAxis domain={[0, 100]} stroke="rgba(255,255,255,0.5)" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "rgba(17, 24, 39, 0.9)",
+                      border: "1px solid rgba(255,255,255,0.2)",
+                      borderRadius: "8px",
+                    }}
+                  />
+                  <Bar dataKey="wellnessScore" name="Wellness Score">
+                    {patterns.weekly.weeklyAverages.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={
+                          entry.wellnessScore > 70
+                            ? colors.emerald
+                            : entry.wellnessScore > 40
+                            ? colors.amber
+                            : colors.danger
+                        }
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+
+              {/* Best and Worst Days */}
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                {patterns.weekly.bestDay && (
+                  <div className="p-4 bg-emerald-500/20 rounded-lg border border-emerald-500/30">
+                    <h5 className="font-semibold text-white mb-1">Best Day</h5>
+                    <p className="text-emerald-300">
+                      {patterns.weekly.bestDay.day}
+                    </p>
+                    <p className="text-sm text-purple-200">
+                      Score: {patterns.weekly.bestDay.wellnessScore.toFixed(0)}
+                      /100
+                    </p>
+                  </div>
+                )}
+                {patterns.weekly.worstDay && (
+                  <div className="p-4 bg-red-500/20 rounded-lg border border-red-500/30">
+                    <h5 className="font-semibold text-white mb-1">
+                      Challenging Day
+                    </h5>
+                    <p className="text-red-300">
+                      {patterns.weekly.worstDay.day}
+                    </p>
+                    <p className="text-sm text-purple-200">
+                      Score: {patterns.weekly.worstDay.wellnessScore.toFixed(0)}
+                      /100
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Weekly Metrics Breakdown */}
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+              <h4 className="text-lg font-semibold text-white mb-4">
+                Metrics by Day of Week
+              </h4>
+              <div className="space-y-3">
+                {patterns.weekly.weeklyAverages.map((day) => (
+                  <div key={day.day} className="flex items-center gap-4">
+                    <span className="text-purple-300 w-24">{day.day}</span>
+                    <div className="flex-1 grid grid-cols-5 gap-2 text-sm">
+                      <div className="text-center">
+                        <div className="text-white font-semibold">
+                          {day.avgEnergy.toFixed(1)}
+                        </div>
+                        <div className="text-purple-400 text-xs">Energy</div>
                       </div>
-                      <div className="text-purple-400 text-xs">Energy</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-white font-semibold">
-                        {day.avgMood.toFixed(1)}
+                      <div className="text-center">
+                        <div className="text-white font-semibold">
+                          {day.avgMood.toFixed(1)}
+                        </div>
+                        <div className="text-purple-400 text-xs">Mood</div>
                       </div>
-                      <div className="text-purple-400 text-xs">Mood</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-white font-semibold">
-                        {day.avgStress.toFixed(1)}
+                      <div className="text-center">
+                        <div className="text-white font-semibold">
+                          {day.avgStress.toFixed(1)}
+                        </div>
+                        <div className="text-purple-400 text-xs">Stress</div>
                       </div>
-                      <div className="text-purple-400 text-xs">Stress</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-white font-semibold">
-                        {day.avgSleep.toFixed(1)}
+                      <div className="text-center">
+                        <div className="text-white font-semibold">
+                          {day.avgSleep.toFixed(1)}
+                        </div>
+                        <div className="text-purple-400 text-xs">Sleep</div>
                       </div>
-                      <div className="text-purple-400 text-xs">Sleep</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-white font-semibold">
-                        {day.avgExercise.toFixed(0)}
+                      <div className="text-center">
+                        <div className="text-white font-semibold">
+                          {day.avgExercise.toFixed(0)}
+                        </div>
+                        <div className="text-purple-400 text-xs">Exercise</div>
                       </div>
-                      <div className="text-purple-400 text-xs">Exercise</div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {selectedPattern === "correlations" && (
         <div className="space-y-6">
@@ -1261,142 +1249,121 @@ const WellnessPatternsTab = ({ colors, user }) => {
         </div>
       )}
 
-      {selectedPattern === "optimal" && patterns.optimal && (
-        <div className="space-y-6">
-          {/* Optimal Conditions Summary */}
-          <div className="bg-gradient-to-r from-emerald-600/20 to-cyan-600/20 backdrop-blur-md rounded-xl p-6 border border-white/20">
-            <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-yellow-400" />
-              Your Optimal Wellness Formula
-            </h4>
+      {selectedPattern === "optimal" &&
+        patterns.optimal &&
+        Object.keys(patterns.optimal).length > 0 && (
+          <div className="space-y-6">
+            {/* Optimal Conditions Summary */}
+            <div className="bg-gradient-to-r from-emerald-600/20 to-cyan-600/20 backdrop-blur-md rounded-xl p-6 border border-white/20">
+              <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-yellow-400" />
+                Your Optimal Wellness Formula
+              </h4>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {patterns.optimal.sleep && (
-                <div className="bg-white/10 rounded-lg p-4">
-                  <Moon className="w-5 h-5 text-indigo-400 mb-2" />
-                  <h5 className="font-medium text-white mb-1">
-                    Sleep Sweet Spot
-                  </h5>
-                  <p className="text-2xl font-bold text-white">
-                    {patterns.optimal.sleep.optimal.toFixed(1)}h
-                  </p>
-                  <p className="text-sm text-purple-300">
-                    Range: {patterns.optimal.sleep.range.min.toFixed(1)}-
-                    {patterns.optimal.sleep.range.max.toFixed(1)}h
-                  </p>
-                </div>
-              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {patterns.optimal.sleep && (
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <Moon className="w-5 h-5 text-indigo-400 mb-2" />
+                    <h5 className="font-medium text-white mb-1">
+                      Sleep Sweet Spot
+                    </h5>
+                    <p className="text-2xl font-bold text-white">
+                      {patterns.optimal.sleep.optimal.toFixed(1)}h
+                    </p>
+                    <p className="text-sm text-purple-300">
+                      Range: {patterns.optimal.sleep.range.min.toFixed(1)}-
+                      {patterns.optimal.sleep.range.max.toFixed(1)}h
+                    </p>
+                  </div>
+                )}
 
-              {patterns.optimal.exercise && (
-                <div className="bg-white/10 rounded-lg p-4">
-                  <Activity className="w-5 h-5 text-emerald-400 mb-2" />
-                  <h5 className="font-medium text-white mb-1">
-                    Exercise Target
-                  </h5>
-                  <p className="text-2xl font-bold text-white">
-                    {Math.round(patterns.optimal.exercise.optimal)}m
-                  </p>
-                  <p className="text-sm text-purple-300">
-                    {(patterns.optimal.exercise.frequency * 100).toFixed(0)}% of
-                    best days
-                  </p>
-                </div>
-              )}
+                {patterns.optimal.exercise && (
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <Activity className="w-5 h-5 text-emerald-400 mb-2" />
+                    <h5 className="font-medium text-white mb-1">
+                      Exercise Target
+                    </h5>
+                    <p className="text-2xl font-bold text-white">
+                      {Math.round(patterns.optimal.exercise.optimal)}m
+                    </p>
+                    <p className="text-sm text-purple-300">
+                      {(patterns.optimal.exercise.frequency * 100).toFixed(0)}%
+                      of best days
+                    </p>
+                  </div>
+                )}
 
-              {patterns.optimal.hydration && (
-                <div className="bg-white/10 rounded-lg p-4">
-                  <Droplets className="w-5 h-5 text-cyan-400 mb-2" />
-                  <h5 className="font-medium text-white mb-1">
-                    Hydration Goal
-                  </h5>
-                  <p className="text-2xl font-bold text-white">
-                    {Math.round(patterns.optimal.hydration.optimal)}
-                  </p>
-                  <p className="text-sm text-purple-300">
-                    Min: {patterns.optimal.hydration.minimum} glasses
-                  </p>
-                </div>
-              )}
+                {patterns.optimal.hydration && (
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <Droplets className="w-5 h-5 text-cyan-400 mb-2" />
+                    <h5 className="font-medium text-white mb-1">
+                      Hydration Goal
+                    </h5>
+                    <p className="text-2xl font-bold text-white">
+                      {Math.round(patterns.optimal.hydration.optimal)}
+                    </p>
+                    <p className="text-sm text-purple-300">
+                      Min: {patterns.optimal.hydration.minimum} glasses
+                    </p>
+                  </div>
+                )}
 
-              {patterns.optimal.stress && (
-                <div className="bg-white/10 rounded-lg p-4">
-                  <Brain className="w-5 h-5 text-purple-400 mb-2" />
-                  <h5 className="font-medium text-white mb-1">Stress Level</h5>
-                  <p className="text-2xl font-bold text-white">
-                    &lt;{patterns.optimal.stress.optimal.toFixed(1)}
-                  </p>
-                  <p className="text-sm text-purple-300">
-                    Max: {patterns.optimal.stress.maximum.toFixed(1)}/10
-                  </p>
-                </div>
-              )}
+                {patterns.optimal.stress && (
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <Brain className="w-5 h-5 text-purple-400 mb-2" />
+                    <h5 className="font-medium text-white mb-1">
+                      Stress Level
+                    </h5>
+                    <p className="text-2xl font-bold text-white">
+                      &lt;{patterns.optimal.stress.optimal.toFixed(1)}
+                    </p>
+                    <p className="text-sm text-purple-300">
+                      Max: {patterns.optimal.stress.maximum.toFixed(1)}/10
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Top Activities */}
-          {patterns.optimal.activities &&
-            patterns.optimal.activities.length > 0 && (
-              <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-                <h4 className="text-lg font-semibold text-white mb-4">
-                  Activities on Your Best Days
-                </h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                  {patterns.optimal.activities.map((activity, index) => (
-                    <div
-                      key={index}
-                      className="bg-purple-600/20 rounded-lg p-3 text-center border border-purple-500/30"
-                    >
-                      <p className="text-white font-medium capitalize">
-                        {activity.activity}
-                      </p>
-                      <p className="text-purple-300 text-sm">
-                        {activity.frequency}
-                      </p>
-                    </div>
-                  ))}
+            {/* Recommendations */}
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+              <h4 className="text-lg font-semibold text-white mb-4">
+                Personalized Recommendations
+              </h4>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <ChevronRight className="w-5 h-5 text-purple-400 mt-0.5" />
+                  <p className="text-purple-200">
+                    Aim for{" "}
+                    <strong className="text-white">
+                      {patterns.optimal.sleep?.optimal.toFixed(1)} hours
+                    </strong>{" "}
+                    of sleep to maximize next-day energy and mood
+                  </p>
                 </div>
-              </div>
-            )}
-
-          {/* Recommendations */}
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-            <h4 className="text-lg font-semibold text-white mb-4">
-              Personalized Recommendations
-            </h4>
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <ChevronRight className="w-5 h-5 text-purple-400 mt-0.5" />
-                <p className="text-purple-200">
-                  Aim for{" "}
-                  <strong className="text-white">
-                    {patterns.optimal.sleep?.optimal.toFixed(1)} hours
-                  </strong>{" "}
-                  of sleep to maximize next-day energy and mood
-                </p>
-              </div>
-              <div className="flex items-start gap-3">
-                <ChevronRight className="w-5 h-5 text-purple-400 mt-0.5" />
-                <p className="text-purple-200">
-                  Schedule important tasks during your{" "}
-                  <strong className="text-white">peak energy window</strong>
-                  {patterns.daily.peakEnergyTime &&
-                    ` around ${patterns.daily.peakEnergyTime.time}`}
-                </p>
-              </div>
-              <div className="flex items-start gap-3">
-                <ChevronRight className="w-5 h-5 text-purple-400 mt-0.5" />
-                <p className="text-purple-200">
-                  Focus wellness efforts on{" "}
-                  <strong className="text-white">
-                    {patterns.weekly.worstDay?.day}s
-                  </strong>
-                  , your most challenging day
-                </p>
+                <div className="flex items-start gap-3">
+                  <ChevronRight className="w-5 h-5 text-purple-400 mt-0.5" />
+                  <p className="text-purple-200">
+                    Schedule important tasks during your{" "}
+                    <strong className="text-white">peak energy window</strong>
+                    {patterns.daily.peakEnergyTime &&
+                      ` around ${patterns.daily.peakEnergyTime.time}`}
+                  </p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <ChevronRight className="w-5 h-5 text-purple-400 mt-0.5" />
+                  <p className="text-purple-200">
+                    Focus wellness efforts on{" "}
+                    <strong className="text-white">
+                      {patterns.weekly.worstDay?.day}s
+                    </strong>
+                    , your most challenging day
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 };
