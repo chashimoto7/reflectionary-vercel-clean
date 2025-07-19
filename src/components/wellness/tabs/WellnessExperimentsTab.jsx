@@ -14,7 +14,7 @@ import ExperimentDetailsModal from "../experiments/ExperimentDetailsModal";
 import ExperimentChatInterface from "../ExperimentChatInterface";
 
 // Hooks and utilities
-import { useExperiments } from "../../hooks/useExperiments";
+import { useExperiments } from "../../../hooks/useExperiments";
 
 const WellnessExperimentsTab = ({ colors, user }) => {
   const [activeView, setActiveView] = useState("active");
