@@ -11,7 +11,7 @@ import CommunityExperiments from "../experiments/CommunityExperiments";
 import NewExperimentModal from "../experiments/NewExperimentModal";
 import AIRequestModal from "../experiments/AIRequestModal";
 import ExperimentDetailsModal from "../experiments/ExperimentDetailsModal";
-import ExperimentChatInterface from "../ExperimentChatInterface";
+import ExperimentChatInterface from "ExperimentChatInterface";
 
 // Hooks and utilities
 import { useExperiments } from "../../hooks/useExperiments";
