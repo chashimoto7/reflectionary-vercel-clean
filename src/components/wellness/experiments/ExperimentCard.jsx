@@ -21,8 +21,8 @@ import {
   Star,
 } from "lucide-react";
 import { format } from "date-fns";
-import { EXPERIMENT_ICONS } from "../../utils/experimentConstants";
-import { getDifficultyColor } from "../../utils/experimentHelpers";
+import { EXPERIMENT_ICONS } from "../../../utils/experimentConstants";
+import { getDifficultyColor } from "../../../utils/experimentHelpers";
 
 const ExperimentCard = ({
   experiment,
