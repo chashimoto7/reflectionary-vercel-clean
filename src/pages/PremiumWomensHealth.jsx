@@ -424,8 +424,8 @@ const PremiumWomensHealth = () => {
 
         {/* Privacy Info Modal */}
         {showPrivacyInfo && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-gradient-to-br from-purple-800 to-pink-800 backdrop-blur-md rounded-lg p-6 max-w-md w-full border border-white/20">
+          <div className="fixed inset-0 bg-black/50 flex items-start justify-center pt-20 z-50 overflow-y-auto">
+            <div className="bg-gradient-to-br from-purple-800 to-pink-800 backdrop-blur-md rounded-lg p-6 max-w-md w-full mx-4 border border-white/20">
               <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
                 <Shield className="w-6 h-6" />
                 Your Privacy Protected
