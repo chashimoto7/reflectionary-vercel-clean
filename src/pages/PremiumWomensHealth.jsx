@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import {
   Heart,
   Activity,
+  Beaker,
   Brain,
   Calendar,
   BookOpen,
