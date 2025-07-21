@@ -347,6 +347,10 @@ const CycleIntelligenceTab = ({
     ? phaseInfo[processedCycleData.currentPhase]
     : phaseInfo.menstrual;
 
+  const hasData =
+    healthData && Array.isArray(healthData) && healthData.length > 0;
+  const hasMinimumData = hasData && healthData.length >= 14; // At least 2 weeks of data
+
   // Calculate predictions with proper date validation
   const predictions = React.useMemo(() => {
     const result = {
@@ -378,8 +382,6 @@ const CycleIntelligenceTab = ({
         ),
       };
     }
-
-    return result;
     // Prepare chart data for cycle length variations
     const cycleChartData = React.useMemo(() => {
       if (
@@ -458,11 +460,24 @@ const CycleIntelligenceTab = ({
 
       return (daysSinceLastPeriod % processedCycleData.cycleLength) + 1;
     };
+    return result;
+  }, [processedCycleData]);
+
+  // Prepare chart data for cycle length variations
+  const cycleChartData = React.useMemo(() => {
+    // Early return if no user
+    if (!user || !user.id) {
+      return (
+        <div className="p-8 text-center">
+          <p className="text-purple-200">
+            Please log in to view your cycle intelligence.
+          </p>
+        </div>
+      );
+    }
 
     return (
       <div className="space-y-6">
-        {/* Current Cycle Overview - Already complete above */}
-
         {/* Predictions & Next Events - Already complete above */}
 
         {/* Cycle Patterns - Perimenopause Special Section */}
