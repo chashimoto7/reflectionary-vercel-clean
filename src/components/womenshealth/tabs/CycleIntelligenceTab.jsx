@@ -67,10 +67,9 @@ const CycleIntelligenceTab = ({
   const [editingCycleLength, setEditingCycleLength] = useState(false);
   const [customCycleLength, setCustomCycleLength] = useState(28);
 
-  // Process cycle data from props
-  const processedCycleData = processCycleData(healthData, cycleData, profile);
-  const hasData = healthData && healthData.length > 0;
-  const hasMinimumData = healthData && healthData.length >= 2; // Need at least 2 periods for cycle calculation
+  // Get backend URL from environment
+  const backendUrl =
+    import.meta.env.VITE_API_URL || "https://backend.reflectionary.ca";
 
   // Phase information
   const phaseInfo = {
@@ -134,7 +133,7 @@ const CycleIntelligenceTab = ({
 
   // Process cycle data from health entries
   function processCycleData(entries, cycleAnalysis, userProfile) {
-    if (!entries || entries.length === 0) {
+    if (!entries || !Array.isArray(entries) || entries.length === 0) {
       return {
         cycleLength: userProfile?.average_cycle_length || 28,
         periodLength: 5,
@@ -147,15 +146,27 @@ const CycleIntelligenceTab = ({
       };
     }
 
-    // Find period starts
+    // Find period starts - handle both encrypted and decrypted data
     const periodStarts = entries
-      .filter(
-        (entry) =>
-          entry.data?.periodFlow &&
-          entry.data.periodFlow !== "none" &&
-          entry.data.periodDay === 1
-      )
-      .map((entry) => new Date(entry.date))
+      .filter((entry) => {
+        if (!entry || !entry.date) return false;
+
+        // Handle both encrypted and decrypted data structures
+        const data = entry.data || entry.decrypted_data || {};
+        const periodFlow = data.periodFlow || data.period_flow;
+        const periodDay = data.periodDay || data.period_day;
+
+        return periodFlow && periodFlow !== "none" && periodDay === 1;
+      })
+      .map((entry) => {
+        try {
+          return new Date(entry.date);
+        } catch (e) {
+          console.error("Invalid date:", entry.date);
+          return null;
+        }
+      })
+      .filter((date) => date && isValid(date))
       .sort((a, b) => b - a); // Most recent first
 
     if (periodStarts.length === 0) {
@@ -181,20 +192,35 @@ const CycleIntelligenceTab = ({
         periodStarts[i],
         periodStarts[i + 1]
       );
-      const periodDays = entries.filter(
-        (e) =>
-          e.data?.periodFlow &&
-          e.data.periodFlow !== "none" &&
-          new Date(e.date) >= periodStarts[i + 1] &&
-          new Date(e.date) < periodStarts[i]
-      ).length;
 
-      cycles.push({
-        startDate: periodStarts[i + 1],
-        endDate: periodStarts[i],
-        length: cycleLength,
-        periodLength: periodDays || 5,
-      });
+      if (cycleLength > 0 && cycleLength < 90) {
+        // Sanity check
+        const periodDays = entries.filter((e) => {
+          if (!e || !e.date) return false;
+
+          const data = e.data || e.decrypted_data || {};
+          const periodFlow = data.periodFlow || data.period_flow;
+
+          try {
+            const entryDate = new Date(e.date);
+            return (
+              periodFlow &&
+              periodFlow !== "none" &&
+              entryDate >= periodStarts[i + 1] &&
+              entryDate < periodStarts[i]
+            );
+          } catch (error) {
+            return false;
+          }
+        }).length;
+
+        cycles.push({
+          startDate: periodStarts[i + 1],
+          endDate: periodStarts[i],
+          length: cycleLength,
+          periodLength: periodDays || 5,
+        });
+      }
     }
 
     // Calculate average cycle length
@@ -234,7 +260,7 @@ const CycleIntelligenceTab = ({
 
   // Get cycle phase based on day
   function getCyclePhase(day, cycleLength = 28) {
-    if (!day) return null;
+    if (!day || day < 1) return null;
 
     if (day <= 5) return "menstrual";
     if (day <= Math.floor(cycleLength / 2) - 2) return "follicular";
@@ -245,23 +271,21 @@ const CycleIntelligenceTab = ({
   // Handle cycle length update
   const handleCycleLengthUpdate = async (newLength) => {
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/womens-health/profile`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${user.access_token}`,
-          },
-          body: JSON.stringify({
-            user_id: user.id,
-            average_cycle_length: newLength,
-          }),
-        }
-      );
+      const response = await fetch(`${backendUrl}/womens-health/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user.access_token}`,
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          average_cycle_length: newLength,
+        }),
+      });
 
       if (response.ok) {
         setEditingCycleLength(false);
+        setCustomCycleLength(newLength);
         if (onRefreshData) {
           onRefreshData();
         }
@@ -293,671 +317,452 @@ const CycleIntelligenceTab = ({
     </div>
   );
 
+  // Initialize cycle data processing
+  useEffect(() => {
+    if (profile?.average_cycle_length) {
+      setCustomCycleLength(profile.average_cycle_length);
+    }
+  }, [profile]);
+
+  // Process the data with proper error handling
+  const processedCycleData = React.useMemo(() => {
+    try {
+      return processCycleData(healthData, cycleData, profile);
+    } catch (error) {
+      console.error("Error processing cycle data:", error);
+      return {
+        cycleLength: profile?.average_cycle_length || 28,
+        periodLength: 5,
+        lastPeriodStart: null,
+        cycles: [],
+        currentDay: null,
+        currentPhase: null,
+        averageCycleLength: null,
+        cycleVariability: null,
+      };
+    }
+  }, [healthData, cycleData, profile]);
+
   const currentPhaseInfo = processedCycleData.currentPhase
     ? phaseInfo[processedCycleData.currentPhase]
     : phaseInfo.menstrual;
 
-  // Calculate predictions
-  const predictions = {
-    nextPeriod: processedCycleData.lastPeriodStart
-      ? addDays(
+  // Calculate predictions with proper date validation
+  const predictions = React.useMemo(() => {
+    const result = {
+      nextPeriod: null,
+      ovulation: null,
+      fertileWindow: { start: null, end: null },
+    };
+
+    if (
+      processedCycleData.lastPeriodStart &&
+      isValid(processedCycleData.lastPeriodStart)
+    ) {
+      result.nextPeriod = addDays(
+        processedCycleData.lastPeriodStart,
+        processedCycleData.cycleLength
+      );
+      result.ovulation = addDays(
+        processedCycleData.lastPeriodStart,
+        Math.floor(processedCycleData.cycleLength / 2)
+      );
+      result.fertileWindow = {
+        start: addDays(
           processedCycleData.lastPeriodStart,
-          processedCycleData.cycleLength
-        )
-      : null,
-    ovulation: processedCycleData.lastPeriodStart
-      ? addDays(
+          Math.floor(processedCycleData.cycleLength / 2) - 5
+        ),
+        end: addDays(
           processedCycleData.lastPeriodStart,
-          Math.floor(processedCycleData.cycleLength / 2)
-        )
-      : null,
-    fertileWindow: processedCycleData.lastPeriodStart
-      ? {
-          start: addDays(
-            processedCycleData.lastPeriodStart,
-            Math.floor(processedCycleData.cycleLength / 2) - 5
-          ),
-          end: addDays(
-            processedCycleData.lastPeriodStart,
-            Math.floor(processedCycleData.cycleLength / 2) + 1
-          ),
-        }
-      : { start: null, end: null },
-  };
+          Math.floor(processedCycleData.cycleLength / 2) + 1
+        ),
+      };
+    }
 
-  // Prepare chart data for cycle length variations
-  const cycleChartData = processedCycleData.cycles
-    .map((cycle, index) => ({
-      name: `Cycle ${processedCycleData.cycles.length - index}`,
-      length: cycle.length,
-      average: processedCycleData.averageCycleLength,
-    }))
-    .reverse();
+    return result;
+    // Prepare chart data for cycle length variations
+    const cycleChartData = React.useMemo(() => {
+      if (
+        !processedCycleData.cycles ||
+        processedCycleData.cycles.length === 0
+      ) {
+        return [];
+      }
 
-  return (
-    <div className="space-y-6">
-      {/* Current Cycle Overview */}
-      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-semibold text-white">Current Cycle</h3>
-          {processedCycleData.lastPeriodStart && (
-            <button
-              onClick={() => setEditingCycleLength(true)}
-              className="text-sm text-purple-200 hover:text-white flex items-center gap-1"
-            >
-              <Settings className="w-4 h-4" />
-              Customize
-            </button>
-          )}
-        </div>
+      return processedCycleData.cycles
+        .slice(0, 10) // Limit to last 10 cycles
+        .map((cycle, index) => ({
+          name: `Cycle ${processedCycleData.cycles.length - index}`,
+          length: cycle.length,
+          average: processedCycleData.averageCycleLength || 28,
+        }))
+        .reverse();
+    }, [processedCycleData]);
 
-        {!hasData ? (
-          <EmptyState />
-        ) : (
-          <>
-            {/* Cycle Wheel */}
-            <div className="flex justify-center mb-8">
-              <div className="relative w-80 h-80">
-                {/* Cycle phases wheel */}
-                <svg className="absolute inset-0 w-full h-full">
-                  {/* Menstrual phase */}
-                  <circle
-                    cx="50%"
-                    cy="50%"
-                    r="40%"
-                    fill="none"
-                    stroke="rgba(239, 68, 68, 0.6)"
-                    strokeWidth="60"
-                    strokeDasharray={`${
-                      (5 / processedCycleData.cycleLength) * 2 * Math.PI * 40
-                    }% ${100}%`}
-                    transform="rotate(-90 160 160)"
-                  />
-                  {/* Follicular phase */}
-                  <circle
-                    cx="50%"
-                    cy="50%"
-                    r="40%"
-                    fill="none"
-                    stroke="rgba(236, 72, 153, 0.6)"
-                    strokeWidth="60"
-                    strokeDasharray={`${
-                      ((processedCycleData.cycleLength / 2 - 7) /
-                        processedCycleData.cycleLength) *
-                      2 *
-                      Math.PI *
-                      40
-                    }% ${100}%`}
-                    strokeDashoffset={`-${
-                      (5 / processedCycleData.cycleLength) * 2 * Math.PI * 40
-                    }%`}
-                  />
-                  {/* Ovulation phase */}
-                  <circle
-                    cx="50%"
-                    cy="50%"
-                    r="40%"
-                    fill="none"
-                    stroke="rgba(251, 191, 36, 0.6)"
-                    strokeWidth="60"
-                    strokeDasharray={`${
-                      (5 / processedCycleData.cycleLength) * 2 * Math.PI * 40
-                    }% ${100}%`}
-                    strokeDashoffset={`-${
-                      ((processedCycleData.cycleLength / 2 - 2) /
-                        processedCycleData.cycleLength) *
-                      2 *
-                      Math.PI *
-                      40
-                    }%`}
-                  />
-                  {/* Luteal phase */}
-                  <circle
-                    cx="50%"
-                    cy="50%"
-                    r="40%"
-                    fill="none"
-                    stroke="rgba(139, 92, 246, 0.6)"
-                    strokeWidth="60"
-                    strokeDasharray={`${
-                      ((processedCycleData.cycleLength -
-                        processedCycleData.cycleLength / 2 -
-                        3) /
-                        processedCycleData.cycleLength) *
-                      2 *
-                      Math.PI *
-                      40
-                    }% ${100}%`}
-                    strokeDashoffset={`-${
-                      ((processedCycleData.cycleLength / 2 + 3) /
-                        processedCycleData.cycleLength) *
-                      2 *
-                      Math.PI *
-                      40
-                    }%`}
-                  />
-                  {/* Current day indicator */}
-                  {processedCycleData.currentDay && (
-                    <circle
-                      cx="50%"
-                      cy="50%"
-                      r="40%"
-                      fill="none"
-                      stroke="white"
-                      strokeWidth="4"
-                      strokeDasharray="2 4"
-                      transform={`rotate(${
-                        (processedCycleData.currentDay /
-                          processedCycleData.cycleLength) *
-                          360 -
-                        90
-                      } 160 160)`}
-                    />
-                  )}
-                </svg>
+    // Prepare pattern data for perimenopause users
+    const patternData = React.useMemo(() => {
+      if (
+        lifeStage !== "perimenopause" ||
+        !processedCycleData.cycles ||
+        processedCycleData.cycles.length < 3
+      ) {
+        return null;
+      }
 
-                {/* Center info */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <currentPhaseInfo.icon className="w-12 h-12 text-white mx-auto mb-2" />
-                    <p className="text-2xl font-bold text-white">
-                      {processedCycleData.currentPhase
-                        ? currentPhaseInfo.name
-                        : "Track Your Cycle"}
-                    </p>
-                    <p className="text-purple-200 text-sm mt-1">
-                      {processedCycleData.currentDay
-                        ? `Day ${processedCycleData.currentDay} of ${processedCycleData.cycleLength}`
-                        : "Start tracking to see your phase"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+      const recentCycles = processedCycleData.cycles.slice(0, 6);
+      const irregularCycles = recentCycles.filter(
+        (cycle) =>
+          Math.abs(cycle.length - processedCycleData.averageCycleLength) > 7
+      ).length;
 
-            {/* Phase Legend */}
-            <div className="grid grid-cols-4 gap-2">
-              {Object.entries(phaseInfo).map(([phase, info]) => (
-                <button
-                  key={phase}
-                  onClick={() => {
-                    setSelectedPhase(phase);
-                    setShowPhaseInfo(true);
-                  }}
-                  className="flex items-center gap-2 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
-                >
-                  <div className={`w-3 h-3 rounded-full ${info.color}`} />
-                  <span className="text-sm text-purple-200">
-                    {info.name.split(" ")[0]}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
+      return {
+        irregularityRate: Math.round(
+          (irregularCycles / recentCycles.length) * 100
+        ),
+        longestCycle: Math.max(...recentCycles.map((c) => c.length)),
+        shortestCycle: Math.min(...recentCycles.map((c) => c.length)),
+        missedPeriods: recentCycles.filter((c) => c.length > 60).length,
+      };
+    }, [lifeStage, processedCycleData]);
 
-      {/* Predictions & Next Events */}
-      {hasData && predictions.nextPeriod && (
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-          <h3 className="text-xl font-semibold text-white mb-6">
-            Upcoming Events
-          </h3>
+    // Calendar view data
+    const calendarDays = React.useMemo(() => {
+      const start = startOfMonth(selectedDate);
+      const end = endOfMonth(selectedDate);
+      return eachDayOfInterval({ start, end });
+    }, [selectedDate]);
 
-          <div className="space-y-4">
-            {/* Next Period */}
-            <div className="flex items-center justify-between p-4 bg-red-500/20 rounded-lg">
-              <div className="flex items-center gap-3">
-                <Droplets className="w-5 h-5 text-red-400" />
-                <div>
-                  <p className="text-white font-medium">Next Period</p>
-                  <p className="text-red-200 text-sm">
-                    Expected {format(predictions.nextPeriod, "MMM d")}
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-white font-bold">
-                  {differenceInDays(predictions.nextPeriod, new Date())} days
-                </p>
-                <p className="text-red-200 text-sm">from today</p>
-              </div>
-            </div>
+    // Check if a date is in period
+    const isInPeriod = (date) => {
+      if (!processedCycleData.lastPeriodStart || !isValid(date)) return false;
 
-            {/* Ovulation */}
-            {predictions.ovulation &&
-              differenceInDays(predictions.ovulation, new Date()) > 0 && (
-                <div className="flex items-center justify-between p-4 bg-yellow-500/20 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Sun className="w-5 h-5 text-yellow-400" />
-                    <div>
-                      <p className="text-white font-medium">Ovulation</p>
-                      <p className="text-yellow-200 text-sm">
-                        Expected {format(predictions.ovulation, "MMM d")}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-white font-bold">
-                      {differenceInDays(predictions.ovulation, new Date())} days
-                    </p>
-                    <p className="text-yellow-200 text-sm">from today</p>
-                  </div>
-                </div>
-              )}
+      const daysSinceLastPeriod = differenceInDays(
+        date,
+        processedCycleData.lastPeriodStart
+      );
+      const cycleDay =
+        (daysSinceLastPeriod % processedCycleData.cycleLength) + 1;
 
-            {/* Fertile Window */}
-            {predictions.fertileWindow.start &&
-              differenceInDays(predictions.fertileWindow.end, new Date()) >
-                0 && (
-                <div className="p-4 bg-green-500/20 rounded-lg">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Heart className="w-5 h-5 text-green-400" />
-                    <p className="text-white font-medium">Fertile Window</p>
-                  </div>
-                  <p className="text-green-200 text-sm">
-                    {format(predictions.fertileWindow.start, "MMM d")} -{" "}
-                    {format(predictions.fertileWindow.end, "MMM d")}
-                  </p>
-                </div>
-              )}
-          </div>
-        </div>
-      )}
+      return cycleDay >= 1 && cycleDay <= processedCycleData.periodLength;
+    };
 
-      {/* Cycle Patterns */}
-      {lifeStage === "perimenopause" && (
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-          <h3 className="text-xl font-semibold text-white mb-6">
-            Cycle Irregularity Tracking
-          </h3>
+    // Get cycle day for a date
+    const getCycleDayForDate = (date) => {
+      if (!processedCycleData.lastPeriodStart || !isValid(date)) return null;
 
-          {!hasMinimumData ? (
-            <EmptyState minDataRequired={true} />
-          ) : (
-            <>
-              <div className="bg-yellow-500/20 rounded-lg p-4 mb-6">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-yellow-100 font-medium mb-1">
-                      Tracking Irregular Cycles
-                    </p>
-                    <p className="text-yellow-200 text-sm">
-                      During perimenopause, cycles may vary significantly. Your
-                      average cycle is {processedCycleData.averageCycleLength}{" "}
-                      days with a variation of ±
-                      {processedCycleData.cycleVariability} days.
-                    </p>
-                  </div>
-                </div>
-              </div>
+      const daysSinceLastPeriod = differenceInDays(
+        date,
+        processedCycleData.lastPeriodStart
+      );
+      if (daysSinceLastPeriod < 0) return null;
 
-              {/* Cycle Length Chart */}
-              {cycleChartData.length > 0 && (
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={cycleChartData}>
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="rgba(255,255,255,0.1)"
-                      />
-                      <XAxis dataKey="name" stroke="#E9D5FF" />
-                      <YAxis stroke="#E9D5FF" />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "rgba(17, 24, 39, 0.9)",
-                          border: "1px solid rgba(139, 92, 246, 0.3)",
-                          borderRadius: "8px",
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="length"
-                        stroke="#F472B6"
-                        strokeWidth={2}
-                        dot={{ fill: "#F472B6", r: 6 }}
-                        name="Cycle Length"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="average"
-                        stroke="#8B5CF6"
-                        strokeWidth={2}
-                        strokeDasharray="5 5"
-                        dot={false}
-                        name="Average"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
+      return (daysSinceLastPeriod % processedCycleData.cycleLength) + 1;
+    };
 
-      {/* Cycle History */}
-      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-        <h3 className="text-xl font-semibold text-white mb-6">Recent Cycles</h3>
+    return (
+      <div className="space-y-6">
+        {/* Current Cycle Overview - Already complete above */}
 
-        {!hasMinimumData ? (
-          <div className="text-center py-8">
-            <Clock className="w-12 h-12 text-purple-300 mx-auto mb-3" />
-            <p className="text-purple-200">
-              Your cycle history will appear here after tracking 2 or more
-              cycles.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {processedCycleData.cycles.slice(0, 6).map((cycle, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-4 bg-white/5 rounded-lg"
-              >
-                <div>
-                  <p className="text-white font-medium">
-                    {format(cycle.startDate, "MMM d")} -{" "}
-                    {format(cycle.endDate, "MMM d, yyyy")}
-                  </p>
-                  <p className="text-purple-200 text-sm">
-                    {cycle.periodLength} day period
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-white font-bold">{cycle.length} days</p>
-                  <p
-                    className={`text-sm ${
-                      Math.abs(
-                        cycle.length - processedCycleData.averageCycleLength
-                      ) <= 3
-                        ? "text-green-400"
-                        : "text-yellow-400"
-                    }`}
-                  >
-                    {cycle.length > processedCycleData.averageCycleLength
-                      ? "+"
-                      : ""}
-                    {cycle.length - processedCycleData.averageCycleLength} from
-                    avg
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+        {/* Predictions & Next Events - Already complete above */}
 
-      {/* Calendar View */}
-      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-semibold text-white">Calendar View</h3>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSelectedDate(subDays(selectedDate, 30))}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5 text-white" />
-            </button>
-            <span className="text-white font-medium px-4">
-              {format(selectedDate, "MMMM yyyy")}
-            </span>
-            <button
-              onClick={() => setSelectedDate(addDays(selectedDate, 30))}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <ChevronRight className="w-5 h-5 text-white" />
-            </button>
-          </div>
-        </div>
-
-        {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-2">
-          {/* Day headers */}
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-            <div
-              key={day}
-              className="text-center text-sm text-purple-300 font-medium py-2"
-            >
-              {day}
-            </div>
-          ))}
-
-          {/* Calendar days */}
-          {eachDayOfInterval({
-            start: startOfMonth(selectedDate),
-            end: endOfMonth(selectedDate),
-          }).map((date, index) => {
-            const isToday = isSameDay(date, new Date());
-
-            // Find if this date has tracked data
-            const dayData = healthData.find((entry) =>
-              isSameDay(new Date(entry.date), date)
-            );
-
-            // Calculate phase for this date if we have period data
-            let phase = null;
-            let dayOfCycle = null;
-
-            if (processedCycleData.lastPeriodStart) {
-              const daysSince = differenceInDays(
-                date,
-                processedCycleData.lastPeriodStart
-              );
-              if (daysSince >= 0) {
-                dayOfCycle = (daysSince % processedCycleData.cycleLength) + 1;
-                phase = getCyclePhase(
-                  dayOfCycle,
-                  processedCycleData.cycleLength
-                );
-              }
-            }
-
-            const isPeriod =
-              dayData?.data?.periodFlow && dayData.data.periodFlow !== "none";
-            const hasSymptoms =
-              dayData?.data &&
-              (dayData.data.cramps > 0 ||
-                dayData.data.headache > 0 ||
-                dayData.data.mood < 3);
-
-            return (
-              <div
-                key={date.toISOString()}
-                className={`
-                  relative p-3 rounded-lg border transition-all cursor-pointer
-                  ${isToday ? "border-white" : "border-white/20"}
-                  ${
-                    isPeriod
-                      ? "bg-red-500/20"
-                      : phase === "ovulation"
-                      ? "bg-yellow-500/10"
-                      : phase === "fertile"
-                      ? "bg-green-500/10"
-                      : "bg-white/5"
-                  }
-                  hover:bg-white/10
-                `}
-              >
-                <div className="text-center">
-                  <p
-                    className={`text-sm font-medium ${
-                      isToday ? "text-white" : "text-purple-200"
-                    }`}
-                  >
-                    {format(date, "d")}
-                  </p>
-                  {dayOfCycle && (
-                    <p className="text-xs text-purple-300 mt-1">
-                      CD{dayOfCycle}
-                    </p>
-                  )}
-                </div>
-
-                {/* Data indicators */}
-                <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 flex gap-1">
-                  {isPeriod && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                  )}
-                  {hasSymptoms && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
-                  )}
-                  {dayData && !isPeriod && !hasSymptoms && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Calendar Legend */}
-        <div className="flex items-center gap-4 mt-4 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-red-400" />
-            <span className="text-purple-200">Period</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-yellow-400" />
-            <span className="text-purple-200">Symptoms</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-400" />
-            <span className="text-purple-200">Data logged</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Phase Information Modal */}
-      {showPhaseInfo && selectedPhase && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-purple-800 to-pink-800 rounded-xl p-6 max-w-lg w-full">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-white">
-                {phaseInfo[selectedPhase].name}
+        {/* Cycle Patterns - Perimenopause Special Section */}
+        {lifeStage === "perimenopause" && hasMinimumData && patternData && (
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-white">
+                Perimenopause Patterns
               </h3>
+              <AlertCircle className="w-5 h-5 text-amber-400" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-amber-500/20 rounded-lg p-4">
+                <p className="text-amber-200 text-sm mb-1">Irregularity Rate</p>
+                <p className="text-2xl font-bold text-white">
+                  {patternData.irregularityRate}%
+                </p>
+              </div>
+              <div className="bg-purple-500/20 rounded-lg p-4">
+                <p className="text-purple-200 text-sm mb-1">Cycle Range</p>
+                <p className="text-2xl font-bold text-white">
+                  {patternData.shortestCycle}-{patternData.longestCycle} days
+                </p>
+              </div>
+            </div>
+
+            {patternData.missedPeriods > 0 && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                <p className="text-red-200 text-sm">
+                  <Info className="w-4 h-4 inline mr-1" />
+                  You've had {patternData.missedPeriods} cycle(s) longer than 60
+                  days. This is common during perimenopause.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Cycle History */}
+        {hasMinimumData && cycleChartData.length > 0 && (
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+            <h3 className="text-xl font-semibold text-white mb-6">
+              Cycle History
+            </h3>
+
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={cycleChartData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(255,255,255,0.1)"
+                  />
+                  <XAxis
+                    dataKey="name"
+                    stroke="rgba(255,255,255,0.5)"
+                    tick={{ fill: "rgba(255,255,255,0.7)" }}
+                  />
+                  <YAxis
+                    stroke="rgba(255,255,255,0.5)"
+                    tick={{ fill: "rgba(255,255,255,0.7)" }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "rgba(0,0,0,0.8)",
+                      border: "1px solid rgba(255,255,255,0.2)",
+                      borderRadius: "8px",
+                    }}
+                    labelStyle={{ color: "#fff" }}
+                  />
+                  <Bar
+                    dataKey="length"
+                    fill={colors.primary}
+                    radius={[8, 8, 0, 0]}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="average"
+                    stroke={colors.accent}
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {processedCycleData.cycleVariability && (
+              <div className="mt-4 text-center">
+                <p className="text-purple-200 text-sm">
+                  Average variability: ±{processedCycleData.cycleVariability}{" "}
+                  days
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Calendar View */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">Cycle Calendar</h3>
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => setShowPhaseInfo(false)}
+                onClick={() => setSelectedDate(subDays(selectedDate, 30))}
                 className="p-2 hover:bg-white/10 rounded-lg transition-colors"
               >
-                <X className="w-5 h-5 text-white" />
+                <ChevronLeft className="w-4 h-4 text-white" />
+              </button>
+              <p className="text-white font-medium">
+                {format(selectedDate, "MMMM yyyy")}
+              </p>
+              <button
+                onClick={() => setSelectedDate(addDays(selectedDate, 30))}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <ChevronRight className="w-4 h-4 text-white" />
               </button>
             </div>
+          </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                {(() => {
-                  const PhaseIcon = phaseInfo[selectedPhase].icon;
-                  return <PhaseIcon className="w-8 h-8 text-white" />;
-                })()}
+          <div className="grid grid-cols-7 gap-1">
+            {/* Day headers */}
+            {["S", "M", "T", "W", "T", "F", "S"].map((day) => (
+              <div
+                key={day}
+                className="text-center text-xs text-purple-300 font-medium py-2"
+              >
+                {day}
+              </div>
+            ))}
+
+            {/* Calendar days */}
+            {calendarDays.map((day) => {
+              const cycleDay = getCycleDayForDate(day);
+              const isPeriod = isInPeriod(day);
+              const isToday = isSameDay(day, new Date());
+              const phase = cycleDay
+                ? getCyclePhase(cycleDay, processedCycleData.cycleLength)
+                : null;
+
+              return (
                 <div
-                  className={`w-4 h-4 rounded-full ${phaseInfo[selectedPhase].color}`}
-                />
+                  key={day.toISOString()}
+                  className={`
+                  relative aspect-square p-1 rounded-lg text-center
+                  ${isToday ? "ring-2 ring-white" : ""}
+                  ${isPeriod ? "bg-red-500/30" : ""}
+                  ${phase === "ovulation" ? "bg-yellow-500/20" : ""}
+                  ${phase === "follicular" ? "bg-pink-500/10" : ""}
+                  ${phase === "luteal" ? "bg-purple-500/10" : ""}
+                `}
+                >
+                  <p className="text-sm text-white">{format(day, "d")}</p>
+                  {cycleDay && (
+                    <p className="text-xs text-purple-200 mt-0.5">{cycleDay}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Calendar Legend */}
+          <div className="mt-4 flex items-center justify-center gap-4 text-sm">
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-red-500/30 rounded" />
+              <span className="text-purple-200">Period</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-yellow-500/20 rounded" />
+              <span className="text-purple-200">Ovulation</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Phase Information Modal */}
+        {showPhaseInfo && selectedPhase && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-purple-800 to-pink-800 backdrop-blur-md rounded-xl p-6 max-w-lg w-full border border-white/20">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  {React.createElement(phaseInfo[selectedPhase].icon, {
+                    className: "w-8 h-8 text-white",
+                  })}
+                  <h3 className="text-2xl font-bold text-white">
+                    {phaseInfo[selectedPhase].name}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowPhaseInfo(false)}
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
               </div>
 
-              <p className="text-purple-100">
+              <p className="text-purple-100 mb-4">
                 {phaseInfo[selectedPhase].description}
               </p>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white/10 rounded-lg p-3">
-                  <p className="text-purple-300 text-sm mb-1">Duration</p>
-                  <p className="text-white font-medium">
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-purple-300 mb-1">
+                    Duration
+                  </p>
+                  <p className="text-white">
                     {phaseInfo[selectedPhase].duration}
                   </p>
                 </div>
-                <div className="bg-white/10 rounded-lg p-3">
-                  <p className="text-purple-300 text-sm mb-1">Hormones</p>
-                  <p className="text-white font-medium text-sm">
+
+                <div>
+                  <p className="text-sm font-medium text-purple-300 mb-1">
+                    Hormones
+                  </p>
+                  <p className="text-white">
                     {phaseInfo[selectedPhase].hormones}
                   </p>
                 </div>
-              </div>
 
-              <div>
-                <h4 className="text-white font-medium mb-2">Common Symptoms</h4>
-                <div className="flex flex-wrap gap-2">
-                  {phaseInfo[selectedPhase].symptoms.map((symptom) => (
-                    <span
-                      key={symptom}
-                      className="px-3 py-1 bg-white/10 rounded-full text-sm text-purple-100"
-                    >
-                      {symptom}
-                    </span>
-                  ))}
+                <div>
+                  <p className="text-sm font-medium text-purple-300 mb-2">
+                    Common Symptoms
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {phaseInfo[selectedPhase].symptoms.map((symptom) => (
+                      <span
+                        key={symptom}
+                        className="px-3 py-1 bg-white/10 rounded-full text-sm text-purple-100"
+                      >
+                        {symptom}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <h4 className="text-white font-medium mb-2">Tips</h4>
-                <div className="space-y-2">
-                  {phaseInfo[selectedPhase].tips.map((tip, index) => (
-                    <div key={index} className="flex items-start gap-2">
-                      <Sparkles className="w-4 h-4 text-pink-400 flex-shrink-0 mt-0.5" />
-                      <p className="text-purple-200 text-sm">{tip}</p>
-                    </div>
-                  ))}
+                <div>
+                  <p className="text-sm font-medium text-purple-300 mb-2">
+                    Tips & Recommendations
+                  </p>
+                  <ul className="space-y-2">
+                    {phaseInfo[selectedPhase].tips.map((tip, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <Sparkles className="w-4 h-4 text-purple-300 mt-0.5 flex-shrink-0" />
+                        <span className="text-purple-100 text-sm">{tip}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Edit Cycle Length Modal */}
-      {editingCycleLength && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-purple-800 to-pink-800 rounded-xl p-6 max-w-md w-full">
-            <h3 className="text-xl font-bold text-white mb-4">
-              Customize Cycle Length
-            </h3>
+        {/* Edit Cycle Length Modal */}
+        {editingCycleLength && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-purple-800 to-pink-800 backdrop-blur-md rounded-xl p-6 max-w-sm w-full border border-white/20">
+              <h3 className="text-xl font-bold text-white mb-4">
+                Customize Cycle Length
+              </h3>
 
-            <div className="space-y-4">
-              <div>
-                <label className="text-purple-200 text-sm mb-2 block">
-                  Average Cycle Length (days)
+              <p className="text-purple-100 mb-4">
+                Set your average cycle length. The typical range is 21-35 days.
+              </p>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-purple-200 mb-2">
+                  Cycle Length (days)
                 </label>
                 <input
                   type="number"
                   min="21"
-                  max="40"
+                  max="90"
                   value={customCycleLength}
                   onChange={(e) =>
-                    setCustomCycleLength(parseInt(e.target.value))
+                    setCustomCycleLength(parseInt(e.target.value) || 28)
                   }
-                  className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-400"
                 />
-              </div>
-
-              <div className="bg-white/10 rounded-lg p-3">
-                <p className="text-xs text-purple-200">
-                  <Info className="w-3 h-3 inline mr-1" />
-                  Most cycles range from 21-35 days. Your tracking will adjust
-                  predictions based on your actual cycle data.
-                </p>
               </div>
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => handleCycleLengthUpdate(customCycleLength)}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
-                >
-                  Save Changes
-                </button>
-                <button
                   onClick={() => setEditingCycleLength(false)}
-                  className="flex-1 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors"
+                  className="flex-1 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
                 >
                   Cancel
+                </button>
+                <button
+                  onClick={() => handleCycleLengthUpdate(customCycleLength)}
+                  className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  <Check className="w-4 h-4" />
+                  Save
                 </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
+        )}
+      </div>
+    );
+  });
 };
-
 export default CycleIntelligenceTab;
