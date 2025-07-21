@@ -33,6 +33,7 @@ import LifeStageNavigatorTab from "../components/womenshealth/tabs/LifeStageNavi
 import WellnessCorrelationsTab from "../components/womenshealth/tabs/WellnessCorrelationsTab";
 import PredictiveInsightsTab from "../components/womenshealth/tabs/PredictiveInsightsTab";
 import HealthLibraryTab from "../components/womenshealth/tabs/HealthLibraryTab";
+import WomensHealthExperimentsTab from "../components/womenshealth/tabs/WomensHealthExperimentsTab";
 
 // Import entry modals
 import MenstrualEntryModal from "../components/womenshealth/MenstrualEntryModal";
@@ -124,6 +125,13 @@ const PremiumWomensHealth = () => {
       label: "Predictive Insights",
       icon: Brain,
       component: PredictiveInsightsTab,
+      availableIn: ["menstrual", "perimenopause", "menopause"],
+    },
+    {
+      id: "experiments",
+      label: "Health Experiments",
+      icon: Beaker,
+      component: WomensHealthExperimentsTab,
       availableIn: ["menstrual", "perimenopause", "menopause"],
     },
     {
@@ -436,12 +444,12 @@ const PremiumWomensHealth = () => {
                   encryption standards.
                 </p>
                 <p>
-                  Your sensitive health information is never visible to anyone
-                  else, including us.
+                  Your information remains fully encrypted on our server. It is
+                  never visible to anyone else, including us.
                 </p>
                 <p>
-                  AI insights are generated from encrypted patterns without
-                  exposing your actual data.
+                  AI insights are generated from anonymized data without
+                  exposing personally identifying information.
                 </p>
               </div>
               <button
@@ -520,8 +528,9 @@ const PremiumWomensHealth = () => {
               colors={colors}
               user={user}
               lifeStage={lifeStage}
+              analytics={healthData} // Map healthData to analytics
+              cycleInfo={cycleData} // Map cycleData to cycleInfo
               healthData={healthData}
-              cycleData={cycleData}
               symptomData={symptomData}
               insights={insights}
               profile={profile}

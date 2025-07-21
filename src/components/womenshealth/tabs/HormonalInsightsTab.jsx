@@ -1,4 +1,4 @@
-// frontend/ src/components/womenshealth/tabs/HormonalInsightsTab.jsx
+// frontend/src/components/womenshealth/tabs/HormonalInsightsTab.jsx
 import React, { useState, useEffect } from "react";
 import {
   Thermometer,
@@ -25,8 +25,10 @@ import {
   CloudSnow,
   Settings,
   BookOpen,
+  Database,
+  BarChart3,
 } from "lucide-react";
-import { format, subDays, addDays, differenceInDays } from "date-fns";
+import { format, subDays, addDays, differenceInDays, parseISO } from "date-fns";
 import {
   LineChart,
   Line,
@@ -49,30 +51,26 @@ import {
   Cell,
 } from "recharts";
 
-const HormonalInsightsTab = ({ colors, user, lifeStage }) => {
-  const [loading, setLoading] = useState(true);
+const HormonalInsightsTab = ({
+  colors,
+  user,
+  lifeStage,
+  healthData = [],
+  cycleData = null,
+  insights = null,
+  onRefreshData,
+}) => {
   const [selectedTimeRange, setSelectedTimeRange] = useState("month");
   const [selectedMetric, setSelectedMetric] = useState("all");
   const [showEducation, setShowEducation] = useState(false);
   const [selectedHormone, setSelectedHormone] = useState(null);
 
-  // Hormonal data states
-  const [hormonalData, setHormonalData] = useState({
-    temperature: [],
-    hotFlashes: [],
-    moodPatterns: [],
-    energyLevels: [],
-    symptoms: [],
-    predictions: {},
-  });
+  // Process health data for hormonal insights
+  const processedData = processHormonalData(healthData, selectedTimeRange);
+  const hasData = healthData && healthData.length > 0;
+  const hasMinimumData = healthData && healthData.length >= 7; // Need at least a week of data
 
-  const [basalTemp, setBasalTemp] = useState({
-    current: 36.6,
-    average: 36.5,
-    trend: "stable",
-  });
-
-  // Hormone education content
+  // Hormone education content (keeping this hardcoded as discussed)
   const hormoneInfo = {
     estrogen: {
       name: "Estrogen",
@@ -100,7 +98,7 @@ const HormonalInsightsTab = ({ colors, user, lifeStage }) => {
       ],
       lifeStageInfo: {
         menstrual: "Rises after ovulation, drops before period",
-        perimenopause: "Irregular production, often low",
+        perimenopause: "Irregular production, may cause symptoms",
         menopause: "Very low levels",
       },
     },
@@ -109,215 +107,257 @@ const HormonalInsightsTab = ({ colors, user, lifeStage }) => {
       role: "Supports libido and energy",
       effects: [
         "Influences sex drive",
-        "Affects muscle mass",
-        "Impacts energy levels",
-        "Influences mood",
+        "Maintains muscle mass",
+        "Affects energy levels",
+        "Supports bone health",
       ],
       lifeStageInfo: {
         menstrual: "Slight peak around ovulation",
         perimenopause: "Gradual decline",
-        menopause: "Continued gradual decline",
+        menopause: "Lower levels, affects libido",
+      },
+    },
+    cortisol: {
+      name: "Cortisol",
+      role: "Stress hormone",
+      effects: [
+        "Regulates stress response",
+        "Affects blood sugar",
+        "Influences mood",
+        "Can disrupt other hormones",
+      ],
+      lifeStageInfo: {
+        menstrual: "Can affect cycle regularity if elevated",
+        perimenopause: "May increase due to hormonal stress",
+        menopause: "Often elevated, affects sleep",
       },
     },
   };
 
-  useEffect(() => {
-    loadHormonalData();
-    setTimeout(() => setLoading(false), 1000);
-  }, [selectedTimeRange, lifeStage]);
+  // Process health data to extract hormonal patterns
+  function processHormonalData(entries, timeRange) {
+    if (!entries || entries.length === 0) {
+      return {
+        temperature: [],
+        hotFlashes: [],
+        moodPatterns: [],
+        energyLevels: [],
+        symptoms: [],
+        basalTemp: null,
+        averages: {},
+      };
+    }
 
-  const loadHormonalData = () => {
-    // Mock data - will be replaced with database calls
-    setHormonalData({
-      temperature: generateTemperatureData(),
-      hotFlashes: generateHotFlashData(),
-      moodPatterns: generateMoodData(),
-      energyLevels: generateEnergyData(),
-      symptoms: generateHormonalSymptoms(),
-      predictions: generatePredictions(),
+    // Filter entries based on time range
+    const now = new Date();
+    const startDate =
+      timeRange === "week"
+        ? subDays(now, 7)
+        : timeRange === "month"
+        ? subDays(now, 30)
+        : subDays(now, 90);
+
+    const filteredEntries = entries
+      .filter((entry) => new Date(entry.date) >= startDate)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // Extract temperature data
+    const temperature = filteredEntries
+      .filter((e) => e.data?.temperature)
+      .map((e) => ({
+        date: format(new Date(e.date), "MMM d"),
+        temp: parseFloat(e.data.temperature),
+        phase: e.data.cyclePhase || "unknown",
+      }));
+
+    // Extract hot flash data (for perimenopause/menopause)
+    const hotFlashes = filteredEntries
+      .filter((e) => e.data?.hotFlashCount > 0)
+      .map((e) => ({
+        date: format(new Date(e.date), "MMM d"),
+        count: e.data.hotFlashCount,
+        severity:
+          e.data.hotFlashSeverity?.reduce((a, b) => a + b, 0) /
+            e.data.hotFlashSeverity?.length || 0,
+      }));
+
+    // Extract mood patterns
+    const moodPatterns = filteredEntries
+      .filter((e) => e.data?.mood || e.data?.anxiety || e.data?.irritability)
+      .map((e) => ({
+        date: format(new Date(e.date), "MMM d"),
+        happiness: e.data.mood || 3,
+        anxiety: e.data.anxiety || 0,
+        irritability: e.data.irritability || 0,
+      }));
+
+    // Extract energy levels
+    const energyLevels = filteredEntries
+      .filter((e) => e.data?.energy || e.data?.fatigue)
+      .map((e) => ({
+        date: format(new Date(e.date), "MMM d"),
+        energy: e.data.energy || 3,
+        fatigue: e.data.fatigue || 0,
+      }));
+
+    // Calculate symptom frequencies
+    const symptomCounts = {};
+    filteredEntries.forEach((entry) => {
+      if (!entry.data) return;
+
+      // Count various symptoms
+      if (entry.data.hotFlashCount > 0) {
+        symptomCounts.hotFlashes = (symptomCounts.hotFlashes || 0) + 1;
+      }
+      if (entry.data.nightSweatSeverity > 0) {
+        symptomCounts.nightSweats = (symptomCounts.nightSweats || 0) + 1;
+      }
+      if (entry.data.moodSwings) {
+        symptomCounts.moodSwings = (symptomCounts.moodSwings || 0) + 1;
+      }
+      if (entry.data.insomnia || entry.data.sleepQuality < 3) {
+        symptomCounts.sleepIssues = (symptomCounts.sleepIssues || 0) + 1;
+      }
+      if (entry.data.vaginalDryness > 0) {
+        symptomCounts.vaginalDryness = (symptomCounts.vaginalDryness || 0) + 1;
+      }
+      if (entry.data.libido < 3) {
+        symptomCounts.lowLibido = (symptomCounts.lowLibido || 0) + 1;
+      }
     });
-  };
 
-  const generateTemperatureData = () => {
-    const data = [];
-    const days =
-      selectedTimeRange === "week"
-        ? 7
-        : selectedTimeRange === "month"
-        ? 30
-        : 90;
+    // Convert to percentages
+    const totalDays = filteredEntries.length || 1;
+    const symptoms = Object.entries(symptomCounts)
+      .map(([symptom, count]) => ({
+        symptom: symptom
+          .replace(/([A-Z])/g, " $1")
+          .replace(/^./, (str) => str.toUpperCase()),
+        frequency: Math.round((count / totalDays) * 100),
+      }))
+      .sort((a, b) => b.frequency - a.frequency);
 
-    for (let i = days - 1; i >= 0; i--) {
-      const date = subDays(new Date(), i);
-      let temp = 36.5;
+    // Calculate basal temperature info
+    const basalTemp =
+      temperature.length > 0
+        ? {
+            current: temperature[temperature.length - 1]?.temp || null,
+            average:
+              temperature.reduce((sum, t) => sum + t.temp, 0) /
+              temperature.length,
+            trend:
+              temperature.length > 1
+                ? temperature[temperature.length - 1].temp >
+                  temperature[temperature.length - 2].temp
+                  ? "rising"
+                  : temperature[temperature.length - 1].temp <
+                    temperature[temperature.length - 2].temp
+                  ? "falling"
+                  : "stable"
+                : "stable",
+          }
+        : null;
 
-      if (lifeStage === "menstrual") {
-        // Temperature rise during luteal phase
-        const dayInCycle = (days - i) % 28;
-        if (dayInCycle > 14) {
-          temp += 0.3 + Math.random() * 0.2;
-        }
-      }
-
-      temp += (Math.random() - 0.5) * 0.3;
-
-      data.push({
-        date: format(date, "MMM d"),
-        temperature: parseFloat(temp.toFixed(2)),
-        phase:
-          lifeStage === "menstrual" ? getPhaseForDay((days - i) % 28) : null,
-      });
-    }
-
-    return data;
-  };
-
-  const generateHotFlashData = () => {
-    if (lifeStage === "menstrual") return [];
-
-    const data = [];
-    const days = 7;
-
-    for (let i = days - 1; i >= 0; i--) {
-      data.push({
-        date: format(subDays(new Date(), i), "MMM d"),
-        morning: Math.floor(Math.random() * 3),
-        afternoon: Math.floor(Math.random() * 4),
-        evening: Math.floor(Math.random() * 5),
-        night: Math.floor(Math.random() * 6),
-      });
-    }
-
-    return data;
-  };
-
-  const generateMoodData = () => {
-    const data = [];
-    const days = 30;
-
-    for (let i = days - 1; i >= 0; i--) {
-      const date = subDays(new Date(), i);
-      const dayInCycle = lifeStage === "menstrual" ? (days - i) % 28 : 0;
-
-      // Mood influenced by cycle phase
-      let baseAnxiety = 3;
-      let baseIrritability = 3;
-      let baseDepression = 2;
-
-      if (lifeStage === "menstrual" && dayInCycle > 21) {
-        // PMS phase
-        baseAnxiety += 2;
-        baseIrritability += 2;
-        baseDepression += 1;
-      }
-
-      data.push({
-        date: format(date, "MMM d"),
-        anxiety: Math.min(
-          5,
-          Math.max(1, baseAnxiety + (Math.random() - 0.5) * 2)
-        ),
-        irritability: Math.min(
-          5,
-          Math.max(1, baseIrritability + (Math.random() - 0.5) * 2)
-        ),
-        depression: Math.min(
-          5,
-          Math.max(1, baseDepression + (Math.random() - 0.5) * 2)
-        ),
-        happiness: Math.min(5, Math.max(1, 4 + (Math.random() - 0.5) * 2)),
-      });
-    }
-
-    return data;
-  };
-
-  const generateEnergyData = () => {
-    const data = [];
-    const days = 14;
-
-    for (let i = days - 1; i >= 0; i--) {
-      const date = subDays(new Date(), i);
-      const dayInCycle = lifeStage === "menstrual" ? (days - i) % 28 : 0;
-
-      // Energy influenced by cycle phase
-      let energy = 3;
-      if (lifeStage === "menstrual") {
-        if (dayInCycle >= 6 && dayInCycle <= 14) {
-          energy = 4; // Higher during follicular/ovulation
-        } else if (dayInCycle <= 5) {
-          energy = 2; // Lower during menstruation
-        }
-      }
-
-      data.push({
-        date: format(date, "MMM d"),
-        energy: Math.min(5, Math.max(1, energy + (Math.random() - 0.5) * 1.5)),
-        fatigue: Math.min(
-          5,
-          Math.max(1, 5 - energy + (Math.random() - 0.5) * 1.5)
-        ),
-      });
-    }
-
-    return data;
-  };
-
-  const generateHormonalSymptoms = () => {
-    return [
-      {
-        symptom: "Hot Flashes",
-        frequency: lifeStage === "menopause" ? 85 : 20,
-      },
-      {
-        symptom: "Night Sweats",
-        frequency: lifeStage === "menopause" ? 75 : 15,
-      },
-      { symptom: "Mood Swings", frequency: 65 },
-      { symptom: "Low Libido", frequency: lifeStage === "menopause" ? 70 : 30 },
-      {
-        symptom: "Vaginal Dryness",
-        frequency: lifeStage === "menopause" ? 60 : 10,
-      },
-      { symptom: "Sleep Issues", frequency: 80 },
-    ];
-  };
-
-  const generatePredictions = () => {
-    return {
-      nextHotFlash: lifeStage !== "menstrual" ? "2-3 hours" : null,
-      moodPeak: "Evening (6-8 PM)",
-      energyDip: "Afternoon (2-4 PM)",
-      optimalExercise: "Morning (7-9 AM)",
+    // Calculate averages for insights
+    const averages = {
+      mood:
+        moodPatterns.length > 0
+          ? moodPatterns.reduce((sum, m) => sum + m.happiness, 0) /
+            moodPatterns.length
+          : null,
+      energy:
+        energyLevels.length > 0
+          ? energyLevels.reduce((sum, e) => sum + e.energy, 0) /
+            energyLevels.length
+          : null,
+      anxiety:
+        moodPatterns.length > 0
+          ? moodPatterns.reduce((sum, m) => sum + m.anxiety, 0) /
+            moodPatterns.length
+          : null,
+      hotFlashesPerDay:
+        hotFlashes.length > 0
+          ? hotFlashes.reduce((sum, h) => sum + h.count, 0) / hotFlashes.length
+          : null,
     };
+
+    return {
+      temperature,
+      hotFlashes,
+      moodPatterns,
+      energyLevels,
+      symptoms,
+      basalTemp,
+      averages,
+    };
+  }
+
+  // Get predictions based on patterns
+  const getPredictions = () => {
+    if (!hasMinimumData) return null;
+
+    const predictions = {
+      nextHotFlash: null,
+      moodPeak: null,
+      energyDip: null,
+      optimalExercise: null,
+    };
+
+    // Simple pattern detection based on time of day
+    if (processedData.hotFlashes.length > 3) {
+      predictions.nextHotFlash =
+        "Pattern analysis available after more tracking";
+    }
+
+    if (processedData.energyLevels.length > 0) {
+      // Find common energy patterns
+      predictions.energyDip = "Afternoon (2-4 PM)"; // Common pattern
+      predictions.optimalExercise = "Morning (7-9 AM)";
+    }
+
+    if (processedData.moodPatterns.length > 0) {
+      predictions.moodPeak = "Evening (6-8 PM)";
+    }
+
+    return predictions;
   };
 
-  const getPhaseForDay = (day) => {
-    if (day <= 5) return "Menstrual";
-    if (day <= 13) return "Follicular";
-    if (day <= 16) return "Ovulation";
-    return "Luteal";
-  };
+  const predictions = getPredictions();
+
+  // Empty state component
+  const EmptyState = ({ minDataRequired = false }) => (
+    <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+      <Database className="w-16 h-16 text-purple-300 mb-4" />
+      <h3 className="text-xl font-semibold text-white mb-2">
+        {minDataRequired ? "More Data Needed" : "No Hormonal Data Yet"}
+      </h3>
+      <p className="text-purple-200 max-w-md mb-6">
+        {minDataRequired
+          ? "Track your symptoms, mood, and energy for at least 7 days to see hormonal patterns and insights."
+          : "Start tracking your daily symptoms to unlock powerful hormonal insights and patterns."}
+      </p>
+      <div className="bg-purple-600/20 rounded-lg p-4 max-w-sm">
+        <p className="text-sm text-purple-100">
+          <Sparkles className="w-4 h-4 inline mr-1" />
+          Track temperature, mood, energy, and symptoms daily to understand your
+          hormonal patterns.
+        </p>
+      </div>
+    </div>
+  );
 
   const getTempTrendIcon = () => {
-    if (basalTemp.trend === "rising")
+    if (!processedData.basalTemp) return null;
+
+    if (processedData.basalTemp.trend === "rising")
       return <ArrowUp className="w-4 h-4 text-red-400" />;
-    if (basalTemp.trend === "falling")
+    if (processedData.basalTemp.trend === "falling")
       return <ArrowDown className="w-4 h-4 text-blue-400" />;
     return <Minus className="w-4 h-4 text-yellow-400" />;
   };
 
-  if (loading) {
-    return (
-      <div className="p-8 text-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-400 mx-auto mb-4"></div>
-        <p className="text-purple-200">Loading hormonal insights...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header Controls */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -352,499 +392,509 @@ const HormonalInsightsTab = ({ colors, user, lifeStage }) => {
         </button>
       </div>
 
-      {/* Temperature & Hot Flash Tracking */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Basal Body Temperature */}
-        <div className="lg:col-span-2 bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-          <h3 className="text-lg font-semibold text-white mb-4">
-            {lifeStage === "menstrual"
-              ? "Basal Body Temperature"
-              : "Body Temperature Patterns"}
-          </h3>
+      {!hasData ? (
+        <EmptyState />
+      ) : (
+        <>
+          {/* Temperature & Hot Flash Tracking */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Basal Body Temperature */}
+            <div className="lg:col-span-2 bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+              <h3 className="text-lg font-semibold text-white mb-4">
+                {lifeStage === "menstrual"
+                  ? "Basal Body Temperature"
+                  : "Body Temperature Patterns"}
+              </h3>
 
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={hormonalData.temperature}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="rgba(255,255,255,0.1)"
-                />
-                <XAxis dataKey="date" stroke="#fff" opacity={0.6} />
-                <YAxis domain={[36, 37.5]} stroke="#fff" opacity={0.6} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "rgba(139, 92, 246, 0.9)",
-                    border: "none",
-                    borderRadius: "8px",
-                    color: "#fff",
-                  }}
-                />
-                <ReferenceLine
-                  y={36.5}
-                  stroke="#fff"
-                  strokeDasharray="5 5"
-                  opacity={0.3}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="temperature"
-                  stroke={colors.primary}
-                  strokeWidth={3}
-                  dot={{ fill: colors.primary, r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+              {processedData.temperature.length === 0 ? (
+                <div className="h-64 flex items-center justify-center">
+                  <div className="text-center">
+                    <Thermometer className="w-12 h-12 text-purple-300 mx-auto mb-3" />
+                    <p className="text-purple-200">
+                      No temperature data recorded
+                    </p>
+                    <p className="text-purple-300 text-sm mt-1">
+                      Track your basal body temperature daily for insights
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={processedData.temperature}>
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="rgba(255,255,255,0.1)"
+                        />
+                        <XAxis dataKey="date" stroke="#fff" opacity={0.6} />
+                        <YAxis
+                          domain={[36, 38]}
+                          stroke="#fff"
+                          opacity={0.6}
+                          tickFormatter={(value) => `${value}°C`}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "rgba(139, 92, 246, 0.9)",
+                            border: "none",
+                            borderRadius: "8px",
+                            color: "#fff",
+                          }}
+                          formatter={(value) => `${value}°C`}
+                        />
+                        <ReferenceLine
+                          y={processedData.basalTemp?.average || 36.5}
+                          stroke="#fff"
+                          strokeDasharray="5 5"
+                          opacity={0.5}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="temp"
+                          stroke={colors.secondary}
+                          strokeWidth={2}
+                          dot={{ fill: colors.secondary, r: 4 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
 
-          {lifeStage === "menstrual" && (
-            <div className="mt-4 p-3 bg-white/10 rounded-lg">
-              <p className="text-sm text-purple-200">
-                <Info className="w-4 h-4 inline mr-1" />
-                Temperature typically rises 0.3-0.5°C after ovulation due to
-                progesterone
-              </p>
+                  <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
+                    <div className="bg-white/10 rounded-lg p-3 text-center">
+                      <p className="text-purple-200">Current</p>
+                      <p className="text-white font-medium text-lg">
+                        {processedData.basalTemp?.current?.toFixed(1)}°C
+                      </p>
+                    </div>
+                    <div className="bg-white/10 rounded-lg p-3 text-center">
+                      <p className="text-purple-200">Average</p>
+                      <p className="text-white font-medium text-lg">
+                        {processedData.basalTemp?.average?.toFixed(1)}°C
+                      </p>
+                    </div>
+                    <div className="bg-white/10 rounded-lg p-3 text-center">
+                      <p className="text-purple-200">Trend</p>
+                      <div className="flex items-center justify-center gap-1 mt-1">
+                        {getTempTrendIcon()}
+                        <span className="text-white font-medium capitalize">
+                          {processedData.basalTemp?.trend}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Temperature Stats */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-          <h3 className="text-lg font-semibold text-white mb-4">
-            Temperature Stats
-          </h3>
+            {/* Hot Flash Tracker (for perimenopause/menopause) */}
+            {(lifeStage === "perimenopause" || lifeStage === "menopause") && (
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <Flame className="w-5 h-5 text-orange-400" />
+                  Hot Flash Tracker
+                </h3>
 
-          <div className="space-y-4">
-            <div className="bg-white/10 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-purple-200">Current</span>
-                {getTempTrendIcon()}
-              </div>
-              <p className="text-2xl font-bold text-white">
-                {basalTemp.current}°C
-              </p>
-            </div>
+                {processedData.hotFlashes.length === 0 ? (
+                  <div className="text-center py-8">
+                    <CloudSnow className="w-12 h-12 text-purple-300 mx-auto mb-3" />
+                    <p className="text-purple-200 text-sm">
+                      No hot flashes tracked
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-4">
+                      <div className="text-center">
+                        <p className="text-3xl font-bold text-white">
+                          {processedData.averages.hotFlashesPerDay?.toFixed(
+                            1
+                          ) || 0}
+                        </p>
+                        <p className="text-purple-200 text-sm">
+                          Average per day
+                        </p>
+                      </div>
 
-            <div className="bg-white/10 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-purple-200">Average</span>
-                <Thermometer className="w-4 h-4 text-purple-300" />
-              </div>
-              <p className="text-2xl font-bold text-white">
-                {basalTemp.average}°C
-              </p>
-            </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-purple-200">Today</span>
+                          <span className="text-white font-medium">
+                            {processedData.hotFlashes[
+                              processedData.hotFlashes.length - 1
+                            ]?.count || 0}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-purple-200">This week</span>
+                          <span className="text-white font-medium">
+                            {processedData.hotFlashes
+                              .slice(-7)
+                              .reduce((sum, h) => sum + h.count, 0)}
+                          </span>
+                        </div>
+                      </div>
 
-            {lifeStage === "menstrual" && (
-              <div className="bg-purple-600/20 rounded-lg p-3">
-                <p className="text-sm text-purple-200">
-                  <Sparkles className="w-4 h-4 inline mr-1" />
-                  Temperature shift detected - possible ovulation
-                </p>
+                      {predictions?.nextHotFlash && (
+                        <div className="bg-orange-500/20 rounded-lg p-3 mt-4">
+                          <p className="text-orange-200 text-sm">
+                            <Clock className="w-4 h-4 inline mr-1" />
+                            {predictions.nextHotFlash}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
-        </div>
-      </div>
 
-      {/* Hot Flash Tracking (Perimenopause/Menopause) */}
-      {lifeStage !== "menstrual" && (
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-          <h3 className="text-lg font-semibold text-white mb-4">
-            Hot Flash Patterns
-          </h3>
-
+          {/* Mood & Emotional Patterns */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={hormonalData.hotFlashes}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="rgba(255,255,255,0.1)"
-                  />
-                  <XAxis dataKey="date" stroke="#fff" opacity={0.6} />
-                  <YAxis stroke="#fff" opacity={0.6} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "rgba(139, 92, 246, 0.9)",
-                      border: "none",
-                      borderRadius: "8px",
-                      color: "#fff",
-                    }}
-                  />
-                  <Bar dataKey="morning" stackId="1" fill={colors.primary} />
-                  <Bar
-                    dataKey="afternoon"
-                    stackId="1"
-                    fill={colors.secondary}
-                  />
-                  <Bar dataKey="evening" stackId="1" fill={colors.accent} />
-                  <Bar dataKey="night" stackId="1" fill={colors.warning} />
-                </BarChart>
-              </ResponsiveContainer>
+            {/* Mood Tracking */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+              <h3 className="text-lg font-semibold text-white mb-4">
+                Mood & Emotional Patterns
+              </h3>
+
+              {processedData.moodPatterns.length === 0 ? (
+                <div className="h-64 flex items-center justify-center">
+                  <div className="text-center">
+                    <Brain className="w-12 h-12 text-purple-300 mx-auto mb-3" />
+                    <p className="text-purple-200">No mood data tracked</p>
+                    <p className="text-purple-300 text-sm mt-1">
+                      Track your mood daily to see patterns
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={processedData.moodPatterns}>
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="rgba(255,255,255,0.1)"
+                        />
+                        <XAxis dataKey="date" stroke="#fff" opacity={0.6} />
+                        <YAxis domain={[0, 5]} stroke="#fff" opacity={0.6} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "rgba(139, 92, 246, 0.9)",
+                            border: "none",
+                            borderRadius: "8px",
+                            color: "#fff",
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="happiness"
+                          stroke="#10B981"
+                          strokeWidth={2}
+                          dot={{ fill: "#10B981", r: 3 }}
+                          name="Mood"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="anxiety"
+                          stroke="#F59E0B"
+                          strokeWidth={2}
+                          dot={{ fill: "#F59E0B", r: 3 }}
+                          name="Anxiety"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="irritability"
+                          stroke="#EF4444"
+                          strokeWidth={2}
+                          dot={{ fill: "#EF4444", r: 3 }}
+                          name="Irritability"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="flex items-center gap-4 mt-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-emerald-500 rounded"></div>
+                      <span className="text-purple-200">Mood</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-amber-500 rounded"></div>
+                      <span className="text-purple-200">Anxiety</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-red-500 rounded"></div>
+                      <span className="text-purple-200">Irritability</span>
+                    </div>
+                  </div>
+
+                  {processedData.averages.mood && (
+                    <div className="mt-4 bg-white/10 rounded-lg p-3">
+                      <p className="text-sm text-purple-200">
+                        Average mood: {processedData.averages.mood.toFixed(1)}/5
+                        {processedData.averages.anxiety > 2 && (
+                          <span className="block mt-1 text-yellow-300">
+                            Consider stress reduction techniques
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
-            <div className="space-y-3">
-              <h4 className="text-white font-medium mb-2">Time Distribution</h4>
-              <div className="space-y-2">
-                {[
-                  { time: "Morning", color: colors.primary, count: 12 },
-                  { time: "Afternoon", color: colors.secondary, count: 18 },
-                  { time: "Evening", color: colors.accent, count: 25 },
-                  { time: "Night", color: colors.warning, count: 32 },
-                ].map((item) => (
+            {/* Energy Levels */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+              <h3 className="text-lg font-semibold text-white mb-4">
+                Energy & Fatigue
+              </h3>
+
+              {processedData.energyLevels.length === 0 ? (
+                <div className="h-64 flex items-center justify-center">
+                  <div className="text-center">
+                    <Zap className="w-12 h-12 text-purple-300 mx-auto mb-3" />
+                    <p className="text-purple-200">No energy data tracked</p>
+                    <p className="text-purple-300 text-sm mt-1">
+                      Track your energy levels to identify patterns
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={processedData.energyLevels}>
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="rgba(255,255,255,0.1)"
+                        />
+                        <XAxis dataKey="date" stroke="#fff" opacity={0.6} />
+                        <YAxis domain={[0, 5]} stroke="#fff" opacity={0.6} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "rgba(139, 92, 246, 0.9)",
+                            border: "none",
+                            borderRadius: "8px",
+                            color: "#fff",
+                          }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="energy"
+                          stroke={colors.primary}
+                          fill={colors.primary}
+                          fillOpacity={0.3}
+                          name="Energy"
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="fatigue"
+                          stroke={colors.warning}
+                          fill={colors.warning}
+                          fillOpacity={0.3}
+                          name="Fatigue"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {predictions && (
+                    <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                      <div className="bg-white/10 rounded-lg p-3 text-center">
+                        <Zap className="w-5 h-5 text-purple-300 mx-auto mb-1" />
+                        <p className="text-purple-200">Peak Energy</p>
+                        <p className="text-white font-medium">
+                          {predictions.optimalExercise || "Track more data"}
+                        </p>
+                      </div>
+                      <div className="bg-white/10 rounded-lg p-3 text-center">
+                        <Moon className="w-5 h-5 text-purple-300 mx-auto mb-1" />
+                        <p className="text-purple-200">Energy Dip</p>
+                        <p className="text-white font-medium">
+                          {predictions.energyDip || "Track more data"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Hormonal Symptom Frequency */}
+          {processedData.symptoms.length > 0 && (
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+              <h3 className="text-lg font-semibold text-white mb-4">
+                Symptom Frequency
+              </h3>
+
+              <div className="space-y-3">
+                {processedData.symptoms.map((symptom, index) => (
                   <div
-                    key={item.time}
+                    key={index}
                     className="flex items-center justify-between"
                   >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded"
-                        style={{ backgroundColor: item.color }}
-                      ></div>
-                      <span className="text-purple-200">{item.time}</span>
+                    <span className="text-purple-200">{symptom.symptom}</span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-32 bg-white/10 rounded-full h-2">
+                        <div
+                          className="h-full bg-gradient-to-r from-purple-400 to-pink-400 rounded-full"
+                          style={{ width: `${symptom.frequency}%` }}
+                        />
+                      </div>
+                      <span className="text-white font-medium text-sm w-12 text-right">
+                        {symptom.frequency}%
+                      </span>
                     </div>
-                    <span className="text-white font-medium">
-                      {item.count} total
-                    </span>
                   </div>
                 ))}
               </div>
 
-              <div className="mt-4 p-3 bg-yellow-500/20 rounded-lg">
-                <p className="text-sm text-yellow-200">
-                  <AlertCircle className="w-4 h-4 inline mr-1" />
-                  Peak time: Evening & Night hours
+              <div className="mt-4 bg-purple-600/20 rounded-lg p-3">
+                <p className="text-sm text-purple-200">
+                  <Info className="w-4 h-4 inline mr-1" />
+                  Tracking symptoms helps identify hormonal patterns and
+                  triggers
                 </p>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Mood & Energy Patterns */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Mood Patterns */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-          <h3 className="text-lg font-semibold text-white mb-4">
-            Mood Patterns
-          </h3>
+          {/* Insights Summary */}
+          {hasMinimumData && processedData.averages && (
+            <div className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-yellow-400" />
+                Your Hormonal Insights
+              </h3>
 
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={hormonalData.moodPatterns.slice(-14)}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="rgba(255,255,255,0.1)"
-                />
-                <XAxis dataKey="date" stroke="#fff" opacity={0.6} />
-                <YAxis domain={[1, 5]} stroke="#fff" opacity={0.6} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "rgba(139, 92, 246, 0.9)",
-                    border: "none",
-                    borderRadius: "8px",
-                    color: "#fff",
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="happiness"
-                  stroke="#10B981"
-                  strokeWidth={2}
-                  dot={{ fill: "#10B981", r: 3 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="anxiety"
-                  stroke="#F59E0B"
-                  strokeWidth={2}
-                  dot={{ fill: "#F59E0B", r: 3 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="irritability"
-                  stroke="#EF4444"
-                  strokeWidth={2}
-                  dot={{ fill: "#EF4444", r: 3 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {processedData.averages.mood && (
+                  <div className="bg-white/10 rounded-lg p-4 text-center">
+                    <Brain className="w-8 h-8 text-purple-300 mx-auto mb-2" />
+                    <p className="text-sm text-purple-200 mb-1">Average Mood</p>
+                    <p className="text-2xl font-bold text-white">
+                      {processedData.averages.mood.toFixed(1)}/5
+                    </p>
+                  </div>
+                )}
 
-          <div className="flex items-center gap-4 mt-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-emerald-500 rounded"></div>
-              <span className="text-purple-200">Happiness</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-amber-500 rounded"></div>
-              <span className="text-purple-200">Anxiety</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-red-500 rounded"></div>
-              <span className="text-purple-200">Irritability</span>
-            </div>
-          </div>
-        </div>
+                {processedData.averages.energy && (
+                  <div className="bg-white/10 rounded-lg p-4 text-center">
+                    <Zap className="w-8 h-8 text-purple-300 mx-auto mb-2" />
+                    <p className="text-sm text-purple-200 mb-1">
+                      Average Energy
+                    </p>
+                    <p className="text-2xl font-bold text-white">
+                      {processedData.averages.energy.toFixed(1)}/5
+                    </p>
+                  </div>
+                )}
 
-        {/* Energy Levels */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-          <h3 className="text-lg font-semibold text-white mb-4">
-            Energy & Fatigue
-          </h3>
+                {processedData.averages.anxiety !== null && (
+                  <div className="bg-white/10 rounded-lg p-4 text-center">
+                    <AlertCircle className="w-8 h-8 text-purple-300 mx-auto mb-2" />
+                    <p className="text-sm text-purple-200 mb-1">
+                      Anxiety Level
+                    </p>
+                    <p className="text-2xl font-bold text-white">
+                      {processedData.averages.anxiety.toFixed(1)}/5
+                    </p>
+                  </div>
+                )}
 
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={hormonalData.energyLevels}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="rgba(255,255,255,0.1)"
-                />
-                <XAxis dataKey="date" stroke="#fff" opacity={0.6} />
-                <YAxis domain={[1, 5]} stroke="#fff" opacity={0.6} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "rgba(139, 92, 246, 0.9)",
-                    border: "none",
-                    borderRadius: "8px",
-                    color: "#fff",
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="energy"
-                  stroke={colors.primary}
-                  fill={colors.primary}
-                  fillOpacity={0.3}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="fatigue"
-                  stroke={colors.warning}
-                  fill={colors.warning}
-                  fillOpacity={0.3}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <div className="bg-white/10 rounded-lg p-3 text-center">
-              <Zap className="w-5 h-5 text-purple-300 mx-auto mb-1" />
-              <p className="text-purple-200">Peak Energy</p>
-              <p className="text-white font-medium">
-                {hormonalData.predictions.optimalExercise}
-              </p>
-            </div>
-            <div className="bg-white/10 rounded-lg p-3 text-center">
-              <Moon className="w-5 h-5 text-purple-300 mx-auto mb-1" />
-              <p className="text-purple-200">Energy Dip</p>
-              <p className="text-white font-medium">
-                {hormonalData.predictions.energyDip}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Hormonal Symptom Frequency */}
-      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-        <h3 className="text-lg font-semibold text-white mb-4">
-          Hormonal Symptom Frequency
-        </h3>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {hormonalData.symptoms.map((item, index) => (
-            <div key={index} className="text-center">
-              <div className="relative inline-flex">
-                <svg className="w-20 h-20 transform -rotate-90">
-                  <circle
-                    cx="40"
-                    cy="40"
-                    r="35"
-                    stroke="rgba(255,255,255,0.1)"
-                    strokeWidth="8"
-                    fill="none"
-                  />
-                  <circle
-                    cx="40"
-                    cy="40"
-                    r="35"
-                    stroke={colors.primary}
-                    strokeWidth="8"
-                    fill="none"
-                    strokeDasharray={`${(item.frequency / 100) * 220} 220`}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-white font-bold">
-                  {item.frequency}%
-                </span>
+                {processedData.basalTemp && (
+                  <div className="bg-white/10 rounded-lg p-4 text-center">
+                    <Thermometer className="w-8 h-8 text-purple-300 mx-auto mb-2" />
+                    <p className="text-sm text-purple-200 mb-1">
+                      Avg Temperature
+                    </p>
+                    <p className="text-2xl font-bold text-white">
+                      {processedData.basalTemp.average.toFixed(1)}°C
+                    </p>
+                  </div>
+                )}
               </div>
-              <p className="text-sm text-purple-200 mt-2">{item.symptom}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Hormone Balance Insights */}
-      <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-        <div className="flex items-start gap-4">
-          <div className="bg-purple-600/30 rounded-full p-3">
-            <Brain className="w-6 h-6 text-purple-300" />
-          </div>
-          <div className="flex-1">
-            <h4 className="text-lg font-semibold text-white mb-3">
-              Your Hormonal Pattern Insights
-            </h4>
-            <div className="space-y-3 text-purple-200">
-              {lifeStage === "menstrual" && (
-                <>
-                  <p>
-                    • Your temperature patterns suggest you're currently in the{" "}
-                    <span className="text-white font-medium">
-                      {getPhaseForDay(new Date().getDate())}
-                    </span>{" "}
-                    phase of your cycle.
-                  </p>
-                  <p>
-                    • Mood swings appear most pronounced during your{" "}
-                    <span className="text-white font-medium">luteal phase</span>
-                    , which is typical due to progesterone fluctuations.
-                  </p>
-                  <p>
-                    • Energy levels peak during{" "}
-                    <span className="text-white font-medium">
-                      follicular and ovulation
-                    </span>{" "}
-                    phases, optimal for intense workouts.
-                  </p>
-                </>
-              )}
 
               {lifeStage === "perimenopause" && (
-                <>
-                  <p>
-                    • Your hot flash frequency is{" "}
-                    <span className="text-white font-medium">
-                      highest during evening hours
-                    </span>
-                    , consider cooling strategies before bed.
+                <div className="mt-4 bg-yellow-500/20 rounded-lg p-3">
+                  <p className="text-sm text-yellow-100">
+                    <AlertCircle className="w-4 h-4 inline mr-1" />
+                    Hormonal fluctuations are normal during perimenopause. Track
+                    consistently to identify your patterns.
                   </p>
-                  <p>
-                    • Mood fluctuations show an{" "}
-                    <span className="text-white font-medium">
-                      irregular pattern
-                    </span>
-                    , consistent with perimenopause hormone variability.
-                  </p>
-                  <p>
-                    • Energy dips are most pronounced in the{" "}
-                    <span className="text-white font-medium">afternoon</span>,
-                    plan important tasks for morning hours.
-                  </p>
-                </>
-              )}
-
-              {lifeStage === "menopause" && (
-                <>
-                  <p>
-                    • Hot flash patterns show{" "}
-                    <span className="text-white font-medium">
-                      improvement over the past month
-                    </span>
-                    , indicating hormone stabilization.
-                  </p>
-                  <p>
-                    • Night sweats remain your most frequent symptom, occurring{" "}
-                    <span className="text-white font-medium">
-                      75% of nights
-                    </span>{" "}
-                    tracked.
-                  </p>
-                  <p>
-                    • Morning energy levels are{" "}
-                    <span className="text-white font-medium">
-                      consistently higher
-                    </span>
-                    , suggesting optimal exercise timing.
-                  </p>
-                </>
+                </div>
               )}
             </div>
-
-            <div className="mt-4 flex gap-3">
-              <button className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                View Full Report
-              </button>
-              <button
-                onClick={() => setShowEducation(true)}
-                className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-              >
-                <BookOpen className="w-4 h-4" />
-                Learn More
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+          )}
+        </>
+      )}
 
       {/* Hormone Education Modal */}
       {showEducation && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-purple-800 to-pink-800 rounded-xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-white">
-                Understanding Your Hormones
-              </h3>
-              <button
-                onClick={() => setShowEducation(false)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <X className="w-6 h-6 text-white" />
-              </button>
+          <div className="bg-gradient-to-br from-purple-800 to-pink-800 rounded-xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+            <div className="p-6 border-b border-white/20">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-white">
+                  Understanding Your Hormones
+                </h3>
+                <button
+                  onClick={() => setShowEducation(false)}
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
             </div>
 
-            <div className="space-y-6">
-              {Object.entries(hormoneInfo).map(([key, info]) => (
-                <div key={key} className="bg-white/10 rounded-lg p-6">
-                  <h4 className="text-xl font-semibold text-white mb-3">
-                    {info.name}
-                  </h4>
-                  <p className="text-purple-200 mb-4">{info.role}</p>
+            <div className="p-6 overflow-y-auto max-h-[calc(80vh-100px)]">
+              <div className="space-y-6">
+                {Object.entries(hormoneInfo).map(([key, info]) => (
+                  <div
+                    key={key}
+                    className="bg-white/10 rounded-lg p-4 border border-white/20"
+                  >
+                    <h4 className="text-lg font-semibold text-white mb-2">
+                      {info.name}
+                    </h4>
+                    <p className="text-purple-200 mb-3">{info.role}</p>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <h5 className="text-white font-medium mb-2">
-                        Effects on Your Body:
-                      </h5>
-                      <ul className="space-y-1">
-                        {info.effects.map((effect, index) => (
-                          <li
-                            key={index}
-                            className="text-purple-200 text-sm flex items-start gap-2"
-                          >
-                            <ChevronRight className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                            {effect}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <h5 className="text-white font-medium mb-2">
+                          Effects on Your Body:
+                        </h5>
+                        <ul className="space-y-1">
+                          {info.effects.map((effect, index) => (
+                            <li
+                              key={index}
+                              className="text-purple-200 text-sm flex items-start gap-2"
+                            >
+                              <ChevronRight className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                              {effect}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
 
-                    <div>
-                      <h5 className="text-white font-medium mb-2">
-                        In Your Life Stage:
-                      </h5>
-                      <p className="text-purple-200 text-sm bg-white/10 rounded-lg p-3">
-                        {info.lifeStageInfo[lifeStage]}
-                      </p>
+                      <div>
+                        <h5 className="text-white font-medium mb-2">
+                          In Your Life Stage:
+                        </h5>
+                        <p className="text-purple-200 text-sm bg-white/10 rounded-lg p-3">
+                          {info.lifeStageInfo[lifeStage]}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
 
-              <div className="bg-purple-600/20 rounded-lg p-4">
+              <div className="mt-6 bg-purple-600/20 rounded-lg p-4">
                 <p className="text-sm text-purple-200">
                   <Info className="w-4 h-4 inline mr-1" />
                   Understanding your hormonal patterns can help you optimize
@@ -860,5 +910,24 @@ const HormonalInsightsTab = ({ colors, user, lifeStage }) => {
     </div>
   );
 };
+
+// Add missing icon component
+const X = (props) => (
+  <svg
+    {...props}
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <line x1="18" y1="6" x2="6" y2="18"></line>
+    <line x1="6" y1="6" x2="18" y2="18"></line>
+  </svg>
+);
 
 export default HormonalInsightsTab;
