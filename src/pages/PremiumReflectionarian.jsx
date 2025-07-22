@@ -40,6 +40,10 @@ import MoodTracker from "../components/reflectionarian/MoodTracker";
 import SessionPromptsTab from "../components/reflectionarian/tabs/SessionPromptsTab";
 import GoalTrackingTab from "../components/reflectionarian/tabs/GoalTrackingTab";
 
+// API Base URL
+const API_BASE =
+  import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app";
+
 const PremiumReflectionarian = () => {
   const { user } = useAuth();
   const { hasAccess, tier } = useMembership();
@@ -176,7 +180,7 @@ const PremiumReflectionarian = () => {
     try {
       setIsLoadingPreferences(true);
       const response = await fetch(
-        `https://reflectionary-api.vercel.app/api/reflectionarian/preferences?user_id=${user.id}`,
+        `${API_BASE}/api/reflectionarian/preferences?user_id=${user.id}`,
         {
           method: "GET",
           headers: {
@@ -212,7 +216,7 @@ const PremiumReflectionarian = () => {
   const savePreferences = async (newPrefs) => {
     try {
       const response = await fetch(
-        `https://reflectionary-api.vercel.app/api/reflectionarian/preferences`,
+        `${API_BASE}/api/reflectionarian/preferences`,
         {
           method: "POST",
           headers: {
@@ -240,7 +244,7 @@ const PremiumReflectionarian = () => {
   const loadSessions = async () => {
     try {
       const response = await fetch(
-        `https://reflectionary-api.vercel.app/api/reflectionarian/sessions?user_id=${user.id}`,
+        `${API_BASE}/api/reflectionarian/sessions?user_id=${user.id}`,
         {
           method: "GET",
           headers: {
@@ -269,7 +273,7 @@ const PremiumReflectionarian = () => {
   const loadSessionMessages = async (sessionId) => {
     try {
       const response = await fetch(
-        `https://reflectionary-api.vercel.app/api/reflectionarian/messages?session_id=${sessionId}&user_id=${user.id}`,
+        `${API_BASE}/api/reflectionarian/messages?session_id=${sessionId}&user_id=${user.id}`,
         {
           method: "GET",
           headers: {
@@ -291,7 +295,7 @@ const PremiumReflectionarian = () => {
   const loadBookmarks = async () => {
     try {
       const response = await fetch(
-        `https://reflectionary-api.vercel.app/api/reflectionarian/bookmarks?user_id=${user.id}`,
+        `${API_BASE}/api/reflectionarian/bookmarks?user_id=${user.id}`,
         {
           method: "GET",
           headers: {
@@ -312,19 +316,16 @@ const PremiumReflectionarian = () => {
   // Start a new session
   const startNewSession = async () => {
     try {
-      const response = await fetch(
-        `https://reflectionary-api.vercel.app/api/reflectionarian/sessions`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            user_id: user.id,
-            tier: "premium",
-          }),
-        }
-      );
+      const response = await fetch(`${API_BASE}/api/reflectionarian/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          tier: "premium",
+        }),
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -345,20 +346,17 @@ const PremiumReflectionarian = () => {
   // Save mood tracking
   const saveMoodTracking = async (moodData) => {
     try {
-      const response = await fetch(
-        `https://reflectionary-api.vercel.app/api/reflectionarian/mood`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            user_id: user.id,
-            session_id: sessionId,
-            ...moodData,
-          }),
-        }
-      );
+      const response = await fetch(`${API_BASE}/api/reflectionarian/mood`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          session_id: sessionId,
+          ...moodData,
+        }),
+      });
 
       if (response.ok) {
         setSessionMood(moodData);
@@ -378,7 +376,7 @@ const PremiumReflectionarian = () => {
 
     try {
       const response = await fetch(
-        `https://reflectionary-api.vercel.app/api/reflectionarian/sessions/${sessionId}`,
+        `${API_BASE}/api/reflectionarian/sessions/${sessionId}`,
         {
           method: "PUT",
           headers: {
@@ -420,22 +418,19 @@ const PremiumReflectionarian = () => {
     setMessages((prev) => [...prev, tempUserMessage]);
 
     try {
-      const response = await fetch(
-        `https://reflectionary-api.vercel.app/api/reflectionarian/chat`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            user_id: user.id,
-            message: userMessage,
-            session_id: sessionId,
-            tier: "premium",
-            mood: sessionMood,
-          }),
-        }
-      );
+      const response = await fetch(`${API_BASE}/api/reflectionarian/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          message: userMessage,
+          session_id: sessionId,
+          tier: "premium",
+          mood: sessionMood,
+        }),
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -478,7 +473,7 @@ const PremiumReflectionarian = () => {
 
     try {
       const response = await fetch(
-        `https://reflectionary-api.vercel.app/api/reflectionarian/suggestions`,
+        `${API_BASE}/api/reflectionarian/suggestions`,
         {
           method: "POST",
           headers: {
@@ -505,7 +500,7 @@ const PremiumReflectionarian = () => {
   const bookmarkMessage = async (messageId) => {
     try {
       const response = await fetch(
-        `https://reflectionary-api.vercel.app/api/reflectionarian/bookmarks`,
+        `${API_BASE}/api/reflectionarian/bookmarks`,
         {
           method: "POST",
           headers: {

@@ -11,6 +11,10 @@ import {
   Zap,
 } from "lucide-react";
 
+// API Base URL
+const API_BASE =
+  import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app";
+
 const SessionPromptsTab = ({ userId, tier = "standard" }) => {
   const [prompts, setPrompts] = useState({
     conversation_starters: [],
@@ -67,7 +71,7 @@ const SessionPromptsTab = ({ userId, tier = "standard" }) => {
 
       for (const category of categories) {
         const response = await fetch(
-          `https://reflectionary-api.vercel.app/api/reflectionarian/prompts?user_id=${userId}&category=${category.id}`,
+          `${API_BASE}/api/reflectionarian/prompts?user_id=${userId}&category=${category.id}`,
           {
             method: "GET",
             headers: {
@@ -121,7 +125,7 @@ const SessionPromptsTab = ({ userId, tier = "standard" }) => {
     try {
       // This would trigger the batch generation for this specific user
       const response = await fetch(
-        `https://reflectionary-api.vercel.app/api/batch-processors/weekly/batch-reflectionarian-prompt-generator`,
+        `${API_BASE}/api/batch-processors/weekly/batch-reflectionarian-prompt-generator`,
         {
           method: "POST",
           headers: {
