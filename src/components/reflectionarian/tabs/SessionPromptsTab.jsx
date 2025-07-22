@@ -1,355 +1,282 @@
-// frontend/ src/components/reflectionarian/tabs/SessionPromptsTab.jsx
+// src/components/reflectionarian/tabs/SessionPromptsTab.jsx
 import React, { useState, useEffect } from "react";
 import {
-  Lightbulb,
-  RefreshCw,
-  Save,
-  Star,
-  Clock,
-  ChevronRight,
-  Sparkles,
   BookOpen,
-  Heart,
-  Brain,
-  Target,
+  RefreshCw,
   Loader2,
+  ChevronRight,
+  MessageCircle,
+  Search,
+  Compass,
+  Zap,
 } from "lucide-react";
-import { supabase } from "../../../lib/supabase";
 
-const SessionPromptsTab = ({ sessionId, userId, preferences, messages }) => {
-  const [prompts, setPrompts] = useState([]);
-  const [savedPrompts, setSavedPrompts] = useState([]);
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
+const SessionPromptsTab = ({ userId, tier = "standard" }) => {
+  const [prompts, setPrompts] = useState({
+    conversation_starters: [],
+    deep_dive: [],
+    check_in: [],
+    breakthrough: [],
+  });
+  const [activeCategory, setActiveCategory] = useState("conversation_starters");
+  const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [promptHistory, setPromptHistory] = useState([]);
 
-  // Prompt categories based on approach
-  const promptCategories = {
-    "CBT/Solution-Focused": [
-      { id: "thoughts", label: "Thought Patterns", icon: Brain },
-      { id: "behaviors", label: "Behavioral Changes", icon: Target },
-      { id: "solutions", label: "Solution Building", icon: Lightbulb },
-      { id: "challenges", label: "Challenge Navigation", icon: RefreshCw },
-    ],
-    "Mindfulness/DBT": [
-      { id: "awareness", label: "Present Awareness", icon: Heart },
-      { id: "emotions", label: "Emotional Regulation", icon: Heart },
-      { id: "grounding", label: "Grounding Exercises", icon: BookOpen },
-      { id: "acceptance", label: "Radical Acceptance", icon: Star },
-    ],
-    "ACT/Positive Psychology": [
-      { id: "values", label: "Values Exploration", icon: Star },
-      { id: "strengths", label: "Strength Building", icon: Target },
-      { id: "meaning", label: "Meaning Making", icon: Heart },
-      { id: "action", label: "Committed Action", icon: ChevronRight },
-    ],
-    "Narrative/Humanistic": [
-      { id: "story", label: "Story Exploration", icon: BookOpen },
-      { id: "identity", label: "Identity Development", icon: Brain },
-      { id: "growth", label: "Personal Growth", icon: Sparkles },
-      { id: "connection", label: "Human Connection", icon: Heart },
-    ],
-  };
+  // Category configuration
+  const categories = [
+    {
+      id: "conversation_starters",
+      label: "Conversation Starters",
+      icon: MessageCircle,
+      description: "General prompts to begin your reflection",
+      color: "from-blue-500 to-cyan-500",
+    },
+    {
+      id: "deep_dive",
+      label: "Deep Dive Topics",
+      icon: Search,
+      description: "Explore specific themes in depth",
+      color: "from-purple-500 to-pink-500",
+    },
+    {
+      id: "check_in",
+      label: "Check-in Questions",
+      icon: Compass,
+      description: "Regular self-assessment prompts",
+      color: "from-green-500 to-emerald-500",
+    },
+    {
+      id: "breakthrough",
+      label: "Breakthrough Moments",
+      icon: Zap,
+      description: "Prompts designed to unlock insights",
+      color: "from-orange-500 to-red-500",
+    },
+  ];
 
-  const currentCategories =
-    promptCategories[preferences?.therapy_approach] ||
-    promptCategories["Narrative/Humanistic"];
-
-  // Load saved prompts and history
   useEffect(() => {
-    loadSavedPrompts();
-    loadPromptHistory();
+    loadPrompts();
   }, [userId]);
 
-  const loadSavedPrompts = async () => {
+  const loadPrompts = async () => {
     try {
-      const { data, error } = await supabase
-        .from("saved_prompts")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("source", "reflectionarian")
-        .order("created_at", { ascending: false });
+      setIsLoading(true);
 
-      if (!error && data) {
-        setSavedPrompts(data);
+      // Load prompts for each category
+      const allPrompts = {};
+
+      for (const category of categories) {
+        const response = await fetch(
+          `${API_BASE}/api/reflectionarian/prompts?user_id=${userId}&category=${category.id}`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          allPrompts[category.id] = data.prompts || [];
+        } else {
+          allPrompts[category.id] = [];
+        }
       }
+
+      // Add some default conversation starters if none exist
+      if (allPrompts.conversation_starters.length === 0) {
+        allPrompts.conversation_starters = [
+          {
+            id: "default-1",
+            text: "What's been on your mind lately that you haven't had a chance to fully process?",
+            category: "conversation_starters",
+            difficulty_level: "easy",
+          },
+          {
+            id: "default-2",
+            text: "If you could change one thing about how you've been feeling recently, what would it be?",
+            category: "conversation_starters",
+            difficulty_level: "easy",
+          },
+          {
+            id: "default-3",
+            text: "What pattern in your life would you like to understand better?",
+            category: "conversation_starters",
+            difficulty_level: "medium",
+          },
+        ];
+      }
+
+      setPrompts(allPrompts);
     } catch (error) {
-      console.error("Error loading saved prompts:", error);
+      console.error("Error loading prompts:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const loadPromptHistory = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("prompt_history")
-        .select("*")
-        .eq("session_id", sessionId)
-        .order("created_at", { ascending: false });
-
-      if (!error && data) {
-        setPromptHistory(data);
-      }
-    } catch (error) {
-      console.error("Error loading prompt history:", error);
-    }
-  };
-
-  // Generate AI prompts based on conversation
-  const generatePrompts = async (category = null) => {
+  const generateNewPrompts = async () => {
     setIsGenerating(true);
     try {
-      // Get recent messages for context
-      const recentMessages = messages.slice(-5);
-      const context = recentMessages
-        .map((m) => `${m.role}: ${m.content}`)
-        .join("\n");
-
-      const response = await fetch("/api/reflectionarian/generate-prompts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          context,
-          category: category || selectedCategory,
-          approach: preferences.therapy_approach,
-          sessionId,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to generate prompts");
-
-      const data = await response.json();
-      setPrompts(data.prompts || []);
-
-      // Save to history
-      if (data.prompts && data.prompts.length > 0) {
-        await supabase.from("prompt_history").insert(
-          data.prompts.map((prompt) => ({
-            session_id: sessionId,
+      // This would trigger the batch generation for this specific user
+      const response = await fetch(
+        `${API_BASE}/api/batch-processors/weekly/batch-reflectionarian-prompt-generator`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_BATCH_API_KEY}`,
+          },
+          body: JSON.stringify({
             user_id: userId,
-            prompt_text: prompt.text,
-            category: prompt.category,
-            created_at: new Date().toISOString(),
-          }))
-        );
+            limit: 1,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        // Wait a bit then reload prompts
+        setTimeout(() => {
+          loadPrompts();
+        }, 3000);
       }
     } catch (error) {
       console.error("Error generating prompts:", error);
-      setPrompts([
-        {
-          text: "What patterns have you noticed in your thoughts this week?",
-          category: "reflection",
-        },
-        {
-          text: "How would you like to approach similar situations differently?",
-          category: "growth",
-        },
-        {
-          text: "What values are most important to you right now?",
-          category: "values",
-        },
-      ]);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // Save prompt to journaling
-  const savePromptToJournal = async (prompt) => {
-    try {
-      const { error } = await supabase.from("custom_prompts").insert({
-        user_id: userId,
-        prompt_text: prompt.text,
-        source: "reflectionarian",
-        category: prompt.category || "reflection",
-        created_at: new Date().toISOString(),
-      });
+  const getCategoryPrompts = () => {
+    return prompts[activeCategory] || [];
+  };
 
-      if (!error) {
-        alert("Prompt saved to your journaling prompts!");
-      }
-    } catch (error) {
-      console.error("Error saving prompt:", error);
-      alert("Failed to save prompt. Please try again.");
+  const getDifficultyColor = (level) => {
+    switch (level) {
+      case "easy":
+        return "bg-green-500/20 text-green-400 border-green-500/30";
+      case "medium":
+        return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      case "hard":
+        return "bg-red-500/20 text-red-400 border-red-500/30";
+      default:
+        return "bg-gray-500/20 text-gray-400 border-gray-500/30";
     }
   };
 
-  // Save prompt to favorites
-  const saveToFavorites = async (prompt) => {
-    try {
-      const { error } = await supabase.from("saved_prompts").insert({
-        user_id: userId,
-        prompt_text: prompt.text,
-        category: prompt.category,
-        source: "reflectionarian",
-        created_at: new Date().toISOString(),
-      });
-
-      if (!error) {
-        loadSavedPrompts();
-      }
-    } catch (error) {
-      console.error("Error saving to favorites:", error);
-    }
-  };
+  if (isLoading) {
+    return (
+      <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-12 text-center">
+        <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-purple-400" />
+        <p className="text-white/70">Loading your prompts...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-              <Lightbulb className="w-5 h-5 text-purple-400" />
-              Session Prompts
-            </h3>
-            <p className="text-gray-300 text-sm mt-1">
-              Personalized prompts based on your conversation
-            </p>
-          </div>
+    <div className="space-y-6">
+      {/* Category Tabs */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {categories.map((category) => (
           <button
-            onClick={() => generatePrompts()}
-            disabled={isGenerating}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white rounded-lg transition-colors flex items-center gap-2"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-4 h-4" />
-                Generate New
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* Category Filters */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setSelectedCategory("all")}
-            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-              selectedCategory === "all"
-                ? "bg-purple-600 text-white"
-                : "bg-white/10 text-gray-300 hover:bg-white/20"
+            key={category.id}
+            onClick={() => setActiveCategory(category.id)}
+            className={`p-4 rounded-xl border transition-all ${
+              activeCategory === category.id
+                ? "bg-white/10 border-white/30"
+                : "bg-white/5 border-white/10 hover:bg-white/10"
             }`}
           >
-            All Prompts
-          </button>
-          {currentCategories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => {
-                setSelectedCategory(cat.id);
-                generatePrompts(cat.id);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-1 ${
-                selectedCategory === cat.id
-                  ? "bg-purple-600 text-white"
-                  : "bg-white/10 text-gray-300 hover:bg-white/20"
-              }`}
+            <div
+              className={`w-12 h-12 rounded-lg bg-gradient-to-br ${category.color} flex items-center justify-center mb-3 mx-auto`}
             >
-              <cat.icon className="w-3 h-3" />
-              {cat.label}
-            </button>
-          ))}
-        </div>
+              <category.icon className="w-6 h-6 text-white" />
+            </div>
+            <h4 className="font-medium text-white mb-1">{category.label}</h4>
+            <p className="text-xs text-white/50">
+              {prompts[category.id]?.length || 0} prompts
+            </p>
+          </button>
+        ))}
       </div>
 
-      {/* Current Prompts */}
-      {prompts.length > 0 && (
-        <div className="space-y-3">
-          <h4 className="text-lg font-medium text-white">Suggested Prompts</h4>
-          {prompts.map((prompt, index) => (
-            <div
-              key={index}
-              className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-4 hover:bg-white/15 transition-colors"
+      {/* Active Category Content */}
+      <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              {(() => {
+                const category = categories.find(
+                  (c) => c.id === activeCategory
+                );
+                const Icon = category?.icon;
+                return Icon ? <Icon className="w-6 h-6" /> : null;
+              })()}
+              {categories.find((c) => c.id === activeCategory)?.label}
+            </h3>
+            <p className="text-sm text-white/70 mt-1">
+              {categories.find((c) => c.id === activeCategory)?.description}
+            </p>
+          </div>
+          {tier === "premium" && (
+            <button
+              onClick={generateNewPrompts}
+              disabled={isGenerating}
+              className="px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/50 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
             >
-              <p className="text-white mb-3">{prompt.text}</p>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-400 bg-white/10 px-2 py-1 rounded">
-                  {prompt.category || "reflection"}
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => saveToFavorites(prompt)}
-                    className="p-2 text-gray-300 hover:text-purple-400 transition-colors"
-                    title="Save to favorites"
-                  >
-                    <Star className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => savePromptToJournal(prompt)}
-                    className="p-2 text-gray-300 hover:text-purple-400 transition-colors"
-                    title="Send to journaling"
-                  >
-                    <Save className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+              <RefreshCw
+                className={`w-4 h-4 ${isGenerating ? "animate-spin" : ""}`}
+              />
+              Generate New
+            </button>
+          )}
+        </div>
+
+        {/* Prompts List */}
+        <div className="space-y-3">
+          {getCategoryPrompts().length === 0 ? (
+            <div className="text-center py-12">
+              <BookOpen className="w-16 h-16 mx-auto mb-4 text-white/20" />
+              <p className="text-white/50">
+                No prompts available in this category
+              </p>
+              {tier === "premium" && (
+                <button
+                  onClick={generateNewPrompts}
+                  className="mt-4 text-sm text-purple-400 hover:text-purple-300"
+                >
+                  Generate personalized prompts
+                </button>
+              )}
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Saved Favorites */}
-      {savedPrompts.length > 0 && (
-        <div className="space-y-3">
-          <h4 className="text-lg font-medium text-white flex items-center gap-2">
-            <Star className="w-4 h-4 text-purple-400" />
-            Favorite Prompts
-          </h4>
-          <div className="grid gap-3">
-            {savedPrompts.slice(0, 5).map((prompt) => (
+          ) : (
+            getCategoryPrompts().map((prompt, index) => (
               <div
-                key={prompt.id}
-                className="bg-white/5 backdrop-blur-md rounded-lg border border-white/10 p-3"
+                key={prompt.id || index}
+                className="bg-white/5 rounded-lg p-4 border border-white/10 hover:bg-white/10 transition-all cursor-pointer group"
               >
-                <p className="text-gray-300 text-sm">{prompt.prompt_text}</p>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-xs text-gray-500">
-                    {new Date(prompt.created_at).toLocaleDateString()}
-                  </span>
-                  <button
-                    onClick={() => savePromptToJournal(prompt)}
-                    className="text-xs text-purple-400 hover:text-purple-300"
-                  >
-                    Use in journal →
-                  </button>
+                <div className="flex items-start justify-between gap-4">
+                  <p className="text-white/90 flex-1">{prompt.text}</p>
+                  <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-white/50 transition-colors flex-shrink-0" />
                 </div>
+                {prompt.difficulty_level && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <span
+                      className={`text-xs px-2 py-1 rounded-full border ${getDifficultyColor(
+                        prompt.difficulty_level
+                      )}`}
+                    >
+                      {prompt.difficulty_level}
+                    </span>
+                    {prompt.tags && prompt.tags.includes("ai-suggested") && (
+                      <span className="text-xs px-2 py-1 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                        AI Suggested
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            ))
+          )}
         </div>
-      )}
-
-      {/* Prompt History */}
-      {promptHistory.length > 0 && (
-        <div className="space-y-3">
-          <h4 className="text-lg font-medium text-white flex items-center gap-2">
-            <Clock className="w-4 h-4 text-purple-400" />
-            Recent Prompts
-          </h4>
-          <div className="text-sm text-gray-400">
-            {promptHistory.length} prompts generated this session
-          </div>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {prompts.length === 0 && !isGenerating && (
-        <div className="text-center py-12">
-          <Sparkles className="w-12 h-12 text-purple-400 mx-auto mb-4" />
-          <h4 className="text-lg font-medium text-white mb-2">
-            No prompts yet
-          </h4>
-          <p className="text-gray-400 mb-4">
-            Click "Generate New" to get personalized prompts based on your
-            conversation
-          </p>
-        </div>
-      )}
+      </div>
     </div>
   );
 };
