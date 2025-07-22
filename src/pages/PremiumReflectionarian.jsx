@@ -40,8 +40,6 @@ import MoodTracker from "../components/reflectionarian/MoodTracker";
 import SessionPromptsTab from "../components/reflectionarian/tabs/SessionPromptsTab";
 import GoalTrackingTab from "../components/reflectionarian/tabs/GoalTrackingTab";
 
-const API_BASE = import.meta.env.VITE_API_URL || "";
-
 const PremiumReflectionarian = () => {
   const { user } = useAuth();
   const { hasAccess, tier } = useMembership();
@@ -177,7 +175,13 @@ const PremiumReflectionarian = () => {
     try {
       setIsLoadingPreferences(true);
       const response = await fetch(
-        `${API_BASE}/api/reflectionarian/preferences?user_id=${user.id}`
+        `https://reflectionary-api.vercel.app/api/reflectionarian/preferences?user_id=${user.id}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
       );
 
       if (response.ok) {
@@ -185,13 +189,14 @@ const PremiumReflectionarian = () => {
         if (data.preferences) {
           setPreferences({ ...defaultPreferences, ...data.preferences });
         } else {
-          // First time user - show onboarding
-          setShowOnboarding(true);
+          // First time user - use defaults
           setPreferences(defaultPreferences);
         }
+      } else if (response.status === 404) {
+        // No preferences found - use defaults
+        setPreferences(defaultPreferences);
       } else {
-        // No preferences found - show onboarding
-        setShowOnboarding(true);
+        console.error("Error response:", response.status);
         setPreferences(defaultPreferences);
       }
     } catch (error) {
@@ -206,10 +211,12 @@ const PremiumReflectionarian = () => {
   const savePreferences = async (newPrefs) => {
     try {
       const response = await fetch(
-        `${API_BASE}/api/reflectionarian/preferences`,
+        `https://reflectionary-api.vercel.app/api/reflectionarian/preferences`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             user_id: user.id,
             preferences: newPrefs,
@@ -232,7 +239,13 @@ const PremiumReflectionarian = () => {
   const loadSessions = async () => {
     try {
       const response = await fetch(
-        `${API_BASE}/api/reflectionarian/sessions?user_id=${user.id}`
+        `https://reflectionary-api.vercel.app/api/reflectionarian/sessions?user_id=${user.id}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
       );
 
       if (response.ok) {
@@ -255,7 +268,13 @@ const PremiumReflectionarian = () => {
   const loadSessionMessages = async (sessionId) => {
     try {
       const response = await fetch(
-        `${API_BASE}/api/reflectionarian/messages?session_id=${sessionId}&user_id=${user.id}`
+        `https://reflectionary-api.vercel.app/api/reflectionarian/messages?session_id=${sessionId}&user_id=${user.id}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
       );
 
       if (response.ok) {
@@ -271,7 +290,13 @@ const PremiumReflectionarian = () => {
   const loadBookmarks = async () => {
     try {
       const response = await fetch(
-        `${API_BASE}/api/reflectionarian/bookmarks?user_id=${user.id}`
+        `https://reflectionary-api.vercel.app/api/reflectionarian/bookmarks?user_id=${user.id}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
       );
 
       if (response.ok) {
@@ -286,14 +311,19 @@ const PremiumReflectionarian = () => {
   // Start a new session
   const startNewSession = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/reflectionarian/sessions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: user.id,
-          tier: "premium",
-        }),
-      });
+      const response = await fetch(
+        `https://reflectionary-api.vercel.app/api/reflectionarian/sessions`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            tier: "premium",
+          }),
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -301,24 +331,33 @@ const PremiumReflectionarian = () => {
         setMessages([]);
         setShowMoodTracker(true); // Show mood tracker for new session
         await loadSessions(); // Refresh session list
+      } else {
+        console.error("Failed to start session:", response.status);
+        alert("Failed to start a new session. Please try again.");
       }
     } catch (error) {
       console.error("Error starting session:", error);
+      alert("Failed to start a new session. Please check your connection.");
     }
   };
 
   // Save mood tracking
   const saveMoodTracking = async (moodData) => {
     try {
-      const response = await fetch(`${API_BASE}/api/reflectionarian/mood`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: user.id,
-          session_id: sessionId,
-          ...moodData,
-        }),
-      });
+      const response = await fetch(
+        `https://reflectionary-api.vercel.app/api/reflectionarian/mood`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            session_id: sessionId,
+            ...moodData,
+          }),
+        }
+      );
 
       if (response.ok) {
         setSessionMood(moodData);
@@ -338,10 +377,12 @@ const PremiumReflectionarian = () => {
 
     try {
       const response = await fetch(
-        `${API_BASE}/api/reflectionarian/sessions/${sessionId}`,
+        `https://reflectionary-api.vercel.app/api/reflectionarian/sessions/${sessionId}`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             user_id: user.id,
             status: "completed",
@@ -378,17 +419,22 @@ const PremiumReflectionarian = () => {
     setMessages((prev) => [...prev, tempUserMessage]);
 
     try {
-      const response = await fetch(`${API_BASE}/api/reflectionarian/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: user.id,
-          message: userMessage,
-          session_id: sessionId,
-          tier: "premium",
-          mood: sessionMood,
-        }),
-      });
+      const response = await fetch(
+        `https://reflectionary-api.vercel.app/api/reflectionarian/chat`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            message: userMessage,
+            session_id: sessionId,
+            tier: "premium",
+            mood: sessionMood,
+          }),
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -431,10 +477,12 @@ const PremiumReflectionarian = () => {
 
     try {
       const response = await fetch(
-        `${API_BASE}/api/reflectionarian/suggestions`,
+        `https://reflectionary-api.vercel.app/api/reflectionarian/suggestions`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             user_id: user.id,
             session_id: sessionId,
@@ -456,10 +504,12 @@ const PremiumReflectionarian = () => {
   const bookmarkMessage = async (messageId) => {
     try {
       const response = await fetch(
-        `${API_BASE}/api/reflectionarian/bookmarks`,
+        `https://reflectionary-api.vercel.app/api/reflectionarian/bookmarks`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             user_id: user.id,
             message_id: messageId,
