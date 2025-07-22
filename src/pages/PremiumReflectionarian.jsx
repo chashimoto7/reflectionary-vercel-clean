@@ -113,11 +113,12 @@ const PremiumReflectionarian = () => {
   // Load preferences and sessions on mount
   useEffect(() => {
     if (user && hasAccess("premium_reflectionarian")) {
-      loadPreferences();
-      loadSessions();
-      loadBookmarks();
+      // Load these independently so one failure doesn't block others
+      loadPreferences().catch(console.error);
+      loadSessions().catch(console.error);
+      loadBookmarks().catch(console.error);
     }
-  }, [user]);
+  }, [user, hasAccess]);
 
   // Scroll to bottom when messages update
   useEffect(() => {
