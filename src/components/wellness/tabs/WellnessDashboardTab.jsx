@@ -1,6 +1,5 @@
 // frontend/src/components/wellness/tabs/WellnessDashboardTab.jsx
 import React, { useState, useEffect } from "react";
-import { supabase } from "../../../lib/supabase";
 import {
   Activity,
   Heart,
@@ -59,6 +58,10 @@ const WellnessDashboardTab = ({ colors, user }) => {
   });
   const [hasData, setHasData] = useState(false);
 
+  // Get backend URL from environment
+  const backendUrl =
+    import.meta.env.VITE_API_URL || "https://backend.reflectionary.ca";
+
   useEffect(() => {
     if (user) {
       loadDashboardData();
@@ -69,33 +72,55 @@ const WellnessDashboardTab = ({ colors, user }) => {
     try {
       setLoading(true);
 
-      // Load today's data
-      const today = new Date().toISOString().split("T")[0];
-      const { data: todayEntry } = await supabase
-        .from("wellness_entries_decrypted")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("date", today)
-        .single();
+      // Load week data from the new API endpoint
+      const weekAgo = subDays(new Date(), 7).toISOString().split("T")[0];
+      const response = await fetch(
+        `${backendUrl}/api/wellness?user_id=${user.id}&date_from=${weekAgo}&include_stats=true`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-      if (todayEntry) {
-        setTodayData(todayEntry);
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
       }
 
-      // Load week data for trends
-      const weekAgo = subDays(new Date(), 7).toISOString().split("T")[0];
-      const { data: weekEntries } = await supabase
-        .from("wellness_entries_decrypted")
-        .select("*")
-        .eq("user_id", user.id)
-        .gte("date", weekAgo)
-        .order("date", { ascending: true });
+      const data = await response.json();
 
-      if (weekEntries && weekEntries.length > 0) {
-        setWeekData(weekEntries);
+      if (data.entries && data.entries.length > 0) {
+        // Transform the API data to match the expected format
+        const transformedEntries = data.entries.map((entry) => ({
+          id: entry.id,
+          date: entry.date,
+          // Extract nested data and flatten it
+          energy: entry.data.mood?.energy || 0,
+          mood: entry.data.mood?.overall || 0,
+          stress: entry.data.mood?.stress || 0,
+          sleep_hours: entry.data.sleep?.duration || 0,
+          sleep_quality: entry.data.sleep?.quality || 0,
+          exercise_minutes: entry.data.exercise?.duration || 0,
+          water_glasses: entry.data.nutrition?.water || 0,
+          created_at: entry.created_at,
+          updated_at: entry.updated_at,
+        }));
+
+        setWeekData(transformedEntries);
         setHasData(true);
-        calculateWellnessScore(weekEntries);
-        calculateStreaks(weekEntries);
+
+        // Find today's data
+        const today = new Date().toISOString().split("T")[0];
+        const todayEntry = transformedEntries.find(
+          (entry) => entry.date === today
+        );
+        if (todayEntry) {
+          setTodayData(todayEntry);
+        }
+
+        calculateWellnessScore(transformedEntries);
+        calculateStreaks(transformedEntries);
       } else {
         setHasData(false);
       }
@@ -104,6 +129,7 @@ const WellnessDashboardTab = ({ colors, user }) => {
       generateRecommendations();
     } catch (error) {
       console.error("Error loading dashboard data:", error);
+      setHasData(false);
     } finally {
       setLoading(false);
     }
@@ -257,19 +283,46 @@ const WellnessDashboardTab = ({ colors, user }) => {
     try {
       const today = new Date().toISOString().split("T")[0];
 
-      const { error } = await supabase.from("wellness_entries").insert({
-        user_id: user.id,
-        date: today,
-        ...quickEntryData,
-        created_at: new Date().toISOString(),
+      // Transform the quick entry data to match API structure
+      const wellnessData = {
+        mood: {
+          overall: quickEntryData.mood,
+          energy: quickEntryData.energy,
+          stress: quickEntryData.stress,
+        },
+        sleep: {
+          duration: quickEntryData.sleep_hours,
+          quality: quickEntryData.sleep_quality,
+        },
+        exercise: {
+          duration: quickEntryData.exercise_minutes,
+        },
+        nutrition: {
+          water: quickEntryData.water_glasses,
+        },
+      };
+
+      const response = await fetch(`${backendUrl}/api/wellness`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          date: today,
+          wellness_data: wellnessData,
+        }),
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error("Failed to save wellness data");
+      }
 
       setShowQuickEntry(false);
       loadDashboardData(); // Reload data
     } catch (error) {
       console.error("Error saving wellness data:", error);
+      alert("Failed to save wellness data. Please try again.");
     }
   };
 

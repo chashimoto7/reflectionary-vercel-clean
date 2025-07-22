@@ -1,6 +1,5 @@
 // frontend/src/components/wellness/tabs/WellnessPatternsTab.jsx
 import React, { useState, useEffect } from "react";
-import { supabase } from "../../../lib/supabase";
 import {
   TrendingUp,
   TrendingDown,
@@ -21,6 +20,7 @@ import {
   Download,
   Sparkles,
   BarChart3,
+  Droplets,
 } from "lucide-react";
 import {
   format,
@@ -73,6 +73,10 @@ const WellnessPatternsTab = ({ colors, user }) => {
   const [selectedPattern, setSelectedPattern] = useState("overview");
   const [hasData, setHasData] = useState(false);
 
+  // Get backend URL from environment
+  const backendUrl =
+    process.env.REACT_APP_BACKEND_URL || "https://backend.reflectionary.ca";
+
   useEffect(() => {
     if (user) {
       loadPatternData();
@@ -83,20 +87,45 @@ const WellnessPatternsTab = ({ colors, user }) => {
     try {
       setLoading(true);
 
-      const startDate = subDays(new Date(), parseInt(dateRange));
-      const { data, error } = await supabase
-        .from("wellness_entries_decrypted")
-        .select("*")
-        .eq("user_id", user.id)
-        .gte("date", startDate.toISOString().split("T")[0])
-        .order("date", { ascending: true });
+      const startDate = subDays(new Date(), parseInt(dateRange))
+        .toISOString()
+        .split("T")[0];
 
-      if (error) throw error;
+      const response = await fetch(
+        `${backendUrl}/api/wellness?user_id=${user.id}&date_from=${startDate}&limit=${dateRange}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-      if (data && data.length > 0) {
-        setWellnessData(data);
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.entries && data.entries.length > 0) {
+        // Transform the data to match the expected format
+        const transformedData = data.entries.map((entry) => ({
+          id: entry.id,
+          date: entry.date,
+          mood: entry.data.mood?.overall || 0,
+          energy: entry.data.mood?.energy || 0,
+          stress: entry.data.mood?.stress || 0,
+          sleep_hours: entry.data.sleep?.duration || 0,
+          sleep_quality: entry.data.sleep?.quality || 0,
+          exercise_minutes: entry.data.exercise?.duration || 0,
+          water_glasses: entry.data.nutrition?.water || 0,
+          created_at: entry.created_at,
+          updated_at: entry.updated_at,
+        }));
+
+        setWellnessData(transformedData);
         setHasData(true);
-        analyzePatterns(data);
+        analyzePatterns(transformedData);
       } else {
         setWellnessData([]);
         setHasData(false);

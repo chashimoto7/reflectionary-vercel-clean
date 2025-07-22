@@ -72,6 +72,10 @@ const WellnessInsightsTab = ({ colors, user }) => {
   const [selectedInsight, setSelectedInsight] = useState(null);
   const [hasData, setHasData] = useState(false);
 
+  // Get backend URL from environment
+  const backendUrl =
+    process.env.REACT_APP_BACKEND_URL || "https://backend.reflectionary.ca";
+
   useEffect(() => {
     if (user) {
       loadInsightsData();
@@ -86,11 +90,7 @@ const WellnessInsightsTab = ({ colors, user }) => {
       const thirtyDaysAgo = subDays(new Date(), 30).toISOString().split("T")[0];
 
       const response = await fetch(
-        `${
-          process.env.REACT_APP_BACKEND_URL ||
-          "https://backend.reflectionary.ca"
-        }/api/wellness?` +
-          `user_id=${user.id}&date_from=${thirtyDaysAgo}&include_stats=true`,
+        `${backendUrl}/api/wellness?user_id=${user.id}&date_from=${thirtyDaysAgo}&include_stats=true`,
         {
           method: "GET",
           headers: {

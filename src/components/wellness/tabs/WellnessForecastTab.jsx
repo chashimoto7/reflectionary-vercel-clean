@@ -1,6 +1,5 @@
 // frontend/src/components/wellness/tabs/WellnessForecastTab.jsx
 import React, { useState, useEffect } from "react";
-import { supabase } from "../../../lib/supabase";
 import {
   Calendar,
   Cloud,
@@ -44,6 +43,8 @@ import {
   isBefore,
   isAfter,
   parseISO,
+  subDays,
+  differenceInDays,
 } from "date-fns";
 import {
   LineChart,
@@ -83,6 +84,10 @@ const WellnessForecastTab = ({ colors, user }) => {
   const [weatherData, setWeatherData] = useState(null);
   const [hasData, setHasData] = useState(false);
 
+  // Get backend URL from environment
+  const backendUrl =
+    process.env.REACT_APP_BACKEND_URL || "https://backend.reflectionary.ca";
+
   useEffect(() => {
     if (user) {
       loadForecastData();
@@ -94,30 +99,51 @@ const WellnessForecastTab = ({ colors, user }) => {
       setLoading(true);
 
       // Load historical wellness data (90 days for better predictions)
-      const ninetyDaysAgo = addDays(new Date(), -90)
-        .toISOString()
-        .split("T")[0];
-      const { data: entries, error } = await supabase
-        .from("wellness_entries_decrypted")
-        .select("*")
-        .eq("user_id", user.id)
-        .gte("date", ninetyDaysAgo)
-        .order("date", { ascending: true });
+      const ninetyDaysAgo = subDays(new Date(), 90).toISOString().split("T")[0];
 
-      if (error) throw error;
+      const response = await fetch(
+        `${backendUrl}/api/wellness?user_id=${user.id}&date_from=${ninetyDaysAgo}&limit=90`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-      if (entries && entries.length >= 7) {
-        setWellnessData(entries);
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.entries && data.entries.length >= 7) {
+        // Transform the data to match the expected format
+        const transformedEntries = data.entries.map((entry) => ({
+          id: entry.id,
+          date: entry.date,
+          mood: entry.data.mood?.overall || 0,
+          energy: entry.data.mood?.energy || 0,
+          stress: entry.data.mood?.stress || 0,
+          sleep_hours: entry.data.sleep?.duration || 0,
+          sleep_quality: entry.data.sleep?.quality || 0,
+          exercise_minutes: entry.data.exercise?.duration || 0,
+          water_glasses: entry.data.nutrition?.water || 0,
+          created_at: entry.created_at,
+          updated_at: entry.updated_at,
+        }));
+
+        setWellnessData(transformedEntries);
         setHasData(true);
 
         // Generate forecasts
-        const forecasts = generateForecasts(entries);
+        const forecasts = generateForecasts(transformedEntries);
         setForecast(forecasts);
 
         // Calculate historical accuracy if we have past predictions
-        calculateHistoricalAccuracy(entries);
+        calculateHistoricalAccuracy(transformedEntries);
       } else {
-        setWellnessData(entries || []);
+        setWellnessData(data.entries || []);
         setHasData(false);
       }
 
@@ -563,7 +589,7 @@ const WellnessForecastTab = ({ colors, user }) => {
         "Plan social activities",
         "Tackle complex projects",
       ],
-      icon: Star,
+      icon: Sparkles,
     });
 
     return recommendations;
