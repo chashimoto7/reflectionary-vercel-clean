@@ -86,24 +86,32 @@ const WellnessInsightsTab = ({ colors, user }) => {
     try {
       setLoading(true);
 
-      // Load wellness data from backend API
-      const thirtyDaysAgo = subDays(new Date(), 30).toISOString().split("T")[0];
+      console.log("User object:", user);
+      console.log("User ID:", user?.id);
 
-      const response = await fetch(
-        `${backendUrl}/api/wellness?user_id=${user.id}&date_from=${thirtyDaysAgo}&include_stats=true`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const thirtyDaysAgo = subDays(new Date(), 30).toISOString().split("T")[0];
+      const url = `${backendUrl}/api/wellness?user_id=${user.id}&date_from=${thirtyDaysAgo}&include_stats=true`;
+
+      console.log("API URL:", url);
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log("API Response status:", response.status);
+      console.log("API Response ok:", response.ok);
 
       if (!response.ok) {
-        throw new Error("Failed to fetch wellness data");
+        const errorText = await response.text();
+        console.log("API Error response:", errorText);
+        throw new Error(`API request failed: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log("API Response data:", data);
 
       if (data.entries && data.entries.length > 0) {
         // Transform the data to match the expected format
