@@ -11,9 +11,8 @@ import {
   Zap,
 } from "lucide-react";
 
-// API Base URL
-const API_BASE =
-  import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app";
+// API Base URL - Use relative paths for same-domain requests
+const API_BASE = "";
 
 const SessionPromptsTab = ({ userId, tier = "standard" }) => {
   const [prompts, setPrompts] = useState({
