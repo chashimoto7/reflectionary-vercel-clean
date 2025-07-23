@@ -471,7 +471,7 @@ const PremiumReflectionarian = () => {
     try {
       if (!sessionId.startsWith("local_")) {
         const response = await fetch(
-          `${API_BASE}/api/reflectionarian/sessions/${sessionId}`,
+          `${API_BASE}/api/reflectionarian/sessions?session_id=${sessionId}`,
           {
             method: "PUT",
             headers: {
