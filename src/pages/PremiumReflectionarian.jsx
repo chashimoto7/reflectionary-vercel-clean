@@ -180,7 +180,7 @@ const PremiumReflectionarian = () => {
     try {
       setIsLoadingPreferences(true);
       const response = await fetch(
-        `/api/reflectionarian/preferences?user_id=${user.id}`,
+        `${API_BASE}/api/reflectionarian/preferences?user_id=${user.id}`,
         {
           method: "GET",
           headers: {
@@ -215,16 +215,19 @@ const PremiumReflectionarian = () => {
   // Save preferences to backend
   const savePreferences = async (newPrefs) => {
     try {
-      const response = await fetch(`/api/reflectionarian/preferences`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          user_id: user.id,
-          preferences: newPrefs,
-        }),
-      });
+      const response = await fetch(
+        `${API_BASE}/api/reflectionarian/preferences`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            preferences: newPrefs,
+          }),
+        }
+      );
 
       if (response.ok) {
         setPreferences(newPrefs);
@@ -241,7 +244,7 @@ const PremiumReflectionarian = () => {
   const loadSessions = async () => {
     try {
       const response = await fetch(
-        `/api/reflectionarian/sessions?user_id=${user.id}`,
+        `${API_BASE}/api/reflectionarian/sessions?user_id=${user.id}`,
         {
           method: "GET",
           headers: {
@@ -270,7 +273,7 @@ const PremiumReflectionarian = () => {
   const loadSessionMessages = async (sessionId) => {
     try {
       const response = await fetch(
-        `/api/reflectionarian/messages?session_id=${sessionId}&user_id=${user.id}`,
+        `${API_BASE}/api/reflectionarian/messages?session_id=${sessionId}&user_id=${user.id}`,
         {
           method: "GET",
           headers: {
@@ -292,7 +295,7 @@ const PremiumReflectionarian = () => {
   const loadBookmarks = async () => {
     try {
       const response = await fetch(
-        `/api/reflectionarian/bookmarks?user_id=${user.id}`,
+        `${API_BASE}/api/reflectionarian/bookmarks?user_id=${user.id}`,
         {
           method: "GET",
           headers: {
@@ -313,7 +316,7 @@ const PremiumReflectionarian = () => {
   // Start a new session
   const startNewSession = async () => {
     try {
-      const response = await fetch(`/api/reflectionarian/sessions`, {
+      const response = await fetch(`${API_BASE}/api/reflectionarian/sessions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -343,7 +346,7 @@ const PremiumReflectionarian = () => {
   // Save mood tracking
   const saveMoodTracking = async (moodData) => {
     try {
-      const response = await fetch(`/api/reflectionarian/mood`, {
+      const response = await fetch(`${API_BASE}/api/reflectionarian/mood`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -373,7 +376,7 @@ const PremiumReflectionarian = () => {
 
     try {
       const response = await fetch(
-        `/api/reflectionarian/sessions/${sessionId}`,
+        `${API_BASE}/api/reflectionarian/sessions/${sessionId}`,
         {
           method: "PUT",
           headers: {
@@ -415,7 +418,7 @@ const PremiumReflectionarian = () => {
     setMessages((prev) => [...prev, tempUserMessage]);
 
     try {
-      const response = await fetch(`/api/reflectionarian/chat`, {
+      const response = await fetch(`${API_BASE}/api/reflectionarian/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -469,16 +472,19 @@ const PremiumReflectionarian = () => {
     if (messages.length < 3) return;
 
     try {
-      const response = await fetch(`/api/reflectionarian/suggestions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          user_id: user.id,
-          session_id: sessionId,
-        }),
-      });
+      const response = await fetch(
+        `${API_BASE}/api/reflectionarian/suggestions`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            session_id: sessionId,
+          }),
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -493,17 +499,20 @@ const PremiumReflectionarian = () => {
   // Bookmark a message
   const bookmarkMessage = async (messageId) => {
     try {
-      const response = await fetch(`/api/reflectionarian/bookmarks`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          user_id: user.id,
-          message_id: messageId,
-          session_id: sessionId,
-        }),
-      });
+      const response = await fetch(
+        `${API_BASE}/api/reflectionarian/bookmarks`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            message_id: messageId,
+            session_id: sessionId,
+          }),
+        }
+      );
 
       if (response.ok) {
         await loadBookmarks();
