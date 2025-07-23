@@ -1,5 +1,6 @@
 // frontend/src/pages/PremiumWellness.jsx
 import React, { useState, useEffect } from "react";
+import { useMembership } from "../hooks/useMembership";
 import {
   Activity,
   Heart,
@@ -26,6 +27,7 @@ import WellnessForecastTab from "../components/wellness/tabs/WellnessForecastTab
 import WellnessExperimentsTab from "../components/wellness/tabs/WellnessExperimentsTab";
 
 const PremiumWellness = () => {
+  const { tier, user } = useMembership();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [loading, setLoading] = useState(true);
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
