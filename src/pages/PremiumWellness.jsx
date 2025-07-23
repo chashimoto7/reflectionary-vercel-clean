@@ -1,6 +1,6 @@
 // frontend/src/pages/PremiumWellness.jsx
 import React, { useState, useEffect } from "react";
-import { useMembership } from "../hooks/useMembership";
+import { useAuth } from "../contexts/AuthContext"; // Use your AuthContext
 import {
   Activity,
   Heart,
@@ -27,10 +27,12 @@ import WellnessForecastTab from "../components/wellness/tabs/WellnessForecastTab
 import WellnessExperimentsTab from "../components/wellness/tabs/WellnessExperimentsTab";
 
 const PremiumWellness = () => {
-  const { tier, user } = useMembership();
+  const { user, loading: authLoading } = useAuth(); // Use your auth context
   const [activeTab, setActiveTab] = useState("dashboard");
   const [loading, setLoading] = useState(true);
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
+
+  const tier = "premium"; // Hardcoded since this is premium-only page
 
   // Color palette matching the premium theme
   const colors = {
@@ -88,20 +90,40 @@ const PremiumWellness = () => {
   ];
 
   useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 500);
+    // Only set loading to false when auth is loaded and user is available
+    if (!authLoading && user) {
+      const timer = setTimeout(() => {
+        setLoading(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading, user]);
 
-    return () => clearTimeout(timer);
-  }, []);
+  // Add debugging
+  console.log("PremiumWellness Debug:");
+  console.log("- Auth loading:", authLoading);
+  console.log("- User:", user);
+  console.log("- User ID:", user?.id);
+  console.log("- Loading state:", loading);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-300 mx-auto mb-4"></div>
           <p className="text-purple-200">Loading your wellness insights...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If user is still not available, show error
+  if (!user || !user.id) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-400 mb-4">⚠️ User not loaded</div>
+          <p className="text-purple-200">Please refresh the page</p>
         </div>
       </div>
     );
@@ -184,7 +206,7 @@ const PremiumWellness = () => {
 
         {/* Tab Content */}
         <div className="space-y-6">
-          {ActiveTabComponent && (
+          {ActiveTabComponent && user && (
             <ActiveTabComponent colors={colors} user={user} tier={tier} />
           )}
         </div>
