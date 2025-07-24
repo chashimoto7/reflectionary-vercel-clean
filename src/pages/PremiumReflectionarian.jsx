@@ -121,15 +121,19 @@ const PremiumReflectionarian = () => {
     if (user && hasAccess("premium_reflectionarian")) {
       loadPreferences();
     }
-  }, [user, hasAccess]);
+  }, [user?.id]); // Only depend on user.id, not the entire user object
 
   // Load other data after preferences are loaded
   useEffect(() => {
-    if (preferences && preferences.onboarding_completed) {
+    if (
+      preferences &&
+      preferences.onboarding_completed &&
+      !isLoadingPreferences
+    ) {
       loadSessions().catch(console.error);
       loadBookmarks().catch(console.error);
     }
-  }, [preferences]);
+  }, [preferences?.onboarding_completed, isLoadingPreferences]); // Only depend on specific values
 
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -271,9 +275,7 @@ const PremiumReflectionarian = () => {
     const success = await savePreferences(onboardingPreferences);
     if (success) {
       setShowOnboarding(false);
-      // Load other data now that onboarding is complete
-      loadSessions().catch(console.error);
-      loadBookmarks().catch(console.error);
+      // The other useEffect will handle loading sessions/bookmarks when preferences update
     } else {
       alert("Failed to save your preferences. Please try again.");
     }
@@ -290,8 +292,7 @@ const PremiumReflectionarian = () => {
     const success = await savePreferences(skippedPreferences);
     if (success) {
       setShowOnboarding(false);
-      loadSessions().catch(console.error);
-      loadBookmarks().catch(console.error);
+      // The other useEffect will handle loading sessions/bookmarks when preferences update
     }
   };
 
