@@ -1,4 +1,4 @@
-// frontend/ src/components/reflectionarian/tabs/GoalTrackingTab.jsx
+// frontend/src/components/reflectionarian/tabs/GoalTrackingTab.jsx
 import React, { useState, useEffect } from "react";
 import {
   Target,
@@ -13,8 +13,13 @@ import {
   Loader2,
   Flag,
   BarChart3,
+  Check,
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
+
+// API Base URL
+const API_BASE =
+  import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app";
 
 const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
   const [userGoals, setUserGoals] = useState([]);
@@ -23,6 +28,8 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState(null);
+  const [addingGoalId, setAddingGoalId] = useState(null);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   // Goal categories
   const goalCategories = {
@@ -37,6 +44,7 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
   useEffect(() => {
     loadUserGoals();
     loadSessionGoals();
+    loadSuggestedGoals();
   }, [userId, sessionId]);
 
   // Load user's existing goals from Premium Goals
@@ -76,6 +84,154 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
     }
   };
 
+  // Load suggested goals from the database
+  const loadSuggestedGoals = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/reflectionarian/get-goal-suggestions?user_id=${userId}&status=available`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        // Transform suggestions into the format expected by the component
+        const transformed = data.suggestions.map((suggestion) => ({
+          id: suggestion.id,
+          title: suggestion.suggested_goal_text.substring(0, 50) + "...",
+          description: suggestion.suggested_goal_text,
+          category: mapSuggestionTypeToCategory(suggestion.suggestion_type),
+          rationale: suggestion.suggestion_rationale,
+          timeframe: "3_months", // Default timeframe
+        }));
+        setSuggestedGoals(transformed);
+      }
+    } catch (error) {
+      console.error("Error loading suggested goals:", error);
+    }
+  };
+
+  const mapSuggestionTypeToCategory = (type) => {
+    const mapping = {
+      behavioral: "personal_growth",
+      emotional: "emotional_wellness",
+      cognitive: "mindfulness",
+      relational: "relationships",
+      professional: "professional",
+      health: "health",
+    };
+    return mapping[type] || "personal_growth";
+  };
+
+  // Generate goal suggestions
+  const generateGoalSuggestions = async () => {
+    setIsGenerating(true);
+    try {
+      // This would call your AI endpoint to generate goal suggestions based on the session
+      const response = await fetch(
+        `${API_BASE}/api/reflectionarian/generate-goals`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            session_id: sessionId,
+            messages: messages?.slice(-10), // Last 10 messages for context
+            preferences,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Save the generated goals as suggestions
+        for (const goal of data.goals) {
+          await fetch(`${API_BASE}/api/reflectionarian/save-goal-suggestion`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              user_id: userId,
+              session_id: sessionId,
+              goal_text: goal.text,
+              rationale: goal.rationale,
+              suggestion_type: goal.type || "behavioral",
+              priority: "high",
+            }),
+          });
+        }
+
+        // Reload suggestions
+        await loadSuggestedGoals();
+      }
+    } catch (error) {
+      console.error("Error generating goal suggestions:", error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Save goal from suggestion to user's goals
+  const saveGoalToPremium = async (goal) => {
+    setAddingGoalId(goal.id);
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/reflectionarian/create-goal-from-suggestion`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            goal_text: goal.description,
+            goal_title: goal.title.replace("...", ""),
+            category: goal.category,
+            description: goal.description,
+            suggestion_id: goal.id,
+            session_id: sessionId,
+            timeframe: goal.timeframe,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Show success message
+        setShowSuccessMessage(true);
+        setTimeout(() => setShowSuccessMessage(false), 3000);
+
+        // Reload goals to show the new one
+        await loadUserGoals();
+
+        // Remove from suggested goals
+        setSuggestedGoals((prev) => prev.filter((g) => g.id !== goal.id));
+
+        // Optionally, auto-link to session
+        if (sessionId) {
+          await linkGoalToSession(data.goal.id);
+        }
+      } else {
+        throw new Error("Failed to create goal");
+      }
+    } catch (error) {
+      console.error("Error saving goal:", error);
+      alert("Failed to add goal. Please try again.");
+    } finally {
+      setAddingGoalId(null);
+    }
+  };
+
   // Link existing goal to session
   const linkGoalToSession = async (goalId) => {
     try {
@@ -88,81 +244,9 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
 
       if (!error) {
         loadSessionGoals();
-        alert("Goal linked to this session!");
       }
     } catch (error) {
       console.error("Error linking goal:", error);
-    }
-  };
-
-  // Generate goal suggestions based on conversation
-  const generateGoalSuggestions = async () => {
-    setIsGenerating(true);
-    try {
-      const conversationText = messages
-        .slice(-10)
-        .map((m) => `${m.role}: ${m.content}`)
-        .join("\n");
-
-      const response = await fetch("/api/reflectionarian/suggest-goals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          conversation: conversationText,
-          approach: preferences.therapy_approach,
-          existingGoals: userGoals.map((g) => g.title),
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to generate suggestions");
-
-      const data = await response.json();
-      setSuggestedGoals(data.goals || []);
-    } catch (error) {
-      console.error("Error generating goals:", error);
-      // Fallback suggestions
-      setSuggestedGoals([
-        {
-          title: "Practice daily mindfulness",
-          description: "Spend 10 minutes each day on mindfulness exercises",
-          category: "mindfulness",
-        },
-        {
-          title: "Improve emotional awareness",
-          description: "Journal about emotions and triggers daily",
-          category: "emotional_wellness",
-        },
-      ]);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  // Save suggested goal to Premium Goals
-  const saveGoalToPremium = async (goal) => {
-    try {
-      const { data, error } = await supabase
-        .from("goals")
-        .insert({
-          user_id: userId,
-          title: goal.title,
-          description: goal.description,
-          category: goal.category || "personal_growth",
-          source: "reflectionarian",
-          status: "not_started",
-          created_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (!error && data) {
-        // Also link to current session
-        await linkGoalToSession(data.id);
-        loadUserGoals();
-        alert("Goal saved and linked to this session!");
-      }
-    } catch (error) {
-      console.error("Error saving goal:", error);
     }
   };
 
@@ -195,6 +279,14 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Success Message */}
+      {showSuccessMessage && (
+        <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 z-50 animate-slide-in">
+          <Check className="w-5 h-5" />
+          Goal added successfully!
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-6">
         <div className="flex items-center justify-between mb-4">
@@ -258,7 +350,7 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
           </h4>
           {suggestedGoals.map((goal, index) => (
             <div
-              key={index}
+              key={goal.id || index}
               className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-md rounded-lg border border-purple-500/30 p-4"
             >
               <div className="flex items-start justify-between">
@@ -267,15 +359,28 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
                   <p className="text-sm text-gray-300 mb-2">
                     {goal.description}
                   </p>
-                  <span className="text-xs bg-white/20 text-white px-2 py-1 rounded">
-                    {goalCategories[goal.category]?.label || "Personal Growth"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs bg-white/20 text-white px-2 py-1 rounded">
+                      {goalCategories[goal.category]?.label ||
+                        "Personal Growth"}
+                    </span>
+                    {goal.rationale && (
+                      <span className="text-xs text-gray-400">
+                        • {goal.rationale}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button
                   onClick={() => saveGoalToPremium(goal)}
-                  className="ml-4 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors flex items-center gap-1"
+                  disabled={addingGoalId === goal.id}
+                  className="ml-4 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white text-sm rounded-lg transition-colors flex items-center gap-1"
                 >
-                  <Plus className="w-3 h-3" />
+                  {addingGoalId === goal.id ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Plus className="w-3 h-3" />
+                  )}
                   Add Goal
                 </button>
               </div>
@@ -353,7 +458,8 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
           <div className="text-center py-8 bg-white/5 rounded-lg">
             <Target className="w-12 h-12 text-gray-500 mx-auto mb-3" />
             <p className="text-gray-400">
-              No active goals yet. Visit your Goals page to create some!
+              No active goals yet. Click "Suggest Goals" to get personalized
+              recommendations!
             </p>
           </div>
         )}
@@ -421,6 +527,23 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
           </div>
         </div>
       )}
+
+      <style jsx>{`
+        @keyframes slide-in {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+
+        .animate-slide-in {
+          animation: slide-in 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };
