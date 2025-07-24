@@ -39,6 +39,7 @@ import { useMembership } from "../hooks/useMembership";
 import MoodTracker from "../components/reflectionarian/MoodTracker";
 import SessionPromptsTab from "../components/reflectionarian/tabs/SessionPromptsTab";
 import GoalTrackingTab from "../components/reflectionarian/tabs/GoalTrackingTab";
+import OnboardingModal from "../components/reflectionarian/OnboardingModal";
 
 // API Base URL
 const API_BASE =
@@ -112,17 +113,23 @@ const PremiumReflectionarian = () => {
     session_structure: "Structured",
     voice_enabled: true,
     weekly_reports: true,
+    onboarding_completed: false,
   };
 
   // Load preferences and sessions on mount
   useEffect(() => {
     if (user && hasAccess("premium_reflectionarian")) {
-      // Load these independently so one failure doesn't block others
-      loadPreferences().catch(console.error);
+      loadPreferences();
+    }
+  }, [user, hasAccess]);
+
+  // Load other data after preferences are loaded
+  useEffect(() => {
+    if (preferences && preferences.onboarding_completed) {
       loadSessions().catch(console.error);
       loadBookmarks().catch(console.error);
     }
-  }, [user, hasAccess]);
+  }, [preferences]);
 
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -179,6 +186,8 @@ const PremiumReflectionarian = () => {
   const loadPreferences = async () => {
     try {
       setIsLoadingPreferences(true);
+      console.log("Loading preferences for user:", user.id);
+
       const response = await fetch(
         `${API_BASE}/api/reflectionarian/preferences?user_id=${user.id}`,
         {
@@ -191,22 +200,31 @@ const PremiumReflectionarian = () => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log("Preferences response:", data);
+
         if (data.preferences) {
+          // User has preferences
           setPreferences({ ...defaultPreferences, ...data.preferences });
-        } else {
-          // First time user - use defaults
+        } else if (data.needs_onboarding) {
+          // User needs onboarding
           setPreferences(defaultPreferences);
+          setShowOnboarding(true);
+        } else {
+          // Fallback - show onboarding
+          setPreferences(defaultPreferences);
+          setShowOnboarding(true);
         }
-      } else if (response.status === 404) {
-        // No preferences found - use defaults
-        setPreferences(defaultPreferences);
       } else {
         console.error("Error response:", response.status);
+        // Show onboarding as fallback
         setPreferences(defaultPreferences);
+        setShowOnboarding(true);
       }
     } catch (error) {
       console.error("Error loading preferences:", error);
+      // Show onboarding as fallback
       setPreferences(defaultPreferences);
+      setShowOnboarding(true);
     } finally {
       setIsLoadingPreferences(false);
     }
@@ -215,6 +233,8 @@ const PremiumReflectionarian = () => {
   // Save preferences to backend
   const savePreferences = async (newPrefs) => {
     try {
+      console.log("Saving preferences:", newPrefs);
+
       const response = await fetch(
         `${API_BASE}/api/reflectionarian/preferences`,
         {
@@ -230,13 +250,48 @@ const PremiumReflectionarian = () => {
       );
 
       if (response.ok) {
+        const data = await response.json();
+        console.log("Preferences saved successfully:", data);
         setPreferences(newPrefs);
         return true;
+      } else {
+        console.error("Failed to save preferences:", response.status);
+        return false;
       }
-      return false;
     } catch (error) {
       console.error("Error saving preferences:", error);
       return false;
+    }
+  };
+
+  // Handle onboarding completion
+  const handleOnboardingComplete = async (onboardingPreferences) => {
+    console.log("Completing onboarding with:", onboardingPreferences);
+
+    const success = await savePreferences(onboardingPreferences);
+    if (success) {
+      setShowOnboarding(false);
+      // Load other data now that onboarding is complete
+      loadSessions().catch(console.error);
+      loadBookmarks().catch(console.error);
+    } else {
+      alert("Failed to save your preferences. Please try again.");
+    }
+  };
+
+  // Handle onboarding skip
+  const handleOnboardingSkip = async () => {
+    const skippedPreferences = {
+      ...defaultPreferences,
+      onboarding_completed: true,
+      skipped_onboarding: true,
+    };
+
+    const success = await savePreferences(skippedPreferences);
+    if (success) {
+      setShowOnboarding(false);
+      loadSessions().catch(console.error);
+      loadBookmarks().catch(console.error);
     }
   };
 
@@ -376,7 +431,7 @@ const PremiumReflectionarian = () => {
 
     try {
       const response = await fetch(
-        `${API_BASE}/api/reflectionarian/sessions/${sessionId}`,
+        `${API_BASE}/api/reflectionarian/sessions?session_id=${sessionId}`,
         {
           method: "PUT",
           headers: {
@@ -588,6 +643,22 @@ const PremiumReflectionarian = () => {
           <p>Loading your Reflectionarian...</p>
         </div>
       </div>
+    );
+  }
+
+  // Don't render main interface until onboarding is complete
+  if (showOnboarding) {
+    return (
+      <>
+        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900">
+          {/* Optional: Background content or just the gradient */}
+        </div>
+        <OnboardingModal
+          isOpen={showOnboarding}
+          onComplete={handleOnboardingComplete}
+          onSkip={handleOnboardingSkip}
+        />
+      </>
     );
   }
 
