@@ -9,10 +9,12 @@ import {
   Search,
   Compass,
   Zap,
+  Plus,
 } from "lucide-react";
 
-// API Base URL - Use relative paths for same-domain requests
-const API_BASE = "";
+// API Base URL
+const API_BASE =
+  import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app";
 
 const SessionPromptsTab = ({ userId, tier = "standard" }) => {
   const [prompts, setPrompts] = useState({
@@ -24,6 +26,7 @@ const SessionPromptsTab = ({ userId, tier = "standard" }) => {
   const [activeCategory, setActiveCategory] = useState("conversation_starters");
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingCategory, setGeneratingCategory] = useState(null);
 
   // Category configuration
   const categories = [
@@ -65,89 +68,261 @@ const SessionPromptsTab = ({ userId, tier = "standard" }) => {
     try {
       setIsLoading(true);
 
-      // Load prompts for each category
-      const allPrompts = {};
-
-      for (const category of categories) {
-        const response = await fetch(
-          `${API_BASE}/api/reflectionarian/prompts?user_id=${userId}&category=${category.id}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          allPrompts[category.id] = data.prompts || [];
-        } else {
-          allPrompts[category.id] = [];
+      // Load prompt suggestions from the database
+      const response = await fetch(
+        `${API_BASE}/api/reflectionarian/get-prompt-suggestions?user_id=${userId}&status=available`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
-      }
+      );
 
-      // Add some default conversation starters if none exist
-      if (allPrompts.conversation_starters.length === 0) {
-        allPrompts.conversation_starters = [
-          {
-            id: "default-1",
-            text: "What's been on your mind lately that you haven't had a chance to fully process?",
-            category: "conversation_starters",
-            difficulty_level: "easy",
-          },
-          {
-            id: "default-2",
-            text: "If you could change one thing about how you've been feeling recently, what would it be?",
-            category: "conversation_starters",
-            difficulty_level: "easy",
-          },
-          {
-            id: "default-3",
-            text: "What pattern in your life would you like to understand better?",
-            category: "conversation_starters",
-            difficulty_level: "medium",
-          },
-        ];
-      }
+      if (response.ok) {
+        const data = await response.json();
 
-      setPrompts(allPrompts);
+        // Organize prompts by category based on suggestion_type
+        const organizedPrompts = {
+          conversation_starters: [],
+          deep_dive: [],
+          check_in: [],
+          breakthrough: [],
+        };
+
+        // Map suggestion types to categories
+        data.suggestions.forEach((suggestion) => {
+          const prompt = {
+            id: suggestion.id,
+            text: suggestion.suggested_prompt_text,
+            category: suggestion.suggestion_type,
+            difficulty_level:
+              suggestion.suggestion_priority === "high"
+                ? "hard"
+                : suggestion.suggestion_priority === "low"
+                ? "easy"
+                : "medium",
+            tags: ["ai-suggested"],
+            confidence_score: suggestion.confidence_score,
+          };
+
+          // Map to appropriate category
+          switch (suggestion.suggestion_type) {
+            case "reflective":
+            case "general":
+              organizedPrompts.conversation_starters.push(prompt);
+              break;
+            case "deep_exploration":
+            case "analytical":
+              organizedPrompts.deep_dive.push(prompt);
+              break;
+            case "check_in":
+            case "emotional":
+              organizedPrompts.check_in.push(prompt);
+              break;
+            case "breakthrough":
+            case "insight":
+              organizedPrompts.breakthrough.push(prompt);
+              break;
+            default:
+              organizedPrompts.conversation_starters.push(prompt);
+          }
+        });
+
+        // Add default prompts if categories are empty
+        if (organizedPrompts.conversation_starters.length === 0) {
+          organizedPrompts.conversation_starters = getDefaultPrompts(
+            "conversation_starters"
+          );
+        }
+
+        setPrompts(organizedPrompts);
+      }
     } catch (error) {
       console.error("Error loading prompts:", error);
+      // Load default prompts on error
+      setPrompts({
+        conversation_starters: getDefaultPrompts("conversation_starters"),
+        deep_dive: getDefaultPrompts("deep_dive"),
+        check_in: getDefaultPrompts("check_in"),
+        breakthrough: getDefaultPrompts("breakthrough"),
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const generateNewPrompts = async () => {
+  const getDefaultPrompts = (category) => {
+    const defaults = {
+      conversation_starters: [
+        {
+          id: "default-cs-1",
+          text: "What's been on your mind lately that you haven't had a chance to fully process?",
+          category: "conversation_starters",
+          difficulty_level: "easy",
+        },
+        {
+          id: "default-cs-2",
+          text: "If you could change one thing about how you've been feeling recently, what would it be?",
+          category: "conversation_starters",
+          difficulty_level: "easy",
+        },
+        {
+          id: "default-cs-3",
+          text: "What pattern in your life would you like to understand better?",
+          category: "conversation_starters",
+          difficulty_level: "medium",
+        },
+      ],
+      deep_dive: [
+        {
+          id: "default-dd-1",
+          text: "What core belief about yourself might be limiting your growth?",
+          category: "deep_dive",
+          difficulty_level: "hard",
+        },
+        {
+          id: "default-dd-2",
+          text: "How has your relationship with yourself evolved over the past year?",
+          category: "deep_dive",
+          difficulty_level: "medium",
+        },
+      ],
+      check_in: [
+        {
+          id: "default-ci-1",
+          text: "On a scale of 1-10, how aligned do you feel with your values today?",
+          category: "check_in",
+          difficulty_level: "easy",
+        },
+        {
+          id: "default-ci-2",
+          text: "What emotion has been most present for you this week?",
+          category: "check_in",
+          difficulty_level: "easy",
+        },
+      ],
+      breakthrough: [
+        {
+          id: "default-bt-1",
+          text: "What would you attempt if you knew you couldn't fail?",
+          category: "breakthrough",
+          difficulty_level: "medium",
+        },
+        {
+          id: "default-bt-2",
+          text: "What truth about yourself have you been avoiding?",
+          category: "breakthrough",
+          difficulty_level: "hard",
+        },
+      ],
+    };
+
+    return defaults[category] || [];
+  };
+
+  const generateNewPrompts = async (category = null) => {
+    const targetCategory = category || activeCategory;
     setIsGenerating(true);
+    setGeneratingCategory(targetCategory);
+
     try {
-      // This would trigger the batch generation for this specific user
+      // Call the generate prompts endpoint
       const response = await fetch(
-        `${API_BASE}/api/batch-processors/weekly/batch-reflectionarian-prompt-generator`,
+        `${API_BASE}/api/reflectionarian/generate-prompts`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_BATCH_API_KEY}`,
           },
           body: JSON.stringify({
             user_id: userId,
-            limit: 1,
+            category: targetCategory,
+            count: 5,
           }),
         }
       );
 
       if (response.ok) {
-        // Wait a bit then reload prompts
-        setTimeout(() => {
-          loadPrompts();
-        }, 3000);
+        const data = await response.json();
+
+        // Save the generated prompts
+        for (const prompt of data.prompts) {
+          await fetch(
+            `${API_BASE}/api/reflectionarian/save-prompt-suggestion`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                user_id: userId,
+                prompt_text: prompt.text,
+                suggestion_type: mapCategoryToSuggestionType(targetCategory),
+                confidence_score: 0.9,
+                context: {
+                  category: targetCategory,
+                  generated_at: new Date().toISOString(),
+                },
+              }),
+            }
+          );
+        }
+
+        // Reload prompts to show the new ones
+        await loadPrompts();
+
+        // Show success message
+        alert(
+          `Generated ${data.prompts.length} new prompts for ${
+            categories.find((c) => c.id === targetCategory)?.label
+          }!`
+        );
+      } else {
+        throw new Error("Failed to generate prompts");
       }
     } catch (error) {
       console.error("Error generating prompts:", error);
+      alert("Failed to generate new prompts. Please try again.");
     } finally {
       setIsGenerating(false);
+      setGeneratingCategory(null);
+    }
+  };
+
+  const mapCategoryToSuggestionType = (category) => {
+    const mapping = {
+      conversation_starters: "reflective",
+      deep_dive: "deep_exploration",
+      check_in: "check_in",
+      breakthrough: "breakthrough",
+    };
+    return mapping[category] || "general";
+  };
+
+  const usePrompt = async (prompt) => {
+    try {
+      // Mark prompt as used
+      await fetch(`${API_BASE}/api/reflectionarian/update-prompt-suggestion`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          suggestion_id: prompt.id,
+          user_id: userId,
+          action: "use",
+        }),
+      });
+
+      // Navigate to chat tab with this prompt
+      // You'll need to pass this up to the parent component
+      console.log("Using prompt:", prompt.text);
+
+      // Reload prompts to remove the used one
+      await loadPrompts();
+    } catch (error) {
+      console.error("Error using prompt:", error);
     }
   };
 
@@ -224,12 +399,16 @@ const SessionPromptsTab = ({ userId, tier = "standard" }) => {
           </div>
           {tier === "premium" && (
             <button
-              onClick={generateNewPrompts}
-              disabled={isGenerating}
+              onClick={() => generateNewPrompts()}
+              disabled={isGenerating && generatingCategory === activeCategory}
               className="px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/50 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
             >
               <RefreshCw
-                className={`w-4 h-4 ${isGenerating ? "animate-spin" : ""}`}
+                className={`w-4 h-4 ${
+                  isGenerating && generatingCategory === activeCategory
+                    ? "animate-spin"
+                    : ""
+                }`}
               />
               Generate New
             </button>
@@ -246,9 +425,10 @@ const SessionPromptsTab = ({ userId, tier = "standard" }) => {
               </p>
               {tier === "premium" && (
                 <button
-                  onClick={generateNewPrompts}
-                  className="mt-4 text-sm text-purple-400 hover:text-purple-300"
+                  onClick={() => generateNewPrompts()}
+                  className="mt-4 text-sm text-purple-400 hover:text-purple-300 flex items-center gap-2 mx-auto"
                 >
+                  <Plus className="w-4 h-4" />
                   Generate personalized prompts
                 </button>
               )}
@@ -257,6 +437,7 @@ const SessionPromptsTab = ({ userId, tier = "standard" }) => {
             getCategoryPrompts().map((prompt, index) => (
               <div
                 key={prompt.id || index}
+                onClick={() => usePrompt(prompt)}
                 className="bg-white/5 rounded-lg p-4 border border-white/10 hover:bg-white/10 transition-all cursor-pointer group"
               >
                 <div className="flex items-start justify-between gap-4">
@@ -272,7 +453,7 @@ const SessionPromptsTab = ({ userId, tier = "standard" }) => {
                     >
                       {prompt.difficulty_level}
                     </span>
-                    {prompt.tags && prompt.tags.includes("ai-suggested") && (
+                    {prompt.tags?.includes("ai-suggested") && (
                       <span className="text-xs px-2 py-1 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">
                         AI Suggested
                       </span>
