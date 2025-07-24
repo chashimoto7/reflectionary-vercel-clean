@@ -17,6 +17,9 @@ import {
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 
+// API Base URL - using the correct backend URL
+const API_BASE = "https://reflectionary-api.vercel.app";
+
 const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
   const [userGoals, setUserGoals] = useState([]);
   const [sessionGoals, setSessionGoals] = useState([]);
@@ -84,7 +87,7 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
   const loadSuggestedGoals = async () => {
     try {
       const response = await fetch(
-        `/api/reflectionarian/get-goal-suggestions?user_id=${userId}&status=available`,
+        `${API_BASE}/api/reflectionarian/get-goal-suggestions?user_id=${userId}&status=available`,
         {
           method: "GET",
           headers: {
@@ -95,10 +98,14 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log("Loaded suggestions:", data);
+
         // Transform suggestions into the format expected by the component
         const transformed = data.suggestions.map((suggestion) => ({
           id: suggestion.id,
-          title: suggestion.suggested_goal_text.substring(0, 50) + "...",
+          title:
+            suggestion.suggested_goal_text.substring(0, 50) +
+            (suggestion.suggested_goal_text.length > 50 ? "..." : ""),
           description: suggestion.suggested_goal_text,
           category: mapSuggestionTypeToCategory(suggestion.suggestion_type),
           rationale: suggestion.suggestion_rationale,
@@ -127,48 +134,67 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
   const generateGoalSuggestions = async () => {
     setIsGenerating(true);
     try {
-      // Call your API endpoint using relative path (same domain)
-      const response = await fetch("/api/reflectionarian/generate-goals", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          session_id: sessionId,
-          messages: messages?.slice(-10), // Last 10 messages for context
-          preferences,
-        }),
-      });
+      // Call the generate-goals endpoint
+      const response = await fetch(
+        `${API_BASE}/api/reflectionarian/generate-goals`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            session_id: sessionId,
+            messages: messages?.slice(-10), // Last 10 messages for context
+            preferences: preferences || {},
+          }),
+        }
+      );
 
-      if (response.ok) {
-        const data = await response.json();
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
+        throw new Error(`Server error: ${response.status}`);
+      }
 
+      const data = await response.json();
+      console.log("Generated goals:", data);
+
+      if (data.goals && data.goals.length > 0) {
         // Save the generated goals as suggestions
         for (const goal of data.goals) {
-          await fetch("/api/reflectionarian/save-goal-suggestion", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              user_id: userId,
-              session_id: sessionId,
-              goal_text: goal.text,
-              rationale: goal.rationale,
-              suggestion_type: goal.type || "behavioral",
-              priority: goal.priority || "medium",
-              confidence_score: 0.9,
-            }),
-          });
+          try {
+            const saveResponse = await fetch(
+              `${API_BASE}/api/reflectionarian/save-goal-suggestion`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  user_id: userId,
+                  session_id: sessionId,
+                  goal_text: goal.text,
+                  rationale: goal.rationale,
+                  suggestion_type: goal.type || "behavioral",
+                  priority: goal.priority || "medium",
+                  confidence_score: 0.9,
+                }),
+              }
+            );
+
+            if (!saveResponse.ok) {
+              console.error("Failed to save goal suggestion");
+            }
+          } catch (saveError) {
+            console.error("Error saving goal:", saveError);
+          }
         }
 
         // Reload suggestions
         await loadSuggestedGoals();
       } else {
-        const errorData = await response.json();
-        console.error("Error response:", errorData);
-        throw new Error(errorData.error || "Failed to generate goals");
+        console.log("No goals generated");
       }
     } catch (error) {
       console.error("Error generating goal suggestions:", error);
@@ -184,7 +210,7 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
 
     try {
       const response = await fetch(
-        "/api/reflectionarian/create-goal-from-suggestion",
+        `${API_BASE}/api/reflectionarian/create-goal-from-suggestion`,
         {
           method: "POST",
           headers: {
@@ -217,7 +243,7 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
         setSuggestedGoals((prev) => prev.filter((g) => g.id !== goal.id));
 
         // Optionally, auto-link to session
-        if (sessionId) {
+        if (sessionId && data.goal && data.goal.id) {
           await linkGoalToSession(data.goal.id);
         }
       } else {
