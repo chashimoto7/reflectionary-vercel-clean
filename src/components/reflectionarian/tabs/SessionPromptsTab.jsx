@@ -68,76 +68,70 @@ const SessionPromptsTab = ({ userId, tier = "standard" }) => {
     try {
       setIsLoading(true);
 
-      // Load prompt suggestions from the database
-      const response = await fetch(
-        `${API_BASE}/api/reflectionarian/get-prompt-suggestions?user_id=${userId}&status=available`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      // Load existing prompts directly from the table
+      const { data: existingPrompts, error } = await supabase
+        .from("reflectionarian_prompt_suggestions")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("status", "active")
+        .eq("used_in_journal", false)
+        .order("created_at", { ascending: false })
+        .limit(50);
 
-      if (response.ok) {
-        const data = await response.json();
+      if (error) {
+        console.error("Error loading prompts:", error);
+        throw error;
+      }
 
-        // Organize prompts by category based on suggestion_type
-        const organizedPrompts = {
-          conversation_starters: [],
-          deep_dive: [],
-          check_in: [],
-          breakthrough: [],
-        };
+      // Organize prompts by category
+      const organizedPrompts = {
+        conversation_starters: [],
+        deep_dive: [],
+        check_in: [],
+        breakthrough: [],
+      };
 
-        // Map suggestion types to categories
-        data.suggestions.forEach((suggestion) => {
-          const prompt = {
-            id: suggestion.id,
-            text: suggestion.suggested_prompt_text,
-            category: suggestion.suggestion_type,
-            difficulty_level:
-              suggestion.suggestion_priority === "high"
-                ? "hard"
-                : suggestion.suggestion_priority === "low"
-                ? "easy"
-                : "medium",
-            tags: ["ai-suggested"],
-            confidence_score: suggestion.confidence_score,
+      if (existingPrompts && existingPrompts.length > 0) {
+        existingPrompts.forEach((prompt) => {
+          const formattedPrompt = {
+            id: prompt.id,
+            text: prompt.suggested_prompt_text,
+            category: prompt.category,
+            difficulty_level: prompt.difficulty_level,
+            tags: prompt.tags || ["ai-suggested"],
+            confidence_score:
+              prompt.confidence_score || prompt.relevance_score / 10,
           };
 
-          // Map to appropriate category
-          switch (suggestion.suggestion_type) {
-            case "reflective":
+          // Map to appropriate category based on the category field
+          switch (prompt.category) {
+            case "conversation_starters":
             case "general":
-              organizedPrompts.conversation_starters.push(prompt);
+              organizedPrompts.conversation_starters.push(formattedPrompt);
               break;
-            case "deep_exploration":
-            case "analytical":
-              organizedPrompts.deep_dive.push(prompt);
+            case "deep_dive":
+              organizedPrompts.deep_dive.push(formattedPrompt);
               break;
             case "check_in":
-            case "emotional":
-              organizedPrompts.check_in.push(prompt);
+              organizedPrompts.check_in.push(formattedPrompt);
               break;
             case "breakthrough":
-            case "insight":
-              organizedPrompts.breakthrough.push(prompt);
+              organizedPrompts.breakthrough.push(formattedPrompt);
               break;
             default:
-              organizedPrompts.conversation_starters.push(prompt);
+              organizedPrompts.conversation_starters.push(formattedPrompt);
           }
         });
-
-        // Add default prompts if categories are empty
-        if (organizedPrompts.conversation_starters.length === 0) {
-          organizedPrompts.conversation_starters = getDefaultPrompts(
-            "conversation_starters"
-          );
-        }
-
-        setPrompts(organizedPrompts);
       }
+
+      // Add default prompts if categories are empty
+      if (organizedPrompts.conversation_starters.length === 0) {
+        organizedPrompts.conversation_starters = getDefaultPrompts(
+          "conversation_starters"
+        );
+      }
+
+      setPrompts(organizedPrompts);
     } catch (error) {
       console.error("Error loading prompts:", error);
       // Load default prompts on error
@@ -246,27 +240,23 @@ const SessionPromptsTab = ({ userId, tier = "standard" }) => {
       if (response.ok) {
         const data = await response.json();
 
-        // Save the generated prompts
+        // Save the generated prompts directly to the table
         for (const prompt of data.prompts) {
-          await fetch(
-            `${API_BASE}/api/reflectionarian/save-prompt-suggestion`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                user_id: userId,
-                prompt_text: prompt.text,
-                suggestion_type: mapCategoryToSuggestionType(targetCategory),
-                confidence_score: 0.9,
-                context: {
-                  category: targetCategory,
-                  generated_at: new Date().toISOString(),
-                },
-              }),
-            }
-          );
+          await supabase.from("reflectionarian_prompt_suggestions").insert({
+            user_id: userId,
+            suggested_prompt_text: prompt.text,
+            category: targetCategory,
+            difficulty_level: prompt.difficulty_level || "medium",
+            tags: prompt.tags || ["ai-generated"],
+            status: "active",
+            suggestion_type: mapCategoryToSuggestionType(targetCategory),
+            confidence_score: prompt.confidence_score || 0.9,
+            generation_context: {
+              category: targetCategory,
+              generated_at: new Date().toISOString(),
+              model: "gpt-4o-mini",
+            },
+          });
         }
 
         // Reload prompts to show the new ones
@@ -302,18 +292,18 @@ const SessionPromptsTab = ({ userId, tier = "standard" }) => {
 
   const usePrompt = async (prompt) => {
     try {
-      // Mark prompt as used
-      await fetch(`${API_BASE}/api/reflectionarian/update-prompt-suggestion`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          suggestion_id: prompt.id,
-          user_id: userId,
-          action: "use",
-        }),
-      });
+      // Mark prompt as used directly in the table
+      const { error } = await supabase
+        .from("reflectionarian_prompt_suggestions")
+        .update({
+          used_in_journal: true,
+          used_at: new Date().toISOString(),
+          usage_count: (prompt.usage_count || 0) + 1,
+        })
+        .eq("id", prompt.id)
+        .eq("user_id", userId);
+
+      if (error) throw error;
 
       // Navigate to chat tab with this prompt
       // You'll need to pass this up to the parent component
