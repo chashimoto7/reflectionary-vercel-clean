@@ -17,10 +17,6 @@ import {
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 
-// API Base URL
-const API_BASE =
-  import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app";
-
 const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
   const [userGoals, setUserGoals] = useState([]);
   const [sessionGoals, setSessionGoals] = useState([]);
@@ -88,7 +84,7 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
   const loadSuggestedGoals = async () => {
     try {
       const response = await fetch(
-        `${API_BASE}/api/reflectionarian/get-goal-suggestions?user_id=${userId}&status=available`,
+        `/api/reflectionarian/get-goal-suggestions?user_id=${userId}&status=available`,
         {
           method: "GET",
           headers: {
@@ -131,29 +127,26 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
   const generateGoalSuggestions = async () => {
     setIsGenerating(true);
     try {
-      // This would call your AI endpoint to generate goal suggestions based on the session
-      const response = await fetch(
-        `${API_BASE}/api/reflectionarian/generate-goals`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            user_id: userId,
-            session_id: sessionId,
-            messages: messages?.slice(-10), // Last 10 messages for context
-            preferences,
-          }),
-        }
-      );
+      // Call your API endpoint using relative path (same domain)
+      const response = await fetch("/api/reflectionarian/generate-goals", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          session_id: sessionId,
+          messages: messages?.slice(-10), // Last 10 messages for context
+          preferences,
+        }),
+      });
 
       if (response.ok) {
         const data = await response.json();
 
         // Save the generated goals as suggestions
         for (const goal of data.goals) {
-          await fetch(`${API_BASE}/api/reflectionarian/save-goal-suggestion`, {
+          await fetch("/api/reflectionarian/save-goal-suggestion", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -164,16 +157,22 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
               goal_text: goal.text,
               rationale: goal.rationale,
               suggestion_type: goal.type || "behavioral",
-              priority: "high",
+              priority: goal.priority || "medium",
+              confidence_score: 0.9,
             }),
           });
         }
 
         // Reload suggestions
         await loadSuggestedGoals();
+      } else {
+        const errorData = await response.json();
+        console.error("Error response:", errorData);
+        throw new Error(errorData.error || "Failed to generate goals");
       }
     } catch (error) {
       console.error("Error generating goal suggestions:", error);
+      alert("Failed to generate goal suggestions. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -185,7 +184,7 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
 
     try {
       const response = await fetch(
-        `${API_BASE}/api/reflectionarian/create-goal-from-suggestion`,
+        "/api/reflectionarian/create-goal-from-suggestion",
         {
           method: "POST",
           headers: {
@@ -222,11 +221,12 @@ const GoalTrackingTab = ({ sessionId, userId, preferences, messages }) => {
           await linkGoalToSession(data.goal.id);
         }
       } else {
-        throw new Error("Failed to create goal");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create goal");
       }
     } catch (error) {
       console.error("Error saving goal:", error);
-      alert("Failed to add goal. Please try again.");
+      alert(`Failed to add goal: ${error.message}`);
     } finally {
       setAddingGoalId(null);
     }
