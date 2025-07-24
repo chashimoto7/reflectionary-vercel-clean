@@ -35,7 +35,6 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../contexts/AuthContext";
-import { useMembership } from "../hooks/useMembership";
 import MoodTracker from "../components/reflectionarian/MoodTracker";
 import SessionPromptsTab from "../components/reflectionarian/tabs/SessionPromptsTab";
 import GoalTrackingTab from "../components/reflectionarian/tabs/GoalTrackingTab";
@@ -47,7 +46,7 @@ const API_BASE =
 
 const PremiumReflectionarian = () => {
   const { user } = useAuth();
-  const { hasAccess, tier } = useMembership();
+  // Removed useMembership and hasAccess since router handles this
 
   // Onboarding & Preferences State
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -116,12 +115,12 @@ const PremiumReflectionarian = () => {
     onboarding_completed: false,
   };
 
-  // Load preferences and sessions on mount
+  // Load preferences on mount (router already verified access)
   useEffect(() => {
-    if (user && hasAccess("premium_reflectionarian")) {
+    if (user?.id) {
       loadPreferences();
     }
-  }, [user?.id]); // Only depend on user.id, not the entire user object
+  }, [user?.id]);
 
   // Load other data after preferences are loaded
   useEffect(() => {
