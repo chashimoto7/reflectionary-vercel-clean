@@ -1,5 +1,6 @@
-// frontend/ src/pages/LandingPage.jsx
+// frontend/src/pages/LandingPage.jsx
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom"; // Add this import
 import {
   Shield,
   Brain,
@@ -34,6 +35,7 @@ const ReflectionaryLogo = ({ className, variant = "horizontal" }) => (
 );
 
 export default function LandingPage() {
+  const navigate = useNavigate(); // Add this hook
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeDemo, setActiveDemo] = useState(null);
@@ -46,13 +48,13 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Navigation handlers - these would connect to your router in the real app
+  // Navigation handlers - properly using navigate hook
   const handleSignIn = () => {
-    window.location.href = "/login";
+    navigate("/login");
   };
 
   const handleGetStarted = () => {
-    window.location.href = "/signup";
+    navigate("/signup");
   };
 
   const features = [
