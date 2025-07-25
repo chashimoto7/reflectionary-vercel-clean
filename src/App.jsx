@@ -5,9 +5,9 @@ import {
   Routes,
   Route,
   Navigate,
-  useNavigate,
   useLocation,
 } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { SecurityProvider, useSecurity } from "./contexts/SecurityContext";
 import { supabase } from "./lib/supabase";
