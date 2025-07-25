@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { CheckCircle, Loader2 } from "lucide-react";
-import logo from "../assets/ReflectionaryLogoWelcome.png";
+import logo from "../assets/BrightReflectionaryHorizontal.svg";
 
 export default function SignupSuccess() {
   const [searchParams] = useSearchParams();
