@@ -1,4 +1,4 @@
-// frontend/ src/hooks/useMembership - Simplified for new tier structure
+// frontend/src/hooks/useMembership.js - Fixed version
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
@@ -6,7 +6,7 @@ import { supabase } from "../lib/supabase";
 export function useMembership() {
   const { user } = useAuth();
   const [membershipData, setMembershipData] = useState({
-    tier: null,
+    tier: "free", // Default to free instead of null
     loading: true,
   });
 
@@ -39,34 +39,20 @@ export function useMembership() {
       if (userError) {
         if (userError.code === "PGRST116") {
           console.log("🆕 No user profile found - new user defaults to free");
-          setMembershipData({
-            tier: "free",
-            loading: false,
-          });
         } else {
           console.error("❌ Database error loading membership:", userError);
-          setMembershipData({
-            tier: "free",
-            loading: false,
-          });
         }
-        return;
-      }
 
-      // Successfully got user data - extract the tier
-      const tier = userData?.subscription_tier;
-      console.log("🎯 Raw subscription_tier from database:", tier);
-
-      if (!tier) {
-        console.warn(
-          "⚠️ subscription_tier is null/undefined in database, defaulting to free"
-        );
         setMembershipData({
           tier: "free",
           loading: false,
         });
         return;
       }
+
+      // Successfully got user data - extract the tier
+      const tier = userData?.subscription_tier || "free";
+      console.log("🎯 Raw subscription_tier from database:", tier);
 
       console.log("✅ Membership loaded successfully:", { tier });
 
@@ -83,7 +69,7 @@ export function useMembership() {
     }
   }
 
-  // Simplified access checking - just check the tier, that's it!
+  // Simplified access checking - just check the tier
   function hasAccess(feature) {
     const { tier } = membershipData;
 
@@ -109,7 +95,7 @@ export function useMembership() {
       case "basic_womens_health":
         return ["basic", "standard", "advanced", "premium"].includes(tier);
 
-      // Standard tier features (renamed from current basic/standard)
+      // Standard tier features
       case "standard_journaling":
         return ["standard", "advanced", "premium"].includes(tier);
 
@@ -153,7 +139,7 @@ export function useMembership() {
       case "advanced_reflectionarian":
         return ["advanced", "premium"].includes(tier);
 
-      // Premium tier features (renamed from current Advanced)
+      // Premium tier features
       case "premium_journaling":
         return tier === "premium";
 
@@ -217,13 +203,13 @@ export function useMembership() {
         return "Upgrade to Basic ($8/month) for analytics and women's health tracking, or higher tiers for more features!";
 
       case "basic":
-        return "Upgrade to Standard ($20/month) for full journaling features, goals, and AI assistance!";
+        return "Upgrade to Standard ($18/month) for full journaling features, goals, and AI assistance!";
 
       case "standard":
-        return "Upgrade to Advanced ($30/month) for advanced features and enhanced AI capabilities!";
+        return "Upgrade to Advanced ($28/month) for advanced features and enhanced AI capabilities!";
 
       case "advanced":
-        return "Upgrade to Premium ($40/month) for the ultimate journaling experience with all premium features!";
+        return "Upgrade to Premium ($38/month) for the ultimate journaling experience with all premium features!";
 
       default:
         return "Upgrade your membership to access this feature!";
