@@ -1,6 +1,6 @@
 // frontend/src/pages/LandingPage.jsx
 import React, { useState, useEffect } from "react";
-// Removed useNavigate import - not needed for landing page
+
 import {
   Shield,
   Brain,
