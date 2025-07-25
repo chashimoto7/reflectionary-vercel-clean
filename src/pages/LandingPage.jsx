@@ -1,5 +1,6 @@
-// frontend/ src/pages/LandingPage.jsx
+// frontend/src/pages/LandingPage.jsx
 import React, { useState, useEffect } from "react";
+// Removed useNavigate import - not needed for landing page
 import {
   Shield,
   Brain,
@@ -46,7 +47,7 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Navigation handlers - these would connect to your router in the real app
+  // Navigation handlers - using window.location for landing page
   const handleSignIn = () => {
     window.location.href = "/login";
   };
