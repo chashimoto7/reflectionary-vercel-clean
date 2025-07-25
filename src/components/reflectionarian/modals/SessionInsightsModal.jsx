@@ -1,4 +1,4 @@
-const navigate = useNavigate(); // src/components/reflectionarian/modals/SessionInsightsModal.jsx
+// src/components/reflectionarian/modals/SessionInsightsModal.jsx
 import React, { useState, useEffect } from "react";
 import {
   Brain,
