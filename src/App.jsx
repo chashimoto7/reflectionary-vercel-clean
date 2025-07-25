@@ -6,8 +6,8 @@ import {
   Route,
   Navigate,
   useLocation,
+  useNavigate,
 } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { SecurityProvider, useSecurity } from "./contexts/SecurityContext";
 import { supabase } from "./lib/supabase";
@@ -37,9 +37,11 @@ if (typeof window !== "undefined") {
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
   const { isLocked, isUnlocking } = useSecurity();
-  const navigate = useNavigate();
   const location = useLocation();
   const [hasNavigatedToWelcome, setHasNavigatedToWelcome] = useState(false);
+
+  // Only use navigate for authenticated routes
+  const navigate = user ? useNavigate() : null;
 
   // Handle authentication state changes
   useEffect(() => {
@@ -53,13 +55,14 @@ function AppContent() {
       location.pathname !== "/login" &&
       location.pathname !== "/signup"
     ) {
-      navigate("/login");
+      window.location.href = "/login";
       return;
     }
 
     // Navigate to welcome page only once after successful login
     if (
       user &&
+      navigate &&
       !isLocked &&
       !hasNavigatedToWelcome &&
       (location.pathname === "/" || location.pathname === "/login")
