@@ -1,4 +1,4 @@
-// frontend /src/pages/LandingPage.jsx
+// frontend/ src/pages/LandingPage.jsx
 import React, { useState, useEffect } from "react";
 import {
   Shield,
@@ -46,7 +46,7 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Navigation handlers - using window.location for landing page
+  // Navigation handlers - these would connect to your router in the real app
   const handleSignIn = () => {
     window.location.href = "/login";
   };
