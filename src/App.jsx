@@ -1,4 +1,4 @@
-// frontend/ src/app.jsx
+// frontend/src/App.jsx
 import React, { useEffect, useState } from "react";
 import {
   BrowserRouter as Router,
@@ -118,14 +118,14 @@ function AppContent() {
       <Routes>
         <Route path="/" element={<Navigate to="/welcome" replace />} />
         <Route path="/welcome" element={<Welcome />} />
-        <Route path="/journaling" element={<JournalingRouter />} />
-        <Route path="/history" element={<HistoryRouter />} />
-        <Route path="/goals" element={<GoalsRouter />} />
-        <Route path="/analytics" element={<AnalyticsRouter />} />
-        <Route path="/wellness" element={<WellnessRouter />} />
-        <Route path="/womens-health" element={<WomensHealthRouter />} />
-        <Route path="/reflectionarian" element={<ReflectionarianRouter />} />
-        <Route path="/settings" element={<SettingsRouter />} />
+        <Route path="/journaling/*" element={<JournalingRouter />} />
+        <Route path="/history/*" element={<HistoryRouter />} />
+        <Route path="/goals/*" element={<GoalsRouter />} />
+        <Route path="/analytics/*" element={<AnalyticsRouter />} />
+        <Route path="/wellness/*" element={<WellnessRouter />} />
+        <Route path="/womens-health/*" element={<WomensHealthRouter />} />
+        <Route path="/reflectionarian/*" element={<ReflectionarianRouter />} />
+        <Route path="/settings/*" element={<SettingsRouter />} />
         <Route path="*" element={<Navigate to="/welcome" replace />} />
       </Routes>
     </Layout>
