@@ -39,6 +39,7 @@ import WeeklyReportTab from "../components/reflectionarian/tabs/WeeklyReportTab"
 import GrowthTimelineTab from "../components/reflectionarian/tabs/GrowthTimelineTab";
 import ExportSessionsTab from "../components/reflectionarian/tabs/ExportSessionsTab";
 import SessionInsightsModal from "../components/reflectionarian/modals/SessionInsightsModal";
+import pollyTTSService from "../services/pollyTTSService";
 // Import your custom logo icon
 import ReflectionaryIcon from "../assets/ReflectionaryIcon.svg";
 
@@ -64,9 +65,9 @@ const PremiumReflectionarian = () => {
   const [sessionPrompts, setSessionPrompts] = useState([]);
   const [sessionHistory, setSessionHistory] = useState([]);
 
-  // Audio State
+  // Speech State
   const [isListening, setIsListening] = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   // UI State
   const [activeTab, setActiveTab] = useState("chat");
@@ -74,8 +75,10 @@ const PremiumReflectionarian = () => {
   const [showEndSessionModal, setShowEndSessionModal] = useState(false);
   const [showSessionInsights, setShowSessionInsights] = useState(false);
 
+  // Refs
   const messagesEndRef = useRef(null);
   const chatInputRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   // Premium color scheme
   const colors = {
@@ -105,6 +108,105 @@ const PremiumReflectionarian = () => {
     session_structure: "Structured",
     voice_enabled: true,
     weekly_reports: true,
+    enableSpeech: false,
+    ttsVoice: "ruth",
+    ttsEngine: "neural",
+    ttsStyle: "calm",
+  };
+
+  // Filler sentences for better conversation flow
+  const fillerSentences = [
+    "I understand. Let me give that some thought...",
+    "That sounds challenging. I'm processing what you've shared...",
+    "I hear you. Give me a moment to consider this...",
+    "Thank you for sharing that with me. Let me reflect on this...",
+    "I can sense the importance of what you're telling me...",
+    "That's really meaningful. I'm thinking about how to respond...",
+    "I appreciate you opening up about this...",
+    "Let me take a moment to process what you've shared...",
+  ];
+
+  // Initialize speech recognition and synthesis
+  useEffect(() => {
+    if ("webkitSpeechRecognition" in window) {
+      const recognition = new window.webkitSpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setCurrentMessage((prev) => prev + " " + transcript);
+        setIsListening(false);
+      };
+
+      recognition.onerror = () => {
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, []);
+
+  // Speech functions
+  const startListening = () => {
+    if (recognitionRef.current && !isListening) {
+      setIsListening(true);
+      recognitionRef.current.start();
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+  };
+
+  const speakText = async (text) => {
+    try {
+      // Stop any current speech
+      pollyTTSService.stopAudio();
+
+      setIsSpeaking(true);
+
+      // Use therapy-optimized speech for better therapeutic experience
+      await pollyTTSService.speakTherapy(
+        text,
+        {
+          voice: preferences?.ttsVoice || "ruth",
+          ssmlStyle: "calm",
+        },
+        () => {
+          setIsSpeaking(false); // Callback when speech ends
+        }
+      );
+    } catch (error) {
+      console.error("Error speaking text:", error);
+      setIsSpeaking(false);
+
+      // Fallback to browser TTS if Polly fails
+      if ("speechSynthesis" in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.9;
+        utterance.pitch = 1.0;
+        utterance.volume = 0.8;
+        utterance.onend = () => setIsSpeaking(false);
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+  };
+
+  const stopSpeaking = () => {
+    pollyTTSService.stopAudio();
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
   };
 
   // Load preferences and sessions on mount
@@ -222,6 +324,9 @@ const PremiumReflectionarian = () => {
   // Start a new session
   const startNewSession = async () => {
     try {
+      setIsLoading(true);
+      console.log("🚀 Starting new session for user:", user.id);
+
       const response = await fetch(`${API_BASE}/api/reflectionarian/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -231,14 +336,36 @@ const PremiumReflectionarian = () => {
         }),
       });
 
+      console.log("📡 Session creation response status:", response.status);
+
       if (response.ok) {
         const data = await response.json();
+        console.log("✅ Session created:", data);
         setSessionId(data.session.id);
-        setMessages([]);
+        setMessages([
+          {
+            id: 1,
+            role: "assistant",
+            content:
+              "Hello! I'm here to listen and support you in your reflection journey. What's on your mind today?",
+            created_at: new Date().toISOString(),
+          },
+        ]);
         await loadSessions(); // Refresh session list
+      } else {
+        const errorData = await response.text();
+        console.error(
+          "❌ Session creation failed:",
+          response.status,
+          errorData
+        );
+        throw new Error(`Failed to create session: ${response.status}`);
       }
     } catch (error) {
-      console.error("Error starting session:", error);
+      console.error("❌ Error starting session:", error);
+      alert("Failed to start session. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -247,6 +374,8 @@ const PremiumReflectionarian = () => {
     if (!sessionId) return;
 
     try {
+      setIsLoading(true);
+
       const response = await fetch(
         `${API_BASE}/api/reflectionarian/sessions/${sessionId}`,
         {
@@ -266,10 +395,19 @@ const PremiumReflectionarian = () => {
 
         // Reset session state
         setSessionId(null);
+        setMessages([]);
         await loadSessions(); // Refresh session list
       }
     } catch (error) {
       console.error("Error ending session:", error);
+      // Reset session state even if API call fails
+      setSessionId(null);
+      setMessages([]);
+      alert(
+        "Session ended. There was an issue saving insights, but your conversation has been saved."
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -283,16 +421,24 @@ const PremiumReflectionarian = () => {
     setIsLoading(true);
 
     // Add user message to UI immediately
-    const tempMessages = [
-      ...messages,
-      {
-        id: Date.now(),
-        role: "user",
-        content: userMessage,
-        created_at: new Date().toISOString(),
-      },
-    ];
-    setMessages(tempMessages);
+    const tempUserMessage = {
+      id: Date.now(),
+      role: "user",
+      content: userMessage,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, tempUserMessage]);
+
+    // Show a filler message immediately for better UX
+    const fillerMessage = {
+      id: Date.now() + 0.5,
+      role: "assistant",
+      content:
+        fillerSentences[Math.floor(Math.random() * fillerSentences.length)],
+      created_at: new Date().toISOString(),
+      isFiller: true,
+    };
+    setMessages((prev) => [...prev, fillerMessage]);
 
     try {
       const response = await fetch(`${API_BASE}/api/reflectionarian/chat`, {
@@ -309,24 +455,57 @@ const PremiumReflectionarian = () => {
       if (response.ok) {
         const data = await response.json();
 
-        // Add assistant response
-        setMessages([
-          ...tempMessages,
-          {
-            id: data.message_id || Date.now() + 1,
-            role: "assistant",
-            content: data.response,
-            created_at: new Date().toISOString(),
-          },
-        ]);
+        const assistantMessage = {
+          id: data.message_id || Date.now() + 1,
+          role: "assistant",
+          content: data.response,
+          created_at: new Date().toISOString(),
+        };
+
+        // Replace filler with actual response
+        setMessages((prev) =>
+          prev.filter((msg) => !msg.isFiller).concat([assistantMessage])
+        );
+
+        // Auto-speak the response if speech is enabled
+        if (preferences?.enableSpeech) {
+          // Use Polly for higher quality therapeutic speech
+          try {
+            await pollyTTSService.speakTherapy(
+              data.response,
+              {
+                voice: preferences?.ttsVoice || "ruth",
+              },
+              () => {
+                setIsSpeaking(false);
+              }
+            );
+            setIsSpeaking(true);
+          } catch (error) {
+            console.error("Error with Polly TTS:", error);
+            // Fallback to browser TTS
+            speakText(data.response);
+          }
+        }
       } else {
         throw new Error("Failed to send message");
       }
     } catch (error) {
       console.error("Error sending message:", error);
-      // Remove the user message on error
-      setMessages(messages);
-      alert("Failed to send message. Please try again.");
+      // Remove filler and show error
+      setMessages((prev) =>
+        prev
+          .filter((msg) => !msg.isFiller)
+          .concat([
+            {
+              id: Date.now() + 1,
+              role: "assistant",
+              content:
+                "I apologize, but I'm having trouble connecting right now. Please try again.",
+              created_at: new Date().toISOString(),
+            },
+          ])
+      );
     } finally {
       setIsLoading(false);
     }
@@ -419,21 +598,16 @@ const PremiumReflectionarian = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center p-2">
-                    <img
-                      src={ReflectionaryIcon}
-                      alt="Reflectionary"
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                  <div>
-                    <h1 className="text-xl font-bold text-white">
-                      Premium Reflectionarian
-                    </h1>
-                    <p className="text-sm text-purple-300">
-                      Advanced AI Coaching & Therapy
-                    </p>
-                  </div>
+                  {/* Icon without background */}
+                  <img
+                    src={ReflectionaryIcon}
+                    alt="Reflectionary"
+                    className="w-12 h-12 object-contain"
+                  />
+                  {/* Larger title to match icon height */}
+                  <h1 className="text-2xl font-bold text-white">
+                    Premium Reflectionarian
+                  </h1>
                 </div>
               </div>
 
@@ -446,22 +620,16 @@ const PremiumReflectionarian = () => {
                   </span>
                 </div>
 
-                {/* Session Control */}
-                {sessionId ? (
-                  <button
-                    onClick={() => setShowEndSessionModal(true)}
-                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-lg transition-colors"
-                  >
-                    End Session
-                  </button>
-                ) : (
-                  <button
-                    onClick={startNewSession}
-                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg transition-all"
-                  >
-                    Start New Session
-                  </button>
-                )}
+                {/* Privacy Info Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowPrivacyInfo(true)}
+                  className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                  title="Privacy Information"
+                  aria-label="Show privacy information"
+                >
+                  <Info className="w-5 h-5" />
+                </button>
               </div>
             </div>
           </div>
@@ -474,12 +642,14 @@ const PremiumReflectionarian = () => {
               {proTabs.map((tab) => (
                 <button
                   key={tab.id}
+                  type="button"
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all ${
                     activeTab === tab.id
                       ? "bg-purple-600 text-white shadow-lg"
                       : "text-purple-200 hover:text-white hover:bg-white/10"
                   }`}
+                  aria-label={`Switch to ${tab.label} tab`}
                 >
                   <tab.icon className="w-4 h-4" />
                   <span className="hidden sm:inline">{tab.label}</span>
@@ -526,9 +696,11 @@ const PremiumReflectionarian = () => {
                         </div>
                       )}
                       <div
-                        className={`max-w-[80%] p-4 rounded-xl ${
+                        className={`max-w-[80%] p-4 rounded-xl relative ${
                           message.role === "user"
                             ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+                            : message.isFiller
+                            ? "bg-yellow-600/20 text-yellow-200 italic border border-yellow-600/30"
                             : "bg-white/10 text-white border border-white/20"
                         }`}
                       >
@@ -536,6 +708,21 @@ const PremiumReflectionarian = () => {
                         <p className="text-xs opacity-70 mt-2">
                           {new Date(message.created_at).toLocaleTimeString()}
                         </p>
+
+                        {/* Add speaker button for assistant messages */}
+                        {message.role === "assistant" &&
+                          !message.isFiller &&
+                          !isSpeaking && (
+                            <button
+                              type="button"
+                              onClick={() => speakText(message.content)}
+                              className="absolute top-2 right-2 p-1 bg-white/10 hover:bg-white/20 rounded text-gray-300 hover:text-white transition-colors"
+                              title="Read aloud"
+                              aria-label="Read message aloud"
+                            >
+                              <Volume2 className="w-3 h-3" />
+                            </button>
+                          )}
                       </div>
                       {message.role === "user" && (
                         <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
@@ -553,25 +740,67 @@ const PremiumReflectionarian = () => {
                     </div>
                   ))
                 )}
+                {isLoading && (
+                  <div className="flex justify-start">
+                    <div className="bg-white/10 p-4 rounded-2xl">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="text-gray-300">Thinking...</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
               {/* Chat Input */}
               <div className="border-t border-white/20 p-6">
                 <form onSubmit={sendMessage} className="flex gap-3 mb-3">
-                  <input
-                    ref={chatInputRef}
-                    type="text"
-                    value={currentMessage}
-                    onChange={(e) => setCurrentMessage(e.target.value)}
-                    placeholder="Share what's on your mind..."
-                    className="flex-1 p-4 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-                    disabled={isLoading}
-                  />
+                  <div className="flex-1 relative">
+                    <label htmlFor="message-input" className="sr-only">
+                      Enter your message
+                    </label>
+                    <input
+                      id="message-input"
+                      name="message"
+                      ref={chatInputRef}
+                      type="text"
+                      value={currentMessage}
+                      onChange={(e) => setCurrentMessage(e.target.value)}
+                      placeholder="Share what's on your mind... (or use voice)"
+                      className="w-full p-4 pr-12 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
+                      disabled={isLoading}
+                      aria-label="Message input"
+                    />
+                    {/* Voice input button */}
+                    <button
+                      type="button"
+                      onClick={isListening ? stopListening : startListening}
+                      className={`absolute right-3 top-1/2 transform -translate-y-1/2 p-2 rounded-lg transition-colors ${
+                        isListening
+                          ? "bg-red-500 hover:bg-red-600 text-white"
+                          : "bg-white/10 hover:bg-white/20 text-gray-300"
+                      }`}
+                      disabled={isLoading}
+                      title={
+                        isListening ? "Stop listening" : "Start voice input"
+                      }
+                      aria-label={
+                        isListening ? "Stop voice input" : "Start voice input"
+                      }
+                    >
+                      <Mic
+                        className={`w-4 h-4 ${
+                          isListening ? "animate-pulse" : ""
+                        }`}
+                      />
+                    </button>
+                  </div>
                   <button
                     type="submit"
                     disabled={isLoading || !currentMessage.trim()}
                     className="px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all flex items-center gap-2"
+                    aria-label="Send message"
                   >
                     {isLoading ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -582,11 +811,27 @@ const PremiumReflectionarian = () => {
                   </button>
                 </form>
 
-                {/* Session Control */}
-                <div className="flex justify-center">
+                {/* TTS Controls and Session Control */}
+                <div className="flex justify-between items-center">
+                  {/* TTS Controls - if message is being spoken */}
+                  {isSpeaking && (
+                    <button
+                      type="button"
+                      onClick={stopSpeaking}
+                      className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors"
+                      aria-label="Stop reading message aloud"
+                    >
+                      <VolumeX className="w-4 h-4" />
+                      Stop Speaking
+                    </button>
+                  )}
+
+                  {/* Session Control */}
                   <button
+                    type="button"
                     onClick={() => setShowEndSessionModal(true)}
-                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-lg transition-colors text-red-300 text-sm"
+                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-lg transition-colors text-red-300 text-sm ml-auto"
+                    aria-label="End current session"
                   >
                     End Session
                   </button>
@@ -612,11 +857,18 @@ const PremiumReflectionarian = () => {
                   thoughts, feelings, and personal growth journey.
                 </p>
                 <button
+                  type="button"
                   onClick={startNewSession}
-                  className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl text-white font-medium transition-all flex items-center gap-2 mx-auto"
+                  disabled={isLoading}
+                  className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 rounded-xl text-white font-medium transition-all flex items-center gap-2 mx-auto"
+                  aria-label="Start new therapy session"
                 >
-                  <PlusCircle className="w-5 h-5" />
-                  Start New Session
+                  {isLoading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <PlusCircle className="w-5 h-5" />
+                  )}
+                  Begin Session
                 </button>
               </div>
             </div>
@@ -658,17 +910,6 @@ const PremiumReflectionarian = () => {
               }}
             />
           )}
-
-          {activeTab === "settings" && (
-            <div className="p-6">
-              <div className="max-w-2xl mx-auto bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
-                <h2 className="text-xl font-bold text-white mb-6">
-                  Reflectionarian Settings
-                </h2>
-                {/* Settings form would go here */}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* End Session Modal */}
@@ -689,14 +930,18 @@ const PremiumReflectionarian = () => {
               </p>
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={() => setShowEndSessionModal(false)}
                   className="flex-1 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+                  aria-label="Continue current session"
                 >
                   Continue Session
                 </button>
                 <button
+                  type="button"
                   onClick={endSession}
                   className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                  aria-label="End session and generate insights"
                 >
                   End & Generate Insights
                 </button>
@@ -725,8 +970,10 @@ const PremiumReflectionarian = () => {
                   Privacy & Security
                 </h3>
                 <button
+                  type="button"
                   onClick={() => setShowPrivacyInfo(false)}
                   className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                  aria-label="Close privacy information"
                 >
                   <X className="w-5 h-5 text-gray-400" />
                 </button>
@@ -780,8 +1027,10 @@ const PremiumReflectionarian = () => {
 
               <div className="mt-6 pt-4 border-t border-white/20">
                 <button
+                  type="button"
                   onClick={() => setShowPrivacyInfo(false)}
                   className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                  aria-label="Close privacy information"
                 >
                   Got it
                 </button>
