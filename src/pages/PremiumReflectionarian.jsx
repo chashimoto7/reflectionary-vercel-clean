@@ -90,7 +90,7 @@ const PremiumReflectionarian = () => {
     }
   }, [user]);
 
-  // Initialize speech recognition
+  // Initialize speech recognition and synthesis
   useEffect(() => {
     if ("webkitSpeechRecognition" in window) {
       const recognition = new window.webkitSpeechRecognition();
@@ -100,7 +100,7 @@ const PremiumReflectionarian = () => {
 
       recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
-        setCurrentMessage((prev) => prev + transcript);
+        setCurrentMessage((prev) => prev + " " + transcript);
         setIsListening(false);
       };
 
@@ -115,6 +115,58 @@ const PremiumReflectionarian = () => {
       recognitionRef.current = recognition;
     }
   }, []);
+
+  // Filler sentences for better conversation flow
+  const fillerSentences = [
+    "I understand. Let me give that some thought...",
+    "That sounds challenging. I'm processing what you've shared...",
+    "I hear you. Give me a moment to consider this...",
+    "Thank you for sharing that with me. Let me reflect on this...",
+    "I can sense the importance of what you're telling me...",
+    "That's really meaningful. I'm thinking about how to respond...",
+    "I appreciate you opening up about this...",
+    "Let me take a moment to process what you've shared...",
+  ];
+
+  // Speech functions
+  const startListening = () => {
+    if (recognitionRef.current && !isListening) {
+      setIsListening(true);
+      recognitionRef.current.start();
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+  };
+
+  const speakText = (text) => {
+    if ("speechSynthesis" in window) {
+      // Stop any current speech
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const stopSpeaking = () => {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
+  };
 
   const loadUserPreferences = async () => {
     try {
@@ -219,6 +271,17 @@ const PremiumReflectionarian = () => {
     setCurrentMessage("");
     setIsLoading(true);
 
+    // Show a filler message immediately for better UX
+    const fillerMessage = {
+      id: Date.now() + 0.5,
+      role: "assistant",
+      content:
+        fillerSentences[Math.floor(Math.random() * fillerSentences.length)],
+      timestamp: new Date().toISOString(),
+      isFiller: true,
+    };
+    setMessages((prev) => [...prev, fillerMessage]);
+
     try {
       const response = await fetch(
         `${API_BASE}/api/reflectionarian/session/${sessionId}/message`,
@@ -247,19 +310,31 @@ const PremiumReflectionarian = () => {
         timestamp: new Date().toISOString(),
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      // Replace filler with actual response
+      setMessages((prev) =>
+        prev.filter((msg) => !msg.isFiller).concat([assistantMessage])
+      );
+
+      // Auto-speak the response if speech is enabled
+      if (preferences?.enableSpeech) {
+        speakText(data.response);
+      }
     } catch (error) {
       console.error("Error sending message:", error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          role: "assistant",
-          content:
-            "I apologize, but I'm having trouble connecting right now. Please try again.",
-          timestamp: new Date().toISOString(),
-        },
-      ]);
+      // Remove filler and show error
+      setMessages((prev) =>
+        prev
+          .filter((msg) => !msg.isFiller)
+          .concat([
+            {
+              id: Date.now() + 1,
+              role: "assistant",
+              content:
+                "I apologize, but I'm having trouble connecting right now. Please try again.",
+              timestamp: new Date().toISOString(),
+            },
+          ])
+      );
     } finally {
       setIsLoading(false);
     }
@@ -594,9 +669,11 @@ const PremiumReflectionarian = () => {
                                 }`}
                               >
                                 <div
-                                  className={`max-w-[80%] p-4 rounded-2xl ${
+                                  className={`max-w-[80%] p-4 rounded-2xl relative ${
                                     message.role === "user"
                                       ? "bg-purple-600 text-white"
+                                      : message.isFiller
+                                      ? "bg-yellow-600/20 text-yellow-200 italic"
                                       : "bg-white/10 text-gray-100"
                                   }`}
                                 >
@@ -608,6 +685,21 @@ const PremiumReflectionarian = () => {
                                       message.timestamp
                                     ).toLocaleTimeString()}
                                   </p>
+
+                                  {/* Add speaker button for assistant messages */}
+                                  {message.role === "assistant" &&
+                                    !message.isFiller &&
+                                    !isSpeaking && (
+                                      <button
+                                        onClick={() =>
+                                          speakText(message.content)
+                                        }
+                                        className="absolute top-2 right-2 p-1 bg-white/10 hover:bg-white/20 rounded text-gray-300 hover:text-white transition-colors"
+                                        title="Read aloud"
+                                      >
+                                        <Volume2 className="w-3 h-3" />
+                                      </button>
+                                    )}
                                 </div>
                               </div>
                             ))}
@@ -633,7 +725,7 @@ const PremiumReflectionarian = () => {
                         <div className="border-t border-white/10 p-6">
                           <div className="flex gap-3">
                             {/* Input box sized to match combined height of both buttons */}
-                            <div className="flex-1 flex flex-col">
+                            <div className="flex-1 flex flex-col relative">
                               <textarea
                                 ref={textareaRef}
                                 value={currentMessage}
@@ -646,10 +738,34 @@ const PremiumReflectionarian = () => {
                                     sendMessage();
                                   }
                                 }}
-                                placeholder="Share your thoughts..."
-                                className="w-full h-24 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                placeholder="Share your thoughts... (or use voice)"
+                                className="w-full h-24 bg-white/10 border border-white/20 rounded-xl px-4 py-3 pr-12 text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
                                 disabled={isLoading}
                               />
+
+                              {/* Voice input button */}
+                              <button
+                                onClick={
+                                  isListening ? stopListening : startListening
+                                }
+                                className={`absolute right-3 top-3 p-2 rounded-lg transition-colors ${
+                                  isListening
+                                    ? "bg-red-500 hover:bg-red-600 text-white"
+                                    : "bg-white/10 hover:bg-white/20 text-gray-300"
+                                }`}
+                                disabled={isLoading}
+                                title={
+                                  isListening
+                                    ? "Stop listening"
+                                    : "Start voice input"
+                                }
+                              >
+                                <Mic
+                                  className={`w-4 h-4 ${
+                                    isListening ? "animate-pulse" : ""
+                                  }`}
+                                />
+                              </button>
                             </div>
 
                             {/* Buttons stacked vertically */}
@@ -675,6 +791,19 @@ const PremiumReflectionarian = () => {
                               </button>
                             </div>
                           </div>
+
+                          {/* TTS Controls - if message is being spoken */}
+                          {isSpeaking && (
+                            <div className="mt-3 flex items-center justify-center">
+                              <button
+                                onClick={stopSpeaking}
+                                className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors"
+                              >
+                                <VolumeX className="w-4 h-4" />
+                                Stop Speaking
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
