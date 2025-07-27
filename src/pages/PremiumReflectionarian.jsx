@@ -687,7 +687,7 @@ const PremiumReflectionarian = () => {
                       }`}
                     >
                       {message.role === "assistant" && (
-                        <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex items-center justify-center flex-shrink-0 p-1">
+                        <div className="w-8 h-8 bg-purple-900 rounded-full flex items-center justify-center flex-shrink-0 p-1">
                           <img
                             src={ReflectionaryIcon}
                             alt="Reflectionary"
@@ -725,16 +725,12 @@ const PremiumReflectionarian = () => {
                           )}
                       </div>
                       {message.role === "user" && (
-                        <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
-                          {user.user_metadata?.avatar_url ? (
-                            <img
-                              src={user.user_metadata.avatar_url}
-                              alt="You"
-                              className="w-full h-full rounded-full"
-                            />
-                          ) : (
-                            <div className="w-6 h-6 bg-gray-400 rounded-full" />
-                          )}
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold text-sm">
+                          {user?.user_metadata?.full_name
+                            ? user.user_metadata.full_name
+                                .charAt(0)
+                                .toUpperCase()
+                            : user?.email?.charAt(0).toUpperCase() || "U"}
                         </div>
                       )}
                     </div>
@@ -755,28 +751,34 @@ const PremiumReflectionarian = () => {
 
               {/* Chat Input */}
               <div className="border-t border-white/20 p-6">
-                <form onSubmit={sendMessage} className="flex gap-3 mb-3">
+                <div className="flex gap-3 mb-3">
                   <div className="flex-1 relative">
                     <label htmlFor="message-input" className="sr-only">
                       Enter your message
                     </label>
-                    <input
+                    <textarea
                       id="message-input"
                       name="message"
                       ref={chatInputRef}
-                      type="text"
                       value={currentMessage}
                       onChange={(e) => setCurrentMessage(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          sendMessage(e);
+                        }
+                      }}
                       placeholder="Share what's on your mind... (or use voice)"
-                      className="w-full p-4 pr-12 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
+                      className="w-full h-16 p-4 pr-12 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 resize-none"
                       disabled={isLoading}
                       aria-label="Message input"
+                      rows="2"
                     />
                     {/* Voice input button */}
                     <button
                       type="button"
                       onClick={isListening ? stopListening : startListening}
-                      className={`absolute right-3 top-1/2 transform -translate-y-1/2 p-2 rounded-lg transition-colors ${
+                      className={`absolute right-3 top-3 p-2 rounded-lg transition-colors ${
                         isListening
                           ? "bg-red-500 hover:bg-red-600 text-white"
                           : "bg-white/10 hover:bg-white/20 text-gray-300"
@@ -796,25 +798,41 @@ const PremiumReflectionarian = () => {
                       />
                     </button>
                   </div>
-                  <button
-                    type="submit"
-                    disabled={isLoading || !currentMessage.trim()}
-                    className="px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all flex items-center gap-2"
-                    aria-label="Send message"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Send className="w-5 h-5" />
-                    )}
-                    Send
-                  </button>
-                </form>
 
-                {/* TTS Controls and Session Control */}
-                <div className="flex justify-between items-center">
-                  {/* TTS Controls - if message is being spoken */}
-                  {isSpeaking && (
+                  {/* Buttons stacked vertically */}
+                  <div className="flex flex-col gap-3">
+                    {/* Send button with white text and icon */}
+                    <button
+                      type="button"
+                      onClick={sendMessage}
+                      disabled={isLoading || !currentMessage.trim()}
+                      className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all flex items-center gap-2 h-8 text-white"
+                      aria-label="Send message"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      ) : (
+                        <Send className="w-4 h-4 text-white" />
+                      )}
+                      <span className="text-white">Send</span>
+                    </button>
+
+                    {/* End Session button */}
+                    <button
+                      type="button"
+                      onClick={() => setShowEndSessionModal(true)}
+                      className="px-6 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-xl transition-colors text-red-300 flex items-center gap-2 h-8"
+                      aria-label="End current session"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>End Session</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* TTS Controls */}
+                {isSpeaking && (
+                  <div className="flex justify-center">
                     <button
                       type="button"
                       onClick={stopSpeaking}
@@ -824,18 +842,8 @@ const PremiumReflectionarian = () => {
                       <VolumeX className="w-4 h-4" />
                       Stop Speaking
                     </button>
-                  )}
-
-                  {/* Session Control */}
-                  <button
-                    type="button"
-                    onClick={() => setShowEndSessionModal(true)}
-                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-lg transition-colors text-red-300 text-sm ml-auto"
-                    aria-label="End current session"
-                  >
-                    End Session
-                  </button>
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -980,49 +988,33 @@ const PremiumReflectionarian = () => {
               </div>
 
               <div className="space-y-4 text-gray-300">
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-medium text-white">
-                      End-to-End Encryption
-                    </h4>
-                    <p className="text-sm">
-                      All your conversations are encrypted before being stored
-                    </p>
-                  </div>
+                <p>
+                  Your Reflectionarian sessions are protected with the highest
+                  level of privacy:
+                </p>
+
+                <ul className="space-y-2 list-disc list-inside">
+                  <li>All conversations are end-to-end encrypted</li>
+                  <li>Only you can read your session content</li>
+                  <li>No personal identifiers are sent to AI services</li>
+                  <li>Voice data is processed locally when possible</li>
+                  <li>Audio is never stored - only text transcripts</li>
+                  <li>You can delete any session at any time</li>
+                </ul>
+
+                <div className="bg-purple-600/20 rounded-lg p-3 border border-purple-600/30">
+                  <p className="text-sm">
+                    <strong className="text-purple-300">Note:</strong> While AI
+                    responses are generated using OpenAI's API, all encryption
+                    and decryption happens on our secure servers. Your messages
+                    are never exposed in plain text outside our backend.
+                  </p>
                 </div>
 
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-medium text-white">
-                      Zero Knowledge Architecture
-                    </h4>
-                    <p className="text-sm">
-                      We cannot read your conversations even if we wanted to
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-medium text-white">Local Processing</h4>
-                    <p className="text-sm">
-                      Insights are generated using privacy-preserving methods
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-medium text-white">Data Control</h4>
-                    <p className="text-sm">
-                      You can delete your data at any time
-                    </p>
-                  </div>
-                </div>
+                <p className="text-sm">
+                  This is your private space for self-reflection and growth. Not
+                  even our team can access your conversations.
+                </p>
               </div>
 
               <div className="mt-6 pt-4 border-t border-white/20">
