@@ -39,6 +39,7 @@ import WeeklyReportTab from "../components/reflectionarian/tabs/WeeklyReportTab"
 import GrowthTimelineTab from "../components/reflectionarian/tabs/GrowthTimelineTab";
 import ExportSessionsTab from "../components/reflectionarian/tabs/ExportSessionsTab";
 import SessionInsightsModal from "../components/reflectionarian/modals/SessionInsightsModal";
+import pollyTTSService from "../services/pollyTTSService";
 // Import your custom logo icon
 import ReflectionaryIcon from "../assets/ReflectionaryIcon.svg";
 
@@ -143,29 +144,46 @@ const PremiumReflectionarian = () => {
     }
   };
 
-  const speakText = (text) => {
-    if ("speechSynthesis" in window) {
+  const speakText = async (text) => {
+    try {
       // Stop any current speech
-      window.speechSynthesis.cancel();
+      pollyTTSService.stopAudio();
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
+      setIsSpeaking(true);
 
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
+      // Use therapy-optimized speech for better therapeutic experience
+      await pollyTTSService.speakTherapy(
+        text,
+        {
+          voice: preferences?.ttsVoice || "ruth",
+          ssmlStyle: "calm",
+        },
+        () => {
+          setIsSpeaking(false); // Callback when speech ends
+        }
+      );
+    } catch (error) {
+      console.error("Error speaking text:", error);
+      setIsSpeaking(false);
 
-      window.speechSynthesis.speak(utterance);
+      // Fallback to browser TTS if Polly fails
+      if ("speechSynthesis" in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.9;
+        utterance.pitch = 1.0;
+        utterance.volume = 0.8;
+        utterance.onend = () => setIsSpeaking(false);
+        window.speechSynthesis.speak(utterance);
+      }
     }
   };
 
   const stopSpeaking = () => {
+    pollyTTSService.stopAudio();
     if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
-      setIsSpeaking(false);
     }
+    setIsSpeaking(false);
   };
 
   const loadUserPreferences = async () => {
@@ -317,7 +335,23 @@ const PremiumReflectionarian = () => {
 
       // Auto-speak the response if speech is enabled
       if (preferences?.enableSpeech) {
-        speakText(data.response);
+        // Use Polly for higher quality therapeutic speech
+        try {
+          await pollyTTSService.speakTherapy(
+            data.response,
+            {
+              voice: preferences?.ttsVoice || "ruth",
+            },
+            () => {
+              setIsSpeaking(false);
+            }
+          );
+          setIsSpeaking(true);
+        } catch (error) {
+          console.error("Error with Polly TTS:", error);
+          // Fallback to browser TTS
+          speakText(data.response);
+        }
       }
     } catch (error) {
       console.error("Error sending message:", error);
