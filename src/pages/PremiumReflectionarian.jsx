@@ -88,7 +88,7 @@ const PremiumReflectionarian = () => {
   const proTabs = [
     { id: "chat", label: "Chat", icon: MessageCircle },
     { id: "prompts", label: "Session Prompts", icon: BookOpen },
-    { id: "followups", label: "Session Follow-ups", icon: Calendar },
+    { id: "followups", label: "Session History", icon: Calendar },
     { id: "report", label: "Weekly Report", icon: FileText },
     { id: "timeline", label: "Growth Timeline", icon: TrendingUp },
     { id: "export", label: "Export Sessions", icon: Download },
@@ -107,11 +107,11 @@ const PremiumReflectionarian = () => {
 
   // Load preferences and sessions on mount
   useEffect(() => {
-    if (user && hasAccess("premium_reflectionarian")) {
+    if (user && !isLoadingPreferences) {
       loadPreferences();
       loadSessions();
     }
-  }, [user]);
+  }, [user, isLoadingPreferences]);
 
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -355,9 +355,12 @@ const PremiumReflectionarian = () => {
     console.log("Navigate to goals with session context");
   };
 
-  if (!user || !hasAccess("premium_reflectionarian")) {
+  if (
+    !user ||
+    (!hasAccess("premium_reflectionarian") && !isLoadingPreferences)
+  ) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-slate-900 to-indigo-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8 text-center">
           <Crown className="w-16 h-16 mx-auto mb-4 text-yellow-400" />
           <h2 className="text-2xl font-bold text-white mb-4">
@@ -374,9 +377,9 @@ const PremiumReflectionarian = () => {
 
   if (isLoadingPreferences) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-slate-900 to-indigo-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center">
         <div className="text-center">
-          <Brain className="w-16 h-16 mx-auto mb-4 text-purple-400 animate-pulse" />
+          <MessageCircle className="w-16 h-16 mx-auto mb-4 text-purple-400 animate-pulse" />
           <h2 className="text-xl font-semibold text-white mb-2">
             Preparing Your Session
           </h2>
@@ -387,82 +390,82 @@ const PremiumReflectionarian = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-slate-900 to-indigo-900">
-      {/* Header */}
-      <div className="border-b border-white/10 bg-white/5 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
-                  <Brain className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-white">
-                    Premium Reflectionarian
-                  </h1>
-                  <p className="text-sm text-purple-300">
-                    Your Advanced AI Companion
-                  </p>
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900">
+      <div className="p-6">
+        {/* Header */}
+        <div className="border-b border-white/10 bg-white/5 backdrop-blur-sm">
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
+                    <MessageCircle className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-xl font-bold text-white">
+                      Premium Reflectionarian
+                    </h1>
+                    <p className="text-sm text-purple-300">
+                      Advanced AI Coaching & Therapy
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex items-center gap-4">
-              {/* Privacy Indicator */}
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 border border-green-500/30 rounded-lg">
-                <Shield className="w-4 h-4 text-green-400" />
-                <span className="text-sm text-green-300">
-                  End-to-End Encrypted
-                </span>
+              <div className="flex items-center gap-4">
+                {/* Privacy Indicator */}
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 border border-green-500/30 rounded-lg">
+                  <Shield className="w-4 h-4 text-green-400" />
+                  <span className="text-sm text-green-300">
+                    End-to-End Encrypted
+                  </span>
+                </div>
+
+                {/* Session Control */}
+                {sessionId ? (
+                  <button
+                    onClick={() => setShowEndSessionModal(true)}
+                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-lg transition-colors"
+                  >
+                    End Session
+                  </button>
+                ) : (
+                  <button
+                    onClick={startNewSession}
+                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg transition-all"
+                  >
+                    Start New Session
+                  </button>
+                )}
               </div>
-
-              {/* Session Control */}
-              {sessionId ? (
-                <button
-                  onClick={() => setShowEndSessionModal(true)}
-                  className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-lg transition-colors"
-                >
-                  End Session
-                </button>
-              ) : (
-                <button
-                  onClick={startNewSession}
-                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg transition-all"
-                >
-                  Start New Session
-                </button>
-              )}
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Tab Navigation */}
-      <div className="p-6 border-b border-white/10">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex gap-2 overflow-x-auto">
-            {proTabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? "bg-white/20 text-white"
-                    : "bg-white/5 text-white/70 hover:bg-white/10"
-                }`}
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            ))}
+        {/* Tab Navigation */}
+        <div className="mb-8">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-2">
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+              {proTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all ${
+                    activeTab === tab.id
+                      ? "bg-purple-600 text-white shadow-lg"
+                      : "text-purple-200 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  <tab.icon className="w-4 h-4" />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 p-6">
-        <div className="max-w-7xl mx-auto">
+        {/* Main Content */}
+        <div className="space-y-6">
           {/* Chat Tab */}
           {activeTab === "chat" && sessionId && (
             <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 h-[600px] flex flex-col">
@@ -470,7 +473,7 @@ const PremiumReflectionarian = () => {
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 {messages.length === 0 ? (
                   <div className="text-center text-white/50 mt-20">
-                    <Brain className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
                     <p className="text-lg">Ready to begin our conversation</p>
                     <p className="text-sm mt-2">Share what's on your mind...</p>
                   </div>
@@ -522,7 +525,7 @@ const PremiumReflectionarian = () => {
 
               {/* Chat Input */}
               <div className="border-t border-white/20 p-6">
-                <form onSubmit={sendMessage} className="flex gap-3">
+                <form onSubmit={sendMessage} className="flex gap-3 mb-3">
                   <input
                     ref={chatInputRef}
                     type="text"
@@ -545,6 +548,16 @@ const PremiumReflectionarian = () => {
                     Send
                   </button>
                 </form>
+
+                {/* Session Control */}
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => setShowEndSessionModal(true)}
+                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-lg transition-colors text-red-300 text-sm"
+                  >
+                    End Session
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -553,7 +566,7 @@ const PremiumReflectionarian = () => {
           {activeTab === "chat" && !sessionId && (
             <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 h-[600px] flex items-center justify-center">
               <div className="text-center">
-                <Brain className="w-20 h-20 mx-auto mb-6 text-purple-400" />
+                <MessageCircle className="w-20 h-20 mx-auto mb-6 text-purple-400" />
                 <h3 className="text-2xl font-bold text-white mb-4">
                   Ready for Your Next Session?
                 </h3>
@@ -577,7 +590,7 @@ const PremiumReflectionarian = () => {
             <SessionPromptsTab userId={user.id} tier="premium" />
           )}
 
-          {/* Session Follow-ups Tab */}
+          {/* Session History Tab */}
           {activeTab === "followups" && (
             <SessionFollowUpsTab
               userId={user.id}
