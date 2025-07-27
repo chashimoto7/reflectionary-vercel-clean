@@ -43,8 +43,6 @@ import pollyTTSService from "../services/pollyTTSService";
 // Import your custom logo icon
 import ReflectionaryIcon from "../assets/ReflectionaryIcon.svg";
 
-const API_BASE = "https://reflectionary-api.vercel.app";
-
 const PremiumReflectionarian = () => {
   const { user } = useAuth();
   const { hasAccess, tier, loading: membershipLoading } = useMembership();
@@ -286,6 +284,7 @@ const PremiumReflectionarian = () => {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const messageToSend = currentMessage;
     setCurrentMessage("");
     setIsLoading(true);
 
@@ -301,20 +300,19 @@ const PremiumReflectionarian = () => {
     setMessages((prev) => [...prev, fillerMessage]);
 
     try {
-      const response = await fetch(
-        `${API_BASE}/api/reflectionarian/session/${sessionId}/message`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${user.accessToken}`,
-          },
-          body: JSON.stringify({
-            message: currentMessage,
-            user_id: user.id,
-          }),
-        }
-      );
+      const response = await fetch("/api/reflectionarian/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user.accessToken}`,
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          message: messageToSend,
+          session_id: sessionId,
+          tier: "premium",
+        }),
+      });
 
       if (!response.ok) {
         throw new Error("Failed to send message");
@@ -381,14 +379,15 @@ const PremiumReflectionarian = () => {
       setIsLoading(true);
 
       const response = await fetch(
-        `${API_BASE}/api/reflectionarian/session/${sessionId}/end`,
+        `/api/reflectionarian/session/${sessionId}`,
         {
-          method: "POST",
+          method: "PUT",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${user.accessToken}`,
           },
           body: JSON.stringify({
+            status: "completed",
             user_id: user.id,
           }),
         }
@@ -725,11 +724,13 @@ const PremiumReflectionarian = () => {
                                     !message.isFiller &&
                                     !isSpeaking && (
                                       <button
+                                        type="button"
                                         onClick={() =>
                                           speakText(message.content)
                                         }
                                         className="absolute top-2 right-2 p-1 bg-white/10 hover:bg-white/20 rounded text-gray-300 hover:text-white transition-colors"
                                         title="Read aloud"
+                                        aria-label="Read message aloud"
                                       >
                                         <Volume2 className="w-3 h-3" />
                                       </button>
@@ -760,7 +761,15 @@ const PremiumReflectionarian = () => {
                           <div className="flex gap-3">
                             {/* Input box sized to match combined height of both buttons */}
                             <div className="flex-1 flex flex-col relative">
+                              <label
+                                htmlFor="message-input"
+                                className="sr-only"
+                              >
+                                Enter your message
+                              </label>
                               <textarea
+                                id="message-input"
+                                name="message"
                                 ref={textareaRef}
                                 value={currentMessage}
                                 onChange={(e) =>
@@ -775,10 +784,12 @@ const PremiumReflectionarian = () => {
                                 placeholder="Share your thoughts... (or use voice)"
                                 className="w-full h-24 bg-white/10 border border-white/20 rounded-xl px-4 py-3 pr-12 text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
                                 disabled={isLoading}
+                                aria-label="Message input"
                               />
 
                               {/* Voice input button */}
                               <button
+                                type="button"
                                 onClick={
                                   isListening ? stopListening : startListening
                                 }
@@ -791,6 +802,11 @@ const PremiumReflectionarian = () => {
                                 title={
                                   isListening
                                     ? "Stop listening"
+                                    : "Start voice input"
+                                }
+                                aria-label={
+                                  isListening
+                                    ? "Stop voice input"
                                     : "Start voice input"
                                 }
                               >
@@ -806,9 +822,11 @@ const PremiumReflectionarian = () => {
                             <div className="flex flex-col gap-3">
                               {/* Send button with white text and icon */}
                               <button
+                                type="button"
                                 onClick={sendMessage}
                                 disabled={!currentMessage.trim() || isLoading}
                                 className="px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-colors flex items-center gap-2 h-[45px]"
+                                aria-label="Send message"
                               >
                                 <Send className="w-4 h-4 text-white" />
                                 <span className="text-white">Send</span>
@@ -816,9 +834,11 @@ const PremiumReflectionarian = () => {
 
                               {/* End Session button */}
                               <button
+                                type="button"
                                 onClick={endSession}
                                 disabled={isLoading}
                                 className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl transition-colors flex items-center gap-2 h-[45px]"
+                                aria-label="End current session"
                               >
                                 <Save className="w-4 h-4" />
                                 End Session
@@ -830,8 +850,10 @@ const PremiumReflectionarian = () => {
                           {isSpeaking && (
                             <div className="mt-3 flex items-center justify-center">
                               <button
+                                type="button"
                                 onClick={stopSpeaking}
                                 className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors"
+                                aria-label="Stop reading message aloud"
                               >
                                 <VolumeX className="w-4 h-4" />
                                 Stop Speaking
