@@ -62,271 +62,280 @@ const PremiumReflectionarian = () => {
 
   // Session & Features State
   const [sessionPrompts, setSessionPrompts] = useState([]);
-  const [sessionHistory, setSessionHistory] = useState([]);
-
-  // Audio State
-  const [isListening, setIsListening] = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [showGoalSuggestions, setShowGoalSuggestions] = useState(false);
+  const [currentGoalSuggestion, setCurrentGoalSuggestion] = useState(null);
+  const [showSessionInsights, setShowSessionInsights] = useState(false);
+  const [sessionInsights, setSessionInsights] = useState(null);
 
   // UI State
   const [activeTab, setActiveTab] = useState("chat");
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
-  const [showEndSessionModal, setShowEndSessionModal] = useState(false);
-  const [showSessionInsights, setShowSessionInsights] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
+  // Refs
   const messagesEndRef = useRef(null);
-  const chatInputRef = useRef(null);
+  const textareaRef = useRef(null);
+  const recognitionRef = useRef(null);
 
-  // Premium color scheme
-  const colors = {
-    primary: "#8B5CF6",
-    secondary: "#EC4899",
-    accent: "#06B6D4",
-    success: "#10B981",
-    warning: "#F59E0B",
-  };
-
-  // Updated tabs without Goal Tracking
-  const proTabs = [
-    { id: "chat", label: "Chat", icon: MessageCircle },
-    { id: "prompts", label: "Session Prompts", icon: BookOpen },
-    { id: "followups", label: "Session History", icon: Calendar },
-    { id: "report", label: "Weekly Report", icon: FileText },
-    { id: "timeline", label: "Growth Timeline", icon: TrendingUp },
-    { id: "export", label: "Export Sessions", icon: Download },
-  ];
-
-  // Default preferences for Premium tier
-  const defaultPreferences = {
-    tier: "premium",
-    therapy_approach: "Integrative",
-    communication_style: "Warm and Insightful",
-    primary_focus: "Holistic Growth",
-    session_structure: "Structured",
-    voice_enabled: true,
-    weekly_reports: true,
-  };
-
-  // Load preferences and sessions on mount
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (user && !membershipLoading) {
-      loadPreferences();
-      loadSessions();
-    }
-  }, [user, membershipLoading]);
-
-  // Scroll to bottom when messages update
-  useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  // Load user preferences on mount
+  useEffect(() => {
+    if (user) {
+      loadUserPreferences();
+    }
+  }, [user]);
 
-  // Load user preferences from backend
-  const loadPreferences = async () => {
+  // Initialize speech recognition
+  useEffect(() => {
+    if ("webkitSpeechRecognition" in window) {
+      const recognition = new window.webkitSpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setCurrentMessage((prev) => prev + transcript);
+        setIsListening(false);
+      };
+
+      recognition.onerror = () => {
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, []);
+
+  const loadUserPreferences = async () => {
     try {
-      setIsLoadingPreferences(true);
-      const response = await fetch(
-        `${API_BASE}/api/reflectionarian/preferences?user_id=${user.id}`
-      );
+      const { data, error } = await supabase
+        .from("reflectionarian_preferences")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.preferences) {
-          setPreferences({ ...defaultPreferences, ...data.preferences });
-        } else {
-          // First time user - show onboarding
-          setShowOnboarding(true);
-          setPreferences(defaultPreferences);
-        }
+      if (error && error.code !== "PGRST116") {
+        throw error;
+      }
+
+      if (data) {
+        setPreferences(data);
       } else {
-        // No preferences found - show onboarding
+        // First time user - show onboarding
         setShowOnboarding(true);
-        setPreferences(defaultPreferences);
       }
     } catch (error) {
       console.error("Error loading preferences:", error);
-      setPreferences(defaultPreferences);
     } finally {
       setIsLoadingPreferences(false);
     }
   };
 
-  // Save preferences to backend
-  const savePreferences = async (newPrefs) => {
+  const savePreferences = async (newPreferences) => {
     try {
-      const response = await fetch(
-        `${API_BASE}/api/reflectionarian/preferences`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_id: user.id,
-            preferences: newPrefs,
-          }),
-        }
-      );
+      const { data, error } = await supabase
+        .from("reflectionarian_preferences")
+        .upsert({
+          user_id: user.id,
+          ...newPreferences,
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
 
-      if (response.ok) {
-        setPreferences(newPrefs);
-        return true;
-      }
-      return false;
+      if (error) throw error;
+
+      setPreferences(data);
+      return data;
     } catch (error) {
       console.error("Error saving preferences:", error);
-      return false;
+      throw error;
     }
   };
 
-  // Load sessions from backend
-  const loadSessions = async () => {
-    try {
-      const response = await fetch(
-        `${API_BASE}/api/reflectionarian/sessions?user_id=${user.id}`
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setSessionHistory(data.sessions || []);
-
-        // Load active session if exists
-        const activeSession = data.sessions?.find((s) => s.status === "active");
-        if (activeSession) {
-          setSessionId(activeSession.id);
-          await loadSessionMessages(activeSession.id);
-        }
-      }
-    } catch (error) {
-      console.error("Error loading sessions:", error);
-    }
-  };
-
-  // Load messages for a session
-  const loadSessionMessages = async (sessionId) => {
-    try {
-      const response = await fetch(
-        `${API_BASE}/api/reflectionarian/messages?session_id=${sessionId}&user_id=${user.id}`
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setMessages(data.messages || []);
-      }
-    } catch (error) {
-      console.error("Error loading messages:", error);
-    }
-  };
-
-  // Start a new session
   const startNewSession = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/reflectionarian/sessions`, {
+      setIsLoading(true);
+
+      const response = await fetch(`${API_BASE}/api/reflectionarian/session`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user.accessToken}`,
+        },
         body: JSON.stringify({
           user_id: user.id,
-          tier: "premium",
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSessionId(data.session.id);
-        setMessages([]);
-        await loadSessions(); // Refresh session list
-      }
-    } catch (error) {
-      console.error("Error starting session:", error);
-    }
-  };
-
-  // End current session - now shows insights modal
-  const endSession = async () => {
-    if (!sessionId) return;
-
-    try {
-      const response = await fetch(
-        `${API_BASE}/api/reflectionarian/sessions/${sessionId}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status: "completed",
-            user_id: user.id,
-          }),
-        }
-      );
-
-      if (response.ok) {
-        // Show insights modal instead of old goal suggestions
-        setShowSessionInsights(true);
-        setShowEndSessionModal(false);
-
-        // Reset session state
-        setSessionId(null);
-        await loadSessions(); // Refresh session list
-      }
-    } catch (error) {
-      console.error("Error ending session:", error);
-    }
-  };
-
-  // Send a message in the chat
-  const sendMessage = async (e) => {
-    e.preventDefault();
-    if (!currentMessage.trim() || isLoading || !sessionId) return;
-
-    const userMessage = currentMessage.trim();
-    setCurrentMessage("");
-    setIsLoading(true);
-
-    // Add user message to UI immediately
-    const tempMessages = [
-      ...messages,
-      {
-        id: Date.now(),
-        role: "user",
-        content: userMessage,
-        created_at: new Date().toISOString(),
-      },
-    ];
-    setMessages(tempMessages);
-
-    try {
-      const response = await fetch(`${API_BASE}/api/reflectionarian/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userMessage,
-          session_id: sessionId,
-          user_id: user.id,
+          session_type: "premium",
           preferences: preferences,
         }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      if (!response.ok) {
+        throw new Error("Failed to start session");
+      }
 
-        // Add assistant response
-        setMessages([
-          ...tempMessages,
-          {
-            id: data.message_id || Date.now() + 1,
-            role: "assistant",
-            content: data.response,
-            created_at: new Date().toISOString(),
-          },
-        ]);
-      } else {
-        throw new Error("Failed to send message");
+      const data = await response.json();
+      setSessionId(data.session_id);
+      setMessages([
+        {
+          id: 1,
+          role: "assistant",
+          content: data.welcome_message,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+
+      if (data.session_prompts) {
+        setSessionPrompts(data.session_prompts);
       }
     } catch (error) {
+      console.error("Error starting session:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!currentMessage.trim() || isLoading || !sessionId) return;
+
+    const userMessage = {
+      id: Date.now(),
+      role: "user",
+      content: currentMessage,
+      timestamp: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setCurrentMessage("");
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/reflectionarian/session/${sessionId}/message`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${user.accessToken}`,
+          },
+          body: JSON.stringify({
+            message: currentMessage,
+            user_id: user.id,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to send message");
+      }
+
+      const data = await response.json();
+      const assistantMessage = {
+        id: Date.now() + 1,
+        role: "assistant",
+        content: data.response,
+        timestamp: new Date().toISOString(),
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
       console.error("Error sending message:", error);
-      // Remove the user message on error
-      setMessages(messages);
-      alert("Failed to send message. Please try again.");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          role: "assistant",
+          content:
+            "I apologize, but I'm having trouble connecting right now. Please try again.",
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const endSession = async () => {
+    if (!sessionId) return;
+
+    try {
+      setIsLoading(true);
+
+      const response = await fetch(
+        `${API_BASE}/api/reflectionarian/session/${sessionId}/end`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${user.accessToken}`,
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to end session");
+      }
+
+      const data = await response.json();
+
+      // Show session insights modal
+      setSessionInsights(data.insights);
+      setShowSessionInsights(true);
+
+      // Reset session state
+      setSessionId(null);
+      setMessages([]);
+      setSessionPrompts([]);
+    } catch (error) {
+      console.error("Error ending session:", error);
+      // Reset session state even if API call fails
+      setSessionId(null);
+      setMessages([]);
+      setSessionPrompts([]);
+      alert(
+        "Session ended. There was an issue saving insights, but your conversation has been saved."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadSessionMessages = async (sessionId) => {
+    try {
+      setIsLoading(true);
+
+      const response = await fetch(
+        `${API_BASE}/api/reflectionarian/session/${sessionId}/messages`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${user.accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load session messages");
+      }
+
+      const data = await response.json();
+      setMessages(data.messages || []);
+    } catch (error) {
+      console.error("Error loading session messages:", error);
+      alert("Unable to load session messages. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -387,6 +396,9 @@ const PremiumReflectionarian = () => {
             The Premium Reflectionarian requires a Premium membership to access
             advanced AI coaching features.
           </p>
+          <button className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
+            Upgrade to Premium
+          </button>
         </div>
       </div>
     );
@@ -419,21 +431,16 @@ const PremiumReflectionarian = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center p-2">
-                    <img
-                      src={ReflectionaryIcon}
-                      alt="Reflectionary"
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                  <div>
-                    <h1 className="text-xl font-bold text-white">
-                      Premium Reflectionarian
-                    </h1>
-                    <p className="text-sm text-purple-300">
-                      Advanced AI Coaching & Therapy
-                    </p>
-                  </div>
+                  {/* Icon without background */}
+                  <img
+                    src={ReflectionaryIcon}
+                    alt="Reflectionary"
+                    className="w-12 h-12 object-contain"
+                  />
+                  {/* Larger title to match icon height */}
+                  <h1 className="text-2xl font-bold text-white">
+                    Premium Reflectionarian
+                  </h1>
                 </div>
               </div>
 
@@ -446,346 +453,391 @@ const PremiumReflectionarian = () => {
                   </span>
                 </div>
 
-                {/* Session Control */}
-                {sessionId ? (
-                  <button
-                    onClick={() => setShowEndSessionModal(true)}
-                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-lg transition-colors"
-                  >
-                    End Session
-                  </button>
-                ) : (
-                  <button
-                    onClick={startNewSession}
-                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg transition-all"
-                  >
-                    Start New Session
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="mb-8">
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-2">
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-              {proTabs.map((tab) => (
+                {/* Privacy Info Button */}
                 <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all ${
-                    activeTab === tab.id
-                      ? "bg-purple-600 text-white shadow-lg"
-                      : "text-purple-200 hover:text-white hover:bg-white/10"
-                  }`}
+                  onClick={() => setShowPrivacyInfo(true)}
+                  className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                  title="Privacy Information"
                 >
-                  <tab.icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
+                  <Info className="w-5 h-5" />
                 </button>
-              ))}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="space-y-6">
-          {/* Chat Tab */}
-          {activeTab === "chat" && sessionId && (
-            <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 h-[600px] flex flex-col">
-              {/* Chat Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                {messages.length === 0 ? (
-                  <div className="text-center text-white/50 mt-20">
-                    <img
-                      src={ReflectionaryIcon}
-                      alt="Reflectionary"
-                      className="w-16 h-16 mx-auto mb-4 opacity-50"
-                    />
-                    <p className="text-lg">Ready to begin our conversation</p>
-                    <p className="text-sm mt-2">Share what's on your mind...</p>
-                  </div>
-                ) : (
-                  messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex gap-3 ${
-                        message.role === "user"
-                          ? "justify-end"
-                          : "justify-start"
-                      }`}
-                    >
-                      {message.role === "assistant" && (
-                        <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex items-center justify-center flex-shrink-0 p-1">
-                          <img
-                            src={ReflectionaryIcon}
-                            alt="Reflectionary"
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-                      )}
-                      <div
-                        className={`max-w-[80%] p-4 rounded-xl ${
-                          message.role === "user"
-                            ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
-                            : "bg-white/10 text-white border border-white/20"
-                        }`}
-                      >
-                        <p className="whitespace-pre-wrap">{message.content}</p>
-                        <p className="text-xs opacity-70 mt-2">
-                          {new Date(message.created_at).toLocaleTimeString()}
-                        </p>
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-200px)]">
+            {/* Left Sidebar - Navigation */}
+            <div className="lg:col-span-1">
+              <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-4 h-full">
+                <nav className="space-y-2">
+                  <button
+                    onClick={() => setActiveTab("chat")}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                      activeTab === "chat"
+                        ? "bg-purple-600/20 border border-purple-600/30 text-purple-300"
+                        : "text-gray-300 hover:bg-white/5"
+                    }`}
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    Chat Session
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab("prompts")}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                      activeTab === "prompts"
+                        ? "bg-purple-600/20 border border-purple-600/30 text-purple-300"
+                        : "text-gray-300 hover:bg-white/5"
+                    }`}
+                  >
+                    <Lightbulb className="w-5 h-5" />
+                    Session Prompts
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab("history")}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                      activeTab === "history"
+                        ? "bg-purple-600/20 border border-purple-600/30 text-purple-300"
+                        : "text-gray-300 hover:bg-white/5"
+                    }`}
+                  >
+                    <Clock className="w-5 h-5" />
+                    Session History
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab("reports")}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                      activeTab === "reports"
+                        ? "bg-purple-600/20 border border-purple-600/30 text-purple-300"
+                        : "text-gray-300 hover:bg-white/5"
+                    }`}
+                  >
+                    <FileText className="w-5 h-5" />
+                    Weekly Reports
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab("timeline")}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                      activeTab === "timeline"
+                        ? "bg-purple-600/20 border border-purple-600/30 text-purple-300"
+                        : "text-gray-300 hover:bg-white/5"
+                    }`}
+                  >
+                    <TrendingUp className="w-5 h-5" />
+                    Growth Timeline
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab("export")}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                      activeTab === "export"
+                        ? "bg-purple-600/20 border border-purple-600/30 text-purple-300"
+                        : "text-gray-300 hover:bg-white/5"
+                    }`}
+                  >
+                    <Download className="w-5 h-5" />
+                    Export Sessions
+                  </button>
+                </nav>
+              </div>
+            </div>
+
+            {/* Main Content Area */}
+            <div className="lg:col-span-3">
+              <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 h-full flex flex-col">
+                {/* Tab Content */}
+                <div className="flex-1 overflow-hidden">
+                  {activeTab === "chat" && (
+                    <div className="h-full flex flex-col">
+                      {/* Chat Messages */}
+                      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                        {!sessionId ? (
+                          <div className="h-full flex items-center justify-center">
+                            <div className="text-center max-w-md">
+                              <Brain className="w-16 h-16 mx-auto mb-4 text-purple-400" />
+                              <h3 className="text-xl font-semibold text-white mb-2">
+                                Ready for Your Session?
+                              </h3>
+                              <p className="text-gray-300 mb-6">
+                                Start a new therapy-style conversation with your
+                                AI coach. Everything is private and encrypted.
+                              </p>
+                              <button
+                                onClick={startNewSession}
+                                disabled={isLoading}
+                                className="px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors flex items-center gap-2 mx-auto"
+                              >
+                                {isLoading ? (
+                                  <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : (
+                                  <Sparkles className="w-5 h-5" />
+                                )}
+                                Begin Session
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {messages.map((message) => (
+                              <div
+                                key={message.id}
+                                className={`flex ${
+                                  message.role === "user"
+                                    ? "justify-end"
+                                    : "justify-start"
+                                }`}
+                              >
+                                <div
+                                  className={`max-w-[80%] p-4 rounded-2xl ${
+                                    message.role === "user"
+                                      ? "bg-purple-600 text-white"
+                                      : "bg-white/10 text-gray-100"
+                                  }`}
+                                >
+                                  <p className="whitespace-pre-wrap">
+                                    {message.content}
+                                  </p>
+                                  <p className="text-xs opacity-70 mt-2">
+                                    {new Date(
+                                      message.timestamp
+                                    ).toLocaleTimeString()}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                            {isLoading && (
+                              <div className="flex justify-start">
+                                <div className="bg-white/10 p-4 rounded-2xl">
+                                  <div className="flex items-center gap-2">
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <span className="text-gray-300">
+                                      Thinking...
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            <div ref={messagesEndRef} />
+                          </>
+                        )}
                       </div>
-                      {message.role === "user" && (
-                        <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
-                          {user.user_metadata?.avatar_url ? (
-                            <img
-                              src={user.user_metadata.avatar_url}
-                              alt="You"
-                              className="w-full h-full rounded-full"
-                            />
-                          ) : (
-                            <div className="w-6 h-6 bg-gray-400 rounded-full" />
-                          )}
+
+                      {/* Chat Input - Updated Layout */}
+                      {sessionId && (
+                        <div className="border-t border-white/10 p-6">
+                          <div className="flex gap-3">
+                            {/* Input box sized to match combined height of both buttons */}
+                            <div className="flex-1 flex flex-col">
+                              <textarea
+                                ref={textareaRef}
+                                value={currentMessage}
+                                onChange={(e) =>
+                                  setCurrentMessage(e.target.value)
+                                }
+                                onKeyPress={(e) => {
+                                  if (e.key === "Enter" && !e.shiftKey) {
+                                    e.preventDefault();
+                                    sendMessage();
+                                  }
+                                }}
+                                placeholder="Share your thoughts..."
+                                className="w-full h-24 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                disabled={isLoading}
+                              />
+                            </div>
+
+                            {/* Buttons stacked vertically */}
+                            <div className="flex flex-col gap-3">
+                              {/* Send button with white text and icon */}
+                              <button
+                                onClick={sendMessage}
+                                disabled={!currentMessage.trim() || isLoading}
+                                className="px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-colors flex items-center gap-2 h-[45px]"
+                              >
+                                <Send className="w-4 h-4 text-white" />
+                                <span className="text-white">Send</span>
+                              </button>
+
+                              {/* End Session button */}
+                              <button
+                                onClick={endSession}
+                                disabled={isLoading}
+                                className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl transition-colors flex items-center gap-2 h-[45px]"
+                              >
+                                <Save className="w-4 h-4" />
+                                End Session
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
-                  ))
-                )}
-                <div ref={messagesEndRef} />
-              </div>
+                  )}
 
-              {/* Chat Input */}
-              <div className="border-t border-white/20 p-6">
-                <form onSubmit={sendMessage} className="flex gap-3 mb-3">
-                  <input
-                    ref={chatInputRef}
-                    type="text"
-                    value={currentMessage}
-                    onChange={(e) => setCurrentMessage(e.target.value)}
-                    placeholder="Share what's on your mind..."
-                    className="flex-1 p-4 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
-                    disabled={isLoading}
-                  />
-                  <button
-                    type="submit"
-                    disabled={isLoading || !currentMessage.trim()}
-                    className="px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-all flex items-center gap-2"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Send className="w-5 h-5" />
-                    )}
-                    Send
-                  </button>
-                </form>
+                  {activeTab === "prompts" && (
+                    <SessionPromptsTab
+                      sessionPrompts={sessionPrompts}
+                      preferences={preferences}
+                      onStartNewSession={startNewSession}
+                    />
+                  )}
 
-                {/* Session Control */}
-                <div className="flex justify-center">
-                  <button
-                    onClick={() => setShowEndSessionModal(true)}
-                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-lg transition-colors text-red-300 text-sm"
-                  >
-                    End Session
-                  </button>
+                  {activeTab === "history" && (
+                    <SessionFollowUpsTab
+                      userId={user.id}
+                      onContinueSession={handleContinueSession}
+                      onReviewSession={handleReviewSession}
+                    />
+                  )}
+
+                  {activeTab === "reports" && (
+                    <WeeklyReportTab userId={user.id} />
+                  )}
+
+                  {activeTab === "timeline" && (
+                    <GrowthTimelineTab userId={user.id} />
+                  )}
+
+                  {activeTab === "export" && (
+                    <ExportSessionsTab userId={user.id} />
+                  )}
                 </div>
               </div>
             </div>
-          )}
-
-          {/* Chat Tab - No Active Session */}
-          {activeTab === "chat" && !sessionId && (
-            <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 h-[600px] flex items-center justify-center">
-              <div className="text-center">
-                <img
-                  src={ReflectionaryIcon}
-                  alt="Reflectionary"
-                  className="w-20 h-20 mx-auto mb-6 text-purple-400"
-                />
-                <h3 className="text-2xl font-bold text-white mb-4">
-                  Ready for Your Next Session?
-                </h3>
-                <p className="text-gray-300 mb-8 max-w-md">
-                  Start a new conversation with your AI coach to explore your
-                  thoughts, feelings, and personal growth journey.
-                </p>
-                <button
-                  onClick={startNewSession}
-                  className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl text-white font-medium transition-all flex items-center gap-2 mx-auto"
-                >
-                  <PlusCircle className="w-5 h-5" />
-                  Start New Session
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Session Prompts Tab */}
-          {activeTab === "prompts" && (
-            <SessionPromptsTab userId={user.id} tier="premium" />
-          )}
-
-          {/* Session History Tab */}
-          {activeTab === "followups" && (
-            <SessionFollowUpsTab
-              userId={user.id}
-              onContinueSession={handleContinueSession}
-              onReviewSession={handleReviewSession}
-            />
-          )}
-
-          {/* Other Tabs */}
-          {activeTab === "report" && (
-            <WeeklyReportTab
-              userId={user.id}
-              onGenerateReport={() => {
-                console.log("Generate weekly report");
-              }}
-            />
-          )}
-
-          {activeTab === "timeline" && (
-            <GrowthTimelineTab userId={user.id} sessions={sessionHistory} />
-          )}
-
-          {activeTab === "export" && (
-            <ExportSessionsTab
-              sessions={sessionHistory}
-              onExport={(session) => {
-                console.log("Export session:", session);
-              }}
-            />
-          )}
-
-          {activeTab === "settings" && (
-            <div className="p-6">
-              <div className="max-w-2xl mx-auto bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
-                <h2 className="text-xl font-bold text-white mb-6">
-                  Reflectionarian Settings
-                </h2>
-                {/* Settings form would go here */}
-              </div>
-            </div>
-          )}
+          </div>
         </div>
 
-        {/* End Session Modal */}
-        {showEndSessionModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 max-w-md w-full p-6">
-              <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                <img
-                  src={ReflectionaryIcon}
-                  alt="Reflectionary"
-                  className="w-6 h-6"
-                />
-                End Session?
-              </h3>
-              <p className="text-gray-300 mb-6">
-                Are you sure you want to end this session? We'll generate
-                insights and key takeaways from your conversation.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowEndSessionModal(false)}
-                  className="flex-1 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
-                >
-                  Continue Session
-                </button>
-                <button
-                  onClick={endSession}
-                  className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-                >
-                  End & Generate Insights
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* Session Insights Modal */}
+        {showSessionInsights && sessionInsights && (
+          <SessionInsightsModal
+            insights={sessionInsights}
+            onClose={() => setShowSessionInsights(false)}
+            onCreateGoals={handleCreateGoalsFromSession}
+          />
         )}
 
-        {/* Session Insights Modal */}
-        {showSessionInsights && (
-          <SessionInsightsModal
-            sessionId={sessionId}
-            userId={user.id}
-            messages={messages}
-            onClose={() => setShowSessionInsights(false)}
-          />
+        {/* Goal Suggestions Modal */}
+        {showGoalSuggestions && currentGoalSuggestion && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 max-w-2xl w-full p-6 max-h-[80vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-white">
+                  Session Insights & Goals
+                </h3>
+                <button
+                  onClick={() => setShowGoalSuggestions(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {currentGoalSuggestion.reflectionPrompts && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-purple-300 mb-3">
+                    Reflection Prompts for Next Session
+                  </h4>
+                  <ul className="space-y-2">
+                    {currentGoalSuggestion.reflectionPrompts.map(
+                      (prompt, i) => (
+                        <li key={i} className="text-gray-300">
+                          • {prompt}
+                        </li>
+                      )
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              {currentGoalSuggestion.goalSuggestions && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-purple-300 mb-3">
+                    Goal Suggestions
+                  </h4>
+                  <ul className="space-y-2">
+                    {currentGoalSuggestion.goalSuggestions.map((goal, i) => (
+                      <li key={i} className="text-gray-300">
+                        • {goal}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {currentGoalSuggestion.nextSessionFocus && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-purple-300 mb-3">
+                    Next Session Focus
+                  </h4>
+                  <p className="text-gray-300">
+                    {currentGoalSuggestion.nextSessionFocus}
+                  </p>
+                </div>
+              )}
+
+              <button
+                onClick={() => setShowGoalSuggestions(false)}
+                className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Privacy Info Modal */}
         {showPrivacyInfo && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 max-w-2xl w-full p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                  <Shield className="w-6 h-6 text-green-400" />
-                  Privacy & Security
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 max-w-md w-full p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <Shield className="w-8 h-8 text-purple-400" />
+                <h3 className="text-xl font-bold text-white">
+                  Your Privacy Matters
                 </h3>
-                <button
-                  onClick={() => setShowPrivacyInfo(false)}
-                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-400" />
-                </button>
               </div>
 
               <div className="space-y-4 text-gray-300">
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-medium text-white">
-                      End-to-End Encryption
-                    </h4>
-                    <p className="text-sm">
-                      All your conversations are encrypted before being stored
-                    </p>
-                  </div>
+                <p>
+                  Your Reflectionarian sessions are protected with the highest
+                  level of privacy:
+                </p>
+
+                <ul className="space-y-2 list-disc list-inside">
+                  <li>All conversations are end-to-end encrypted</li>
+                  <li>Only you can read your session content</li>
+                  <li>No personal identifiers are sent to AI services</li>
+                  <li>Voice data is processed locally when possible</li>
+                  <li>Audio is never stored - only text transcripts</li>
+                  <li>You can delete any session at any time</li>
+                </ul>
+
+                <div className="bg-purple-600/20 rounded-lg p-3 border border-purple-600/30">
+                  <p className="text-sm">
+                    <strong className="text-purple-300">Note:</strong> While AI
+                    responses are generated using OpenAI's API, all encryption
+                    and decryption happens on our secure servers. Your messages
+                    are never exposed in plain text outside our backend.
+                  </p>
                 </div>
 
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-medium text-white">
-                      Zero Knowledge Architecture
-                    </h4>
-                    <p className="text-sm">
-                      We cannot read your conversations even if we wanted to
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-medium text-white">Local Processing</h4>
-                    <p className="text-sm">
-                      Insights are generated using privacy-preserving methods
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-medium text-white">Data Control</h4>
-                    <p className="text-sm">
-                      You can delete your data at any time
-                    </p>
-                  </div>
-                </div>
+                <p className="text-sm">
+                  This is your private space for self-reflection and growth. Not
+                  even our team can access your conversations.
+                </p>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-white/20">
-                <button
-                  onClick={() => setShowPrivacyInfo(false)}
-                  className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-                >
-                  Got it
-                </button>
-              </div>
+              <button
+                onClick={() => setShowPrivacyInfo(false)}
+                className="mt-6 w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+              >
+                Got it
+              </button>
             </div>
           </div>
         )}
