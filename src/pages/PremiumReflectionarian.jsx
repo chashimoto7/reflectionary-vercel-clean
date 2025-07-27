@@ -39,9 +39,10 @@ import WeeklyReportTab from "../components/reflectionarian/tabs/WeeklyReportTab"
 import GrowthTimelineTab from "../components/reflectionarian/tabs/GrowthTimelineTab";
 import ExportSessionsTab from "../components/reflectionarian/tabs/ExportSessionsTab";
 import SessionInsightsModal from "../components/reflectionarian/modals/SessionInsightsModal";
-import pollyTTSService from "../services/pollyTTSService";
 // Import your custom logo icon
 import ReflectionaryIcon from "../assets/ReflectionaryIcon.svg";
+
+const API_BASE = "https://reflectionary-api.vercel.app";
 
 const PremiumReflectionarian = () => {
   const { user } = useAuth();
@@ -142,46 +143,29 @@ const PremiumReflectionarian = () => {
     }
   };
 
-  const speakText = async (text) => {
-    try {
+  const speakText = (text) => {
+    if ("speechSynthesis" in window) {
       // Stop any current speech
-      pollyTTSService.stopAudio();
+      window.speechSynthesis.cancel();
 
-      setIsSpeaking(true);
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
 
-      // Use therapy-optimized speech for better therapeutic experience
-      await pollyTTSService.speakTherapy(
-        text,
-        {
-          voice: preferences?.ttsVoice || "ruth",
-          ssmlStyle: "calm",
-        },
-        () => {
-          setIsSpeaking(false); // Callback when speech ends
-        }
-      );
-    } catch (error) {
-      console.error("Error speaking text:", error);
-      setIsSpeaking(false);
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
 
-      // Fallback to browser TTS if Polly fails
-      if ("speechSynthesis" in window) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.9;
-        utterance.pitch = 1.0;
-        utterance.volume = 0.8;
-        utterance.onend = () => setIsSpeaking(false);
-        window.speechSynthesis.speak(utterance);
-      }
+      window.speechSynthesis.speak(utterance);
     }
   };
 
   const stopSpeaking = () => {
-    pollyTTSService.stopAudio();
     if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
+      setIsSpeaking(false);
     }
-    setIsSpeaking(false);
   };
 
   const loadUserPreferences = async () => {
@@ -284,7 +268,6 @@ const PremiumReflectionarian = () => {
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    const messageToSend = currentMessage;
     setCurrentMessage("");
     setIsLoading(true);
 
@@ -300,19 +283,20 @@ const PremiumReflectionarian = () => {
     setMessages((prev) => [...prev, fillerMessage]);
 
     try {
-      const response = await fetch("/api/reflectionarian/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${user.accessToken}`,
-        },
-        body: JSON.stringify({
-          user_id: user.id,
-          message: messageToSend,
-          session_id: sessionId,
-          tier: "premium",
-        }),
-      });
+      const response = await fetch(
+        `${API_BASE}/api/reflectionarian/session/${sessionId}/message`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${user.accessToken}`,
+          },
+          body: JSON.stringify({
+            message: currentMessage,
+            user_id: user.id,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to send message");
@@ -333,23 +317,7 @@ const PremiumReflectionarian = () => {
 
       // Auto-speak the response if speech is enabled
       if (preferences?.enableSpeech) {
-        // Use Polly for higher quality therapeutic speech
-        try {
-          await pollyTTSService.speakTherapy(
-            data.response,
-            {
-              voice: preferences?.ttsVoice || "ruth",
-            },
-            () => {
-              setIsSpeaking(false);
-            }
-          );
-          setIsSpeaking(true);
-        } catch (error) {
-          console.error("Error with Polly TTS:", error);
-          // Fallback to browser TTS
-          speakText(data.response);
-        }
+        speakText(data.response);
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -379,15 +347,14 @@ const PremiumReflectionarian = () => {
       setIsLoading(true);
 
       const response = await fetch(
-        `/api/reflectionarian/session/${sessionId}`,
+        `${API_BASE}/api/reflectionarian/session/${sessionId}/end`,
         {
-          method: "PUT",
+          method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${user.accessToken}`,
           },
           body: JSON.stringify({
-            status: "completed",
             user_id: user.id,
           }),
         }
@@ -724,13 +691,11 @@ const PremiumReflectionarian = () => {
                                     !message.isFiller &&
                                     !isSpeaking && (
                                       <button
-                                        type="button"
                                         onClick={() =>
                                           speakText(message.content)
                                         }
                                         className="absolute top-2 right-2 p-1 bg-white/10 hover:bg-white/20 rounded text-gray-300 hover:text-white transition-colors"
                                         title="Read aloud"
-                                        aria-label="Read message aloud"
                                       >
                                         <Volume2 className="w-3 h-3" />
                                       </button>
@@ -761,15 +726,7 @@ const PremiumReflectionarian = () => {
                           <div className="flex gap-3">
                             {/* Input box sized to match combined height of both buttons */}
                             <div className="flex-1 flex flex-col relative">
-                              <label
-                                htmlFor="message-input"
-                                className="sr-only"
-                              >
-                                Enter your message
-                              </label>
                               <textarea
-                                id="message-input"
-                                name="message"
                                 ref={textareaRef}
                                 value={currentMessage}
                                 onChange={(e) =>
@@ -784,12 +741,10 @@ const PremiumReflectionarian = () => {
                                 placeholder="Share your thoughts... (or use voice)"
                                 className="w-full h-24 bg-white/10 border border-white/20 rounded-xl px-4 py-3 pr-12 text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
                                 disabled={isLoading}
-                                aria-label="Message input"
                               />
 
                               {/* Voice input button */}
                               <button
-                                type="button"
                                 onClick={
                                   isListening ? stopListening : startListening
                                 }
@@ -802,11 +757,6 @@ const PremiumReflectionarian = () => {
                                 title={
                                   isListening
                                     ? "Stop listening"
-                                    : "Start voice input"
-                                }
-                                aria-label={
-                                  isListening
-                                    ? "Stop voice input"
                                     : "Start voice input"
                                 }
                               >
@@ -822,11 +772,9 @@ const PremiumReflectionarian = () => {
                             <div className="flex flex-col gap-3">
                               {/* Send button with white text and icon */}
                               <button
-                                type="button"
                                 onClick={sendMessage}
                                 disabled={!currentMessage.trim() || isLoading}
                                 className="px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-colors flex items-center gap-2 h-[45px]"
-                                aria-label="Send message"
                               >
                                 <Send className="w-4 h-4 text-white" />
                                 <span className="text-white">Send</span>
@@ -834,11 +782,9 @@ const PremiumReflectionarian = () => {
 
                               {/* End Session button */}
                               <button
-                                type="button"
                                 onClick={endSession}
                                 disabled={isLoading}
                                 className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl transition-colors flex items-center gap-2 h-[45px]"
-                                aria-label="End current session"
                               >
                                 <Save className="w-4 h-4" />
                                 End Session
@@ -850,10 +796,8 @@ const PremiumReflectionarian = () => {
                           {isSpeaking && (
                             <div className="mt-3 flex items-center justify-center">
                               <button
-                                type="button"
                                 onClick={stopSpeaking}
                                 className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors"
-                                aria-label="Stop reading message aloud"
                               >
                                 <VolumeX className="w-4 h-4" />
                                 Stop Speaking
