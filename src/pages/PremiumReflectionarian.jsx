@@ -39,12 +39,14 @@ import WeeklyReportTab from "../components/reflectionarian/tabs/WeeklyReportTab"
 import GrowthTimelineTab from "../components/reflectionarian/tabs/GrowthTimelineTab";
 import ExportSessionsTab from "../components/reflectionarian/tabs/ExportSessionsTab";
 import SessionInsightsModal from "../components/reflectionarian/modals/SessionInsightsModal";
+// Import your custom logo icon
+import ReflectionaryIcon from "../assets/ReflectionaryIcon.svg";
 
 const API_BASE = "https://reflectionary-api.vercel.app";
 
 const PremiumReflectionarian = () => {
   const { user } = useAuth();
-  const { hasAccess, tier } = useMembership();
+  const { hasAccess, tier, loading: membershipLoading } = useMembership();
 
   // Onboarding & Preferences State
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -107,11 +109,11 @@ const PremiumReflectionarian = () => {
 
   // Load preferences and sessions on mount
   useEffect(() => {
-    if (user && !isLoadingPreferences) {
+    if (user && !membershipLoading) {
       loadPreferences();
       loadSessions();
     }
-  }, [user, isLoadingPreferences]);
+  }, [user, membershipLoading]);
 
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -355,10 +357,25 @@ const PremiumReflectionarian = () => {
     console.log("Navigate to goals with session context");
   };
 
-  if (
-    !user ||
-    (!hasAccess("premium_reflectionarian") && !isLoadingPreferences)
-  ) {
+  if (!user || membershipLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center">
+        <div className="text-center">
+          <img
+            src={ReflectionaryIcon}
+            alt="Reflectionary"
+            className="w-16 h-16 mx-auto mb-4 animate-pulse"
+          />
+          <h2 className="text-xl font-semibold text-white mb-2">
+            Loading Reflectionarian
+          </h2>
+          <p className="text-gray-300">Preparing your session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasAccess("premium_reflectionarian")) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8 text-center">
@@ -379,7 +396,11 @@ const PremiumReflectionarian = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center">
         <div className="text-center">
-          <MessageCircle className="w-16 h-16 mx-auto mb-4 text-purple-400 animate-pulse" />
+          <img
+            src={ReflectionaryIcon}
+            alt="Reflectionary"
+            className="w-16 h-16 mx-auto mb-4 animate-pulse"
+          />
           <h2 className="text-xl font-semibold text-white mb-2">
             Preparing Your Session
           </h2>
@@ -398,8 +419,12 @@ const PremiumReflectionarian = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
-                    <MessageCircle className="w-6 h-6 text-white" />
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center p-2">
+                    <img
+                      src={ReflectionaryIcon}
+                      alt="Reflectionary"
+                      className="w-full h-full object-contain"
+                    />
                   </div>
                   <div>
                     <h1 className="text-xl font-bold text-white">
@@ -473,7 +498,11 @@ const PremiumReflectionarian = () => {
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 {messages.length === 0 ? (
                   <div className="text-center text-white/50 mt-20">
-                    <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <img
+                      src={ReflectionaryIcon}
+                      alt="Reflectionary"
+                      className="w-16 h-16 mx-auto mb-4 opacity-50"
+                    />
                     <p className="text-lg">Ready to begin our conversation</p>
                     <p className="text-sm mt-2">Share what's on your mind...</p>
                   </div>
@@ -488,8 +517,12 @@ const PremiumReflectionarian = () => {
                       }`}
                     >
                       {message.role === "assistant" && (
-                        <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex items-center justify-center flex-shrink-0">
-                          <Brain className="w-4 h-4 text-white" />
+                        <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex items-center justify-center flex-shrink-0 p-1">
+                          <img
+                            src={ReflectionaryIcon}
+                            alt="Reflectionary"
+                            className="w-full h-full object-contain"
+                          />
                         </div>
                       )}
                       <div
@@ -566,7 +599,11 @@ const PremiumReflectionarian = () => {
           {activeTab === "chat" && !sessionId && (
             <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 h-[600px] flex items-center justify-center">
               <div className="text-center">
-                <MessageCircle className="w-20 h-20 mx-auto mb-6 text-purple-400" />
+                <img
+                  src={ReflectionaryIcon}
+                  alt="Reflectionary"
+                  className="w-20 h-20 mx-auto mb-6 text-purple-400"
+                />
                 <h3 className="text-2xl font-bold text-white mb-4">
                   Ready for Your Next Session?
                 </h3>
@@ -639,7 +676,11 @@ const PremiumReflectionarian = () => {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 max-w-md w-full p-6">
               <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                <Brain className="w-6 h-6 text-purple-400" />
+                <img
+                  src={ReflectionaryIcon}
+                  alt="Reflectionary"
+                  className="w-6 h-6"
+                />
                 End Session?
               </h3>
               <p className="text-gray-300 mb-6">
