@@ -402,7 +402,7 @@ const PremiumReflectionarian = () => {
                     Premium Reflectionarian
                   </h1>
                   <p className="text-sm text-purple-300">
-                    Advanced AI Coaching & Therapy
+                    Your Advanced AI Companion
                   </p>
                 </div>
               </div>
