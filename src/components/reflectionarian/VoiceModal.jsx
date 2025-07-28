@@ -131,8 +131,10 @@ const VoiceModal = ({
   const handleSendAndContinue = () => {
     const finalTranscript = transcript + interimTranscript;
     if (finalTranscript.trim()) {
-      onTranscript(finalTranscript.trim(), enableTTS, true); // true = send immediately
-      // Clear for next recording
+      // Pass true for autoSend parameter to immediately send the message
+      onTranscript(finalTranscript.trim(), enableTTS, true);
+
+      // Clear for next recording but keep modal open
       setTranscript("");
       setInterimTranscript("");
       setRecordingDuration(0);

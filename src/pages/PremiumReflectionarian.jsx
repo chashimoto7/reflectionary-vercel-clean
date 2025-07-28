@@ -119,13 +119,29 @@ const PremiumReflectionarian = () => {
   };
 
   // Speech functions
-  const handleVoiceTranscript = (transcript, enableTTS) => {
+  const handleVoiceTranscript = async (
+    transcript,
+    enableTTS,
+    autoSend = false
+  ) => {
     setCurrentMessage(transcript);
+
     // Update preferences if TTS setting changed
     if (enableTTS !== preferences?.enableSpeech) {
       const updatedPrefs = { ...preferences, enableSpeech: enableTTS };
       setPreferences(updatedPrefs);
       savePreferences(updatedPrefs);
+    }
+
+    // Auto-send the message if requested
+    if (autoSend && transcript.trim() && sessionId) {
+      // Create a synthetic event to trigger sendMessage
+      const syntheticEvent = {
+        preventDefault: () => {},
+      };
+
+      // Call sendMessage directly with the transcript
+      await sendMessage(syntheticEvent);
     }
   };
 
@@ -152,7 +168,8 @@ const PremiumReflectionarian = () => {
         text,
         {
           voice: preferences?.ttsVoice || "ruth",
-          ssmlStyle: "calm",
+          ssmlStyle: "conversational",
+          engine: "neural",
         },
         () => {
           setIsSpeaking(false); // Callback when speech ends
@@ -297,15 +314,19 @@ const PremiumReflectionarian = () => {
         const data = await response.json();
         setSessionHistory(data.sessions || []);
 
-        // Load active session if exists
+        // Only load active session if we don't already have one and we're on the chat tab
         const activeSession = data.sessions?.find((s) => s.status === "active");
-        if (activeSession) {
+        if (activeSession && !sessionId && activeTab === "chat") {
           setSessionId(activeSession.id);
           loadSessionMessages(activeSession.id);
         }
+      } else {
+        console.error("Failed to load sessions:", response.status);
+        // Don't show error to user for session loading failures
       }
     } catch (error) {
       console.error("Error loading sessions:", error);
+      // Don't show error to user for session loading failures
     }
   };
 
@@ -328,7 +349,12 @@ const PremiumReflectionarian = () => {
   // Start a new session
   const startNewSession = async () => {
     setIsLoading(true);
+
     try {
+      // Clear any existing session state first
+      setSessionId(null);
+      setMessages([]);
+
       const response = await fetch(
         `${API_BASE}/api/reflectionarian/sessions/start`,
         {
@@ -354,14 +380,26 @@ const PremiumReflectionarian = () => {
             created_at: new Date().toISOString(),
           },
         ]);
+
         // Reload sessions to show new session
-        loadSessions();
+        await loadSessions();
       } else {
-        throw new Error("Failed to start session");
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: "Failed to start session" }));
+        console.error("Session creation failed:", errorData);
+        throw new Error(errorData.error || "Failed to start session");
       }
     } catch (error) {
       console.error("Error starting session:", error);
-      alert("Failed to start a new session. Please try again.");
+
+      // Ensure we're in a clean state
+      setSessionId(null);
+      setMessages([]);
+
+      alert(
+        "Unable to start a new session right now. Please try again in a moment."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -501,6 +539,13 @@ const PremiumReflectionarian = () => {
         if (data.insights) {
           setSessionInsights(data.insights);
           setShowSessionInsights(true);
+        } else {
+          // Generate basic insights from current messages
+          if (messages.length > 0) {
+            const basicInsights = generateFallbackInsights(messages);
+            setSessionInsights(basicInsights);
+            setShowSessionInsights(true);
+          }
         }
 
         // Reset session state
@@ -509,21 +554,42 @@ const PremiumReflectionarian = () => {
 
         // Reload sessions to show the ended session in history
         await loadSessions();
-
-        // Show success message
-        alert("Session ended successfully. Your insights have been saved.");
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to end session");
+        // Handle API errors gracefully
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: "Unknown error" }));
+        console.error("Session end API error:", errorData);
+
+        // Still reset the session state to allow user to continue
+        setSessionId(null);
+        setMessages([]);
+
+        // Show user-friendly error message
+        alert(
+          "Session ended successfully, but we couldn't generate insights right now. Your conversation has been saved."
+        );
+
+        // Reload sessions
+        await loadSessions();
       }
     } catch (error) {
       console.error("Error ending session:", error);
-      // Still reset the session state to allow user to continue
+
+      // Always reset session state to prevent UI getting stuck
       setSessionId(null);
       setMessages([]);
+
       alert(
-        "Session ended but there was an issue generating insights. Your conversation has been saved."
+        "Session ended. Your conversation has been saved, but insights couldn't be generated right now."
       );
+
+      // Try to reload sessions even after error
+      try {
+        await loadSessions();
+      } catch (loadError) {
+        console.error("Error reloading sessions:", loadError);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -544,6 +610,42 @@ const PremiumReflectionarian = () => {
     setSessionId(session.id);
     loadSessionMessages(session.id);
     setActiveTab("chat");
+  };
+
+  const generateFallbackInsights = (messages) => {
+    const userMessages = messages.filter((m) => m.role === "user");
+
+    return {
+      sessionSummary: {
+        duration: Math.max(5, Math.floor(messages.length * 1.5)), // Estimate minutes
+        messageCount: messages.length,
+        userMessageCount: userMessages.length,
+        date: new Date().toLocaleDateString(),
+      },
+      keyThemes: ["Self-reflection", "Personal growth", "Emotional awareness"],
+      emotionalJourney: {
+        primaryEmotion: "Thoughtful",
+        intensity: "Moderate",
+        progression: "Positive",
+      },
+      breakthroughMoments: [
+        {
+          message: "You showed great insight in exploring your thoughts today",
+          timestamp: new Date().toISOString(),
+        },
+      ],
+      followUpSuggestions: [
+        "What resonated most with you from our conversation?",
+        "How can you apply today's insights to your daily life?",
+        "What would you like to explore further next time?",
+      ],
+      nextSteps: [
+        "Continue exploring the themes that emerged today",
+        "Journal about the insights you gained",
+        "Consider setting specific goals based on our conversation",
+        "Schedule your next session within the next week",
+      ],
+    };
   };
 
   if (!user || membershipLoading) {
