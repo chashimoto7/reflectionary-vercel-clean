@@ -329,14 +329,17 @@ const PremiumReflectionarian = () => {
   const startNewSession = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/reflectionarian/start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: user.id,
-          preferences: preferences,
-        }),
-      });
+      const response = await fetch(
+        `${API_BASE}/api/reflectionarian/sessions/start`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: user.id,
+            preferences: preferences,
+          }),
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -480,7 +483,7 @@ const PremiumReflectionarian = () => {
 
     try {
       const response = await fetch(
-        `${API_BASE}/api/reflectionarian/session/end`,
+        `${API_BASE}/api/reflectionarian/sessions/end`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -1,3 +1,4 @@
+// src/components/reflectionarian/VoiceModal.jsx
 import React, { useState, useRef, useEffect } from "react";
 import { Mic, MicOff, Volume2, VolumeX, X, Loader2 } from "lucide-react";
 
@@ -20,6 +21,27 @@ const VoiceModal = ({
   const recognitionRef = useRef(null);
   const timerRef = useRef(null);
 
+  // Timer effect
+  useEffect(() => {
+    if (isRecording) {
+      timerRef.current = setInterval(() => {
+        setRecordingDuration((prev) => prev + 1);
+      }, 1000);
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [isRecording]);
+
+  // Speech recognition setup
   useEffect(() => {
     if (isOpen && "webkitSpeechRecognition" in window) {
       const recognition = new window.webkitSpeechRecognition();
@@ -31,13 +53,7 @@ const VoiceModal = ({
       recognition.onstart = () => {
         console.log("Speech recognition started");
         setError("");
-        setIsRecording(true);
         setRecordingDuration(0);
-
-        // Start timer
-        timerRef.current = setInterval(() => {
-          setRecordingDuration((prev) => prev + 1);
-        }, 1000);
       };
 
       recognition.onresult = (event) => {
@@ -62,7 +78,6 @@ const VoiceModal = ({
       recognition.onerror = (event) => {
         console.error("Speech recognition error:", event.error);
         if (event.error === "no-speech") {
-          // Continue recording even with no speech
           return;
         }
         setError(`Recognition error: ${event.error}`);
@@ -71,7 +86,6 @@ const VoiceModal = ({
 
       recognition.onend = () => {
         console.log("Speech recognition ended");
-        // Don't automatically restart if user stopped recording
         if (isRecording && recognitionRef.current) {
           try {
             recognition.start();
@@ -82,27 +96,23 @@ const VoiceModal = ({
       };
 
       recognitionRef.current = recognition;
-    } else if (isOpen && !("webkitSpeechRecognition" in window)) {
-      setError(
-        "Speech recognition is not supported in your browser. Please use Chrome or Edge."
-      );
     }
 
     return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
+      if (recognitionRef.current && isRecording) {
+        recognitionRef.current.stop();
       }
     };
   }, [isOpen, isRecording]);
 
   const startRecording = async () => {
     try {
-      // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
       if (recognitionRef.current) {
         setTranscript("");
         setInterimTranscript("");
+        setIsRecording(true);
         recognitionRef.current.start();
       }
     } catch (error) {
@@ -115,19 +125,18 @@ const VoiceModal = ({
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       setIsRecording(false);
-
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
     }
   };
 
-  const handleDone = () => {
+  const handleSendAndContinue = () => {
     const finalTranscript = transcript + interimTranscript;
     if (finalTranscript.trim()) {
-      onTranscript(finalTranscript.trim(), enableTTS);
+      onTranscript(finalTranscript.trim(), enableTTS, true); // true = send immediately
+      // Clear for next recording
+      setTranscript("");
+      setInterimTranscript("");
+      setRecordingDuration(0);
     }
-    handleClose();
   };
 
   const handleClose = () => {
@@ -154,7 +163,7 @@ const VoiceModal = ({
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-bold text-white flex items-center gap-2">
             <Mic className="w-5 h-5" />
-            Voice Input
+            Voice Conversation
           </h3>
           <button
             onClick={handleClose}
@@ -241,13 +250,14 @@ const VoiceModal = ({
                 <Mic className="w-5 h-5" />
                 Start Recording
               </button>
-              <button
-                onClick={handleDone}
-                disabled={!transcript && !interimTranscript}
-                className="flex-1 px-6 py-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-medium transition-all"
-              >
-                Send Message
-              </button>
+              {(transcript || interimTranscript) && (
+                <button
+                  onClick={handleSendAndContinue}
+                  className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 rounded-xl text-white font-medium transition-all"
+                >
+                  Send & Continue
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -258,14 +268,21 @@ const VoiceModal = ({
                 <MicOff className="w-5 h-5" />
                 Stop Recording
               </button>
+              <button
+                onClick={handleSendAndContinue}
+                disabled={!transcript && !interimTranscript}
+                className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-white font-medium transition-all"
+              >
+                Send & Continue
+              </button>
             </>
           )}
         </div>
 
         {/* Instructions */}
         <div className="mt-4 text-center text-white/50 text-sm">
-          <p>Speak naturally. You can pause while thinking.</p>
-          <p>Click "Stop Recording" when you're finished.</p>
+          <p>Speak naturally. Click "Send & Continue" to send your message.</p>
+          <p>The modal will stay open for continuous conversation.</p>
         </div>
       </div>
     </div>
