@@ -9,7 +9,7 @@ class PollyTTSService {
     this.currentAudio = null;
     this.isPlaying = false;
 
-    // Default voice settings for therapy
+    // Default voice settings
     this.defaultSettings = {
       voice: "ruth", // Calm and reassuring
       engine: "neural", // Higher quality
@@ -103,15 +103,15 @@ class PollyTTSService {
   }
 
   /**
-   * Generate therapy-optimized audio
-   * @param {string} text - Therapeutic response text
+   * Generate reflectionarian-optimized audio
+   * @param {string} text - Supportive response text
    * @param {Object} options - Override options
    * @returns {Promise<string>} Audio blob URL
    */
   async generateTherapyAudio(text, options = {}) {
     return this.generateAudio(text, {
       ...options,
-      isTherapy: true, // This triggers therapy optimization on backend
+      isTherapy: true, // This triggers voice optimization on backend
       voice: options.voice || "ruth",
       engine: "neural",
       ssmlStyle: options.ssmlStyle || "calm",
@@ -238,7 +238,29 @@ class PollyTTSService {
 
     console.log(`✅ Preloaded ${this.audioCache.size} audio responses`);
   }
+  /**
+   * Test a specific voice with therapy-optimized sample text
+   * @param {string} voiceId - Voice to test
+   * @param {string} engine - Engine to use (neural/standard)
+   * @returns {Promise<string>} Audio blob URL for testing
+   */
+  async testTherapyVoice(voiceId, engine = "neural") {
+    const sampleTexts = [
+      "Hello, I'm here to support you today. How are you feeling right now?",
+      "I understand that can be really challenging. Take your time to share what's on your mind.",
+      "That's a great insight. You're showing wonderful self-awareness in recognizing that pattern.",
+    ];
 
+    // Pick a random sample for variety
+    const testText =
+      sampleTexts[Math.floor(Math.random() * sampleTexts.length)];
+
+    return this.generateAudio(testText, {
+      voice: voiceId,
+      engine: engine,
+      ssmlStyle: "calm",
+    });
+  }
   /**
    * Generate cache key for audio caching
    */
