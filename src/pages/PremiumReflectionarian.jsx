@@ -435,16 +435,17 @@ const PremiumReflectionarian = () => {
     setMessages((prev) => [...prev, loadingMessage]);
 
     try {
-      const response = await fetch(`${API_BASE}/api/reflectionarian/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userMessage,
-          session_id: sessionId,
-          user_id: user.id,
-          preferences: preferences,
-        }),
-      });
+      `${API_BASE}/api/reflectionarian/sessions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: userMessage,
+            session_id: sessionId,
+            user_id: user.id,
+            preferences: preferences,
+          }),
+        };
 
       if (response.ok) {
         const data = await response.json();
@@ -521,9 +522,9 @@ const PremiumReflectionarian = () => {
     setIsLoading(true);
 
     try {
-      // Use the existing sessions API endpoint with PUT method
+      // CORRECT: Use query parameter, not URL path parameter
       const response = await fetch(
-        `${API_BASE}/api/reflectionarian/sessions/${sessionId}`,
+        `${API_BASE}/api/reflectionarian/sessions?session_id=${sessionId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
