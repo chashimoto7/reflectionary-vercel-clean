@@ -42,6 +42,7 @@ import SessionInsightsModal from "../components/reflectionarian/modals/SessionIn
 import OnboardingModal from "../components/reflectionarian/OnboardingModal";
 import VoiceModal from "../components/reflectionarian/VoiceModal";
 import pollyTTSService from "../services/pollyTTSService";
+import EndSessionModal from "../components/reflectionarian/modals/EndSessionModal";
 // Import your custom logo icon
 import ReflectionaryIcon from "../assets/ReflectionaryIcon.svg";
 
@@ -163,16 +164,16 @@ const PremiumReflectionarian = () => {
 
       setIsSpeaking(true);
 
-      // Use therapy-optimized speech for better therapeutic experience
+      // Use therapy-optimized neural speech
       await pollyTTSService.speakTherapy(
         text,
         {
           voice: preferences?.ttsVoice || "ruth",
-          ssmlStyle: "conversational",
-          engine: "neural",
+          engine: "neural", // ENSURE: Neural engine
+          ssmlStyle: preferences?.ttsStyle || "calm",
         },
         () => {
-          setIsSpeaking(false); // Callback when speech ends
+          setIsSpeaking(false);
         }
       );
     } catch (error) {
@@ -462,12 +463,13 @@ const PremiumReflectionarian = () => {
 
         // Auto-speak the response if speech is enabled
         if (preferences?.enableSpeech) {
-          // Use Polly for higher quality therapeutic speech
           try {
             await pollyTTSService.speakTherapy(
               data.response,
               {
                 voice: preferences?.ttsVoice || "ruth",
+                engine: "neural", // ENSURE: Always use neural
+                ssmlStyle: preferences?.ttsStyle || "calm", // ADD: Use user's style preference
               },
               () => {
                 setIsSpeaking(false);
@@ -517,40 +519,33 @@ const PremiumReflectionarian = () => {
     if (!sessionId) return;
 
     setIsLoading(true);
-    setShowEndSessionModal(false);
 
     try {
+      // Use the existing sessions API endpoint with PUT method
       const response = await fetch(
-        `${API_BASE}/api/reflectionarian/sessions/end`,
+        `${API_BASE}/api/reflectionarian/sessions/${sessionId}`,
         {
-          method: "POST",
+          method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            session_id: sessionId,
+            status: "completed",
             user_id: user.id,
           }),
         }
       );
 
       if (response.ok) {
-        const data = await response.json();
-
-        // Show session insights if available
-        if (data.insights) {
-          setSessionInsights(data.insights);
+        // Generate basic insights from current messages
+        if (messages.length > 0) {
+          const basicInsights = generateFallbackInsights(messages);
+          setSessionInsights(basicInsights);
           setShowSessionInsights(true);
-        } else {
-          // Generate basic insights from current messages
-          if (messages.length > 0) {
-            const basicInsights = generateFallbackInsights(messages);
-            setSessionInsights(basicInsights);
-            setShowSessionInsights(true);
-          }
         }
 
         // Reset session state
         setSessionId(null);
         setMessages([]);
+        setShowEndSessionModal(false);
 
         // Reload sessions to show the ended session in history
         await loadSessions();
@@ -564,6 +559,7 @@ const PremiumReflectionarian = () => {
         // Still reset the session state to allow user to continue
         setSessionId(null);
         setMessages([]);
+        setShowEndSessionModal(false);
 
         // Show user-friendly error message
         alert(
@@ -579,6 +575,7 @@ const PremiumReflectionarian = () => {
       // Always reset session state to prevent UI getting stuck
       setSessionId(null);
       setMessages([]);
+      setShowEndSessionModal(false);
 
       alert(
         "Session ended. Your conversation has been saved, but insights couldn't be generated right now."
@@ -991,43 +988,12 @@ const PremiumReflectionarian = () => {
         </div>
 
         {/* End Session Modal */}
-        {showEndSessionModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 max-w-md w-full p-6">
-              <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                <img
-                  src={ReflectionaryIcon}
-                  alt="Reflectionary"
-                  className="w-6 h-6"
-                />
-                End Session?
-              </h3>
-              <p className="text-gray-300 mb-6">
-                Are you sure you want to end this session? We'll generate
-                insights and key takeaways from your conversation.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowEndSessionModal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg text-white transition-colors"
-                >
-                  Continue Session
-                </button>
-                <button
-                  onClick={endSession}
-                  disabled={isLoading}
-                  className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-lg text-white transition-colors flex items-center justify-center gap-2"
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    "End & Generate Insights"
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <EndSessionModal
+          isOpen={showEndSessionModal}
+          onClose={() => setShowEndSessionModal(false)}
+          onConfirm={endSession}
+          isLoading={isLoading}
+        />
 
         {/* Session Insights Modal */}
         {showSessionInsights && sessionInsights && (
