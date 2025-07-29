@@ -330,93 +330,6 @@ const PremiumReflectionarian = () => {
     }
   };
 
-  // Add this simple debug function to your PremiumReflectionarian.jsx
-  // This will log everything to the browser console without any UI interference
-
-  const debugPollyBackend = async () => {
-    console.log("🐛 Starting Polly Backend Debug...");
-
-    try {
-      const backendUrl =
-        import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app";
-      const token = localStorage.getItem("token");
-
-      console.log("🌐 Backend URL:", backendUrl);
-      console.log("🔑 Token present:", !!token);
-      console.log("🔑 Token length:", token?.length || 0);
-
-      // Test the exact request that's failing
-      console.log("🎵 Testing Polly TTS request...");
-
-      const response = await fetch(`${backendUrl}/api/tts/polly`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token || "test-token"}`,
-        },
-        body: JSON.stringify({
-          text: "Test audio",
-          voice: "ruth",
-          engine: "neural",
-          isTherapy: true,
-        }),
-      });
-
-      console.log("📊 Response Status:", response.status, response.statusText);
-      console.log("📋 Response Headers:");
-      for (const [key, value] of response.headers.entries()) {
-        console.log(`   ${key}: ${value}`);
-      }
-
-      const contentType = response.headers.get("content-type");
-      console.log("📄 Content-Type:", contentType);
-
-      if (contentType && contentType.includes("audio")) {
-        const audioBlob = await response.blob();
-        console.log("✅ SUCCESS: Received audio blob", audioBlob.size, "bytes");
-
-        // Test playing the audio
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        await audio.play();
-        console.log("🔊 Audio played successfully!");
-      } else {
-        // Get the error details
-        let errorData;
-        if (contentType && contentType.includes("json")) {
-          errorData = await response.json();
-          console.log("❌ JSON Error Response:", errorData);
-        } else {
-          errorData = await response.text();
-          console.log("❌ Text Error Response:", errorData);
-        }
-
-        // Analyze the error
-        const errorStr = JSON.stringify(errorData).toLowerCase();
-        if (errorStr.includes("module not found")) {
-          console.log("🔍 DIAGNOSIS: Missing backend dependency");
-          console.log("👉 FIX: Add missing package to backend package.json");
-        } else if (errorStr.includes("jsonwebtoken")) {
-          console.log("🔍 DIAGNOSIS: jsonwebtoken import error");
-          console.log("👉 FIX: Remove jsonwebtoken import from polly.js");
-        } else if (errorStr.includes("credentials")) {
-          console.log("🔍 DIAGNOSIS: AWS credentials issue");
-          console.log("👉 FIX: Check Vercel environment variables");
-        } else {
-          console.log("🔍 DIAGNOSIS: Unknown backend error");
-          console.log("👉 FIX: Check Vercel function logs");
-        }
-      }
-    } catch (error) {
-      console.error("❌ Debug failed:", error);
-    }
-
-    console.log("🐛 Debug complete - check console above for results");
-  };
-
-  // USAGE: Add this button to your existing UI (replace the problematic one)
-  // OR just call debugPollyBackend() directly from browser console
-
   // Save preferences to backend
   const savePreferences = async (newPrefs) => {
     try {
@@ -672,6 +585,93 @@ const PremiumReflectionarian = () => {
       setIsLoading(false);
     }
   };
+
+  // Add this simple debug function to your PremiumReflectionarian.jsx
+  // This will log everything to the browser console without any UI interference
+
+  const debugPollyBackend = async () => {
+    console.log("🐛 Starting Polly Backend Debug...");
+
+    try {
+      const backendUrl =
+        import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app";
+      const token = localStorage.getItem("token");
+
+      console.log("🌐 Backend URL:", backendUrl);
+      console.log("🔑 Token present:", !!token);
+      console.log("🔑 Token length:", token?.length || 0);
+
+      // Test the exact request that's failing
+      console.log("🎵 Testing Polly TTS request...");
+
+      const response = await fetch(`${backendUrl}/api/tts/polly`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token || "test-token"}`,
+        },
+        body: JSON.stringify({
+          text: "Test audio",
+          voice: "ruth",
+          engine: "neural",
+          isTherapy: true,
+        }),
+      });
+
+      console.log("📊 Response Status:", response.status, response.statusText);
+      console.log("📋 Response Headers:");
+      for (const [key, value] of response.headers.entries()) {
+        console.log(`   ${key}: ${value}`);
+      }
+
+      const contentType = response.headers.get("content-type");
+      console.log("📄 Content-Type:", contentType);
+
+      if (contentType && contentType.includes("audio")) {
+        const audioBlob = await response.blob();
+        console.log("✅ SUCCESS: Received audio blob", audioBlob.size, "bytes");
+
+        // Test playing the audio
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        await audio.play();
+        console.log("🔊 Audio played successfully!");
+      } else {
+        // Get the error details
+        let errorData;
+        if (contentType && contentType.includes("json")) {
+          errorData = await response.json();
+          console.log("❌ JSON Error Response:", errorData);
+        } else {
+          errorData = await response.text();
+          console.log("❌ Text Error Response:", errorData);
+        }
+
+        // Analyze the error
+        const errorStr = JSON.stringify(errorData).toLowerCase();
+        if (errorStr.includes("module not found")) {
+          console.log("🔍 DIAGNOSIS: Missing backend dependency");
+          console.log("👉 FIX: Add missing package to backend package.json");
+        } else if (errorStr.includes("jsonwebtoken")) {
+          console.log("🔍 DIAGNOSIS: jsonwebtoken import error");
+          console.log("👉 FIX: Remove jsonwebtoken import from polly.js");
+        } else if (errorStr.includes("credentials")) {
+          console.log("🔍 DIAGNOSIS: AWS credentials issue");
+          console.log("👉 FIX: Check Vercel environment variables");
+        } else {
+          console.log("🔍 DIAGNOSIS: Unknown backend error");
+          console.log("👉 FIX: Check Vercel function logs");
+        }
+      }
+    } catch (error) {
+      console.error("❌ Debug failed:", error);
+    }
+
+    console.log("🐛 Debug complete - check console above for results");
+  };
+
+  // USAGE: Add this button to your existing UI (replace the problematic one)
+  // OR just call debugPollyBackend() directly from browser console
 
   // Handle key press in input
   const handleKeyPress = (e) => {
