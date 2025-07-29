@@ -522,7 +522,6 @@ const PremiumReflectionarian = () => {
     setIsLoading(true);
 
     try {
-      // CORRECT: Use query parameter, not URL path parameter
       const response = await fetch(
         `${API_BASE}/api/reflectionarian/sessions?session_id=${sessionId}`,
         {
@@ -531,13 +530,21 @@ const PremiumReflectionarian = () => {
           body: JSON.stringify({
             status: "completed",
             user_id: user.id,
+            messages: messages, // Send messages for AI analysis
+            generate_ai_insights: true, // Flag for AI processing
           }),
         }
       );
 
       if (response.ok) {
-        // Generate basic insights from current messages
-        if (messages.length > 0) {
+        const data = await response.json();
+
+        // Show AI-generated insights
+        if (data.insights) {
+          setSessionInsights(data.insights);
+          setShowSessionInsights(true);
+        } else {
+          // Fallback insights
           const basicInsights = generateFallbackInsights(messages);
           setSessionInsights(basicInsights);
           setShowSessionInsights(true);
@@ -547,33 +554,26 @@ const PremiumReflectionarian = () => {
         setSessionId(null);
         setMessages([]);
         setShowEndSessionModal(false);
-
-        // Reload sessions to show the ended session in history
         await loadSessions();
       } else {
-        // Handle API errors gracefully
+        // Handle errors gracefully
         const errorData = await response
           .json()
           .catch(() => ({ error: "Unknown error" }));
         console.error("Session end API error:", errorData);
 
-        // Still reset the session state to allow user to continue
         setSessionId(null);
         setMessages([]);
         setShowEndSessionModal(false);
 
-        // Show user-friendly error message
         alert(
           "Session ended successfully, but we couldn't generate insights right now. Your conversation has been saved."
         );
-
-        // Reload sessions
         await loadSessions();
       }
     } catch (error) {
       console.error("Error ending session:", error);
 
-      // Always reset session state to prevent UI getting stuck
       setSessionId(null);
       setMessages([]);
       setShowEndSessionModal(false);
@@ -582,7 +582,6 @@ const PremiumReflectionarian = () => {
         "Session ended. Your conversation has been saved, but insights couldn't be generated right now."
       );
 
-      // Try to reload sessions even after error
       try {
         await loadSessions();
       } catch (loadError) {
@@ -721,9 +720,7 @@ const PremiumReflectionarian = () => {
                   Premium Reflectionarian
                   <Crown className="w-6 h-6 text-yellow-400" />
                 </h1>
-                <p className="text-purple-200">
-                  Your advanced AI therapy companion
-                </p>
+                <p className="text-purple-200">Your advanced AI companion</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -937,7 +934,7 @@ const PremiumReflectionarian = () => {
                   onClick={startNewSession}
                   disabled={isLoading}
                   className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 rounded-xl text-white font-medium transition-all flex items-center gap-2 mx-auto"
-                  aria-label="Start new therapy session"
+                  aria-label="Start new session"
                 >
                   {isLoading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />

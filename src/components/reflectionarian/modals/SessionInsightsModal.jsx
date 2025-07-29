@@ -354,10 +354,11 @@ const SessionInsightsModal = ({ sessionId, userId, messages, onClose }) => {
             <div>
               <h2 className="text-2xl font-bold text-white flex items-center gap-2">
                 <Brain className="w-7 h-7 text-purple-400" />
-                Session Insights
+                Your Reflectionarian Summary
               </h2>
               <p className="text-gray-300 mt-1">
-                Your reflection session from {insights?.sessionSummary.date}
+                Your Reflectionarian conversation from{" "}
+                {insights?.sessionSummary.date}
               </p>
             </div>
             <button
@@ -513,6 +514,15 @@ const SessionInsightsModal = ({ sessionId, userId, messages, onClose }) => {
             >
               Close
             </button>
+          </div>
+          <div className="mt-6 p-4 bg-white/5 rounded-lg border border-white/10">
+            <p className="text-xs text-gray-400 text-center">
+              The Reflectionarian provides personal insights for
+              self-exploration. It is not a substitute for professional
+              counseling, therapy, or medical advice. If you're experiencing
+              mental health concerns, please consult a qualified healthcare
+              provider.
+            </p>
           </div>
         </div>
       </div>
