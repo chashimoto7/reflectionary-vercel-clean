@@ -157,6 +157,7 @@ const PremiumReflectionarian = () => {
     }
   };
 
+  // ✅ IMPROVED: Enhanced speakText function with better error handling
   const speakText = async (text) => {
     try {
       // Stop any current speech
@@ -170,40 +171,96 @@ const PremiumReflectionarian = () => {
         style: preferences?.ttsStyle || "calm",
       });
 
-      // Use therapy-optimized neural speech
-      await pollyTTSService.speakTherapy(
-        text,
-        {
-          voice: preferences?.ttsVoice || "ruth",
-          engine: "neural",
-          ssmlStyle: preferences?.ttsStyle || "calm",
-        },
-        () => {
-          setIsSpeaking(false);
-        }
-      );
-    } catch (error) {
-      console.error("❌ Polly TTS failed, falling back to browser TTS:", error);
-      setIsSpeaking(false);
+      // ✅ ENHANCED: Try Polly first with detailed error logging
+      try {
+        console.log("🎯 Attempting Polly TTS...");
 
-      // ❌ This is probably what you're hearing - the robotic browser TTS!
+        await pollyTTSService.speakTherapy(
+          text,
+          {
+            voice: preferences?.ttsVoice || "ruth",
+            engine: "neural",
+            ssmlStyle: preferences?.ttsStyle || "calm",
+          },
+          () => {
+            setIsSpeaking(false);
+          }
+        );
+
+        console.log("✅ Polly TTS successful!");
+        return; // Success! Exit early
+      } catch (pollyError) {
+        console.error("❌ Polly TTS failed:", pollyError);
+
+        // ✅ ADDED: Log specific error details for debugging
+        if (pollyError.message.includes("credentials")) {
+          console.error(
+            "🔐 AWS credentials issue - check backend configuration"
+          );
+        } else if (pollyError.message.includes("Unauthorized")) {
+          console.error("🚫 Authentication failed - check JWT token");
+        } else if (pollyError.message.includes("Voice")) {
+          console.error("🗣️ Voice configuration issue:", preferences?.ttsVoice);
+        } else {
+          console.error("🌐 Network or service error:", pollyError.message);
+        }
+
+        // Continue to fallback...
+      }
+
+      // ✅ IMPROVED: Enhanced browser TTS fallback
+      console.log("🔄 Falling back to browser TTS...");
+      setIsSpeaking(false); // Reset state for fallback
+
       if ("speechSynthesis" in window) {
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 0.9;
         utterance.pitch = 1.0;
         utterance.volume = 0.8;
-        utterance.onend = () => setIsSpeaking(false);
 
-        // 🔍 DEBUG: Log what browser voices are available
+        utterance.onstart = () => {
+          setIsSpeaking(true);
+          console.log("🔊 Browser TTS started");
+        };
+
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          console.log("🔊 Browser TTS ended");
+        };
+
+        utterance.onerror = (error) => {
+          setIsSpeaking(false);
+          console.error("🔊 Browser TTS error:", error);
+        };
+
+        // ✅ ADDED: Try to use a better voice if available
         const voices = speechSynthesis.getVoices();
-        console.log("🔊 Browser TTS voices available:", voices.length);
-        console.log(
-          "🎭 Using browser voice:",
-          utterance.voice?.name || "default"
+        console.log(`🔊 ${voices.length} browser voices available`);
+
+        // Look for high-quality voices
+        const preferredVoices = voices.filter(
+          (voice) =>
+            voice.name.includes("Google") ||
+            voice.name.includes("Microsoft") ||
+            voice.name.includes("Alex") ||
+            voice.name.includes("Samantha")
         );
 
+        if (preferredVoices.length > 0) {
+          utterance.voice = preferredVoices[0];
+          console.log("🎭 Using enhanced browser voice:", utterance.voice.name);
+        } else {
+          console.log("🎭 Using default browser voice");
+        }
+
         window.speechSynthesis.speak(utterance);
+      } else {
+        console.error("❌ No speech synthesis available");
+        setIsSpeaking(false);
       }
+    } catch (error) {
+      console.error("❌ Complete speech failure:", error);
+      setIsSpeaking(false);
     }
   };
 
