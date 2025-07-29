@@ -43,6 +43,7 @@ import OnboardingModal from "../components/reflectionarian/OnboardingModal";
 import VoiceModal from "../components/reflectionarian/VoiceModal";
 import pollyTTSService from "../services/pollyTTSService";
 import EndSessionModal from "../components/reflectionarian/modals/EndSessionModal";
+import PollyDebugComponent from "../components/reflectionarian/PollyDebugComponent";
 // Import your custom logo icon
 import ReflectionaryIcon from "../assets/ReflectionaryIcon.svg";
 
@@ -186,6 +187,10 @@ const PremiumReflectionarian = () => {
             setIsSpeaking(false);
           }
         );
+
+        {
+          process.env.NODE_ENV === "development" && <PollyDebugComponent />;
+        }
 
         console.log("✅ Polly TTS successful!");
         return; // Success! Exit early
