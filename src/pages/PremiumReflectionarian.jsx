@@ -1,6 +1,7 @@
 // src/pages/PremiumReflectionarian.jsx
 import React, { useState, useEffect, useRef } from "react";
 import {
+  Bug,
   MessageCircle,
   Settings,
   Brain,
@@ -44,6 +45,8 @@ import VoiceModal from "../components/reflectionarian/VoiceModal";
 import pollyTTSService from "../services/pollyTTSService";
 import EndSessionModal from "../components/reflectionarian/modals/EndSessionModal";
 import PollyDebugComponent from "../components/reflectionarian/PollyDebugComponent";
+import BackendErrorDebugger from "../components/reflectionarian/BackendErrorDebugger";
+
 // Import your custom logo icon
 import ReflectionaryIcon from "../assets/ReflectionaryIcon.svg";
 
@@ -80,6 +83,7 @@ const PremiumReflectionarian = () => {
   const [showEndSessionModal, setShowEndSessionModal] = useState(false);
   const [showSessionInsights, setShowSessionInsights] = useState(false);
   const [sessionInsights, setSessionInsights] = useState(null);
+  const [showDebugger, setShowDebugger] = useState(false);
 
   // Refs
   const messagesEndRef = useRef(null);
@@ -805,6 +809,15 @@ const PremiumReflectionarian = () => {
                 className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                 title="Settings"
               >
+                <button
+                  type="button"
+                  onClick={() => setShowDebugger(!showDebugger)}
+                  className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                  title="Debug Backend"
+                >
+                  <Bug className="w-5 h-5" />
+                </button>
+
                 <Settings className="w-5 h-5" />
               </button>
               <button
@@ -844,6 +857,11 @@ const PremiumReflectionarian = () => {
           </div>
         </div>
 
+        {showDebugger && (
+          <div className="mb-8">
+            <BackendErrorDebugger />
+          </div>
+        )}
         {/* Main Content */}
         <div className="space-y-6">
           {/* Chat Tab */}
