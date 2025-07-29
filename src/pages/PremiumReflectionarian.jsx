@@ -164,12 +164,18 @@ const PremiumReflectionarian = () => {
 
       setIsSpeaking(true);
 
+      console.log("🎤 Speaking with preferences:", {
+        voice: preferences?.ttsVoice || "ruth",
+        engine: "neural",
+        style: preferences?.ttsStyle || "calm",
+      });
+
       // Use therapy-optimized neural speech
       await pollyTTSService.speakTherapy(
         text,
         {
           voice: preferences?.ttsVoice || "ruth",
-          engine: "neural", // ENSURE: Neural engine
+          engine: "neural",
           ssmlStyle: preferences?.ttsStyle || "calm",
         },
         () => {
@@ -177,16 +183,25 @@ const PremiumReflectionarian = () => {
         }
       );
     } catch (error) {
-      console.error("Error speaking text:", error);
+      console.error("❌ Polly TTS failed, falling back to browser TTS:", error);
       setIsSpeaking(false);
 
-      // Fallback to browser TTS if Polly fails
+      // ❌ This is probably what you're hearing - the robotic browser TTS!
       if ("speechSynthesis" in window) {
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 0.9;
         utterance.pitch = 1.0;
         utterance.volume = 0.8;
         utterance.onend = () => setIsSpeaking(false);
+
+        // 🔍 DEBUG: Log what browser voices are available
+        const voices = speechSynthesis.getVoices();
+        console.log("🔊 Browser TTS voices available:", voices.length);
+        console.log(
+          "🎭 Using browser voice:",
+          utterance.voice?.name || "default"
+        );
+
         window.speechSynthesis.speak(utterance);
       }
     }
