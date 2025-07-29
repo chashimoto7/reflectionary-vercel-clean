@@ -356,28 +356,26 @@ const PremiumReflectionarian = () => {
       setSessionId(null);
       setMessages([]);
 
-      const response = await fetch(
-        `${API_BASE}/api/reflectionarian/sessions/start`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_id: user.id,
-            preferences: preferences,
-          }),
-        }
-      );
+      // ✅ FIXED: Remove '/start' from endpoint
+      const response = await fetch(`${API_BASE}/api/reflectionarian/sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          preferences: preferences,
+        }),
+      });
 
       if (response.ok) {
         const data = await response.json();
-        setSessionId(data.session_id);
+        setSessionId(data.session.id); // Note: should be data.session.id not data.session_id
         setMessages([
           {
             id: Date.now(),
             role: "assistant",
             content:
               data.welcome_message ||
-              "Hello! I'm here to support you today. What's on your mind?",
+              "Hello! I'm your AI reflection companion, here to support your personal growth and self-reflection journey. I'm not a therapist or medical professional - our conversations are for personal insight and exploration. What's on your mind today?",
             created_at: new Date().toISOString(),
           },
         ]);
@@ -435,17 +433,17 @@ const PremiumReflectionarian = () => {
     setMessages((prev) => [...prev, loadingMessage]);
 
     try {
-      `${API_BASE}/api/reflectionarian/sessions`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: userMessage,
-            session_id: sessionId,
-            user_id: user.id,
-            preferences: preferences,
-          }),
-        };
+      // ✅ FIXED: Proper fetch call with assignment
+      const response = await fetch(`${API_BASE}/api/reflectionarian/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: userMessage,
+          session_id: sessionId,
+          user_id: user.id,
+          preferences: preferences,
+        }),
+      });
 
       if (response.ok) {
         const data = await response.json();
