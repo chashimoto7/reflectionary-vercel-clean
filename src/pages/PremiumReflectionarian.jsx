@@ -90,6 +90,8 @@ const PremiumReflectionarian = () => {
   const messagesEndRef = useRef(null);
   const chatInputRef = useRef(null);
 
+  const [sessionType, setSessionType] = useState(null); // 'text' or 'voice'
+
   // Check voice support on mount
   useEffect(() => {
     setVoiceSupported(
@@ -497,13 +499,14 @@ const PremiumReflectionarian = () => {
   };
 
   // Start a new session
-  const startNewSession = async () => {
+  const startNewSession = async (type = "text") => {
     setIsLoading(true);
 
     try {
       // Clear any existing session state first
       setSessionId(null);
       setMessages([]);
+      setSessionType(type); // Store the session type
 
       const response = await fetch(`${API_BASE}/api/reflectionarian/sessions`, {
         method: "POST",
@@ -511,22 +514,40 @@ const PremiumReflectionarian = () => {
         body: JSON.stringify({
           user_id: user.id,
           preferences: preferences,
+          session_type: type, // Pass session type to backend
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
         setSessionId(data.session.id);
+
+        // Different welcome messages for different session types
+        const welcomeMessage =
+          type === "voice"
+            ? "Hello! I'm your AI reflection companion. I can hear you clearly - feel free to speak naturally. Click the microphone button below to start talking, and I'll respond both in text and voice. What's on your mind today?"
+            : data.welcome_message ||
+              "Hello! I'm your AI reflection companion, here to support your personal growth and self-reflection journey. I'm not a therapist or medical professional - our conversations are for personal insight and exploration. What's on your mind today?";
+
         setMessages([
           {
             id: Date.now(),
             role: "assistant",
-            content:
-              data.welcome_message ||
-              "Hello! I'm your AI reflection companion, here to support your personal growth and self-reflection journey. I'm not a therapist or medical professional - our conversations are for personal insight and exploration. What's on your mind today?",
+            content: welcomeMessage,
             created_at: new Date().toISOString(),
           },
         ]);
+
+        // Auto-enable TTS for voice sessions
+        if (type === "voice" && preferences) {
+          setPreferences({
+            ...preferences,
+            enableSpeech: true,
+          });
+
+          // Speak the welcome message
+          await speakText(welcomeMessage);
+        }
 
         // Reload sessions to show new session
         await loadSessions();
@@ -543,6 +564,7 @@ const PremiumReflectionarian = () => {
       // Ensure we're in a clean state
       setSessionId(null);
       setMessages([]);
+      setSessionType(null);
 
       alert(
         "Unable to start a new session right now. Please try again in a moment."
@@ -607,12 +629,12 @@ const PremiumReflectionarian = () => {
           prev.filter((msg) => !msg.isLoading).concat([assistantMessage])
         );
 
-        // Auto-speak the response if speech is enabled
-        if (preferences?.enableSpeech) {
+        if (sessionType === "voice" || preferences?.enableSpeech) {
           try {
             await speakText(data.response);
           } catch (error) {
             console.error("Error with TTS:", error);
+            // Don't alert user, just log - TTS is not critical
           }
         }
       } else {
@@ -696,6 +718,7 @@ const PremiumReflectionarian = () => {
 
         setSessionId(null);
         setMessages([]);
+        setSessionType(null);
         setShowEndSessionModal(false);
 
         alert(
@@ -907,9 +930,9 @@ const PremiumReflectionarian = () => {
                     <p className="text-sm mt-2">Share what's on your mind...</p>
                   </div>
                 ) : (
-                  messages.map((message) => (
+                  messages.map((message, index) => (
                     <div
-                      key={message.id}
+                      key={message.id || index}
                       className={`flex gap-3 ${
                         message.role === "user"
                           ? "justify-end"
@@ -941,7 +964,14 @@ const PremiumReflectionarian = () => {
                           <p className="text-white whitespace-pre-wrap">
                             {message.content}
                           </p>
-                        )}
+                        )}{" "}
+                        message.role === "assistant" && sessionType === "voice"
+                        && !message.isLoading && (
+                        <div className="flex items-center gap-2 mt-2 text-purple-300/70 text-xs">
+                          <Volume2 className="w-3 h-3" />
+                          <span>Audio response playing automatically</span>
+                        </div>
+                        )
                         <p className="text-xs text-white/50 mt-2">
                           {new Date(message.created_at).toLocaleTimeString([], {
                             hour: "2-digit",
@@ -962,46 +992,95 @@ const PremiumReflectionarian = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Chat Input */}
-              <div className="p-6 border-t border-white/10">
-                <form onSubmit={sendMessage} className="space-y-4">
-                  <div className="flex gap-2">
+              {/* Chat Input - With Voice Optimization */}
+              <form
+                onSubmit={sendMessage}
+                className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-4 shadow-xl"
+              >
+                {/* Session Type Indicator */}
+                {sessionType && (
+                  <div className="flex items-center gap-2 mb-3 text-purple-300">
+                    {sessionType === "voice" ? (
+                      <>
+                        <Mic className="w-4 h-4" />
+                        <span className="text-sm">Voice Session Active</span>
+                      </>
+                    ) : (
+                      <>
+                        <MessageCircle className="w-4 h-4" />
+                        <span className="text-sm">Text Session Active</span>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-3">
+                  {/* Text Input Area */}
+                  <div className="flex gap-3">
                     <input
                       ref={chatInputRef}
                       type="text"
                       value={currentMessage}
                       onChange={(e) => setCurrentMessage(e.target.value)}
                       onKeyPress={handleKeyPress}
-                      placeholder="Type your message..."
-                      disabled={isLoading}
-                      className="flex-1 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 text-white placeholder-white/50 border border-white/20 focus:border-purple-400 focus:outline-none disabled:opacity-50 h-12"
+                      disabled={isLoading || isRecording}
+                      placeholder={
+                        sessionType === "voice" && !isRecording
+                          ? "Click the microphone to speak, or type here..."
+                          : isRecording
+                          ? "Listening..."
+                          : "Type your message..."
+                      }
+                      className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-purple-400 disabled:opacity-50 transition-colors"
+                      aria-label="Message input"
                     />
 
-                    {/* Voice input button */}
-                    <button
-                      type="button"
-                      onClick={isRecording ? stopRecording : startRecording}
-                      className={`p-2 rounded-lg transition-colors ${
-                        isRecording
-                          ? "bg-red-500 hover:bg-red-600 text-white"
-                          : "hover:bg-white/10 text-white"
-                      }`}
-                      aria-label={
-                        isRecording ? "Stop recording" : "Start voice input"
-                      }
-                    >
-                      <Mic
-                        className={`w-5 h-5 ${
-                          isRecording ? "animate-pulse" : ""
-                        }`}
-                      />
-                    </button>
+                    {/* Voice Recording Button - Show prominently for voice sessions */}
+                    {voiceSupported && sessionType === "voice" && (
+                      <button
+                        type="button"
+                        onClick={isRecording ? stopRecording : startRecording}
+                        disabled={isLoading}
+                        className={`px-4 py-3 rounded-xl transition-all flex items-center gap-2 ${
+                          isRecording
+                            ? "bg-red-500 hover:bg-red-600 animate-pulse"
+                            : "bg-purple-600 hover:bg-purple-700"
+                        } disabled:opacity-50`}
+                        aria-label={
+                          isRecording ? "Stop recording" : "Start recording"
+                        }
+                      >
+                        <Mic className="w-5 h-5 text-white" />
+                      </button>
+                    )}
 
-                    {/* Send button */}
+                    {/* Standard Voice Button for Text Sessions */}
+                    {voiceSupported && sessionType === "text" && (
+                      <button
+                        type="button"
+                        onClick={isRecording ? stopRecording : startRecording}
+                        disabled={isLoading}
+                        className={`p-3 rounded-xl transition-colors ${
+                          isRecording
+                            ? "bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-300"
+                            : "bg-white/10 hover:bg-white/20 border border-white/20 text-white"
+                        } disabled:opacity-50`}
+                        aria-label={
+                          isRecording ? "Stop recording" : "Start recording"
+                        }
+                      >
+                        <Mic className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Action Buttons Row */}
+                  <div className="flex gap-3 justify-between items-center">
+                    {/* Send Button */}
                     <button
                       type="submit"
-                      disabled={isLoading || !currentMessage.trim()}
-                      className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 rounded-xl text-white font-medium transition-all flex items-center gap-2 h-12"
+                      disabled={!currentMessage.trim() || isLoading}
+                      className="px-6 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-xl text-white font-medium transition-colors flex items-center gap-2 h-10"
                       aria-label="Send message"
                     >
                       {isLoading ? (
@@ -1013,15 +1092,54 @@ const PremiumReflectionarian = () => {
                     </button>
 
                     {/* End Session button */}
-                    <button
-                      type="button"
-                      onClick={() => setShowEndSessionModal(true)}
-                      className="px-6 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-xl transition-colors text-red-300 flex items-center gap-2 h-12"
-                      aria-label="End current session"
-                    >
-                      <Save className="w-4 h-4" />
-                      <span>End Session</span>
-                    </button>
+                    <div className="flex items-center gap-3">
+                      {sessionId && (
+                        <>
+                          {/* Session Type Badge */}
+                          <div
+                            className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 ${
+                              sessionType === "voice"
+                                ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                                : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                            }`}
+                          >
+                            {sessionType === "voice" ? (
+                              <>
+                                <Mic className="w-3 h-3" />
+                                <span>Voice Session</span>
+                              </>
+                            ) : (
+                              <>
+                                <MessageCircle className="w-3 h-3" />
+                                <span>Text Session</span>
+                              </>
+                            )}
+                          </div>
+
+                          <button
+                            onClick={() => setShowEndSessionModal(true)}
+                            className="px-4 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors flex items-center gap-2"
+                          >
+                            <Clock className="w-4 h-4" />
+                            End Session
+                          </button>
+                        </>
+                      )}
+
+                      <button
+                        onClick={() => setShowPrivacyInfo(true)}
+                        className="p-2 hover:bg-white/10 rounded-lg transition-colors text-purple-200"
+                      >
+                        <Shield className="w-5 h-5" />
+                      </button>
+
+                      <button
+                        onClick={() => setActiveTab("settings")}
+                        className="p-2 hover:bg-white/10 rounded-lg transition-colors text-purple-200"
+                      >
+                        <Settings className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Recording indicator */}
@@ -1033,23 +1151,8 @@ const PremiumReflectionarian = () => {
                       </span>
                     </div>
                   )}
-                </form>
-
-                {/* TTS Controls */}
-                {isSpeaking && (
-                  <div className="flex justify-center mt-4">
-                    <button
-                      type="button"
-                      onClick={stopSpeaking}
-                      className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors"
-                      aria-label="Stop reading message aloud"
-                    >
-                      <VolumeX className="w-4 h-4" />
-                      Stop Speaking
-                    </button>
-                  </div>
-                )}
-              </div>
+                </div>
+              </form>
             </div>
           )}
 
@@ -1069,20 +1172,45 @@ const PremiumReflectionarian = () => {
                   Start a new conversation with your AI coach to explore your
                   thoughts, feelings, and personal growth journey.
                 </p>
-                <button
-                  type="button"
-                  onClick={startNewSession}
-                  disabled={isLoading}
-                  className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 rounded-xl text-white font-medium transition-all flex items-center gap-2 mx-auto"
-                  aria-label="Start new session"
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <PlusCircle className="w-5 h-5" />
-                  )}
-                  Begin Session
-                </button>
+
+                {/* REPLACE THE SINGLE BUTTON WITH THIS CODE: */}
+                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                  <button
+                    type="button"
+                    onClick={() => startNewSession("text")}
+                    disabled={isLoading}
+                    className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 rounded-xl text-white font-medium transition-all flex items-center gap-2 group"
+                    aria-label="Start text chat session"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    )}
+                    Text Chat
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => startNewSession("voice")}
+                    disabled={isLoading || !voiceSupported}
+                    className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 rounded-xl text-white font-medium transition-all flex items-center gap-2 group"
+                    aria-label="Start voice chat session"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Mic className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    )}
+                    Voice Chat
+                  </button>
+                </div>
+
+                {!voiceSupported && (
+                  <p className="text-yellow-400/70 text-sm mt-4">
+                    Voice chat requires Chrome or Edge browser
+                  </p>
+                )}
               </div>
             </div>
           )}
