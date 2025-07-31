@@ -1,7 +1,6 @@
 // src/pages/PremiumReflectionarian.jsx
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Bug,
   MessageCircle,
   Settings,
   Brain,
@@ -41,11 +40,7 @@ import GrowthTimelineTab from "../components/reflectionarian/tabs/GrowthTimeline
 import ExportSessionsTab from "../components/reflectionarian/tabs/ExportSessionsTab";
 import SessionInsightsModal from "../components/reflectionarian/modals/SessionInsightsModal";
 import OnboardingModal from "../components/reflectionarian/OnboardingModal";
-import VoiceModal from "../components/reflectionarian/VoiceModal";
-import pollyTTSService from "../services/pollyTTSService";
 import EndSessionModal from "../components/reflectionarian/modals/EndSessionModal";
-import PollyDebugComponent from "../components/reflectionarian/PollyDebugComponent";
-import BackendErrorDebugger from "../components/reflectionarian/BackendErrorDebugger";
 
 // Import your custom logo icon
 import ReflectionaryIcon from "../assets/ReflectionaryIcon.svg";
@@ -72,10 +67,17 @@ const PremiumReflectionarian = () => {
   const [sessionPrompts, setSessionPrompts] = useState([]);
   const [sessionHistory, setSessionHistory] = useState([]);
 
-  // Speech State
-  const [isListening, setIsListening] = useState(false);
+  // Speech State (using OpenAI TTS)
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [showVoiceModal, setShowVoiceModal] = useState(false);
+
+  // Voice Recording State (copied from Premium Journaling)
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const recognitionRef = useRef(null);
+  const recordingIntervalRef = useRef(null);
+  const interimTranscriptRef = useRef("");
+  const finalTranscriptRef = useRef("");
 
   // UI State
   const [activeTab, setActiveTab] = useState("chat");
@@ -83,21 +85,17 @@ const PremiumReflectionarian = () => {
   const [showEndSessionModal, setShowEndSessionModal] = useState(false);
   const [showSessionInsights, setShowSessionInsights] = useState(false);
   const [sessionInsights, setSessionInsights] = useState(null);
-  const [showDebugger, setShowDebugger] = useState(false);
 
   // Refs
   const messagesEndRef = useRef(null);
   const chatInputRef = useRef(null);
-  const recognitionRef = useRef(null);
 
-  // Premium color scheme
-  const colors = {
-    primary: "#8B5CF6",
-    secondary: "#EC4899",
-    accent: "#06B6D4",
-    success: "#10B981",
-    warning: "#F59E0B",
-  };
+  // Check voice support on mount
+  useEffect(() => {
+    setVoiceSupported(
+      "webkitSpeechRecognition" in window || "SpeechRecognition" in window
+    );
+  }, []);
 
   // Updated tabs without Goal Tracking
   const proTabs = [
@@ -119,166 +117,238 @@ const PremiumReflectionarian = () => {
     voice_enabled: true,
     weekly_reports: true,
     enableSpeech: false,
-    ttsVoice: "ruth",
-    ttsEngine: "neural",
+    ttsVoice: "nova", // Changed to OpenAI voice
+    ttsEngine: "openai", // Changed to OpenAI
     ttsStyle: "calm",
   };
 
-  // Speech functions
-  const handleVoiceTranscript = async (
-    transcript,
-    enableTTS,
-    autoSend = false
-  ) => {
-    setCurrentMessage(transcript);
-
-    // Update preferences if TTS setting changed
-    if (enableTTS !== preferences?.enableSpeech) {
-      const updatedPrefs = { ...preferences, enableSpeech: enableTTS };
-      setPreferences(updatedPrefs);
-      savePreferences(updatedPrefs);
-    }
-
-    // Auto-send the message if requested
-    if (autoSend && transcript.trim() && sessionId) {
-      // Create a synthetic event to trigger sendMessage
-      const syntheticEvent = {
-        preventDefault: () => {},
-      };
-
-      // Call sendMessage directly with the transcript
-      await sendMessage(syntheticEvent);
-    }
-  };
-
-  const startListening = () => {
-    setShowVoiceModal(true);
-  };
-
-  const stopListening = () => {
-    if (recognitionRef.current && isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    }
-  };
-
-  // ✅ IMPROVED: Enhanced speakText function with better error handling
+  // ✅ NEW: OpenAI TTS Speech Function (using your existing system)
   const speakText = async (text) => {
     try {
       // Stop any current speech
-      pollyTTSService.stopAudio();
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
 
       setIsSpeaking(true);
 
-      console.log("🎤 Speaking with preferences:", {
-        voice: preferences?.ttsVoice || "ruth",
-        engine: "neural",
-        style: preferences?.ttsStyle || "calm",
+      console.log("🎤 Using OpenAI TTS system...");
+
+      // Use your existing TTS endpoint (same as Premium Journaling)
+      const audioResponse = await fetch(`${API_BASE}/api/tts/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({
+          text: text,
+          voice: preferences?.ttsVoice || "nova", // Warm female voice
+          model: "tts-1",
+        }),
       });
 
-      // ✅ ENHANCED: Try Polly first with detailed error logging
-      try {
-        console.log("🎯 Attempting Polly TTS...");
+      if (audioResponse.ok) {
+        // Create blob URL for audio playback
+        const audioBlob = await audioResponse.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
 
-        await pollyTTSService.speakTherapy(
-          text,
-          {
-            voice: preferences?.ttsVoice || "ruth",
-            engine: "neural",
-            ssmlStyle: preferences?.ttsStyle || "calm",
-          },
-          () => {
-            setIsSpeaking(false);
-          }
-        );
+        // Play the audio
+        const audio = new Audio(audioUrl);
+        audio.volume = 0.8;
 
-        {
-          process.env.NODE_ENV === "development" && <PollyDebugComponent />;
-        }
-
-        console.log("✅ Polly TTS successful!");
-        return; // Success! Exit early
-      } catch (pollyError) {
-        console.error("❌ Polly TTS failed:", pollyError);
-
-        // ✅ ADDED: Log specific error details for debugging
-        if (pollyError.message.includes("credentials")) {
-          console.error(
-            "🔐 AWS credentials issue - check backend configuration"
-          );
-        } else if (pollyError.message.includes("Unauthorized")) {
-          console.error("🚫 Authentication failed - check JWT token");
-        } else if (pollyError.message.includes("Voice")) {
-          console.error("🗣️ Voice configuration issue:", preferences?.ttsVoice);
-        } else {
-          console.error("🌐 Network or service error:", pollyError.message);
-        }
-
-        // Continue to fallback...
-      }
-
-      // ✅ IMPROVED: Enhanced browser TTS fallback
-      console.log("🔄 Falling back to browser TTS...");
-      setIsSpeaking(false); // Reset state for fallback
-
-      if ("speechSynthesis" in window) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.9;
-        utterance.pitch = 1.0;
-        utterance.volume = 0.8;
-
-        utterance.onstart = () => {
-          setIsSpeaking(true);
-          console.log("🔊 Browser TTS started");
+        audio.onplay = () => {
+          console.log("✅ OpenAI TTS playing successfully!");
         };
 
-        utterance.onend = () => {
+        audio.onended = () => {
           setIsSpeaking(false);
-          console.log("🔊 Browser TTS ended");
+          URL.revokeObjectURL(audioUrl); // Clean up
         };
 
-        utterance.onerror = (error) => {
+        audio.onerror = (error) => {
+          console.error("❌ Audio playback error:", error);
           setIsSpeaking(false);
-          console.error("🔊 Browser TTS error:", error);
+          // Fallback to browser TTS
+          fallbackToBrowserTTS(text);
         };
 
-        // ✅ ADDED: Try to use a better voice if available
-        const voices = speechSynthesis.getVoices();
-        console.log(`🔊 ${voices.length} browser voices available`);
-
-        // Look for high-quality voices
-        const preferredVoices = voices.filter(
-          (voice) =>
-            voice.name.includes("Google") ||
-            voice.name.includes("Microsoft") ||
-            voice.name.includes("Alex") ||
-            voice.name.includes("Samantha")
-        );
-
-        if (preferredVoices.length > 0) {
-          utterance.voice = preferredVoices[0];
-          console.log("🎭 Using enhanced browser voice:", utterance.voice.name);
-        } else {
-          console.log("🎭 Using default browser voice");
-        }
-
-        window.speechSynthesis.speak(utterance);
+        await audio.play();
       } else {
-        console.error("❌ No speech synthesis available");
-        setIsSpeaking(false);
+        throw new Error("TTS generation failed");
       }
     } catch (error) {
-      console.error("❌ Complete speech failure:", error);
+      console.error("❌ OpenAI TTS failed:", error);
       setIsSpeaking(false);
+
+      // Fallback to browser TTS
+      fallbackToBrowserTTS(text);
+    }
+  };
+
+  // Helper function for browser TTS fallback
+  const fallbackToBrowserTTS = (text) => {
+    console.log("🔄 Falling back to browser TTS...");
+
+    if ("speechSynthesis" in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+
+      // Try to use a better voice if available
+      const voices = speechSynthesis.getVoices();
+      const preferredVoices = voices.filter(
+        (voice) =>
+          voice.name.includes("Google") ||
+          voice.name.includes("Microsoft") ||
+          voice.name.includes("Alex") ||
+          voice.name.includes("Samantha")
+      );
+
+      if (preferredVoices.length > 0) {
+        utterance.voice = preferredVoices[0];
+        console.log("🎭 Using enhanced browser voice:", utterance.voice.name);
+      }
+
+      window.speechSynthesis.speak(utterance);
+    } else {
+      console.error("❌ No speech synthesis available");
     }
   };
 
   const stopSpeaking = () => {
-    pollyTTSService.stopAudio();
-    if ("speechSynthesis" in window) {
+    if (window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
     setIsSpeaking(false);
+  };
+
+  // ✅ NEW: Voice Recognition (copied from Premium Journaling)
+  const initializeRecognition = () => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return null;
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onstart = () => {
+      console.log("🎤 Speech recognition started");
+      interimTranscriptRef.current = "";
+      finalTranscriptRef.current = "";
+    };
+
+    recognition.onresult = (event) => {
+      let interimTranscript = "";
+      let finalTranscript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + " ";
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      interimTranscriptRef.current = interimTranscript;
+      finalTranscriptRef.current += finalTranscript;
+
+      // Update the current message with the transcript
+      const currentContent =
+        finalTranscriptRef.current + interimTranscriptRef.current;
+      setCurrentMessage(currentContent);
+    };
+
+    recognition.onerror = (event) => {
+      console.error("🎤 Speech recognition error:", event.error);
+      if (event.error === "no-speech") {
+        return; // Continue recording even if no speech detected
+      }
+      stopRecording();
+      alert(`Voice recording error: ${event.error}. Please try again.`);
+    };
+
+    recognition.onend = () => {
+      console.log("🎤 Speech recognition ended");
+      // Restart if still recording
+      if (isRecording && recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch (error) {
+          console.error("Failed to restart recognition:", error);
+        }
+      }
+    };
+
+    return recognition;
+  };
+
+  const startRecording = () => {
+    if (!voiceSupported) {
+      alert(
+        "Voice recording is not supported in your browser. Please use Chrome or Edge."
+      );
+      return;
+    }
+
+    navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .then(() => {
+        const recognition = initializeRecognition();
+        if (!recognition) return;
+
+        recognitionRef.current = recognition;
+        setIsRecording(true);
+        setRecordingTime(0);
+
+        // Start recording timer
+        recordingIntervalRef.current = setInterval(() => {
+          setRecordingTime((prev) => prev + 1);
+        }, 1000);
+
+        try {
+          recognition.start();
+        } catch (error) {
+          console.error("Failed to start recognition:", error);
+          alert("Failed to start voice recording. Please try again.");
+          stopRecording();
+        }
+      })
+      .catch((error) => {
+        console.error("Microphone permission denied:", error);
+        alert(
+          "Microphone access is required for voice recording. Please allow microphone access and try again."
+        );
+      });
+  };
+
+  const stopRecording = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
+
+    setIsRecording(false);
+    setRecordingTime(0);
+  };
+
+  const formatRecordingTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   // Load preferences and sessions on mount
@@ -404,11 +474,9 @@ const PremiumReflectionarian = () => {
         }
       } else {
         console.error("Failed to load sessions:", response.status);
-        // Don't show error to user for session loading failures
       }
     } catch (error) {
       console.error("Error loading sessions:", error);
-      // Don't show error to user for session loading failures
     }
   };
 
@@ -437,7 +505,6 @@ const PremiumReflectionarian = () => {
       setSessionId(null);
       setMessages([]);
 
-      // ✅ FIXED: Remove '/start' from endpoint
       const response = await fetch(`${API_BASE}/api/reflectionarian/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -449,7 +516,7 @@ const PremiumReflectionarian = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setSessionId(data.session.id); // Note: should be data.session.id not data.session_id
+        setSessionId(data.session.id);
         setMessages([
           {
             id: Date.now(),
@@ -514,7 +581,6 @@ const PremiumReflectionarian = () => {
     setMessages((prev) => [...prev, loadingMessage]);
 
     try {
-      // ✅ FIXED: Proper fetch call with assignment
       const response = await fetch(`${API_BASE}/api/reflectionarian/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -544,22 +610,9 @@ const PremiumReflectionarian = () => {
         // Auto-speak the response if speech is enabled
         if (preferences?.enableSpeech) {
           try {
-            await pollyTTSService.speakTherapy(
-              data.response,
-              {
-                voice: preferences?.ttsVoice || "ruth",
-                engine: "neural", // ENSURE: Always use neural
-                ssmlStyle: preferences?.ttsStyle || "calm", // ADD: Use user's style preference
-              },
-              () => {
-                setIsSpeaking(false);
-              }
-            );
-            setIsSpeaking(true);
+            await speakText(data.response);
           } catch (error) {
-            console.error("Error with Polly TTS:", error);
-            // Fallback to browser TTS
-            speakText(data.response);
+            console.error("Error with TTS:", error);
           }
         }
       } else {
@@ -586,93 +639,6 @@ const PremiumReflectionarian = () => {
     }
   };
 
-  // Add this simple debug function to your PremiumReflectionarian.jsx
-  // This will log everything to the browser console without any UI interference
-
-  const debugPollyBackend = async () => {
-    console.log("🐛 Starting Polly Backend Debug...");
-
-    try {
-      const backendUrl =
-        import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app";
-      const token = localStorage.getItem("token");
-
-      console.log("🌐 Backend URL:", backendUrl);
-      console.log("🔑 Token present:", !!token);
-      console.log("🔑 Token length:", token?.length || 0);
-
-      // Test the exact request that's failing
-      console.log("🎵 Testing Polly TTS request...");
-
-      const response = await fetch(`${backendUrl}/api/tts/polly`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token || "test-token"}`,
-        },
-        body: JSON.stringify({
-          text: "Test audio",
-          voice: "ruth",
-          engine: "neural",
-          isTherapy: true,
-        }),
-      });
-
-      console.log("📊 Response Status:", response.status, response.statusText);
-      console.log("📋 Response Headers:");
-      for (const [key, value] of response.headers.entries()) {
-        console.log(`   ${key}: ${value}`);
-      }
-
-      const contentType = response.headers.get("content-type");
-      console.log("📄 Content-Type:", contentType);
-
-      if (contentType && contentType.includes("audio")) {
-        const audioBlob = await response.blob();
-        console.log("✅ SUCCESS: Received audio blob", audioBlob.size, "bytes");
-
-        // Test playing the audio
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        await audio.play();
-        console.log("🔊 Audio played successfully!");
-      } else {
-        // Get the error details
-        let errorData;
-        if (contentType && contentType.includes("json")) {
-          errorData = await response.json();
-          console.log("❌ JSON Error Response:", errorData);
-        } else {
-          errorData = await response.text();
-          console.log("❌ Text Error Response:", errorData);
-        }
-
-        // Analyze the error
-        const errorStr = JSON.stringify(errorData).toLowerCase();
-        if (errorStr.includes("module not found")) {
-          console.log("🔍 DIAGNOSIS: Missing backend dependency");
-          console.log("👉 FIX: Add missing package to backend package.json");
-        } else if (errorStr.includes("jsonwebtoken")) {
-          console.log("🔍 DIAGNOSIS: jsonwebtoken import error");
-          console.log("👉 FIX: Remove jsonwebtoken import from polly.js");
-        } else if (errorStr.includes("credentials")) {
-          console.log("🔍 DIAGNOSIS: AWS credentials issue");
-          console.log("👉 FIX: Check Vercel environment variables");
-        } else {
-          console.log("🔍 DIAGNOSIS: Unknown backend error");
-          console.log("👉 FIX: Check Vercel function logs");
-        }
-      }
-    } catch (error) {
-      console.error("❌ Debug failed:", error);
-    }
-
-    console.log("🐛 Debug complete - check console above for results");
-  };
-
-  // USAGE: Add this button to your existing UI (replace the problematic one)
-  // OR just call debugPollyBackend() directly from browser console
-
   // Handle key press in input
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -696,8 +662,8 @@ const PremiumReflectionarian = () => {
           body: JSON.stringify({
             status: "completed",
             user_id: user.id,
-            messages: messages, // Send messages for AI analysis
-            generate_ai_insights: true, // Flag for AI processing
+            messages: messages,
+            generate_ai_insights: true,
           }),
         }
       );
@@ -767,9 +733,6 @@ const PremiumReflectionarian = () => {
 
   // Handle review session from follow-ups tab
   const handleReviewSession = (session) => {
-    // Could open a modal or navigate to a detailed view
-    console.log("Review session:", session);
-    // For now, just switch to the session and load messages
     setSessionId(session.id);
     loadSessionMessages(session.id);
     setActiveTab("chat");
@@ -780,7 +743,7 @@ const PremiumReflectionarian = () => {
 
     return {
       sessionSummary: {
-        duration: Math.max(5, Math.floor(messages.length * 1.5)), // Estimate minutes
+        duration: Math.max(5, Math.floor(messages.length * 1.5)),
         messageCount: messages.length,
         userMessageCount: userMessages.length,
         date: new Date().toLocaleDateString(),
@@ -861,15 +824,6 @@ const PremiumReflectionarian = () => {
         onSkip={handleOnboardingSkip}
       />
 
-      {/* Voice Modal */}
-      <VoiceModal
-        isOpen={showVoiceModal}
-        onClose={() => setShowVoiceModal(false)}
-        onTranscript={handleVoiceTranscript}
-        preferences={preferences}
-        pollyTTSService={pollyTTSService}
-      />
-
       {/* Main Container */}
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -896,15 +850,6 @@ const PremiumReflectionarian = () => {
                 className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                 title="Settings"
               >
-                <button
-                  type="button"
-                  onClick={() => setShowDebugger(!showDebugger)}
-                  className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                  title="Debug Backend"
-                >
-                  <Bug className="w-5 h-5" />
-                </button>
-
                 <Settings className="w-5 h-5" />
               </button>
               <button
@@ -944,11 +889,6 @@ const PremiumReflectionarian = () => {
           </div>
         </div>
 
-        {showDebugger && (
-          <div className="mb-8">
-            <BackendErrorDebugger />
-          </div>
-        )}
         {/* Main Content */}
         <div className="space-y-6">
           {/* Chat Tab */}
@@ -1040,11 +980,21 @@ const PremiumReflectionarian = () => {
                     {/* Voice input button */}
                     <button
                       type="button"
-                      onClick={startListening}
-                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                      aria-label="Start voice input"
+                      onClick={isRecording ? stopRecording : startRecording}
+                      className={`p-2 rounded-lg transition-colors ${
+                        isRecording
+                          ? "bg-red-500 hover:bg-red-600 text-white"
+                          : "hover:bg-white/10 text-white"
+                      }`}
+                      aria-label={
+                        isRecording ? "Stop recording" : "Start voice input"
+                      }
                     >
-                      <Mic className="w-5 h-5 text-white" />
+                      <Mic
+                        className={`w-5 h-5 ${
+                          isRecording ? "animate-pulse" : ""
+                        }`}
+                      />
                     </button>
 
                     {/* Send button */}
@@ -1066,18 +1016,28 @@ const PremiumReflectionarian = () => {
                     <button
                       type="button"
                       onClick={() => setShowEndSessionModal(true)}
-                      className="px-6 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-xl transition-colors text-red-300 flex items-center gap-2 h-8"
+                      className="px-6 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 rounded-xl transition-colors text-red-300 flex items-center gap-2 h-12"
                       aria-label="End current session"
                     >
                       <Save className="w-4 h-4" />
                       <span>End Session</span>
                     </button>
                   </div>
+
+                  {/* Recording indicator */}
+                  {isRecording && (
+                    <div className="flex items-center justify-center gap-2 text-red-400">
+                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                      <span className="text-sm">
+                        Recording... {formatRecordingTime(recordingTime)}
+                      </span>
+                    </div>
+                  )}
                 </form>
 
                 {/* TTS Controls */}
                 {isSpeaking && (
-                  <div className="flex justify-center">
+                  <div className="flex justify-center mt-4">
                     <button
                       type="button"
                       onClick={stopSpeaking}
