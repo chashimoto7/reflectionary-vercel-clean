@@ -363,19 +363,12 @@ const PremiumReflectionarian = () => {
       // Initialize recognition with callbacks
       voiceService.initializeRecognition({
         onStart: () => {
-          interimTranscriptRef.current = "";
-          finalTranscriptRef.current = "";
+          // Clear the message input when starting recording
+          setCurrentMessage("");
         },
-        onResult: async (data) => {
-          if (data.formattedFinal) {
-            finalTranscriptRef.current = data.formattedFinal;
-          }
-          if (data.interim) {
-            interimTranscriptRef.current = data.interim;
-          }
-
-          const currentContent =
-            finalTranscriptRef.current + interimTranscriptRef.current;
+        onResult: (data) => {
+          // Use the simplified transcript data
+          const currentContent = data.final + (data.interim || "");
           setCurrentMessage(currentContent);
         },
         onError: (event) => {
@@ -386,6 +379,7 @@ const PremiumReflectionarian = () => {
         },
         onEnd: () => {
           if (isRecording) {
+            // Restart recording if still active
             voiceService.startRecording();
           }
         },

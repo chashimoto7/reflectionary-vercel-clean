@@ -20,6 +20,8 @@ class VoiceService {
       onError: null,
       onEnd: null,
     };
+    // Track cumulative transcript
+    this.cumulativeFinalTranscript = "";
   }
 
   /**
@@ -52,30 +54,38 @@ class VoiceService {
     // Set up event handlers
     this.recognition.onstart = () => {
       console.log("🎤 Speech recognition started");
+      // Reset cumulative transcript when starting
+      this.cumulativeFinalTranscript = "";
       if (callbacks.onStart) callbacks.onStart();
     };
 
-    this.recognition.onresult = async (event) => {
+    this.recognition.onresult = (event) => {
       let interimTranscript = "";
-      let finalTranscript = "";
+      let newFinalTranscript = "";
 
+      // Process results from the last result index
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          // Format final transcript with punctuation
-          const formatted = await this.formatTranscript(transcript);
-          finalTranscript += formatted + " ";
+          // Add to the new final transcript (without formatting)
+          newFinalTranscript += transcript + " ";
         } else {
           interimTranscript += transcript;
         }
       }
 
-      // Update the callback with formatted transcript
+      // Add new final transcript to cumulative
+      if (newFinalTranscript) {
+        this.cumulativeFinalTranscript += newFinalTranscript;
+      }
+
+      // Send the complete transcript (cumulative final + current interim)
       if (callbacks.onResult) {
         callbacks.onResult({
-          ...event,
-          formattedFinal: finalTranscript,
+          final: this.cumulativeFinalTranscript,
           interim: interimTranscript,
+          // For backward compatibility
+          formattedFinal: this.cumulativeFinalTranscript,
         });
       }
     };
@@ -91,38 +101,6 @@ class VoiceService {
     };
 
     return this.recognition;
-  }
-
-  /**
-   * Format transcript with punctuation
-   */
-  async formatTranscript(transcript) {
-    try {
-      // Only format if transcript is long enough to warrant it
-      if (transcript.length < 20) {
-        return transcript;
-      }
-
-      const response = await fetch(`${this.apiBase}/api/format-transcript`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ transcript }),
-      });
-
-      if (!response.ok) {
-        console.error("Transcript formatting failed, using original");
-        return transcript;
-      }
-
-      const data = await response.json();
-      return data.formattedTranscript || transcript;
-    } catch (error) {
-      console.error("Error formatting transcript:", error);
-      return transcript;
-    }
   }
 
   /**
