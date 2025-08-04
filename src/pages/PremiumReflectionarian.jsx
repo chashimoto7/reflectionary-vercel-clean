@@ -49,6 +49,7 @@ import SessionInsightsModal from "../components/reflectionarian/modals/SessionIn
 import OnboardingModal from "../components/reflectionarian/OnboardingModal";
 import EndSessionModal from "../components/reflectionarian/modals/EndSessionModal";
 import VoiceSettingsModal from "../components/reflectionarian/VoiceSettingsModal";
+import SessionSummariesTab from "../components/reflectionarian/tabs/SessionSummariesTab";
 
 // Import your custom logo icon
 import ReflectionaryIcon from "../assets/ReflectionaryIcon.svg";
@@ -104,7 +105,7 @@ const PremiumReflectionarian = () => {
   const proTabs = [
     { id: "chat", label: "Chat", icon: MessageCircle },
     { id: "prompts", label: "Session Prompts", icon: BookOpen },
-    { id: "follow-ups", label: "Follow Ups", icon: Target },
+    { id: "summaries", label: "Session Summaries", icon: Calendar },
     { id: "report", label: "Weekly Report", icon: FileText },
     { id: "timeline", label: "Growth Timeline", icon: TrendingUp },
     { id: "export", label: "Export Sessions", icon: Download },
@@ -280,11 +281,24 @@ const PremiumReflectionarian = () => {
     }
 
     try {
+      // Check if this session has a parent for context
+      const currentSession = sessionHistory.find((s) => s.id === sessionId);
+      const parentContext = currentSession?.parent_session_id
+        ? sessionHistory.find((s) => s.id === currentSession.parent_session_id)
+        : null;
+
       const data = await chatService.sendMessage({
         message: userMessage,
         sessionId,
         userId: user.id,
         preferences,
+        parentContext: parentContext
+          ? {
+              summary: parentContext.session_summary,
+              themes: parentContext.key_themes,
+              emotion: parentContext.dominant_emotion,
+            }
+          : null,
       });
 
       const assistantMsg = sessionService.createMessage(
@@ -487,16 +501,56 @@ const PremiumReflectionarian = () => {
   };
 
   // Handle continue/review session
-  const handleContinueSession = (sessionId) => {
-    setSessionId(sessionId);
-    loadSessionMessages(sessionId);
-    setActiveTab("chat");
-  };
+  const handleContinueSession = async (sessionToContin) => {
+    try {
+      // Get the session summary for context
+      const parentSession = sessionToContin || selectedSession;
 
-  const handleReviewSession = (session) => {
-    setSessionId(session.id);
-    loadSessionMessages(session.id);
-    setActiveTab("chat");
+      if (!parentSession) return;
+
+      // Start new session with parent context
+      const response = await fetch(
+        `https://reflectionary-api.vercel.app/api/reflectionarian/sessions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: user.id,
+            parent_session_id: parentSession.id,
+            session_type: "text", // Default to text for continuations
+            preferences,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setSessionId(data.session.id);
+        setSessionType("text");
+
+        // Create contextual welcome message
+        const contextMessage = `Welcome back! I've reviewed our previous conversation where ${
+          parentSession.session_summary ||
+          `we explored ${
+            parentSession.key_themes?.join(", ") || "your thoughts"
+          }`
+        }. I'm here to continue supporting your reflection journey. What would you like to explore further today?`;
+
+        const welcomeMsg = sessionService.createMessage(
+          "assistant",
+          contextMessage
+        );
+        setMessages([welcomeMsg]);
+
+        // Switch to chat tab
+        setActiveTab("chat");
+
+        await loadSessions();
+      }
+    } catch (error) {
+      console.error("Error continuing session:", error);
+      alert("Failed to continue session. Please try again.");
+    }
   };
 
   // Handle onboarding complete
@@ -591,7 +645,7 @@ const PremiumReflectionarian = () => {
       />
 
       <SessionInsightsModal
-        isOpen={showSessionInsights}
+        isOpen={showSessionInsights && sessionInsights !== null}
         onClose={() => {
           setShowSessionInsights(false);
           setSessionInsights(null);
@@ -880,12 +934,11 @@ const PremiumReflectionarian = () => {
             />
           )}
 
-          {activeTab === "follow-ups" && (
-            <SessionFollowUpsTab
+          {activeTab === "summaries" && (
+            <SessionSummariesTab
               userId={user.id}
-              sessions={sessionHistory}
               onContinueSession={handleContinueSession}
-              onReviewSession={handleReviewSession}
+              onStartNewSession={() => startNewSession("text")}
             />
           )}
 
