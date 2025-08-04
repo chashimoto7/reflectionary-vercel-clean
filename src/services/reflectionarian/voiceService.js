@@ -5,11 +5,16 @@ const SUPABASE_URL = "https://nvcdlmfvnybsgzkpmdth.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52Y2RsbWZ2bnlic2d6a3BtZHRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2NzQ4NzgsImV4cCI6MjA2NzI1MDg3OH0.a9TOIgvxjcfXKOOyzW44_Nf286amXXalcpyfZ-Ybh2I";
 
+const API_BASE = "https://reflectionary-api.vercel.app";
+
 class VoiceService {
   constructor() {
     this.recognition = null;
     this.currentAudio = null;
     this.isPaused = false;
+    this.isStreaming = false;
+    this.audioQueue = [];
+    this.apiBase = API_BASE;
     this.recognitionCallbacks = {
       onResult: null,
       onError: null,
@@ -50,8 +55,29 @@ class VoiceService {
       if (callbacks.onStart) callbacks.onStart();
     };
 
-    this.recognition.onresult = (event) => {
-      if (callbacks.onResult) callbacks.onResult(event);
+    this.recognition.onresult = async (event) => {
+      let interimTranscript = "";
+      let finalTranscript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          // Format final transcript with punctuation
+          const formatted = await this.formatTranscript(transcript);
+          finalTranscript += formatted + " ";
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      // Update the callback with formatted transcript
+      if (callbacks.onResult) {
+        callbacks.onResult({
+          ...event,
+          formattedFinal: finalTranscript,
+          interim: interimTranscript,
+        });
+      }
     };
 
     this.recognition.onerror = (event) => {
@@ -65,6 +91,38 @@ class VoiceService {
     };
 
     return this.recognition;
+  }
+
+  /**
+   * Format transcript with punctuation
+   */
+  async formatTranscript(transcript) {
+    try {
+      // Only format if transcript is long enough to warrant it
+      if (transcript.length < 20) {
+        return transcript;
+      }
+
+      const response = await fetch(`${this.apiBase}/api/format-transcript`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ transcript }),
+      });
+
+      if (!response.ok) {
+        console.error("Transcript formatting failed, using original");
+        return transcript;
+      }
+
+      const data = await response.json();
+      return data.formattedTranscript || transcript;
+    } catch (error) {
+      console.error("Error formatting transcript:", error);
+      return transcript;
+    }
   }
 
   /**
@@ -96,13 +154,151 @@ class VoiceService {
   }
 
   /**
-   * Text-to-Speech using Supabase edge function
+   * Split text into sentences for streaming
    */
-  async speakText(text, voice = "nova", userId) {
+  splitIntoSentences(text) {
+    // Improved sentence splitting with better punctuation handling
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+
+    // Further split very long sentences at natural breaks
+    const processedSentences = [];
+    sentences.forEach((sentence) => {
+      if (sentence.length > 150) {
+        // Split at commas or semicolons for long sentences
+        const parts = sentence.split(/[,;]\s+/);
+        if (parts.length > 1) {
+          parts.forEach((part, index) => {
+            if (index < parts.length - 1) {
+              processedSentences.push(part + ",");
+            } else {
+              processedSentences.push(part);
+            }
+          });
+        } else {
+          processedSentences.push(sentence);
+        }
+      } else {
+        processedSentences.push(sentence);
+      }
+    });
+
+    return processedSentences;
+  }
+
+  /**
+   * Play a single audio segment
+   */
+  async playAudioSegment(audioUrl) {
+    return new Promise((resolve) => {
+      const audio = new Audio(audioUrl);
+      audio.volume = 0.8;
+
+      audio.onended = () => {
+        this.currentAudio = null;
+        resolve();
+      };
+
+      audio.onerror = () => {
+        console.error("Audio playback error");
+        resolve();
+      };
+
+      this.currentAudio = audio;
+      audio.play().catch((error) => {
+        console.error("Play error:", error);
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Stream TTS by splitting text into sentences
+   */
+  async streamTTS(text, voice = "nova", userId) {
     try {
       // Stop any current speech
       this.stopSpeaking();
 
+      // Split text into sentences for streaming
+      const sentences = this.splitIntoSentences(text);
+      this.audioQueue = [];
+      this.isStreaming = true;
+
+      console.log(`🎤 Streaming ${sentences.length} sentences...`);
+
+      // Process sentences in parallel but play in sequence
+      const audioPromises = sentences.map(async (sentence, index) => {
+        if (!sentence.trim()) return null;
+
+        try {
+          // Start generating audio for all sentences immediately
+          const response = await fetch(
+            `${SUPABASE_URL}/functions/v1/generate-audio`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              },
+              body: JSON.stringify({
+                text: sentence.trim(),
+                voice,
+                model: "tts-1", // Use faster model for streaming
+                userId,
+              }),
+            }
+          );
+
+          if (!response.ok) throw new Error("TTS generation failed");
+
+          const audioBlob = await response.blob();
+          const audioUrl = URL.createObjectURL(audioBlob);
+
+          return { index, audioUrl, sentence };
+        } catch (error) {
+          console.error(
+            `Failed to generate audio for sentence ${index}:`,
+            error
+          );
+          return null;
+        }
+      });
+
+      // Start playing as soon as first audio is ready
+      const audioResults = await Promise.all(audioPromises);
+      const validAudios = audioResults
+        .filter(Boolean)
+        .sort((a, b) => a.index - b.index);
+
+      // Play audio segments in sequence
+      for (const audioData of validAudios) {
+        if (!this.isStreaming) break; // Stop if cancelled
+
+        await this.playAudioSegment(audioData.audioUrl);
+        URL.revokeObjectURL(audioData.audioUrl); // Clean up
+      }
+
+      this.isStreaming = false;
+      return true;
+    } catch (error) {
+      console.error("TTS streaming failed:", error);
+      // Fallback to regular TTS
+      return this.speakText(text, voice, userId);
+    }
+  }
+
+  /**
+   * Text-to-Speech using Supabase edge function
+   */
+  async speakText(text, voice = "nova", userId) {
+    try {
+      // Use streaming for longer responses
+      if (text.length > 200 && text.includes(".")) {
+        return this.streamTTS(text, voice, userId);
+      }
+
+      // Original implementation for short responses
+      this.stopSpeaking();
       console.log("🎤 Using OpenAI TTS system...");
 
       const response = await fetch(
@@ -215,6 +411,9 @@ class VoiceService {
    * Stop all speech
    */
   stopSpeaking() {
+    // Stop streaming if active
+    this.isStreaming = false;
+
     // Stop OpenAI TTS
     if (this.currentAudio) {
       this.currentAudio.pause();
@@ -228,6 +427,14 @@ class VoiceService {
     }
 
     this.isPaused = false;
+  }
+
+  /**
+   * Stop streaming
+   */
+  stopStreaming() {
+    this.isStreaming = false;
+    this.stopSpeaking();
   }
 
   /**
