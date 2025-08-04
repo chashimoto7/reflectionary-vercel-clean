@@ -41,7 +41,6 @@ import sessionService from "../services/reflectionarian/sessionService";
 
 // Import components
 import SessionPromptsTab from "../components/reflectionarian/tabs/SessionPromptsTab";
-import SessionFollowUpsTab from "../components/reflectionarian/tabs/SessionFollowUpsTab";
 import WeeklyReportTab from "../components/reflectionarian/tabs/WeeklyReportTab";
 import GrowthTimelineTab from "../components/reflectionarian/tabs/GrowthTimelineTab";
 import ExportSessionsTab from "../components/reflectionarian/tabs/ExportSessionsTab";
