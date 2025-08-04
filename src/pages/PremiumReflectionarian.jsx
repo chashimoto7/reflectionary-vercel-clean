@@ -196,6 +196,7 @@ const PremiumReflectionarian = () => {
         setSessionId(activeSession.id);
         setSessionType(activeSession.session_type || "text");
         await loadSessionMessages(activeSession.id);
+        // DO NOT set showSessionInsights to true here!
       }
     } catch (error) {
       console.error("Error loading sessions:", error);
@@ -448,11 +449,11 @@ const PremiumReflectionarian = () => {
         generateInsights: true,
       });
 
-      // Show insights
-      setSessionInsights(
-        data.insights || chatService.generateFallbackInsights(messages)
-      );
-      setShowSessionInsights(true);
+      // Show insights ONLY here, after session ends
+      if (data.insights) {
+        setSessionInsights(data.insights);
+        setShowSessionInsights(true); // Only set true here!
+      }
 
       // Reset state
       setSessionId(null);
@@ -463,15 +464,7 @@ const PremiumReflectionarian = () => {
       await loadSessions();
     } catch (error) {
       console.error("Error ending session:", error);
-
-      // Still reset state
-      setSessionId(null);
-      setMessages([]);
-      setSessionType(null);
-      setShowEndSessionModal(false);
-
-      alert("Session ended. Your conversation has been saved.");
-      await loadSessions();
+      // ... error handling
     } finally {
       setIsLoading(false);
     }
@@ -644,15 +637,16 @@ const PremiumReflectionarian = () => {
         isLoading={isLoading}
       />
 
-      <SessionInsightsModal
-        isOpen={showSessionInsights && sessionInsights !== null}
-        onClose={() => {
-          setShowSessionInsights(false);
-          setSessionInsights(null);
-        }}
-        insights={sessionInsights}
-      />
-
+      {showSessionInsights && sessionInsights && (
+        <SessionInsightsModal
+          isOpen={true} // Only render when showSessionInsights is true
+          onClose={() => {
+            setShowSessionInsights(false);
+            setSessionInsights(null);
+          }}
+          insights={sessionInsights}
+        />
+      )}
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6 mb-6">
