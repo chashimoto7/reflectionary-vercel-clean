@@ -85,6 +85,10 @@ const PremiumReflectionarian = () => {
   const interimTranscriptRef = useRef("");
   const finalTranscriptRef = useRef("");
   const recordingIntervalRef = useRef(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingProgress, setStreamingProgress] = useState(0);
+  const [voiceError, setVoiceError] = useState(null);
+  const [canInterrupt, setCanInterrupt] = useState(false);
 
   // UI State
   const [activeTab, setActiveTab] = useState("chat");
@@ -138,9 +142,8 @@ const PremiumReflectionarian = () => {
       messages[0].role === "assistant" &&
       sessionType === "voice" &&
       !isSpeaking &&
-      sessionId // Ensure session is fully initialized
+      sessionId
     ) {
-      // Only trigger TTS once per welcome message
       const messageId = messages[0].id;
       const hasSpoken = localStorage.getItem(`spoken_${messageId}`);
 
@@ -150,24 +153,43 @@ const PremiumReflectionarian = () => {
         const timer = setTimeout(async () => {
           try {
             setIsSpeaking(true);
-            await voiceService.speakText(
-              messages[0].content,
-              preferences?.ttsVoice,
-              user.id
-            );
+            setVoiceError(null);
 
-            // Set up audio end listener
-            const checkAudioEnd = setInterval(() => {
+            // Use streaming for longer messages
+            if (messages[0].content.length > 200) {
+              setIsStreaming(true);
+              await voiceService.streamTTS(
+                messages[0].content,
+                preferences?.ttsVoice,
+                user.id
+              );
+            } else {
+              await voiceService.speakText(
+                messages[0].content,
+                preferences?.ttsVoice,
+                user.id
+              );
+            }
+
+            // Set up completion listener
+            const checkCompletion = setInterval(() => {
               if (!voiceService.isSpeaking()) {
                 setIsSpeaking(false);
                 setIsPaused(false);
-                clearInterval(checkAudioEnd);
+                setIsStreaming(false);
+                setStreamingProgress(0);
+                setCanInterrupt(false);
+                clearInterval(checkCompletion);
+              } else {
+                setCanInterrupt(true); // Allow interruption after 2 seconds
               }
             }, 100);
           } catch (error) {
             console.error("TTS error:", error);
+            setVoiceError("Voice playback failed");
             setIsSpeaking(false);
             setIsPaused(false);
+            setIsStreaming(false);
           }
         }, 800);
 
@@ -437,24 +459,66 @@ const PremiumReflectionarian = () => {
       if (sessionType === "voice" || preferences?.enableSpeech) {
         try {
           setIsSpeaking(true);
-          await voiceService.speakText(
-            data.response,
-            preferences?.ttsVoice,
-            user.id
-          );
+          setVoiceError(null);
+          setCanInterrupt(false);
 
-          // Set up audio end listener
-          const checkAudioEnd = setInterval(() => {
+          // Use streaming for longer responses
+          if (data.response.length > 200 && data.response.includes(".")) {
+            setIsStreaming(true);
+            setStreamingProgress(0);
+
+            // Start streaming with progress tracking
+            const startTime = Date.now();
+            await voiceService.streamTTS(
+              data.response,
+              preferences?.ttsVoice,
+              user.id
+            );
+
+            // Progress simulation (since we can't get real progress from TTS)
+            const progressInterval = setInterval(() => {
+              const elapsed = Date.now() - startTime;
+              const estimatedDuration = data.response.length * 50; // ~50ms per character
+              const progress = Math.min(
+                (elapsed / estimatedDuration) * 100,
+                95
+              );
+              setStreamingProgress(progress);
+
+              if (progress >= 95 || !voiceService.isSpeaking()) {
+                clearInterval(progressInterval);
+                setStreamingProgress(100);
+              }
+            }, 100);
+          } else {
+            // Use regular TTS for short responses
+            await voiceService.speakText(
+              data.response,
+              preferences?.ttsVoice,
+              user.id
+            );
+          }
+
+          // Set up completion listener with interrupt capability
+          setTimeout(() => setCanInterrupt(true), 2000); // Allow interrupt after 2 seconds
+
+          const checkCompletion = setInterval(() => {
             if (!voiceService.isSpeaking()) {
               setIsSpeaking(false);
               setIsPaused(false);
-              clearInterval(checkAudioEnd);
+              setIsStreaming(false);
+              setStreamingProgress(0);
+              setCanInterrupt(false);
+              clearInterval(checkCompletion);
             }
           }, 100);
         } catch (error) {
           console.error("TTS error:", error);
+          setVoiceError("Voice playback failed");
           setIsSpeaking(false);
           setIsPaused(false);
+          setIsStreaming(false);
+          setStreamingProgress(0);
         }
       }
     } catch (error) {
@@ -486,30 +550,39 @@ const PremiumReflectionarian = () => {
     }
   };
 
-  // Voice recording handlers
+  // Enhanced Voice recording with interrpution detection
   const startRecording = async () => {
     try {
-      // Initialize recognition with callbacks
+      // If AI is speaking, stop it when user starts recording
+      if (isSpeaking && canInterrupt) {
+        stopSpeaking();
+      }
+
+      setVoiceError(null);
+
       voiceService.initializeRecognition({
         onStart: () => {
-          // Clear the message input when starting recording
           setCurrentMessage("");
+          setVoiceError(null);
         },
         onResult: (data) => {
-          // Use the simplified transcript data
           const currentContent = data.final + (data.interim || "");
           setCurrentMessage(currentContent);
         },
         onError: (event) => {
           if (event.error !== "no-speech") {
             stopRecording();
-            alert(`Voice recording error: ${event.error}`);
+            setVoiceError(`Recording error: ${event.error}`);
           }
         },
         onEnd: () => {
           if (isRecording) {
-            // Restart recording if still active
-            voiceService.startRecording();
+            // Only restart if we're still in recording mode
+            setTimeout(() => {
+              if (isRecording) {
+                voiceService.startRecording().catch(console.error);
+              }
+            }, 100);
           }
         },
       });
@@ -518,12 +591,11 @@ const PremiumReflectionarian = () => {
       setIsRecording(true);
       setRecordingTime(0);
 
-      // Start recording timer
       recordingIntervalRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
     } catch (error) {
-      alert(error.message);
+      setVoiceError(error.message);
     }
   };
 
@@ -539,7 +611,7 @@ const PremiumReflectionarian = () => {
     setRecordingTime(0);
   };
 
-  // TTS controls
+  // Enhanced TTS controls
   const pauseSpeaking = () => {
     if (voiceService.pauseSpeaking()) {
       setIsPaused(true);
@@ -554,9 +626,26 @@ const PremiumReflectionarian = () => {
 
   const stopSpeaking = () => {
     voiceService.stopSpeaking();
+    voiceService.stopStreaming(); // Also stop streaming
     setIsSpeaking(false);
     setIsPaused(false);
+    setIsStreaming(false);
+    setStreamingProgress(0);
+    setCanInterrupt(false);
     setIsLoading(false);
+  };
+
+  // Add this new function for smart interruption
+  const interruptAndRecord = async () => {
+    if (isSpeaking) {
+      stopSpeaking();
+      // Small delay to ensure audio stops before starting recording
+      setTimeout(() => {
+        startRecording();
+      }, 200);
+    } else {
+      startRecording();
+    }
   };
 
   // End session
@@ -856,16 +945,50 @@ const PremiumReflectionarian = () => {
           {activeTab === "chat" && sessionId && (
             <div className="flex flex-col h-[600px]">
               {/* TTS Controls for Voice Session */}
-              {sessionType === "voice" && isSpeaking && (
+              {/* Enhanced TTS Controls for Voice Session */}
+              {sessionType === "voice" && (isSpeaking || isStreaming) && (
                 <div className="p-4 border-b border-white/10 bg-purple-600/20">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <Volume2 className="w-5 h-5 text-purple-300 animate-pulse" />
-                      <span className="text-white">
-                        Reflectionarian is speaking...
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-white font-medium">
+                          {isStreaming
+                            ? "Streaming response..."
+                            : "Reflectionarian is speaking..."}
+                        </span>
+                        {isStreaming && (
+                          <div className="flex items-center space-x-2 mt-1">
+                            <div className="w-32 bg-white/20 rounded-full h-2">
+                              <div
+                                className="bg-purple-400 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${streamingProgress}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-purple-200">
+                              {Math.round(streamingProgress)}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
+
                     <div className="flex space-x-2">
+                      {/* Interrupt button when speaking */}
+                      {canInterrupt && (
+                        <button
+                          onClick={interruptAndRecord}
+                          className="px-3 py-2 bg-orange-600/30 hover:bg-orange-600/40 rounded-lg transition-colors text-xs"
+                          title="Stop and speak"
+                        >
+                          <div className="flex items-center space-x-1">
+                            <Mic className="w-3 h-3 text-white" />
+                            <span className="text-white">Interrupt</span>
+                          </div>
+                        </button>
+                      )}
+
+                      {/* Pause/Resume */}
                       {isPaused ? (
                         <button
                           onClick={resumeSpeaking}
@@ -883,6 +1006,8 @@ const PremiumReflectionarian = () => {
                           <VolumeX className="w-4 h-4 text-white" />
                         </button>
                       )}
+
+                      {/* Stop */}
                       <button
                         onClick={stopSpeaking}
                         className="p-2 bg-red-600/30 hover:bg-red-600/40 rounded-lg transition-colors"
@@ -892,6 +1017,13 @@ const PremiumReflectionarian = () => {
                       </button>
                     </div>
                   </div>
+
+                  {/* Voice Error Display */}
+                  {voiceError && (
+                    <div className="mt-2 text-xs text-red-300 bg-red-500/20 rounded px-2 py-1">
+                      {voiceError}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -993,27 +1125,60 @@ const PremiumReflectionarian = () => {
                               <span>•</span>
                               <span>Or type directly</span>
                               <span>•</span>
-                              <span>Press Enter to send</span>
                             </div>
                           )}
                       </div>
 
-                      {/* Voice Recording Button */}
-                      <button
-                        type="button"
-                        onClick={isRecording ? stopRecording : startRecording}
-                        className={`p-3 rounded-xl transition-all flex items-center justify-center ${
-                          isRecording
-                            ? "bg-red-600 hover:bg-red-700 animate-pulse"
-                            : "bg-purple-600 hover:bg-purple-700"
-                        }`}
-                        disabled={isLoading}
-                        title={
-                          isRecording ? "Stop Recording" : "Start Recording"
-                        }
-                      >
-                        <Mic className="w-5 h-5 text-white" />
-                      </button>
+                      {/* Enhanced Voice Recording Button */}
+                      <div className="flex flex-col space-y-1">
+                        <button
+                          type="button"
+                          onClick={
+                            isSpeaking && canInterrupt
+                              ? interruptAndRecord
+                              : isRecording
+                              ? stopRecording
+                              : startRecording
+                          }
+                          className={`p-3 rounded-xl transition-all flex items-center justify-center relative ${
+                            isRecording
+                              ? "bg-red-600 hover:bg-red-700 animate-pulse"
+                              : isSpeaking && canInterrupt
+                              ? "bg-orange-600 hover:bg-orange-700"
+                              : "bg-purple-600 hover:bg-purple-700"
+                          }`}
+                          disabled={isLoading}
+                          title={
+                            isRecording
+                              ? "Stop Recording"
+                              : isSpeaking && canInterrupt
+                              ? "Interrupt & Speak"
+                              : "Start Recording"
+                          }
+                        >
+                          <Mic className="w-5 h-5 text-white" />
+
+                          {/* Smart indicator */}
+                          {isSpeaking && canInterrupt && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-400 rounded-full animate-bounce" />
+                          )}
+                        </button>
+
+                        {/* Status indicator */}
+                        <div className="text-xs text-center">
+                          {isRecording && (
+                            <span className="text-red-300">Recording</span>
+                          )}
+                          {isSpeaking && canInterrupt && !isRecording && (
+                            <span className="text-orange-300">
+                              Can interrupt
+                            </span>
+                          )}
+                          {!isRecording && !isSpeaking && (
+                            <span className="text-purple-300">Ready</span>
+                          )}
+                        </div>
+                      </div>
 
                       {/* Clear/Reset Button for Voice */}
                       {currentMessage.length > 0 && (
@@ -1083,7 +1248,7 @@ const PremiumReflectionarian = () => {
                   </button>
                 </div>
 
-                {/* Recording Status - Enhanced */}
+                {/* Enhanced Recording Status */}
                 {isRecording && (
                   <div className="mt-3 flex items-center justify-between bg-red-500/10 border border-red-400/30 rounded-lg p-3">
                     <div className="flex items-center space-x-3">
@@ -1104,6 +1269,30 @@ const PremiumReflectionarian = () => {
                       <span>Speak naturally</span>
                       <span>•</span>
                       <span>Click mic to stop</span>
+                      {isSpeaking && (
+                        <>
+                          <span>•</span>
+                          <span className="text-orange-300">
+                            Will interrupt AI
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Voice Error Display */}
+                {voiceError && (
+                  <div className="mt-2 bg-red-500/20 border border-red-400/30 rounded-lg p-2">
+                    <div className="flex items-center space-x-2">
+                      <X className="w-4 h-4 text-red-400" />
+                      <span className="text-red-300 text-sm">{voiceError}</span>
+                      <button
+                        onClick={() => setVoiceError(null)}
+                        className="ml-auto text-red-400 hover:text-red-300"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
                     </div>
                   </div>
                 )}
