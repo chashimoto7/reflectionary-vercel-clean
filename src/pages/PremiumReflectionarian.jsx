@@ -731,7 +731,8 @@ return (
       onComplete={handleOnboardingComplete}
       onSkip={handleOnboardingSkip}
     />
-
+    <style>{textareaStyles}</style>
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 p-4 md:p-6"></div>
     <VoiceSettingsModal
       isOpen={showVoiceSettings}
       onClose={() => setShowVoiceSettings(false)}
@@ -766,9 +767,6 @@ return (
         insights={sessionInsights}
       />
     )}
-
-    <style>{textareaStyles}</style>
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 p-4 md:p-6"></div>
 
     <div className="max-w-7xl mx-auto">
       {/* Header */}
@@ -939,7 +937,7 @@ return (
                               ? "🎤 Listening... speak naturally"
                               : "Click microphone to speak or type here"
                           }
-                          className={`w-full bg-white/10 border rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none resize-none transition-all duration-200 ${
+                          className={`voice-textarea w-full bg-white/10 border rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none resize-none transition-all duration-200 ${
                             isRecording
                               ? "border-red-400 bg-red-500/10 placeholder-red-300"
                               : "border-white/20 focus:border-purple-400"
