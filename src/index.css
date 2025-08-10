@@ -94,3 +94,25 @@ body {
   width: 100%;
   max-width: none;
 }
+
+const textareaStyles .voice-textarea {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.5) transparent;
+}
+
+.voice-textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+.voice-textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.voice-textarea::-webkit-scrollbar-thumb {
+  background-color: rgba(139, 92, 246, 0.5);
+  border-radius: 3px;
+}
+
+.voice-textarea::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(139, 92, 246, 0.7);
+}
