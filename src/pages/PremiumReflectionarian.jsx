@@ -135,34 +135,51 @@ const PremiumReflectionarian = () => {
       messages.length === 1 &&
       messages[0].role === "assistant" &&
       sessionType === "voice" &&
-      !isSpeaking
+      !isSpeaking &&
+      sessionId // Ensure session is fully initialized
     ) {
-      // Delay TTS slightly to ensure message is rendered
-      const timer = setTimeout(() => {
-        voiceService
-          .speakText(messages[0].content, preferences?.ttsVoice, user.id)
-          .then(() => setIsSpeaking(true))
-          .catch((error) => console.error("TTS error:", error));
-      }, 500);
+      // Only trigger TTS once per welcome message
+      const messageId = messages[0].id;
+      const hasSpoken = localStorage.getItem(`spoken_${messageId}`);
 
-      return () => clearTimeout(timer);
-    }
-  }, [messages, sessionType, preferences?.ttsVoice, user.id]);
+      if (!hasSpoken) {
+        localStorage.setItem(`spoken_${messageId}`, "true");
 
-  // Monitor TTS state
-  useEffect(() => {
-    const checkTTSState = () => {
-      if (voiceService.isCurrentlySpeaking()) {
-        setIsSpeaking(true);
-      } else {
-        setIsSpeaking(false);
-        setIsPaused(false);
+        const timer = setTimeout(async () => {
+          try {
+            setIsSpeaking(true);
+            await voiceService.speakText(
+              messages[0].content,
+              preferences?.ttsVoice,
+              user.id
+            );
+
+            // Set up audio end listener
+            const checkAudioEnd = setInterval(() => {
+              if (!voiceService.isSpeaking()) {
+                setIsSpeaking(false);
+                setIsPaused(false);
+                clearInterval(checkAudioEnd);
+              }
+            }, 100);
+          } catch (error) {
+            console.error("TTS error:", error);
+            setIsSpeaking(false);
+            setIsPaused(false);
+          }
+        }, 800);
+
+        return () => clearTimeout(timer);
       }
-    };
-
-    const interval = setInterval(checkTTSState, 500);
-    return () => clearInterval(interval);
-  }, []);
+    }
+  }, [
+    messages,
+    sessionType,
+    sessionId,
+    isSpeaking,
+    preferences?.ttsVoice,
+    user.id,
+  ]);
 
   // Auto scroll to bottom
   const scrollToBottom = () => {
@@ -261,6 +278,9 @@ const PremiumReflectionarian = () => {
   // Start session with mood data
   const startSessionWithMood = async (type = "text", moodData = null) => {
     setIsLoading(true);
+    voiceService.stopSpeaking();
+    setIsSpeaking(false);
+    setIsPaused(false);
     try {
       const data = await chatService.startSession({
         userId: user.id,
@@ -377,14 +397,25 @@ const PremiumReflectionarian = () => {
       // Auto-speak for voice sessions
       if (sessionType === "voice" || preferences?.enableSpeech) {
         try {
+          setIsSpeaking(true);
           await voiceService.speakText(
             data.response,
             preferences?.ttsVoice,
             user.id
           );
-          setIsSpeaking(true);
+
+          // Set up audio end listener
+          const checkAudioEnd = setInterval(() => {
+            if (!voiceService.isSpeaking()) {
+              setIsSpeaking(false);
+              setIsPaused(false);
+              clearInterval(checkAudioEnd);
+            }
+          }, 100);
         } catch (error) {
           console.error("TTS error:", error);
+          setIsSpeaking(false);
+          setIsPaused(false);
         }
       }
     } catch (error) {
@@ -486,6 +517,7 @@ const PremiumReflectionarian = () => {
     voiceService.stopSpeaking();
     setIsSpeaking(false);
     setIsPaused(false);
+    setIsLoading(false);
   };
 
   // End session
@@ -799,6 +831,7 @@ const PremiumReflectionarian = () => {
                         <button
                           onClick={resumeSpeaking}
                           className="p-2 bg-purple-600/30 hover:bg-purple-600/40 rounded-lg transition-colors"
+                          title="Resume"
                         >
                           <Volume2 className="w-4 h-4 text-white" />
                         </button>
@@ -806,6 +839,7 @@ const PremiumReflectionarian = () => {
                         <button
                           onClick={pauseSpeaking}
                           className="p-2 bg-purple-600/30 hover:bg-purple-600/40 rounded-lg transition-colors"
+                          title="Pause"
                         >
                           <VolumeX className="w-4 h-4 text-white" />
                         </button>
@@ -813,6 +847,7 @@ const PremiumReflectionarian = () => {
                       <button
                         onClick={stopSpeaking}
                         className="p-2 bg-red-600/30 hover:bg-red-600/40 rounded-lg transition-colors"
+                        title="Stop"
                       >
                         <X className="w-4 h-4 text-white" />
                       </button>
