@@ -40,6 +40,7 @@ import preferencesService from "../services/reflectionarian/preferencesService";
 import sessionService from "../services/reflectionarian/sessionService";
 
 // Import components
+import MoodTracker from "../components/reflectionarian/MoodTracker";
 import SessionPromptsTab from "../components/reflectionarian/tabs/SessionPromptsTab";
 import WeeklyReportTab from "../components/reflectionarian/tabs/WeeklyReportTab";
 import GrowthTimelineTab from "../components/reflectionarian/tabs/GrowthTimelineTab";
@@ -87,6 +88,11 @@ const PremiumReflectionarian = () => {
   const [activeTab, setActiveTab] = useState("chat");
   const [showEndSessionModal, setShowEndSessionModal] = useState(false);
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+
+  // MoodTracker State
+  const [showMoodTracker, setShowMoodTracker] = useState(false);
+  const [pendingSessionType, setPendingSessionType] = useState(null);
+  const [currentMoodData, setCurrentMoodData] = useState(null);
 
   const messagesEndRef = useRef(null);
   const chatInputRef = useRef(null);
@@ -145,16 +151,20 @@ const PremiumReflectionarian = () => {
 
   // Monitor TTS state
   useEffect(() => {
-    const checkSpeaking = setInterval(() => {
-      if (!voiceService.isSpeaking() && isSpeaking) {
+    const checkTTSState = () => {
+      if (voiceService.isCurrentlySpeaking()) {
+        setIsSpeaking(true);
+      } else {
         setIsSpeaking(false);
         setIsPaused(false);
       }
-    }, 500);
+    };
 
-    return () => clearInterval(checkSpeaking);
-  }, [isSpeaking]);
+    const interval = setInterval(checkTTSState, 500);
+    return () => clearInterval(interval);
+  }, []);
 
+  // Auto scroll to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -162,22 +172,15 @@ const PremiumReflectionarian = () => {
   // Load user preferences
   const loadPreferences = async () => {
     try {
-      setIsLoadingPreferences(true);
       const prefs = await preferencesService.loadPreferences(user.id);
-
       if (prefs) {
         setPreferences(prefs);
       } else {
-        // First time user - show onboarding
         setShowOnboarding(true);
-        const defaultPrefs =
-          preferencesService.getDefaultPreferences("premium");
-        setPreferences(defaultPrefs);
       }
     } catch (error) {
       console.error("Error loading preferences:", error);
-      const defaultPrefs = preferencesService.getDefaultPreferences("premium");
-      setPreferences(defaultPrefs);
+      setShowOnboarding(true);
     } finally {
       setIsLoadingPreferences(false);
     }
@@ -186,16 +189,20 @@ const PremiumReflectionarian = () => {
   // Load sessions
   const loadSessions = async () => {
     try {
-      const sessions = await chatService.loadSessions(user.id);
-      setSessionHistory(sessions);
+      const response = await fetch(
+        `https://reflectionary-api.vercel.app/api/reflectionarian/sessions?user_id=${user.id}`
+      );
 
-      // Check for active session
-      const activeSession = sessions.find((s) => s.status === "active");
-      if (activeSession) {
-        setSessionId(activeSession.id);
-        setSessionType(activeSession.session_type || "text");
-        await loadSessionMessages(activeSession.id);
-        // DO NOT set showSessionInsights to true here!
+      if (response.ok) {
+        const data = await response.json();
+        setSessionHistory(data.sessions || []);
+
+        // Load active session if exists
+        const activeSession = data.sessions?.find((s) => s.status === "active");
+        if (activeSession) {
+          setSessionId(activeSession.id);
+          await loadSessionMessages(activeSession.id);
+        }
       }
     } catch (error) {
       console.error("Error loading sessions:", error);
@@ -229,26 +236,77 @@ const PremiumReflectionarian = () => {
     }
   };
 
-  // Start new session
+  // Start new session with mood tracking
   const startNewSession = async (type = "text") => {
+    // Show mood tracker for both text and voice sessions
+    setPendingSessionType(type);
+    setShowMoodTracker(true);
+  };
+
+  // Handle mood submission and start session
+  const handleMoodSubmit = async (moodData) => {
+    setCurrentMoodData(moodData);
+    setShowMoodTracker(false);
+    await startSessionWithMood(pendingSessionType, moodData);
+    setPendingSessionType(null);
+  };
+
+  // Handle mood skip and start session
+  const handleMoodSkip = async () => {
+    setShowMoodTracker(false);
+    await startSessionWithMood(pendingSessionType, null);
+    setPendingSessionType(null);
+  };
+
+  // Start session with mood data
+  const startSessionWithMood = async (type = "text", moodData = null) => {
     setIsLoading(true);
     try {
       const data = await chatService.startSession({
         userId: user.id,
         preferences,
         sessionType: type,
+        moodData, // Pass mood data to backend
       });
 
       setSessionId(data.session.id);
       setSessionType(type);
 
-      // Create and set welcome message immediately
+      // Create personalized welcome message based on mood for both session types
+      let welcomeMessage;
+      if (moodData) {
+        const moodLevel = moodData.mood_score;
+        const energyLevel = moodData.energy_level;
+
+        let moodContext = "";
+        if (moodLevel <= 4) {
+          moodContext = "I sense you might be having a challenging day. ";
+        } else if (moodLevel >= 7) {
+          moodContext = "I can sense you're feeling positive today. ";
+        }
+
+        if (energyLevel <= 4) {
+          moodContext +=
+            "Take your time - we can explore whatever feels right for you today.";
+        } else if (energyLevel >= 7) {
+          moodContext +=
+            "Your energy feels good - let's make the most of this time together.";
+        }
+
+        const sessionTypeText =
+          type === "voice"
+            ? "I'm here to listen and support your reflection journey. Feel free to speak naturally about whatever is on your mind."
+            : "I'm here to support your personal growth and self-reflection journey. What's on your mind today?";
+
+        welcomeMessage = `Hello! I'm your AI reflection companion. ${moodContext} ${sessionTypeText}`;
+      } else {
+        welcomeMessage = sessionService.getWelcomeMessage(preferences, type);
+      }
+
       const welcomeMsg = sessionService.createMessage(
         "assistant",
-        sessionService.getWelcomeMessage(preferences, type)
+        welcomeMessage
       );
-
-      // Important: Set messages with the welcome message
       setMessages([welcomeMsg]);
 
       await loadSessions();
@@ -292,6 +350,7 @@ const PremiumReflectionarian = () => {
         sessionId,
         userId: user.id,
         preferences,
+        moodData: currentMoodData, // Include mood data in API call
         parentContext: parentContext
           ? {
               summary: parentContext.session_summary,
@@ -457,7 +516,7 @@ const PremiumReflectionarian = () => {
       await loadSessions();
     } catch (error) {
       console.error("Error ending session:", error);
-      // ... error handling
+      alert("Failed to end session. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -630,9 +689,14 @@ const PremiumReflectionarian = () => {
         isLoading={isLoading}
       />
 
+      {/* MoodTracker Modal */}
+      {showMoodTracker && (
+        <MoodTracker onSubmit={handleMoodSubmit} onSkip={handleMoodSkip} />
+      )}
+
       {showSessionInsights && sessionInsights && (
         <SessionInsightsModal
-          isOpen={true} // Only render when showSessionInsights is true
+          isOpen={true}
           onClose={() => {
             setShowSessionInsights(false);
             setSessionInsights(null);
@@ -640,6 +704,7 @@ const PremiumReflectionarian = () => {
           insights={sessionInsights}
         />
       )}
+
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6 mb-6">
@@ -704,11 +769,11 @@ const PremiumReflectionarian = () => {
                   className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap ${
                     activeTab === tab.id
                       ? "bg-purple-600 text-white"
-                      : "text-gray-300 hover:bg-white/10"
+                      : "text-purple-200 hover:bg-white/10"
                   }`}
                 >
                   <Icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
+                  {tab.label}
                 </button>
               );
             })}
@@ -768,13 +833,13 @@ const PremiumReflectionarian = () => {
                     <div
                       className={`inline-block max-w-[80%] p-4 rounded-2xl ${
                         message.role === "user"
-                          ? "bg-purple-600/20 text-white ml-auto"
-                          : "bg-white/10 text-white"
+                          ? "bg-purple-600 text-white"
+                          : "bg-white/10 text-white border border-white/20"
                       }`}
                     >
                       {message.isLoading ? (
-                        <div className="flex items-center space-x-2">
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                        <div className="flex items-center space-x-3">
+                          <Loader2 className="w-4 h-4 animate-spin text-purple-300" />
                           <span>Thinking...</span>
                         </div>
                       ) : (
@@ -786,68 +851,63 @@ const PremiumReflectionarian = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Chat Input */}
+              {/* Input Form */}
               <form
                 onSubmit={sendMessage}
                 className="p-4 border-t border-white/10"
               >
-                <div className="relative flex items-center">
-                  {/* Session Type Indicator - Updated */}
-                  {sessionType && (
-                    <div className="absolute -top-12 left-0 bg-purple-600/20 backdrop-blur-sm px-3 py-1 rounded-full text-xs text-white/80 flex items-center space-x-2">
-                      {sessionType === "voice" ? (
-                        <>
-                          <Mic className="w-3 h-3" />
-                          <span>Voice Session Active</span>
-                        </>
-                      ) : (
-                        <>
-                          <MessageCircle className="w-3 h-3" />
-                          <span>Text Session Active</span>
-                        </>
-                      )}
-                    </div>
-                  )}
+                <div className="flex space-x-3">
+                  {sessionType === "voice" ? (
+                    <>
+                      {/* Voice Input */}
+                      <div className="flex-1 relative">
+                        <input
+                          ref={chatInputRef}
+                          type="text"
+                          value={currentMessage}
+                          onChange={(e) => setCurrentMessage(e.target.value)}
+                          placeholder={
+                            isRecording
+                              ? "Listening... speak naturally"
+                              : "Click microphone to speak or type here"
+                          }
+                          className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-purple-400"
+                          disabled={isLoading}
+                          readOnly={isRecording}
+                        />
+                      </div>
 
-                  {/* Input Field */}
-                  <input
-                    ref={chatInputRef}
-                    type="text"
-                    value={currentMessage}
-                    onChange={(e) => setCurrentMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder={
-                      isRecording
-                        ? "Listening..."
-                        : sessionType === "voice"
-                        ? "Speak or type your thoughts..."
-                        : "Type your thoughts..."
-                    }
-                    className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-purple-400 pr-24"
-                    disabled={isLoading || isRecording}
-                  />
-
-                  {/* Voice Controls */}
-                  {sessionType === "voice" && (
-                    <button
-                      type="button"
-                      onClick={isRecording ? stopRecording : startRecording}
-                      className={`absolute right-12 p-2 rounded-lg transition-all ${
-                        isRecording
-                          ? "bg-red-500 text-white animate-pulse"
-                          : "bg-purple-600/20 text-purple-300 hover:bg-purple-600/30"
-                      }`}
+                      {/* Voice Recording Button */}
+                      <button
+                        type="button"
+                        onClick={isRecording ? stopRecording : startRecording}
+                        className={`p-3 rounded-xl transition-all ${
+                          isRecording
+                            ? "bg-red-600 hover:bg-red-700 animate-pulse"
+                            : "bg-purple-600 hover:bg-purple-700"
+                        }`}
+                        disabled={isLoading}
+                      >
+                        <Mic className="w-5 h-5 text-white" />
+                      </button>
+                    </>
+                  ) : (
+                    <input
+                      ref={chatInputRef}
+                      type="text"
+                      value={currentMessage}
+                      onChange={(e) => setCurrentMessage(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder="Share your thoughts..."
+                      className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-purple-400"
                       disabled={isLoading}
-                    >
-                      <Mic className="w-5 h-5" />
-                    </button>
+                    />
                   )}
 
-                  {/* Send Button */}
                   <button
                     type="submit"
                     disabled={isLoading || !currentMessage.trim()}
-                    className="absolute right-2 p-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 rounded-lg transition-colors"
+                    className="px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 rounded-xl transition-colors flex items-center space-x-2"
                   >
                     {isLoading ? (
                       <Loader2 className="w-5 h-5 animate-spin text-white" />
@@ -869,7 +929,7 @@ const PremiumReflectionarian = () => {
                 )}
               </form>
 
-              {/* End Session Button - Updated (removed the "Text" bubble) */}
+              {/* End Session Button */}
               <div className="p-4 border-t border-white/10">
                 <button
                   onClick={() => setShowEndSessionModal(true)}

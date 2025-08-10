@@ -33,13 +33,14 @@ class SessionService {
 
   /**
    * Get welcome message based on session type
+   * FIXED: Changed parameter order to match how it's being called
    */
-  getWelcomeMessage(sessionType = "text", customMessage = null) {
+  getWelcomeMessage(preferences, sessionType = "text", customMessage = null) {
     if (customMessage) return customMessage;
 
     const messages = {
       voice:
-        "Hello! I'm your AI reflection companion. I can hear you clearly - feel free to speak naturally. Click the microphone button below to start talking, and I'll respond both in text and voice. What's on your mind today?",
+        "Hello! I'm your AI reflection companion. I can hear you clearly - feel free to speak naturally about whatever is on your mind. I'll respond with both voice and text to support your reflection journey today.",
       text: "Hello! I'm your AI reflection companion, here to support your personal growth and self-reflection journey. I'm not a therapist or medical professional - our conversations are for personal insight and exploration. What's on your mind today?",
     };
 
