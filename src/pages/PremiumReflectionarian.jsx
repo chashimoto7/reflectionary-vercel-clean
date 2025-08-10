@@ -731,6 +731,7 @@ return (
       onComplete={handleOnboardingComplete}
       onSkip={handleOnboardingSkip}
     />
+
     <VoiceSettingsModal
       isOpen={showVoiceSettings}
       onClose={() => setShowVoiceSettings(false)}
@@ -741,6 +742,7 @@ return (
         await preferencesService.savePreferences(user.id, newPrefs);
       }}
     />
+
     <EndSessionModal
       isOpen={showEndSessionModal}
       onClose={() => setShowEndSessionModal(false)}
@@ -748,10 +750,12 @@ return (
       messageCount={messages.length}
       isLoading={isLoading}
     />
+
     {/* MoodTracker Modal */}
     {showMoodTracker && (
       <MoodTracker onSubmit={handleMoodSubmit} onSkip={handleMoodSkip} />
     )}
+
     {showSessionInsights && sessionInsights && (
       <SessionInsightsModal
         isOpen={true}
@@ -762,14 +766,10 @@ return (
         insights={sessionInsights}
       />
     )}
-    return (
-    <>
-      <style>{textareaStyles}</style>
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 p-4 md:p-6">
-        {/* Rest of your component */}
-      </div>
-    </>
-    );
+
+    <style>{textareaStyles}</style>
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 p-4 md:p-6"></div>
+
     <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6 mb-6">
