@@ -37,20 +37,41 @@ const SessionInsightsModal = ({ sessionId, userId, messages, onClose }) => {
     setError(null);
 
     try {
-      // Create a conversation summary from messages
-      const conversationText = messages
-        .map((msg) => `${msg.role}: ${msg.content}`)
-        .join("\n");
+      console.log("🧠 Generating AI insights for session:", sessionId);
 
-      // Generate insights using AI (simplified approach)
-      const insights = await analyzeSessionLocally(messages);
-      setInsights(insights);
+      // Call the backend AI insights endpoint
+      const response = await fetch(
+        "https://reflectionary-api.vercel.app/api/reflectionarian/insights",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            session_id: sessionId,
+            user_id: userId,
+            messages: messages,
+            generate_summary: true, // Get comprehensive AI analysis
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate insights: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.insights) {
+        console.log("✅ AI insights generated successfully");
+        setInsights(data.insights);
+      } else {
+        throw new Error("No insights returned from API");
+      }
     } catch (error) {
-      console.error("Error generating insights:", error);
-      setError("Failed to generate session insights");
+      console.error("Error generating AI insights:", error);
+      setError("Failed to generate AI insights, using basic analysis");
 
-      // Fallback to basic insights
-      const fallbackInsights = generateFallbackInsights(messages);
+      // Fallback to basic local analysis
+      const fallbackInsights = analyzeSessionLocally(messages);
       setInsights(fallbackInsights);
     } finally {
       setIsGenerating(false);
