@@ -15,6 +15,13 @@ import {
 } from "lucide-react";
 
 const SessionInsightsModal = ({ sessionId, userId, messages, onClose }) => {
+  console.log("🔍 SessionInsightsModal rendered:", {
+    sessionId,
+    userId,
+    hasMessages: !!messages,
+    messageCount: messages?.length,
+  });
+
   const [insights, setInsights] = useState(null);
   const [isGenerating, setIsGenerating] = useState(true);
   const [error, setError] = useState(null);

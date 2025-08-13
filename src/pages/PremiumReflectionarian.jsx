@@ -654,6 +654,8 @@ const PremiumReflectionarian = () => {
     setIsLoading(true);
 
     try {
+      console.log("🔄 Ending session from frontend:", sessionId);
+
       const data = await chatService.endSession({
         sessionId,
         userId: user.id,
@@ -661,10 +663,22 @@ const PremiumReflectionarian = () => {
         generateInsights: true,
       });
 
-      // Show insights ONLY here, after session ends
+      console.log(
+        "✅ Session ended, insights received:",
+        data.insights ? "yes" : "no"
+      );
+
+      // Show insights if available
       if (data.insights) {
         setSessionInsights(data.insights);
-        setShowSessionInsights(true); // Only set true here!
+        setShowSessionInsights(true);
+        console.log("✅ Showing insights modal");
+      } else {
+        console.log("⚠️ No insights received");
+        // Show a simple confirmation
+        alert(
+          "Session ended successfully! Insights will be available in your session history."
+        );
       }
 
       // Reset state
@@ -675,8 +689,17 @@ const PremiumReflectionarian = () => {
 
       await loadSessions();
     } catch (error) {
-      console.error("Error ending session:", error);
-      alert("Failed to end session. Please try again.");
+      console.error("❌ Error ending session:", error);
+      alert(
+        "Failed to end session properly, but your conversation has been saved."
+      );
+
+      // Still reset the UI even if insights failed
+      setSessionId(null);
+      setMessages([]);
+      setSessionType(null);
+      setShowEndSessionModal(false);
+      await loadSessions();
     } finally {
       setIsLoading(false);
     }

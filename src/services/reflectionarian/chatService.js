@@ -70,12 +70,18 @@ class ReflectionarianChatService {
     }
   }
 
-  /**
-   * End a chat session
-   */
+  // End a chat session
   async endSession({ sessionId, userId, messages, generateInsights = true }) {
     try {
-      const response = await fetch(
+      console.log(
+        "🔄 Ending session:",
+        sessionId,
+        "generateInsights:",
+        generateInsights
+      );
+
+      // First, update the session status
+      const sessionResponse = await fetch(
         `${this.apiBase}/api/reflectionarian/sessions?session_id=${sessionId}`,
         {
           method: "PUT",
@@ -84,28 +90,69 @@ class ReflectionarianChatService {
             status: "completed",
             user_id: userId,
             messages,
-            generate_ai_insights: generateInsights,
+            generate_ai_insights: false, // Don't generate in sessions endpoint
           }),
         }
       );
 
-      if (!response.ok) {
-        const error = await response
-          .json()
-          .catch(() => ({ error: "Failed to end session" }));
-        throw new Error(error.error || "Failed to end session");
+      if (!sessionResponse.ok) {
+        throw new Error("Failed to update session");
       }
 
-      return response.json();
+      const sessionData = await sessionResponse.json();
+      console.log("✅ Session updated successfully");
+
+      // Then, generate insights if requested
+      let insights = null;
+      if (generateInsights && messages && messages.length > 0) {
+        try {
+          console.log("🧠 Generating insights for session:", sessionId);
+
+          const insightsResponse = await fetch(
+            `${this.apiBase}/api/reflectionarian/insights`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                session_id: sessionId,
+                user_id: userId,
+                messages,
+                generate_summary: true,
+              }),
+            }
+          );
+
+          if (insightsResponse.ok) {
+            const insightsData = await insightsResponse.json();
+            insights = insightsData.insights;
+            console.log(
+              "✅ Insights generated successfully:",
+              insights ? "yes" : "no"
+            );
+          } else {
+            console.error("❌ Insights API failed:", insightsResponse.status);
+            // Generate fallback insights
+            insights = this.generateFallbackInsights(messages);
+          }
+        } catch (insightError) {
+          console.error("❌ Insight generation error:", insightError);
+          insights = this.generateFallbackInsights(messages);
+        }
+      }
+
+      return {
+        success: true,
+        session: sessionData.session,
+        insights,
+      };
     } catch (error) {
-      console.error("Session end error:", error);
+      console.error("❌ Session end error:", error);
       throw error;
     }
   }
 
-  /**
-   * Load all sessions for a user
-   */
+  //Load all sessions for a user
+
   async loadSessions(userId) {
     try {
       const response = await fetch(
