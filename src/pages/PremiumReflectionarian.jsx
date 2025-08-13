@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   MessageCircle,
   Settings,
+  AlertTriangle,
   Brain,
   Heart,
   Lightbulb,
@@ -50,8 +51,6 @@ import OnboardingModal from "../components/reflectionarian/OnboardingModal";
 import EndSessionModal from "../components/reflectionarian/modals/EndSessionModal";
 import VoiceSettingsModal from "../components/reflectionarian/VoiceSettingsModal";
 import SessionSummariesTab from "../components/reflectionarian/tabs/SessionSummariesTab";
-
-// Import your custom logo icon
 import ReflectionaryIcon from "../assets/ReflectionaryIcon.svg";
 
 const PremiumReflectionarian = () => {
@@ -89,6 +88,8 @@ const PremiumReflectionarian = () => {
   const [streamingProgress, setStreamingProgress] = useState(0);
   const [voiceError, setVoiceError] = useState(null);
   const [canInterrupt, setCanInterrupt] = useState(false);
+  const [transcriptBackup, setTranscriptBackup] = useState("");
+  const [lastSavedTranscript, setLastSavedTranscript] = useState("");
 
   // UI State
   const [activeTab, setActiveTab] = useState("chat");
@@ -297,13 +298,6 @@ const PremiumReflectionarian = () => {
 
       if (data.messages && data.messages.length > 0) {
         setMessages(data.messages);
-      } else {
-        // If no messages, add welcome message
-        const welcomeMsg = sessionService.createMessage(
-          "assistant",
-          sessionService.getWelcomeMessage(preferences, sessionType || "text")
-        );
-        setMessages([welcomeMsg]);
       }
 
       if (data.session) {
@@ -339,23 +333,41 @@ const PremiumReflectionarian = () => {
   // Start session with mood data
   const startSessionWithMood = async (type = "text", moodData = null) => {
     setIsLoading(true);
+
+    // Clear any previous TTS state
     voiceService.stopSpeaking();
     setIsSpeaking(false);
     setIsPaused(false);
-    try {
-      const data = await chatService.startSession({
-        userId: user.id,
-        preferences,
-        sessionType: type,
-        moodData, // Pass mood data to backend
-      });
 
+    try {
+      // Start the session on backend
+      const response = await fetch(
+        `https://reflectionary-api.vercel.app/api/reflectionarian/sessions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: user.id,
+            session_type: type,
+            preferences,
+            mood_data: moodData, // Pass mood data to backend
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to start session");
+      }
+
+      const data = await response.json();
       setSessionId(data.session.id);
       setSessionType(type);
 
-      // Create personalized welcome message based on mood for both session types
+      // Create ONE welcome message (either custom or default, not both)
       let welcomeMessage;
+
       if (moodData) {
+        // Create custom welcome message based on mood
         const moodLevel = moodData.mood_score;
         const energyLevel = moodData.energy_level;
 
@@ -381,15 +393,21 @@ const PremiumReflectionarian = () => {
 
         welcomeMessage = `Hello! I'm your AI reflection companion. ${moodContext} ${sessionTypeText}`;
       } else {
-        welcomeMessage = sessionService.getWelcomeMessage(preferences, type);
+        // Use simple default welcome for both voice and text
+        welcomeMessage =
+          type === "voice"
+            ? "Hello! I'm your AI reflection companion. Feel free to speak naturally about whatever is on your mind."
+            : "Hello! I'm your AI reflection companion. What's on your mind today?";
       }
 
+      // Create and set the welcome message
       const welcomeMsg = sessionService.createMessage(
         "assistant",
         welcomeMessage
       );
       setMessages([welcomeMsg]);
 
+      // DO NOT call loadSessionMessages here - it would overwrite our custom message
       await loadSessions();
     } catch (error) {
       console.error("Error starting session:", error);
@@ -562,24 +580,57 @@ const PremiumReflectionarian = () => {
 
       voiceService.initializeRecognition({
         onStart: () => {
+          console.log("🎤 Voice recognition started");
           setCurrentMessage("");
+          setTranscriptBackup("");
           setVoiceError(null);
         },
         onResult: (data) => {
           const currentContent = data.final + (data.interim || "");
           setCurrentMessage(currentContent);
+
+          // Backup transcript every few words
+          if (
+            data.final &&
+            data.final.trim().length > lastSavedTranscript.length + 10
+          ) {
+            setTranscriptBackup(data.final);
+            setLastSavedTranscript(data.final);
+            console.log(
+              "💾 Transcript backed up:",
+              data.final.length,
+              "characters"
+            );
+          }
         },
         onError: (event) => {
-          if (event.error !== "no-speech") {
+          console.error("🎤 Voice recognition error:", event.error);
+
+          if (event.error === "network") {
+            // Network error - try to recover transcript
+            if (transcriptBackup || lastSavedTranscript) {
+              const recoveredText = transcriptBackup || lastSavedTranscript;
+              setCurrentMessage(recoveredText);
+              setVoiceError(
+                `Network error occurred. Recovered ${recoveredText.length} characters of your speech.`
+              );
+            } else {
+              setVoiceError(
+                "Network error occurred. Please try recording again."
+              );
+            }
+            stopRecording();
+          } else if (event.error !== "no-speech") {
             stopRecording();
             setVoiceError(`Recording error: ${event.error}`);
           }
         },
         onEnd: () => {
+          console.log("🎤 Voice recognition ended");
           if (isRecording) {
-            // Only restart if we're still in recording mode
+            // Only restart if we're still in recording mode and no errors
             setTimeout(() => {
-              if (isRecording) {
+              if (isRecording && !voiceError) {
                 voiceService.startRecording().catch(console.error);
               }
             }, 100);
@@ -595,10 +646,10 @@ const PremiumReflectionarian = () => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
     } catch (error) {
+      console.error("🎤 Failed to start recording:", error);
       setVoiceError(error.message);
     }
   };
-
   const stopRecording = () => {
     voiceService.stopRecording();
 
@@ -654,34 +705,23 @@ const PremiumReflectionarian = () => {
     setIsLoading(true);
 
     try {
-      console.log("🔄 Ending session from frontend:", sessionId);
+      console.log("🔄 Starting endSession for:", sessionId);
 
-      const data = await chatService.endSession({
+      // Generate insights directly using your existing modal logic
+      console.log("🧠 Calling SessionInsightsModal to generate insights...");
+
+      // Simply show the insights modal - it will generate its own insights
+      setShowSessionInsights(true);
+
+      // Update session status in background
+      await chatService.endSession({
         sessionId,
         userId: user.id,
         messages,
-        generateInsights: true,
+        generateInsights: false, // Don't duplicate insight generation
       });
 
-      console.log(
-        "✅ Session ended, insights received:",
-        data.insights ? "yes" : "no"
-      );
-
-      // Show insights if available
-      if (data.insights) {
-        setSessionInsights(data.insights);
-        setShowSessionInsights(true);
-        console.log("✅ Showing insights modal");
-      } else {
-        console.log("⚠️ No insights received");
-        // Show a simple confirmation
-        alert(
-          "Session ended successfully! Insights will be available in your session history."
-        );
-      }
-
-      // Reset state
+      // Reset UI state
       setSessionId(null);
       setMessages([]);
       setSessionType(null);
@@ -690,16 +730,14 @@ const PremiumReflectionarian = () => {
       await loadSessions();
     } catch (error) {
       console.error("❌ Error ending session:", error);
-      alert(
-        "Failed to end session properly, but your conversation has been saved."
-      );
+      // Still show insights modal even if backend fails
+      setShowSessionInsights(true);
 
-      // Still reset the UI even if insights failed
+      // Reset UI
       setSessionId(null);
       setMessages([]);
       setSessionType(null);
       setShowEndSessionModal(false);
-      await loadSessions();
     } finally {
       setIsLoading(false);
     }
@@ -877,14 +915,15 @@ const PremiumReflectionarian = () => {
         <MoodTracker onSubmit={handleMoodSubmit} onSkip={handleMoodSkip} />
       )}
 
-      {showSessionInsights && sessionInsights && (
+      {showSessionInsights && (
         <SessionInsightsModal
-          isOpen={true}
+          sessionId={sessionId}
+          userId={user.id}
+          messages={messages}
           onClose={() => {
             setShowSessionInsights(false);
             setSessionInsights(null);
           }}
-          insights={sessionInsights}
         />
       )}
 
@@ -1151,6 +1190,46 @@ const PremiumReflectionarian = () => {
                             </div>
                           )}
                       </div>
+
+                      {voiceError &&
+                        voiceError.includes("Network error") &&
+                        transcriptBackup && (
+                          <div className="mt-2 bg-orange-500/20 border border-orange-400/30 rounded-lg p-3">
+                            <div className="flex items-start space-x-2">
+                              <AlertTriangle className="w-4 h-4 text-orange-400 mt-0.5" />
+                              <div className="flex-1">
+                                <p className="text-orange-300 text-sm font-medium">
+                                  Speech Recovered
+                                </p>
+                                <p className="text-orange-200 text-xs mt-1">
+                                  We recovered your speech after the network
+                                  error. You can continue editing or send as-is.
+                                </p>
+                                <div className="flex gap-2 mt-2">
+                                  <button
+                                    onClick={() => {
+                                      setCurrentMessage(transcriptBackup);
+                                      setVoiceError(null);
+                                    }}
+                                    className="text-xs px-2 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded"
+                                  >
+                                    Use Recovered Text
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setCurrentMessage("");
+                                      setTranscriptBackup("");
+                                      setVoiceError(null);
+                                    }}
+                                    className="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded"
+                                  >
+                                    Start Over
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                       {/* Enhanced Voice Recording Button */}
                       <div className="flex flex-col space-y-1">
