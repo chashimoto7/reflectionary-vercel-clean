@@ -12,6 +12,7 @@ import {
   Lightbulb,
   MessageCircle,
   Loader2,
+  Target,
 } from "lucide-react";
 
 const SessionInsightsModal = ({ sessionId, userId, messages, onClose }) => {
