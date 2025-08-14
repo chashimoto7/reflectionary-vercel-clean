@@ -78,7 +78,9 @@ const SessionSummariesTab = ({
     setSessionInsights(null);
 
     try {
-      // First, try to load existing insights
+      console.log("🔍 Loading insights for session:", session.id);
+      
+      // First, try to load existing insights from the database
       const response = await fetch(
         `https://reflectionary-api.vercel.app/api/reflectionarian/insights?session_id=${session.id}&user_id=${userId}`
       );
@@ -86,13 +88,47 @@ const SessionSummariesTab = ({
       if (response.ok) {
         const data = await response.json();
         if (data.insights) {
+          console.log("✅ Found existing insights in database");
           setSessionInsights(data.insights);
           setGeneratingInsights(false);
           return;
         }
       }
 
-      // If no insights exist, generate them
+      console.log("⚠️ No existing insights found, checking session data...");
+      
+      // Check if we can build insights from session data
+      if (session.session_summary && session.key_themes) {
+        console.log("📊 Building insights from session data");
+        const sessionBasedInsights = {
+          conversationSummary: session.session_summary,
+          sessionSummary: {
+            duration: session.duration_minutes,
+            messageCount: session.message_count,
+            userMessageCount: Math.floor((session.message_count || 0) / 2),
+            date: new Date(session.created_at).toLocaleDateString(),
+          },
+          keyThemes: session.key_themes || [],
+          emotionalJourney: {
+            primaryEmotion: session.dominant_emotion || "Unknown",
+            intensity: session.emotional_range > 2 ? "High" : "Moderate",
+            progression: "Completed",
+          },
+          breakthroughMoments: session.breakthrough_flagged ? [{
+            message: "Significant insights were identified in this session",
+            timestamp: session.created_at
+          }] : [],
+          followUpSuggestions: [],
+          nextSteps: ["Continue exploring themes from this session"],
+        };
+        setSessionInsights(sessionBasedInsights);
+        setGeneratingInsights(false);
+        return;
+      }
+
+      console.log("🧠 No cached data, generating new insights...");
+      
+      // If no insights exist and we have messages, generate them
       if (conversationMessages.length > 0) {
         const generateResponse = await fetch(
           `https://reflectionary-api.vercel.app/api/reflectionarian/insights`,
@@ -110,13 +146,17 @@ const SessionSummariesTab = ({
 
         if (generateResponse.ok) {
           const data = await generateResponse.json();
+          console.log("✅ New insights generated and saved");
           setSessionInsights(data.insights);
         } else {
           throw new Error("Failed to generate insights");
         }
+      } else {
+        console.log("⚠️ No messages available to generate insights");
+        throw new Error("No conversation data available");
       }
     } catch (error) {
-      console.error("Error with insights:", error);
+      console.error("❌ Error with insights:", error);
       setSessionInsights({
         error: true,
         message: "Unable to load insights for this session",

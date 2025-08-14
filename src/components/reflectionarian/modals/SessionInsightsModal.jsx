@@ -40,7 +40,7 @@ const SessionInsightsModal = ({ sessionId, userId, messages, onClose }) => {
     try {
       console.log("🧠 Generating AI insights for session:", sessionId);
 
-      // Call the backend AI insights endpoint
+      // Call the backend AI insights endpoint - this will automatically save to database
       const response = await fetch(
         "https://reflectionary-api.vercel.app/api/reflectionarian/insights",
         {
@@ -62,7 +62,7 @@ const SessionInsightsModal = ({ sessionId, userId, messages, onClose }) => {
       const data = await response.json();
 
       if (data.insights) {
-        console.log("✅ AI insights generated successfully");
+        console.log("✅ AI insights generated and saved to database");
         setInsights(data.insights);
       } else {
         throw new Error("No insights returned from API");
@@ -72,8 +72,29 @@ const SessionInsightsModal = ({ sessionId, userId, messages, onClose }) => {
       setError("Failed to generate AI insights, using basic analysis");
 
       // Fallback to basic local analysis
-      const fallbackInsights = analyzeSessionLocally(messages);
+      const fallbackInsights = await analyzeSessionLocally(messages);
       setInsights(fallbackInsights);
+      
+      // Try to save fallback insights to database
+      try {
+        console.log("💾 Attempting to save fallback insights to database");
+        await fetch(
+          "https://reflectionary-api.vercel.app/api/reflectionarian/insights",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              session_id: sessionId,
+              user_id: userId,
+              messages: messages,
+              generate_summary: false,
+              fallback_insights: fallbackInsights
+            }),
+          }
+        );
+      } catch (saveError) {
+        console.error("Failed to save fallback insights:", saveError);
+      }
     } finally {
       setIsGenerating(false);
     }
