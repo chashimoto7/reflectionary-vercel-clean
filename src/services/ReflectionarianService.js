@@ -5,8 +5,8 @@ import encryptionService from "./encryptionService";
 class ReflectionarianService {
   constructor() {
     this.encryptionService = encryptionService;
-    this.sessionTable = "therapy_sessions";
-    this.messageTable = "therapy_messages";
+    this.sessionTable = "reflectionarian_sessions";
+    this.messageTable = "reflectionarian_messages";
   }
 
   // =============================================
