@@ -414,10 +414,16 @@ export const SessionInsightsModal = ({
           <h3 className="text-xl font-bold text-white mb-2">
             Analyzing Your Session
           </h3>
-          <p className="text-gray-300 mb-4">
-            Generating insights and identifying key themes...
+          <p className="text-gray-300 mb-3">
+            Conducting deep analysis...
           </p>
-          <Loader2 className="w-6 h-6 animate-spin mx-auto text-purple-400" />
+          <p className="text-gray-400 text-sm mb-4">
+            This can take a few minutes. Please be patient.
+          </p>
+          <div className="flex flex-col items-center space-y-2">
+            <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
+            <p className="text-xs text-gray-500">Processing conversation data...</p>
+          </div>
         </div>
       </div>
     );
@@ -487,19 +493,21 @@ export const SessionInsightsModal = ({
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div className="bg-white/5 rounded-lg p-3 text-center">
                   <div className="text-2xl font-bold text-purple-400">
-                    {insights.sessionSummary.duration || 0}
+                    {insights.sessionSummary.duration ? 
+                      `${insights.sessionSummary.duration}m` : 
+                      '--'}
                   </div>
-                  <div className="text-xs text-gray-400">Minutes</div>
+                  <div className="text-xs text-gray-400">Duration</div>
                 </div>
                 <div className="bg-white/5 rounded-lg p-3 text-center">
                   <div className="text-2xl font-bold text-purple-400">
-                    {insights.sessionSummary.messageCount || 0}
+                    {insights.sessionSummary.messageCount || '--'}
                   </div>
                   <div className="text-xs text-gray-400">Messages</div>
                 </div>
                 <div className="bg-white/5 rounded-lg p-3 text-center">
                   <div className="text-2xl font-bold text-purple-400">
-                    {insights.sessionSummary.userMessageCount || 0}
+                    {insights.sessionSummary.userMessageCount || '--'}
                   </div>
                   <div className="text-xs text-gray-400">Your Messages</div>
                 </div>
