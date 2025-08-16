@@ -144,7 +144,9 @@ const PremiumReflectionarian = () => {
       messages[0].role === "assistant" &&
       sessionType === "voice" &&
       !isSpeaking &&
-      sessionId
+      sessionId &&
+      !isLoadingPreferences && // Wait for preferences to load
+      preferences !== null // Ensure preferences are loaded
     ) {
       const messageId = messages[0].id;
       const hasSpoken = localStorage.getItem(`spoken_${messageId}`);
@@ -210,6 +212,8 @@ const PremiumReflectionarian = () => {
     sessionId,
     isSpeaking,
     preferences?.ttsVoice,
+    isLoadingPreferences,
+    preferences,
     user.id,
   ]);
 
