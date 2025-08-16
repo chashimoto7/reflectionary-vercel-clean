@@ -81,6 +81,7 @@ const PremiumReflectionarian = () => {
   const [recordingTime, setRecordingTime] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [wasStopped, setWasStopped] = useState(false);
   const interimTranscriptRef = useRef("");
   const finalTranscriptRef = useRef("");
   const recordingIntervalRef = useRef(null);
@@ -161,14 +162,17 @@ const PremiumReflectionarian = () => {
               setIsStreaming(true);
               await voiceService.streamTTS(
                 messages[0].content,
-                preferences?.ttsVoice,
-                user.id
+                preferences?.ttsVoice || "nova",
+                user.id,
+                0,
+                preferences?.speechRate || 1.0
               );
             } else {
               await voiceService.speakText(
                 messages[0].content,
-                preferences?.ttsVoice,
-                user.id
+                preferences?.ttsVoice || "nova",
+                user.id,
+                preferences?.speechRate || 1.0
               );
             }
 
@@ -489,8 +493,10 @@ const PremiumReflectionarian = () => {
             const startTime = Date.now();
             await voiceService.streamTTS(
               data.response,
-              preferences?.ttsVoice,
-              user.id
+              preferences?.ttsVoice || "nova",
+              user.id,
+              0,
+              preferences?.speechRate || 1.0
             );
 
             // Progress simulation (since we can't get real progress from TTS)
@@ -512,8 +518,9 @@ const PremiumReflectionarian = () => {
             // Use regular TTS for short responses
             await voiceService.speakText(
               data.response,
-              preferences?.ttsVoice,
-              user.id
+              preferences?.ttsVoice || "nova",
+              user.id,
+              preferences?.speechRate || 1.0
             );
           }
 
@@ -569,7 +576,7 @@ const PremiumReflectionarian = () => {
   };
 
   // Enhanced Voice recording with interrpution detection
-  const startRecording = async () => {
+  const startRecording = async (preserveExisting = false) => {
     try {
       // If AI is speaking, stop it when user starts recording
       if (isSpeaking && canInterrupt) {
@@ -577,17 +584,23 @@ const PremiumReflectionarian = () => {
       }
 
       setVoiceError(null);
+      
+      // Store existing message if preserving
+      const existingMessage = preserveExisting ? currentMessage : "";
 
       voiceService.initializeRecognition({
         onStart: () => {
           console.log("🎤 Voice recognition started");
-          setCurrentMessage("");
-          setTranscriptBackup("");
+          if (!preserveExisting) {
+            setCurrentMessage("");
+            setTranscriptBackup("");
+          }
           setVoiceError(null);
         },
         onResult: (data) => {
-          const currentContent = data.final + (data.interim || "");
-          setCurrentMessage(currentContent);
+          const newContent = data.final + (data.interim || "");
+          const fullContent = existingMessage ? existingMessage + " " + newContent : newContent;
+          setCurrentMessage(fullContent);
 
           // Backup transcript every few words
           if (
@@ -675,8 +688,8 @@ const PremiumReflectionarian = () => {
     }
   };
 
-  const stopSpeaking = () => {
-    voiceService.stopSpeaking();
+  const stopSpeaking = (preserveForResume = true) => {
+    voiceService.stopSpeaking(preserveForResume);
     voiceService.stopStreaming(); // Also stop streaming
     setIsSpeaking(false);
     setIsPaused(false);
@@ -684,6 +697,38 @@ const PremiumReflectionarian = () => {
     setStreamingProgress(0);
     setCanInterrupt(false);
     setIsLoading(false);
+    if (preserveForResume) {
+      setWasStopped(true);
+    }
+  };
+  
+  const restartSpeaking = async () => {
+    try {
+      setIsSpeaking(true);
+      setVoiceError(null);
+      setIsStreaming(true);
+      setWasStopped(false);
+      
+      await voiceService.restartSpeaking();
+      
+      // Set up completion listener
+      const checkCompletion = setInterval(() => {
+        if (!voiceService.isSpeaking()) {
+          setIsSpeaking(false);
+          setIsPaused(false);
+          setIsStreaming(false);
+          setStreamingProgress(0);
+          setWasStopped(false);
+          clearInterval(checkCompletion);
+        }
+      }, 100);
+    } catch (error) {
+      console.error("Restart TTS error:", error);
+      setVoiceError("Failed to restart playback");
+      setIsSpeaking(false);
+      setIsStreaming(false);
+      setWasStopped(false);
+    }
   };
 
   // Add this new function for smart interruption
@@ -721,10 +766,7 @@ const PremiumReflectionarian = () => {
         generateInsights: false, // Don't duplicate insight generation
       });
 
-      // Reset UI state
-      setSessionId(null);
-      setMessages([]);
-      setSessionType(null);
+      // Don't reset UI state here - wait for insights modal to close
       setShowEndSessionModal(false);
 
       await loadSessions();
@@ -732,11 +774,7 @@ const PremiumReflectionarian = () => {
       console.error("❌ Error ending session:", error);
       // Still show insights modal even if backend fails
       setShowSessionInsights(true);
-
-      // Reset UI
-      setSessionId(null);
-      setMessages([]);
-      setSessionType(null);
+      
       setShowEndSessionModal(false);
     } finally {
       setIsLoading(false);
@@ -894,9 +932,16 @@ const PremiumReflectionarian = () => {
       <VoiceSettingsModal
         isOpen={showVoiceSettings}
         onClose={() => setShowVoiceSettings(false)}
-        currentVoice={preferences?.ttsVoice}
+        currentVoice={preferences?.ttsVoice || "nova"}
+        currentRate={preferences?.speechRate || 1.0}
+        userId={user.id}
         onVoiceChange={async (voice) => {
           const newPrefs = { ...preferences, ttsVoice: voice };
+          setPreferences(newPrefs);
+          await preferencesService.savePreferences(user.id, newPrefs);
+        }}
+        onRateChange={async (rate) => {
+          const newPrefs = { ...preferences, speechRate: rate };
           setPreferences(newPrefs);
           await preferencesService.savePreferences(user.id, newPrefs);
         }}
@@ -921,8 +966,52 @@ const PremiumReflectionarian = () => {
           userId={user.id}
           messages={messages}
           onClose={() => {
+            // Close the insights modal
             setShowSessionInsights(false);
             setSessionInsights(null);
+            
+            // Reset session state to return to default screen
+            setSessionId(null);
+            setMessages([]);
+            setSessionType(null);
+            setCurrentMoodData(null);
+            
+            // Stop any ongoing voice activities
+            if (isRecording) {
+              stopRecording();
+            }
+            if (isSpeaking) {
+              stopSpeaking();
+            }
+            
+            // Reset voice state
+            setIsRecording(false);
+            setRecordingTime(0);
+            setIsSpeaking(false);
+            setIsPaused(false);
+            setIsStreaming(false);
+            setStreamingProgress(0);
+            setVoiceError(null);
+            setCurrentMessage("");
+            setInputHeight(48); // Reset textarea height
+            setTranscriptBackup("");
+            setLastSavedTranscript("");
+            
+            // Clear any localStorage items for voice sessions
+            if (sessionId) {
+              // Clear any spoken message flags
+              const keys = Object.keys(localStorage);
+              keys.forEach(key => {
+                if (key.startsWith('spoken_')) {
+                  localStorage.removeItem(key);
+                }
+              });
+            }
+            
+            // Ensure we're on the chat tab to show the default screen
+            setActiveTab("chat");
+            
+            console.log("✅ Session completed - returned to default screen");
           }}
         />
       )}
@@ -1008,14 +1097,16 @@ const PremiumReflectionarian = () => {
             <div className="flex flex-col h-[600px]">
               {/* TTS Controls for Voice Session */}
               {/* Enhanced TTS Controls for Voice Session */}
-              {sessionType === "voice" && (isSpeaking || isStreaming) && (
+              {sessionType === "voice" && (isSpeaking || isStreaming || wasStopped) && (
                 <div className="p-4 border-b border-white/10 bg-purple-600/20">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <Volume2 className="w-5 h-5 text-purple-300 animate-pulse" />
                       <div className="flex flex-col">
                         <span className="text-white font-medium">
-                          {isStreaming
+                          {wasStopped && !isSpeaking
+                            ? "Playback stopped"
+                            : isStreaming
                             ? "Streaming response..."
                             : "Reflectionarian is speaking..."}
                         </span>
@@ -1036,8 +1127,20 @@ const PremiumReflectionarian = () => {
                     </div>
 
                     <div className="flex space-x-2">
+                      {/* Restart button when stopped */}
+                      {wasStopped && !isSpeaking && (
+                        <button
+                          onClick={restartSpeaking}
+                          className="px-3 py-2 bg-green-600/30 hover:bg-green-600/40 rounded-lg transition-colors flex items-center space-x-1"
+                          title="Restart playback"
+                        >
+                          <RefreshCw className="w-4 h-4 text-white" />
+                          <span className="text-white text-xs">Restart</span>
+                        </button>
+                      )}
+                      
                       {/* Interrupt button when speaking */}
-                      {canInterrupt && (
+                      {canInterrupt && isSpeaking && (
                         <button
                           onClick={interruptAndRecord}
                           className="px-3 py-2 bg-orange-600/30 hover:bg-orange-600/40 rounded-lg transition-colors text-xs"
@@ -1050,33 +1153,40 @@ const PremiumReflectionarian = () => {
                         </button>
                       )}
 
-                      {/* Pause/Resume */}
-                      {isPaused ? (
-                        <button
-                          onClick={resumeSpeaking}
-                          className="p-2 bg-purple-600/30 hover:bg-purple-600/40 rounded-lg transition-colors"
-                          title="Resume"
-                        >
-                          <Volume2 className="w-4 h-4 text-white" />
-                        </button>
-                      ) : (
-                        <button
-                          onClick={pauseSpeaking}
-                          className="p-2 bg-purple-600/30 hover:bg-purple-600/40 rounded-lg transition-colors"
-                          title="Pause"
-                        >
-                          <VolumeX className="w-4 h-4 text-white" />
-                        </button>
+                      {/* Pause/Resume - only show when speaking */}
+                      {isSpeaking && (
+                        isPaused ? (
+                          <button
+                            onClick={resumeSpeaking}
+                            className="p-2 bg-purple-600/30 hover:bg-purple-600/40 rounded-lg transition-colors"
+                            title="Resume"
+                          >
+                            <Volume2 className="w-4 h-4 text-white" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={pauseSpeaking}
+                            className="p-2 bg-purple-600/30 hover:bg-purple-600/40 rounded-lg transition-colors"
+                            title="Pause"
+                          >
+                            <VolumeX className="w-4 h-4 text-white" />
+                          </button>
+                        )
                       )}
 
-                      {/* Stop */}
-                      <button
-                        onClick={stopSpeaking}
-                        className="p-2 bg-red-600/30 hover:bg-red-600/40 rounded-lg transition-colors"
-                        title="Stop"
-                      >
-                        <X className="w-4 h-4 text-white" />
-                      </button>
+                      {/* Stop - always visible when speaking or stopped */}
+                      {(isSpeaking || wasStopped) && (
+                        <button
+                          onClick={() => {
+                            stopSpeaking(false); // Don't preserve for resume
+                            setWasStopped(false);
+                          }}
+                          className="p-2 bg-red-600/30 hover:bg-red-600/40 rounded-lg transition-colors"
+                          title="Clear"
+                        >
+                          <X className="w-4 h-4 text-white" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -1193,27 +1303,45 @@ const PremiumReflectionarian = () => {
 
                       {voiceError &&
                         voiceError.includes("Network error") &&
-                        transcriptBackup && (
+                        (transcriptBackup || currentMessage) && (
                           <div className="mt-2 bg-orange-500/20 border border-orange-400/30 rounded-lg p-3">
                             <div className="flex items-start space-x-2">
                               <AlertTriangle className="w-4 h-4 text-orange-400 mt-0.5" />
                               <div className="flex-1">
                                 <p className="text-orange-300 text-sm font-medium">
-                                  Speech Recovered
+                                  Connection Error
                                 </p>
                                 <p className="text-orange-200 text-xs mt-1">
-                                  We recovered your speech after the network
-                                  error. You can continue editing or send as-is.
+                                  Your recording was interrupted. You have {currentMessage.length} characters saved.
                                 </p>
                                 <div className="flex gap-2 mt-2">
                                   <button
                                     onClick={() => {
-                                      setCurrentMessage(transcriptBackup);
+                                      setVoiceError(null);
+                                      startRecording(true); // Resume with existing text
+                                    }}
+                                    className="text-xs px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded flex items-center gap-1"
+                                  >
+                                    <Mic className="w-3 h-3" />
+                                    Continue Recording
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setVoiceError(null);
+                                      // Keep text in textarea for manual editing
+                                    }}
+                                    className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded"
+                                  >
+                                    Type Rest
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      sendMessage({ preventDefault: () => {} });
                                       setVoiceError(null);
                                     }}
-                                    className="text-xs px-2 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded"
+                                    className="text-xs px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded"
                                   >
-                                    Use Recovered Text
+                                    Send As Is
                                   </button>
                                   <button
                                     onClick={() => {
@@ -1223,7 +1351,7 @@ const PremiumReflectionarian = () => {
                                     }}
                                     className="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded"
                                   >
-                                    Start Over
+                                    Clear All
                                   </button>
                                 </div>
                               </div>

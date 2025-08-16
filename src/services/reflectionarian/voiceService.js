@@ -22,6 +22,13 @@ class VoiceService {
     };
     // Track cumulative transcript
     this.cumulativeFinalTranscript = "";
+    // Store the full text and position for resume capability
+    this.currentFullText = "";
+    this.currentVoice = "nova";
+    this.currentUserId = null;
+    this.currentRate = 1.0;
+    this.pausedAtSentence = 0;
+    this.sentencesForResume = [];
   }
 
   /**
@@ -192,20 +199,30 @@ class VoiceService {
   /**
    * Stream TTS by splitting text into sentences
    */
-  async streamTTS(text, voice = "nova", userId) {
+  async streamTTS(text, voice = "nova", userId, startFromSentence = 0, rate = 1.0) {
     try {
-      // Stop any current speech
-      this.stopSpeaking();
+      // Store for resume capability
+      this.currentFullText = text;
+      this.currentVoice = voice;
+      this.currentUserId = userId;
+      this.currentRate = rate;
+      
+      // Stop any current speech but don't reset if resuming
+      if (startFromSentence === 0) {
+        this.stopSpeaking();
+      }
 
       // Split text into sentences for streaming
       const sentences = this.splitIntoSentences(text);
+      this.sentencesForResume = sentences;
       this.audioQueue = [];
       this.isStreaming = true;
 
-      console.log(`🎤 Streaming ${sentences.length} sentences...`);
+      console.log(`🎤 Streaming ${sentences.length} sentences from sentence ${startFromSentence}...`);
 
       // Process sentences in parallel but play in sequence
-      const audioPromises = sentences.map(async (sentence, index) => {
+      const sentencesToPlay = sentences.slice(startFromSentence);
+      const audioPromises = sentencesToPlay.map(async (sentence, index) => {
         if (!sentence.trim()) return null;
 
         try {
@@ -223,6 +240,7 @@ class VoiceService {
                 voice,
                 model: "tts-1", // Use faster model for streaming
                 userId,
+                speed: rate, // Add speech rate
               }),
             }
           );
@@ -232,7 +250,11 @@ class VoiceService {
           const audioBlob = await response.blob();
           const audioUrl = URL.createObjectURL(audioBlob);
 
-          return { index, audioUrl, sentence };
+          return { 
+            index: startFromSentence + index, 
+            audioUrl, 
+            sentence 
+          };
         } catch (error) {
           console.error(
             `Failed to generate audio for sentence ${index}:`,
@@ -251,12 +273,14 @@ class VoiceService {
       // Play audio segments in sequence
       for (const audioData of validAudios) {
         if (!this.isStreaming) break; // Stop if cancelled
-
+        
+        this.pausedAtSentence = audioData.index; // Track where we are
         await this.playAudioSegment(audioData.audioUrl);
         URL.revokeObjectURL(audioData.audioUrl); // Clean up
       }
 
       this.isStreaming = false;
+      this.pausedAtSentence = 0; // Reset when complete
       return true;
     } catch (error) {
       console.error("TTS streaming failed:", error);
@@ -268,11 +292,11 @@ class VoiceService {
   /**
    * Text-to-Speech using Supabase edge function
    */
-  async speakText(text, voice = "nova", userId) {
+  async speakText(text, voice = "nova", userId, rate = 1.0) {
     try {
       // Use streaming for longer responses
       if (text.length > 200 && text.includes(".")) {
-        return this.streamTTS(text, voice, userId);
+        return this.streamTTS(text, voice, userId, 0, rate);
       }
 
       // Original implementation for short responses
@@ -292,6 +316,7 @@ class VoiceService {
             voice,
             model: "tts-1",
             userId,
+            speed: rate, // OpenAI accepts speed parameter
           }),
         }
       );
@@ -386,9 +411,37 @@ class VoiceService {
   }
 
   /**
+   * Restart TTS from where it was stopped
+   */
+  async restartSpeaking() {
+    if (this.currentFullText && this.pausedAtSentence > 0) {
+      // Resume from where we stopped
+      this.isPaused = false;
+      return this.streamTTS(
+        this.currentFullText, 
+        this.currentVoice, 
+        this.currentUserId, 
+        this.pausedAtSentence,
+        this.currentRate
+      );
+    } else if (this.currentFullText) {
+      // Start from beginning
+      this.isPaused = false;
+      return this.streamTTS(
+        this.currentFullText, 
+        this.currentVoice, 
+        this.currentUserId, 
+        0,
+        this.currentRate
+      );
+    }
+    return false;
+  }
+
+  /**
    * Stop all speech
    */
-  stopSpeaking() {
+  stopSpeaking(preserveForResume = false) {
     // Stop streaming if active
     this.isStreaming = false;
 
@@ -405,6 +458,13 @@ class VoiceService {
     }
 
     this.isPaused = false;
+    
+    // Clear resume data unless preserving
+    if (!preserveForResume) {
+      this.currentFullText = "";
+      this.pausedAtSentence = 0;
+      this.sentencesForResume = [];
+    }
   }
 
   /**
