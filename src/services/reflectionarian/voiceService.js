@@ -1,11 +1,12 @@
 // src/services/reflectionarian/voiceService.js
+import { supabase } from "../../lib/supabase";
 
 // Demo database configuration - replace with your production values when ready
 const SUPABASE_URL = "https://nvcdlmfvnybsgzkpmdth.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52Y2RsbWZ2bnlic2d6a3BtZHRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2NzQ4NzgsImV4cCI6MjA2NzI1MDg3OH0.a9TOIgvxjcfXKOOyzW44_Nf286amXXalcpyfZ-Ybh2I";
 
-const API_BASE = "https://reflectionary-api.vercel.app";
+const API_BASE = "https://nvcdlmfvnybsgzkpmdth.supabase.co/functions/v1";
 
 class VoiceService {
   constructor() {
@@ -57,6 +58,22 @@ class VoiceService {
   }
 
   /**
+   * Get auth token for API calls
+   */
+  async getAuthToken() {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("No active session");
+      return session.access_token;
+    } catch (error) {
+      console.error("Failed to get auth token:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Preload common phrases for instant playback
    */
   async preloadCommonPhrases(userId = null) {
@@ -81,11 +98,12 @@ class VoiceService {
           speed: preferences.rate,
         };
         
-        const response = await fetch(`${API_BASE}/api/tts/generate`, {
+        const authToken = await this.getAuthToken();
+        const response = await fetch(`${API_BASE}/generate-audio`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            Authorization: `Bearer ${authToken}`,
           },
           body: JSON.stringify(requestBody),
         });
@@ -145,11 +163,12 @@ class VoiceService {
             speed: preferences.rate,
           };
           
-          const response = await fetch(`${API_BASE}/api/tts/generate`, {
+          const authToken = await this.getAuthToken();
+          const response = await fetch(`${API_BASE}/generate-audio`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              Authorization: `Bearer ${authToken}`,
             },
             body: JSON.stringify(requestBody),
           });
@@ -411,13 +430,14 @@ class VoiceService {
             speed: finalRate,
           };
           
+          const authToken = await this.getAuthToken();
           const response = await fetch(
-            `${API_BASE}/api/tts/generate`,
+            `${API_BASE}/generate-audio`,
             {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+                Authorization: `Bearer ${authToken}`,
               },
               body: JSON.stringify(requestBody),
             }
@@ -522,13 +542,14 @@ class VoiceService {
         speed: finalRate, // OpenAI accepts speed parameter
       };
       
+      const authToken = await this.getAuthToken();
       const response = await fetch(
-        `${API_BASE}/api/tts/generate`,
+        `${API_BASE}/generate-audio`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            Authorization: `Bearer ${authToken}`,
           },
           body: JSON.stringify(requestBody),
         }
@@ -774,11 +795,12 @@ class VoiceService {
         speed: finalRate,
       };
       
-      const response = await fetch(`${API_BASE}/api/tts/generate`, {
+      const authToken = await this.getAuthToken();
+      const response = await fetch(`${API_BASE}/generate-audio`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify(requestBody),
       });
