@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../contexts/AuthContext";
-import { useMembership } from "../hooks/useMembership";
+// Removed useMembership import - access is already verified by ReflectionarianRouter
 
 // Import services
 import chatService from "../services/reflectionarian/chatService";
@@ -55,7 +55,7 @@ import ReflectionaryIcon from "../assets/ReflectionaryIcon.svg";
 
 const PremiumReflectionarian = () => {
   const { user } = useAuth();
-  const { hasAccess, tier, loading: membershipLoading } = useMembership();
+  // Access is already verified by ReflectionarianRouter - no need for redundant checks
 
   // Onboarding & Preferences State
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -127,7 +127,7 @@ const PremiumReflectionarian = () => {
 
   // Load preferences and sessions on mount
   useEffect(() => {
-    if (user && hasAccess("premium_reflectionarian")) {
+    if (user) {
       loadPreferences();
       loadSessions();
     }
@@ -933,7 +933,7 @@ const PremiumReflectionarian = () => {
   };
 
   // Loading state
-  if (!user || membershipLoading) {
+  if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center">
         <div className="text-center">
@@ -951,29 +951,7 @@ const PremiumReflectionarian = () => {
     );
   }
 
-  // Access check
-  if (!hasAccess("premium_reflectionarian")) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8 text-center">
-          <Crown className="w-16 h-16 mx-auto mb-4 text-yellow-400" />
-          <h2 className="text-2xl font-bold text-white mb-4">
-            Premium Feature
-          </h2>
-          <p className="text-gray-300 mb-6">
-            The Premium Reflectionarian requires a Premium membership to access
-            advanced AI coaching features.
-          </p>
-          <button
-            onClick={() => (window.location.href = "/pricing")}
-            className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 rounded-xl text-white font-medium transition-all"
-          >
-            Upgrade to Premium
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Access is already verified by ReflectionarianRouter - no need for redundant check
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 p-4 md:p-6">
