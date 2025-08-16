@@ -49,6 +49,9 @@ class VoiceService {
     
     // Preload common phrases
     this.preloadCommonPhrases();
+    
+    // Handle tab visibility changes
+    this.setupVisibilityHandlers();
   }
 
   /**
@@ -71,6 +74,48 @@ class VoiceService {
     } catch (error) {
       console.error("Failed to get auth token:", error);
       throw error;
+    }
+  }
+
+  /**
+   * Setup visibility change handlers
+   */
+  setupVisibilityHandlers() {
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && this.currentAudio) {
+          console.log("Tab became visible, ensuring audio playback");
+          // Reactivate audio context when tab becomes visible
+          this.ensureAudioContext();
+          
+          // Force resume if audio is paused
+          if (this.currentAudio.paused && !this.isPaused) {
+            this.currentAudio.play().catch(console.error);
+          }
+        }
+      });
+    }
+  }
+
+  /**
+   * Ensure audio context is active (for tab visibility issues)
+   */
+  async ensureAudioContext() {
+    try {
+      // Create a dummy audio element to wake up the audio context
+      const audio = new Audio();
+      audio.volume = 0;
+      audio.currentTime = 0;
+      
+      // Play and immediately pause to activate audio context
+      await audio.play();
+      audio.pause();
+      audio.remove();
+      
+      console.log("Audio context activated");
+    } catch (error) {
+      console.log("Audio context activation failed:", error);
+      // This is expected in some browsers, not a critical error
     }
   }
 
@@ -324,6 +369,10 @@ class VoiceService {
     return new Promise((resolve) => {
       const audio = new Audio(audioUrl);
       audio.volume = 0.8;
+      
+      // Ensure audio can autoplay
+      audio.autoplay = true;
+      audio.preload = 'auto';
 
       audio.onended = () => {
         this.currentAudio = null;
@@ -332,14 +381,24 @@ class VoiceService {
 
       audio.onerror = () => {
         console.error("Audio playback error");
+        this.currentAudio = null;
         resolve();
       };
 
+      audio.oncanplaythrough = () => {
+        console.log("Audio ready to play");
+        // Force immediate playback
+        audio.play().catch((error) => {
+          console.error("Play error:", error);
+          this.currentAudio = null;
+          resolve();
+        });
+      };
+
       this.currentAudio = audio;
-      audio.play().catch((error) => {
-        console.error("Play error:", error);
-        resolve();
-      });
+      
+      // Force load the audio
+      audio.load();
     });
   }
 
@@ -384,6 +443,9 @@ class VoiceService {
   async streamTTS(text, voice = null, userId, startFromSentence = 0, rate = null) {
     try {
       console.log("🎤 streamTTS called with:", { voice, rate, userId });
+      
+      // Ensure audio context is active before playing
+      await this.ensureAudioContext();
       
       // Load user preferences if not provided
       let finalVoice = voice;
@@ -523,6 +585,9 @@ class VoiceService {
   async speakText(text, voice = null, userId, rate = null) {
     try {
       console.log("🎤 speakText called with:", { voice, rate, userId });
+      
+      // Ensure audio context is active before playing
+      await this.ensureAudioContext();
       
       // Load user preferences if not provided
       let finalVoice = voice;
