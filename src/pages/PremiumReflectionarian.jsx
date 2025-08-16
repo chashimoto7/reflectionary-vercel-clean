@@ -96,6 +96,7 @@ const PremiumReflectionarian = () => {
   const [activeTab, setActiveTab] = useState("chat");
   const [showEndSessionModal, setShowEndSessionModal] = useState(false);
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+  const [showStartConversation, setShowStartConversation] = useState(false);
 
   // MoodTracker State
   const [showMoodTracker, setShowMoodTracker] = useState(false);
@@ -137,85 +138,7 @@ const PremiumReflectionarian = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Handle TTS for welcome message in voice sessions
-  useEffect(() => {
-    if (
-      messages.length === 1 &&
-      messages[0].role === "assistant" &&
-      sessionType === "voice" &&
-      !isSpeaking &&
-      sessionId &&
-      !isLoadingPreferences && // Wait for preferences to load
-      preferences !== null // Ensure preferences are loaded
-    ) {
-      const messageId = messages[0].id;
-      const hasSpoken = localStorage.getItem(`spoken_${messageId}`);
-
-      if (!hasSpoken) {
-        localStorage.setItem(`spoken_${messageId}`, "true");
-
-        const timer = setTimeout(async () => {
-          try {
-            setIsSpeaking(true);
-            setVoiceError(null);
-
-            console.log("🎭 Welcome message TTS - preferences:", preferences);
-            console.log("🎭 preferences?.ttsVoice:", preferences?.ttsVoice);
-            
-            // Use streaming for longer messages
-            if (messages[0].content.length > 200) {
-              setIsStreaming(true);
-              await voiceService.streamTTS(
-                messages[0].content,
-                preferences?.ttsVoice || "nova",
-                user.id,
-                0,
-                preferences?.speechRate || 1.0
-              );
-            } else {
-              await voiceService.speakText(
-                messages[0].content,
-                preferences?.ttsVoice || "nova",
-                user.id,
-                preferences?.speechRate || 1.0
-              );
-            }
-
-            // Set up completion listener
-            const checkCompletion = setInterval(() => {
-              if (!voiceService.isSpeaking()) {
-                setIsSpeaking(false);
-                setIsPaused(false);
-                setIsStreaming(false);
-                setStreamingProgress(0);
-                setCanInterrupt(false);
-                clearInterval(checkCompletion);
-              } else {
-                setCanInterrupt(true); // Allow interruption after 2 seconds
-              }
-            }, 100);
-          } catch (error) {
-            console.error("TTS error:", error);
-            setVoiceError("Voice playback failed");
-            setIsSpeaking(false);
-            setIsPaused(false);
-            setIsStreaming(false);
-          }
-        }, 800);
-
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [
-    messages,
-    sessionType,
-    sessionId,
-    isSpeaking,
-    preferences?.ttsVoice,
-    isLoadingPreferences,
-    preferences,
-    user.id,
-  ]);
+  // No automatic TTS - user will manually start conversation
 
   // Auto-scroll textarea during voice recording
   useEffect(() => {
@@ -424,20 +347,106 @@ const PremiumReflectionarian = () => {
             : "Hello! I'm your AI reflection companion. What's on your mind today?";
       }
 
-      // Create and set the welcome message
-      const welcomeMsg = sessionService.createMessage(
-        "assistant",
-        welcomeMessage
-      );
-      setMessages([welcomeMsg]);
+      if (type === "voice") {
+        // For voice sessions, show "Start Conversation" screen instead of auto-playing
+        setShowStartConversation(true);
+        setMessages([]);
+      } else {
+        // For text sessions, show the welcome message immediately
+        const welcomeMsg = sessionService.createMessage(
+          "assistant",
+          welcomeMessage
+        );
+        setMessages([welcomeMsg]);
+      }
 
-      // DO NOT call loadSessionMessages here - it would overwrite our custom message
       await loadSessions();
     } catch (error) {
       console.error("Error starting session:", error);
       alert("Failed to start session. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Start conversation manually (for voice sessions)
+  const startConversation = async () => {
+    try {
+      setShowStartConversation(false);
+      setIsSpeaking(true);
+      setVoiceError(null);
+
+      // Create the welcome message that was prepared during session start
+      let welcomeMessage;
+      if (currentMoodData) {
+        const moodLevel = currentMoodData.mood_score;
+        const energyLevel = currentMoodData.energy_level;
+
+        let moodContext = "";
+        if (moodLevel <= 4) {
+          moodContext = "I sense you might be having a challenging day. ";
+        } else if (moodLevel >= 7) {
+          moodContext = "I can sense you're feeling positive today. ";
+        }
+
+        if (energyLevel <= 4) {
+          moodContext +=
+            "Take your time - we can explore whatever feels right for you today.";
+        } else if (energyLevel >= 7) {
+          moodContext +=
+            "Your energy feels good - let's make the most of this time together.";
+        }
+
+        welcomeMessage = `Hello! I'm your AI reflection companion. ${moodContext} I'm here to listen and support your reflection journey. Feel free to speak naturally about whatever is on your mind.`;
+      } else {
+        welcomeMessage = "Hello! I'm your AI reflection companion. Feel free to speak naturally about whatever is on your mind.";
+      }
+
+      const welcomeMsg = sessionService.createMessage("assistant", welcomeMessage);
+      setMessages([welcomeMsg]);
+
+      console.log("🎭 Manual conversation start - preferences:", preferences);
+      console.log("🎭 preferences?.ttsVoice:", preferences?.ttsVoice);
+
+      // Use streaming for longer messages
+      if (welcomeMessage.length > 200) {
+        setIsStreaming(true);
+        await voiceService.streamTTS(
+          welcomeMessage,
+          preferences?.ttsVoice || "alloy",
+          user.id,
+          0,
+          preferences?.speechRate || 1.0
+        );
+      } else {
+        await voiceService.speakText(
+          welcomeMessage,
+          preferences?.ttsVoice || "alloy",
+          user.id,
+          preferences?.speechRate || 1.0
+        );
+      }
+
+      // Set up completion listener
+      const checkCompletion = setInterval(() => {
+        if (!voiceService.isSpeaking()) {
+          setIsSpeaking(false);
+          setIsPaused(false);
+          setIsStreaming(false);
+          setStreamingProgress(0);
+          setCanInterrupt(false);
+          clearInterval(checkCompletion);
+        } else {
+          setCanInterrupt(true);
+        }
+      }, 100);
+    } catch (error) {
+      console.error("TTS error:", error);
+      setVoiceError("Voice playback failed");
+      setIsSpeaking(false);
+      setIsPaused(false);
+      setIsStreaming(false);
+      setShowStartConversation(true); // Show start button again
     }
   };
 
@@ -998,6 +1007,7 @@ const PremiumReflectionarian = () => {
             setMessages([]);
             setSessionType(null);
             setCurrentMoodData(null);
+            setShowStartConversation(false);
             
             // Stop any ongoing voice activities
             if (isRecording) {
@@ -1110,7 +1120,59 @@ const PremiumReflectionarian = () => {
 
         {/* Main Content */}
         <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 overflow-hidden">
-          {activeTab === "chat" && sessionId && (
+          {activeTab === "chat" && sessionId && showStartConversation && (
+            <div className="flex flex-col h-[600px] items-center justify-center p-12">
+              <div className="text-center max-w-md">
+                <Volume2 className="w-20 h-20 mx-auto mb-6 text-purple-400" />
+                <h2 className="text-2xl font-bold text-white mb-4">
+                  The Reflectionarian is Ready to Begin
+                </h2>
+                <p className="text-gray-300 mb-8 leading-relaxed">
+                  Your voice session is prepared and ready. Click the button below to start the conversation and begin your reflection journey.
+                </p>
+                
+                {/* Voice Settings Display */}
+                <div className="bg-purple-500/10 border border-purple-400/30 rounded-lg p-4 mb-6">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-purple-300">Voice:</span>
+                    <span className="text-white capitalize">
+                      {preferences?.ttsVoice || "Alloy"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm mt-2">
+                    <span className="text-purple-300">Speed:</span>
+                    <span className="text-white">
+                      {preferences?.speechRate || 1.0}x
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setShowVoiceSettings(true)}
+                    className="w-full mt-3 px-3 py-2 bg-purple-600/30 hover:bg-purple-600/40 border border-purple-500/40 rounded-md text-xs text-white transition-colors flex items-center justify-center gap-1"
+                  >
+                    <Settings className="w-3 h-3" />
+                    Adjust Voice Settings
+                  </button>
+                </div>
+
+                <button
+                  onClick={startConversation}
+                  disabled={isLoadingPreferences || !preferences}
+                  className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-700 rounded-xl text-white font-semibold transition-all flex items-center space-x-3 mx-auto text-lg"
+                >
+                  <Sparkles className="w-6 h-6" />
+                  <span>Start Conversation</span>
+                </button>
+
+                {isLoadingPreferences && (
+                  <p className="text-purple-300 text-sm mt-4">
+                    Loading your voice preferences...
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {activeTab === "chat" && sessionId && !showStartConversation && (
             <div className="flex flex-col h-[600px]">
               {/* TTS Controls for Voice Session */}
               {/* Enhanced TTS Controls for Voice Session */}
