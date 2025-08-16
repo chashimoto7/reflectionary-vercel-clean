@@ -33,27 +33,38 @@ class PreferencesService {
    */
   async loadPreferences(userId) {
     try {
-      const response = await fetch(
-        `${this.apiBase}/api/reflectionarian/preferences?user_id=${userId}`
-      );
+      console.log("🔧 PreferencesService loading for userId:", userId);
+      const url = `${this.apiBase}/api/reflectionarian/preferences?user_id=${userId}`;
+      console.log("🔧 Fetching from URL:", url);
+      
+      const response = await fetch(url);
+      console.log("🔧 Response status:", response.status, response.statusText);
 
       if (response.ok) {
         const data = await response.json();
+        console.log("🔧 Response data:", data);
+        
         if (data.preferences && data.preferences.onboarding_completed) {
+          console.log("🔧 Returning existing user preferences");
           return {
             preferences: { ...this.defaultPreferences, ...data.preferences },
             isNewUser: false,
           };
+        } else {
+          console.log("🔧 No valid preferences found (onboarding not completed)");
         }
+      } else {
+        console.log("🔧 Response not OK, status:", response.status);
       }
 
       // No preferences found or onboarding not completed
+      console.log("🔧 Returning default preferences as new user");
       return {
         preferences: this.defaultPreferences,
         isNewUser: true,
       };
     } catch (error) {
-      console.error("Error loading preferences:", error);
+      console.error("🔧 Error loading preferences:", error);
       return {
         preferences: this.defaultPreferences,
         isNewUser: true,

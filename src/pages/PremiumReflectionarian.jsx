@@ -258,10 +258,12 @@ const PremiumReflectionarian = () => {
   // Load user preferences
   const loadPreferences = async () => {
     try {
+      console.log("🔍 Starting to load preferences for user:", user.id);
       const result = await preferencesService.loadPreferences(user.id);
-      console.log("📥 Loaded preferences:", result);
+      console.log("📥 Raw preference result:", result);
       
       if (result && result.preferences) {
+        console.log("✅ Setting preferences:", result.preferences);
         setPreferences(result.preferences);
         console.log("✅ Voice preferences loaded:", {
           ttsVoice: result.preferences.ttsVoice,
@@ -272,10 +274,11 @@ const PremiumReflectionarian = () => {
           setShowOnboarding(true);
         }
       } else {
+        console.log("❌ No preferences found, showing onboarding");
         setShowOnboarding(true);
       }
     } catch (error) {
-      console.error("Error loading preferences:", error);
+      console.error("❌ Error loading preferences:", error);
       setShowOnboarding(true);
     } finally {
       setIsLoadingPreferences(false);
