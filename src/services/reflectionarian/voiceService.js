@@ -584,6 +584,7 @@ class VoiceService {
    */
   async speakText(text, voice = null, userId, rate = null) {
     try {
+      console.log("🎤 voiceService.speakText called with:", { text, voice, userId, rate });
       console.log("🎤 speakText called with:", { voice, rate, userId });
       
       // Ensure audio context is active before playing
@@ -621,6 +622,9 @@ class VoiceService {
       };
       
       const authToken = await this.getAuthToken();
+      console.log("🌐 Calling Supabase edge function:", `${API_BASE}/generate-audio`);
+      console.log("📤 Request body:", requestBody);
+      
       const response = await fetch(
         `${API_BASE}/generate-audio`,
         {
@@ -632,6 +636,8 @@ class VoiceService {
           body: JSON.stringify(requestBody),
         }
       );
+      
+      console.log("📥 Response status:", response.status, response.statusText);
 
       if (!response.ok) {
         const error = await response

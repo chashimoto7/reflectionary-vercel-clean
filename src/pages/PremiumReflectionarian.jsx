@@ -201,11 +201,25 @@ const PremiumReflectionarian = () => {
           setShowOnboarding(true);
         }
       } else {
-        console.log("❌ No preferences found, showing onboarding");
+        console.log("❌ No preferences found, using defaults");
+        // Set default preferences so button works
+        const defaultPrefs = {
+          ttsVoice: "nova",
+          speechRate: 1.0,
+          enableSpeech: true
+        };
+        setPreferences(defaultPrefs);
         setShowOnboarding(true);
       }
     } catch (error) {
       console.error("❌ Error loading preferences:", error);
+      // Set default preferences so button works even on error
+      const defaultPrefs = {
+        ttsVoice: "nova", 
+        speechRate: 1.0,
+        enableSpeech: true
+      };
+      setPreferences(defaultPrefs);
       setShowOnboarding(true);
     } finally {
       setIsLoadingPreferences(false);
@@ -372,6 +386,7 @@ const PremiumReflectionarian = () => {
   // Start conversation manually (for voice sessions)
   const startConversation = async () => {
     try {
+      console.log("🎬 Starting conversation with preferences:", preferences);
       setShowStartConversation(false);
       setIsSpeaking(true);
       setVoiceError(null);
@@ -409,7 +424,16 @@ const PremiumReflectionarian = () => {
       console.log("🎭 preferences?.ttsVoice:", preferences?.ttsVoice);
 
       // Use streaming for longer messages
+      console.log("🎤 About to call TTS with:", {
+        text: welcomeMessage,
+        voice: preferences?.ttsVoice || "alloy",
+        userId: user.id,
+        rate: preferences?.speechRate || 1.0,
+        isLongMessage: welcomeMessage.length > 200
+      });
+      
       if (welcomeMessage.length > 200) {
+        console.log("📱 Using streamTTS for long message");
         setIsStreaming(true);
         await voiceService.streamTTS(
           welcomeMessage,
@@ -419,6 +443,7 @@ const PremiumReflectionarian = () => {
           preferences?.speechRate || 1.0
         );
       } else {
+        console.log("🔊 Using speakText for short message");
         await voiceService.speakText(
           welcomeMessage,
           preferences?.ttsVoice || "alloy",
@@ -426,6 +451,7 @@ const PremiumReflectionarian = () => {
           preferences?.speechRate || 1.0
         );
       }
+      console.log("✅ TTS call completed");
 
       // Set up completion listener
       const checkCompletion = setInterval(() => {
