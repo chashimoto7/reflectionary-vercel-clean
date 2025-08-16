@@ -218,46 +218,24 @@ class ReflectionarianAudioService {
         }
       }
 
-      // Try Vercel API first, fallback to direct Supabase edge function
-      let response;
-      try {
-        response = await fetch(
-          "https://reflectionary-api.vercel.app/api/tts/generate",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
-              text,
-              voice: finalVoice,
-              model: "tts-1",
-              userId: userId,
-            }),
-          }
-        );
-      } catch (error) {
-        console.log("📢 TTS: Vercel API failed, trying direct Supabase edge function");
-        // Fallback to direct Supabase edge function
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-audio`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${currentSession.access_token}`,
-            },
-            body: JSON.stringify({
-              text,
-              voice: finalVoice,
-              model: "tts-1",
-              userId: userId,
-            }),
-          }
-        );
-      }
+      // Call Supabase edge function directly
+      console.log("📢 TTS: Calling Supabase edge function directly");
+      const response = await fetch(
+        "https://nvcdlmfvnybsgzkpmdth.supabase.co/functions/v1/generate-audio",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            text,
+            voice: finalVoice,
+            model: "tts-1",
+            userId: userId,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to generate audio");
