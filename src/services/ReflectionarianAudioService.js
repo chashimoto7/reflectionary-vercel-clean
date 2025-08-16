@@ -83,6 +83,33 @@ class ReflectionarianAudioService {
     this.volume = volume;
   }
 
+  /**
+   * Load user voice preferences from API
+   */
+  async loadVoicePreferences(userId) {
+    try {
+      const response = await fetch(
+        `https://reflectionary-api.vercel.app/api/reflectionarian/preferences?user_id=${userId}`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.preferences) {
+          return {
+            voice: data.preferences.ttsVoice || "nova",
+            rate: data.preferences.speechRate || 1.0
+          };
+        }
+      }
+      
+      // Fallback to defaults
+      return { voice: "nova", rate: 1.0 };
+    } catch (error) {
+      console.error("Failed to load voice preferences:", error);
+      return { voice: "nova", rate: 1.0 };
+    }
+  }
+
   // =============================================
   // PRE-GENERATED RESPONSES
   // =============================================
@@ -106,7 +133,7 @@ class ReflectionarianAudioService {
   /**
    * Pre-load common responses as audio
    */
-  async preloadCommonResponses() {
+  async preloadCommonResponses(userId = null) {
     const commonPhrases = [
       "I hear you...",
       "Tell me more about that...",
@@ -119,7 +146,8 @@ class ReflectionarianAudioService {
       try {
         const audioUrl = await this.generateAudioFromText(
           phrase,
-          this.defaultVoice
+          this.defaultVoice,
+          userId
         );
         if (audioUrl) {
           this.audioCache.set(phrase, audioUrl);
@@ -135,7 +163,7 @@ class ReflectionarianAudioService {
   /**
    * Play a transitional response immediately
    */
-  async playTransitionalResponse(category = null) {
+  async playTransitionalResponse(category = null, userId = null) {
     const response = this.getRandomTransitionalResponse(category);
 
     // Check if we have it cached
@@ -148,7 +176,8 @@ class ReflectionarianAudioService {
     try {
       const audioUrl = await this.generateAudioFromText(
         response,
-        this.defaultVoice
+        this.defaultVoice,
+        userId
       );
       if (audioUrl) {
         this.audioCache.set(response, audioUrl);
@@ -168,15 +197,30 @@ class ReflectionarianAudioService {
   /**
    * Generate audio from text using OpenAI TTS
    */
-  async generateAudioFromText(text, voice = null) {
+  async generateAudioFromText(text, voice = null, userId = null) {
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) throw new Error("No active session");
 
+      // Load user preferences if userId provided
+      let finalVoice = voice || this.defaultVoice;
+      let finalRate = this.playbackRate;
+      
+      if (userId) {
+        try {
+          const preferences = await this.loadVoicePreferences(userId);
+          finalVoice = voice || preferences.voice;
+          finalRate = preferences.rate;
+        } catch (error) {
+          console.error("Failed to load voice preferences, using defaults:", error);
+        }
+      }
+
+      // Use your API endpoint which properly handles authentication
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-audio`,
+        "https://reflectionary-api.vercel.app/api/tts/generate",
         {
           method: "POST",
           headers: {
@@ -185,9 +229,9 @@ class ReflectionarianAudioService {
           },
           body: JSON.stringify({
             text,
-            voice: voice || this.defaultVoice,
+            voice: finalVoice,
             model: "tts-1", // Use standard model for lower latency
-            speed: this.playbackRate,
+            userId: userId, // Pass userId so backend can load preferences
           }),
         }
       );
@@ -207,7 +251,7 @@ class ReflectionarianAudioService {
   /**
    * Stream audio response sentence by sentence
    */
-  async streamAudioResponse(text, voice = null) {
+  async streamAudioResponse(text, voice = null, userId = null) {
     // Split text into sentences
     const sentences = this.splitIntoSentences(text);
     const audioUrls = [];
@@ -218,7 +262,7 @@ class ReflectionarianAudioService {
       if (!sentence) continue;
 
       try {
-        const audioUrl = await this.generateAudioFromText(sentence, voice);
+        const audioUrl = await this.generateAudioFromText(sentence, voice, userId);
         if (audioUrl) {
           audioUrls.push(audioUrl);
 
