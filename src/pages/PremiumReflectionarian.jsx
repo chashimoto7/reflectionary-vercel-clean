@@ -157,6 +157,9 @@ const PremiumReflectionarian = () => {
             setIsSpeaking(true);
             setVoiceError(null);
 
+            console.log("🎭 Welcome message TTS - preferences:", preferences);
+            console.log("🎭 preferences?.ttsVoice:", preferences?.ttsVoice);
+            
             // Use streaming for longer messages
             if (messages[0].content.length > 200) {
               setIsStreaming(true);
