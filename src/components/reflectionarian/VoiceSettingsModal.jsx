@@ -10,6 +10,7 @@ const VoiceSettingsModal = ({
   currentRate = 1.0,
   onVoiceChange,
   onRateChange,
+  onReloadPreferences,
   userId,
 }) => {
   const [selectedVoice, setSelectedVoice] = useState(currentVoice || "nova");
@@ -109,6 +110,12 @@ const VoiceSettingsModal = ({
         console.log("✅ Voice preferences saved successfully:", result);
         onVoiceChange(selectedVoice);
         if (onRateChange) onRateChange(selectedRate);
+        
+        // Reload preferences to ensure sync
+        if (onReloadPreferences) {
+          await onReloadPreferences();
+        }
+        
         onClose();
       } else {
         console.error("❌ Failed to save preferences:", result);

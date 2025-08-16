@@ -255,9 +255,19 @@ const PremiumReflectionarian = () => {
   // Load user preferences
   const loadPreferences = async () => {
     try {
-      const prefs = await preferencesService.loadPreferences(user.id);
-      if (prefs) {
-        setPreferences(prefs);
+      const result = await preferencesService.loadPreferences(user.id);
+      console.log("📥 Loaded preferences:", result);
+      
+      if (result && result.preferences) {
+        setPreferences(result.preferences);
+        console.log("✅ Voice preferences loaded:", {
+          ttsVoice: result.preferences.ttsVoice,
+          speechRate: result.preferences.speechRate
+        });
+        
+        if (result.isNewUser) {
+          setShowOnboarding(true);
+        }
       } else {
         setShowOnboarding(true);
       }
@@ -939,12 +949,15 @@ const PremiumReflectionarian = () => {
           const newPrefs = { ...preferences, ttsVoice: voice };
           setPreferences(newPrefs);
           await preferencesService.savePreferences(user.id, newPrefs);
+          console.log("🔄 Voice changed to:", voice);
         }}
         onRateChange={async (rate) => {
           const newPrefs = { ...preferences, speechRate: rate };
           setPreferences(newPrefs);
           await preferencesService.savePreferences(user.id, newPrefs);
+          console.log("🔄 Speech rate changed to:", rate);
         }}
+        onReloadPreferences={loadPreferences}
       />
 
       <EndSessionModal
@@ -1058,14 +1071,6 @@ const PremiumReflectionarian = () => {
                 </div>
               )}
 
-              <button
-                onClick={() => setShowVoiceSettings(true)}
-                className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center space-x-2"
-                title="Voice Settings"
-              >
-                <Settings className="w-4 h-4 text-white" />
-                <span className="text-white text-sm">Voice Settings</span>
-              </button>
             </div>
           </div>
         </div>
