@@ -7,6 +7,7 @@ const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52Y2RsbWZ2bnlic2d6a3BtZHRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2NzQ4NzgsImV4cCI6MjA2NzI1MDg3OH0.a9TOIgvxjcfXKOOyzW44_Nf286amXXalcpyfZ-Ybh2I";
 
 const API_BASE = "https://nvcdlmfvnybsgzkpmdth.supabase.co/functions/v1";
+const VERCEL_API_BASE = "https://reflectionary-api.vercel.app";
 
 class VoiceService {
   constructor() {
@@ -382,15 +383,21 @@ class VoiceService {
    */
   async streamTTS(text, voice = null, userId, startFromSentence = 0, rate = null) {
     try {
+      console.log("🎤 streamTTS called with:", { voice, rate, userId });
+      
       // Load user preferences if not provided
       let finalVoice = voice;
       let finalRate = rate;
       
       if (!voice || !rate) {
+        console.log("🎤 streamTTS Loading preferences because voice or rate is missing");
         const preferences = await this.loadVoicePreferences(userId);
+        console.log("🎤 streamTTS Loaded preferences:", preferences);
         finalVoice = voice || preferences.voice;
         finalRate = rate || preferences.rate;
       }
+      
+      console.log("🎤 streamTTS Final voice settings:", { finalVoice, finalRate });
 
       // Store for resume capability
       this.currentFullText = text;
@@ -489,7 +496,7 @@ class VoiceService {
   async loadVoicePreferences(userId) {
     try {
       const response = await fetch(
-        `${API_BASE}/api/reflectionarian/preferences?user_id=${userId}`
+        `${VERCEL_API_BASE}/api/reflectionarian/preferences?user_id=${userId}`
       );
       
       if (response.ok) {
@@ -515,15 +522,21 @@ class VoiceService {
    */
   async speakText(text, voice = null, userId, rate = null) {
     try {
+      console.log("🎤 speakText called with:", { voice, rate, userId });
+      
       // Load user preferences if not provided
       let finalVoice = voice;
       let finalRate = rate;
       
       if (!voice || !rate) {
+        console.log("🎤 Loading preferences because voice or rate is missing");
         const preferences = await this.loadVoicePreferences(userId);
+        console.log("🎤 Loaded preferences:", preferences);
         finalVoice = voice || preferences.voice;
         finalRate = rate || preferences.rate;
       }
+      
+      console.log("🎤 Final voice settings:", { finalVoice, finalRate });
 
       // Use streaming for longer responses
       if (text.length > 200 && text.includes(".")) {
