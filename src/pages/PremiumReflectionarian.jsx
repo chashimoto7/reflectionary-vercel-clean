@@ -921,15 +921,13 @@ const PremiumReflectionarian = () => {
     if (saved) {
       setPreferences(newPreferences);
       setShowOnboarding(false);
-      // Start first session
-      startNewSession("text");
+      // Let user choose session type instead of auto-starting text session
     }
   };
 
   const handleOnboardingSkip = () => {
     setShowOnboarding(false);
-    // Start with default preferences
-    startNewSession("text");
+    // Let user choose session type instead of auto-starting text session
   };
 
   // Loading state
