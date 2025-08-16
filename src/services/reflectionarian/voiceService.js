@@ -226,22 +226,24 @@ class VoiceService {
         if (!sentence.trim()) return null;
 
         try {
+          const requestBody = {
+            text: sentence.trim(),
+            voice,
+            model: "tts-1", // Use faster model for streaming
+            userId,
+            speed: rate, // Add speech rate
+          };
+          
           // Start generating audio for all sentences immediately
           const response = await fetch(
-            `${SUPABASE_URL}/functions/v1/generate-audio`,
+            `${API_BASE}/api/tts/generate`,
             {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
               },
-              body: JSON.stringify({
-                text: sentence.trim(),
-                voice,
-                model: "tts-1", // Use faster model for streaming
-                userId,
-                speed: rate, // Add speech rate
-              }),
+              body: JSON.stringify(requestBody),
             }
           );
 
@@ -303,21 +305,23 @@ class VoiceService {
       this.stopSpeaking();
       console.log("🎤 Using OpenAI TTS system...");
 
+      const requestBody = {
+        text,
+        voice,
+        model: "tts-1",
+        userId,
+        speed: rate, // OpenAI accepts speed parameter
+      };
+      
       const response = await fetch(
-        `${SUPABASE_URL}/functions/v1/generate-audio`,
+        `${API_BASE}/api/tts/generate`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
           },
-          body: JSON.stringify({
-            text,
-            voice,
-            model: "tts-1",
-            userId,
-            speed: rate, // OpenAI accepts speed parameter
-          }),
+          body: JSON.stringify(requestBody),
         }
       );
 
