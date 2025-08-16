@@ -15,6 +15,7 @@ class PreferencesService {
       weekly_reports: true,
       enableSpeech: false,
       ttsVoice: "nova",
+      speechRate: 1.0,
       ttsEngine: "openai",
       ttsStyle: "calm",
     };

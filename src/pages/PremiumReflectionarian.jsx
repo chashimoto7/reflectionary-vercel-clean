@@ -1060,9 +1060,11 @@ const PremiumReflectionarian = () => {
 
               <button
                 onClick={() => setShowVoiceSettings(true)}
-                className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center space-x-2"
+                title="Voice Settings"
               >
-                <Settings className="w-5 h-5 text-white" />
+                <Settings className="w-4 h-4 text-white" />
+                <span className="text-white text-sm">Voice Settings</span>
               </button>
             </div>
           </div>
@@ -1527,28 +1529,64 @@ const PremiumReflectionarian = () => {
                   </div>
                 )}
 
-                {/* Voice Session Tips */}
+                {/* Voice Session Tips & Settings */}
                 {sessionType === "voice" &&
                   !isRecording &&
                   messages.length <= 1 && (
-                    <div className="mt-3 bg-purple-500/10 border border-purple-400/30 rounded-lg p-3">
-                      <div className="flex items-start space-x-3">
-                        <Volume2 className="w-5 h-5 text-purple-300 mt-0.5" />
-                        <div className="text-sm text-purple-200">
-                          <p className="font-medium mb-1">
-                            Voice Session Tips:
-                          </p>
-                          <ul className="text-xs space-y-1 text-purple-300">
-                            <li>
-                              • Speak naturally - I'll transcribe as you talk
-                            </li>
-                            <li>
-                              • Text will scroll automatically to show your
-                              words
-                            </li>
-                            <li>• You can edit the text before sending</li>
-                            <li>• I'll respond with both voice and text</li>
-                          </ul>
+                    <div className="mt-3 bg-purple-500/10 border border-purple-400/30 rounded-lg p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Tips Column */}
+                        <div className="flex items-start space-x-3">
+                          <Volume2 className="w-5 h-5 text-purple-300 mt-0.5 flex-shrink-0" />
+                          <div className="text-sm text-purple-200">
+                            <p className="font-medium mb-1">
+                              Voice Session Tips:
+                            </p>
+                            <ul className="text-xs space-y-1 text-purple-300">
+                              <li>
+                                • Speak naturally - I'll transcribe as you talk
+                              </li>
+                              <li>
+                                • Text will scroll automatically to show your words
+                              </li>
+                              <li>• You can edit the text before sending</li>
+                              <li>• I'll respond with both voice and text</li>
+                            </ul>
+                          </div>
+                        </div>
+
+                        {/* Voice Settings Column */}
+                        <div className="flex items-start space-x-3">
+                          <Settings className="w-5 h-5 text-purple-300 mt-0.5 flex-shrink-0" />
+                          <div className="text-sm text-purple-200">
+                            <p className="font-medium mb-2">Voice Settings:</p>
+                            <div className="space-y-2">
+                              {/* Current Voice Display */}
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-purple-300">Voice:</span>
+                                <span className="text-white capitalize">
+                                  {preferences?.ttsVoice || "Nova"}
+                                </span>
+                              </div>
+                              
+                              {/* Current Rate Display */}
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-purple-300">Speed:</span>
+                                <span className="text-white">
+                                  {preferences?.speechRate || 1.0}x
+                                </span>
+                              </div>
+
+                              {/* Settings Button */}
+                              <button
+                                onClick={() => setShowVoiceSettings(true)}
+                                className="w-full mt-2 px-3 py-1.5 bg-purple-600/30 hover:bg-purple-600/40 border border-purple-500/40 rounded-md text-xs text-white transition-colors flex items-center justify-center gap-1"
+                              >
+                                <Settings className="w-3 h-3" />
+                                Customize Voice
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>

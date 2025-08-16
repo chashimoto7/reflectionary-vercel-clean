@@ -87,6 +87,8 @@ const VoiceSettingsModal = ({
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      console.log("💾 Saving voice preferences:", { selectedVoice, selectedRate });
+      
       // Save preferences to database
       const response = await fetch(
         "https://reflectionary-api.vercel.app/api/reflectionarian/preferences",
@@ -101,13 +103,20 @@ const VoiceSettingsModal = ({
         }
       );
 
+      const result = await response.json();
+      
       if (response.ok) {
+        console.log("✅ Voice preferences saved successfully:", result);
         onVoiceChange(selectedVoice);
         if (onRateChange) onRateChange(selectedRate);
         onClose();
+      } else {
+        console.error("❌ Failed to save preferences:", result);
+        throw new Error(result.error || "Failed to save preferences");
       }
     } catch (error) {
-      console.error("Failed to save voice preferences:", error);
+      console.error("❌ Save voice preferences error:", error);
+      alert("Failed to save voice preferences. Please try again.");
     } finally {
       setIsSaving(false);
     }
