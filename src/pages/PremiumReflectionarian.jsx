@@ -97,6 +97,7 @@ const PremiumReflectionarian = () => {
   const [showEndSessionModal, setShowEndSessionModal] = useState(false);
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   const [showStartConversation, setShowStartConversation] = useState(false);
+  const [welcomeMessage, setWelcomeMessage] = useState("");
 
   // MoodTracker State
   const [showMoodTracker, setShowMoodTracker] = useState(false);
@@ -237,12 +238,8 @@ const PremiumReflectionarian = () => {
         const data = await response.json();
         setSessionHistory(data.sessions || []);
 
-        // Load active session if exists
-        const activeSession = data.sessions?.find((s) => s.status === "active");
-        if (activeSession) {
-          setSessionId(activeSession.id);
-          await loadSessionMessages(activeSession.id);
-        }
+        // Don't automatically load active sessions - let user choose to start manually
+        console.log("📋 Sessions loaded, user can choose to start a new session");
       }
     } catch (error) {
       console.error("Error loading sessions:", error);
@@ -361,18 +358,13 @@ const PremiumReflectionarian = () => {
             : "Hello! I'm your AI reflection companion. What's on your mind today?";
       }
 
-      if (type === "voice") {
-        // For voice sessions, show "Start Conversation" screen instead of auto-playing
-        setShowStartConversation(true);
-        setMessages([]);
-      } else {
-        // For text sessions, show the welcome message immediately
-        const welcomeMsg = sessionService.createMessage(
-          "assistant",
-          welcomeMessage
-        );
-        setMessages([welcomeMsg]);
-      }
+      // For ALL session types, show "Start Conversation" screen first
+      // Let user choose when to actually begin the conversation
+      setShowStartConversation(true);
+      setMessages([]);
+      
+      // Store the welcome message for when user clicks "Start Conversation"
+      setWelcomeMessage(welcomeMessage);
 
       await loadSessions();
     } catch (error) {
@@ -383,89 +375,69 @@ const PremiumReflectionarian = () => {
     }
   };
 
-  // Start conversation manually (for voice sessions)
+  // Start conversation manually (for both text and voice sessions)
   const startConversation = async () => {
     try {
       console.log("🎬 Starting conversation with preferences:", preferences);
+      console.log("🎬 Session type:", sessionType);
       setShowStartConversation(false);
-      setIsSpeaking(true);
-      setVoiceError(null);
 
-      // Create the welcome message that was prepared during session start
-      let welcomeMessage;
-      if (currentMoodData) {
-        const moodLevel = currentMoodData.mood_score;
-        const energyLevel = currentMoodData.energy_level;
-
-        let moodContext = "";
-        if (moodLevel <= 4) {
-          moodContext = "I sense you might be having a challenging day. ";
-        } else if (moodLevel >= 7) {
-          moodContext = "I can sense you're feeling positive today. ";
-        }
-
-        if (energyLevel <= 4) {
-          moodContext +=
-            "Take your time - we can explore whatever feels right for you today.";
-        } else if (energyLevel >= 7) {
-          moodContext +=
-            "Your energy feels good - let's make the most of this time together.";
-        }
-
-        welcomeMessage = `Hello! I'm your AI reflection companion. ${moodContext} I'm here to listen and support your reflection journey. Feel free to speak naturally about whatever is on your mind.`;
-      } else {
-        welcomeMessage = "Hello! I'm your AI reflection companion. Feel free to speak naturally about whatever is on your mind.";
-      }
-
-      const welcomeMsg = sessionService.createMessage("assistant", welcomeMessage);
+      // Use the stored welcome message
+      const messageToUse = welcomeMessage || "Hello! I'm your AI reflection companion. What's on your mind today?";
+      const welcomeMsg = sessionService.createMessage("assistant", messageToUse);
       setMessages([welcomeMsg]);
 
-      console.log("🎭 Manual conversation start - preferences:", preferences);
-      console.log("🎭 preferences?.ttsVoice:", preferences?.ttsVoice);
+      // Only do TTS for voice sessions
+      if (sessionType === "voice") {
+        setIsSpeaking(true);
+        setVoiceError(null);
+        console.log("🎭 Manual conversation start - preferences:", preferences);
+        console.log("🎭 preferences?.ttsVoice:", preferences?.ttsVoice);
 
-      // Use streaming for longer messages
-      console.log("🎤 About to call TTS with:", {
-        text: welcomeMessage,
-        voice: preferences?.ttsVoice || "alloy",
-        userId: user.id,
-        rate: preferences?.speechRate || 1.0,
-        isLongMessage: welcomeMessage.length > 200
-      });
-      
-      if (welcomeMessage.length > 200) {
-        console.log("📱 Using streamTTS for long message");
-        setIsStreaming(true);
-        await voiceService.streamTTS(
-          welcomeMessage,
-          preferences?.ttsVoice || "alloy",
-          user.id,
-          0,
-          preferences?.speechRate || 1.0
-        );
-      } else {
-        console.log("🔊 Using speakText for short message");
-        await voiceService.speakText(
-          welcomeMessage,
-          preferences?.ttsVoice || "alloy",
-          user.id,
-          preferences?.speechRate || 1.0
-        );
-      }
-      console.log("✅ TTS call completed");
-
-      // Set up completion listener
-      const checkCompletion = setInterval(() => {
-        if (!voiceService.isSpeaking()) {
-          setIsSpeaking(false);
-          setIsPaused(false);
-          setIsStreaming(false);
-          setStreamingProgress(0);
-          setCanInterrupt(false);
-          clearInterval(checkCompletion);
+        // Use streaming for longer messages
+        console.log("🎤 About to call TTS with:", {
+          text: messageToUse,
+          voice: preferences?.ttsVoice || "alloy",
+          userId: user.id,
+          rate: preferences?.speechRate || 1.0,
+          isLongMessage: messageToUse.length > 200
+        });
+        
+        if (messageToUse.length > 200) {
+          console.log("📱 Using streamTTS for long message");
+          setIsStreaming(true);
+          await voiceService.streamTTS(
+            messageToUse,
+            preferences?.ttsVoice || "alloy",
+            user.id,
+            0,
+            preferences?.speechRate || 1.0
+          );
         } else {
-          setCanInterrupt(true);
+          console.log("🔊 Using speakText for short message");
+          await voiceService.speakText(
+            messageToUse,
+            preferences?.ttsVoice || "alloy",
+            user.id,
+            preferences?.speechRate || 1.0
+          );
         }
-      }, 100);
+        console.log("✅ TTS call completed");
+
+        // Set up completion listener
+        const checkCompletion = setInterval(() => {
+          if (!voiceService.isSpeaking()) {
+            setIsSpeaking(false);
+            setIsPaused(false);
+            setIsStreaming(false);
+            setStreamingProgress(0);
+            setCanInterrupt(false);
+            clearInterval(checkCompletion);
+          } else {
+            setCanInterrupt(true);
+          }
+        }, 100);
+      }
     } catch (error) {
       console.error("TTS error:", error);
       setVoiceError("Voice playback failed");
@@ -1010,6 +982,7 @@ const PremiumReflectionarian = () => {
             setSessionType(null);
             setCurrentMoodData(null);
             setShowStartConversation(false);
+            setWelcomeMessage("");
             
             // Stop any ongoing voice activities
             if (isRecording) {
