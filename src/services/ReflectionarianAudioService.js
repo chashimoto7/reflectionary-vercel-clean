@@ -232,7 +232,6 @@ class ReflectionarianAudioService {
             text,
             voice: finalVoice,
             model: "tts-1",
-            userId: userId,
           }),
         }
       );

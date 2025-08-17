@@ -398,7 +398,6 @@ const PremiumReflectionarian = () => {
         console.log("🎤 About to call TTS with:", {
           text: messageToUse,
           voice: preferences?.ttsVoice || "alloy",
-          userId: user.id,
           rate: preferences?.speechRate || 1.0,
           isLongMessage: messageToUse.length > 200
         });
@@ -409,7 +408,7 @@ const PremiumReflectionarian = () => {
           await voiceService.streamTTS(
             messageToUse,
             preferences?.ttsVoice || "alloy",
-            user.id,
+            null, // Remove userId for privacy
             0,
             preferences?.speechRate || 1.0
           );
@@ -418,7 +417,7 @@ const PremiumReflectionarian = () => {
           await voiceService.speakText(
             messageToUse,
             preferences?.ttsVoice || "alloy",
-            user.id,
+            null, // Remove userId for privacy
             preferences?.speechRate || 1.0
           );
         }
@@ -521,7 +520,7 @@ const PremiumReflectionarian = () => {
             await voiceService.streamTTS(
               data.response,
               preferences?.ttsVoice || "nova",
-              user.id,
+              null, // Remove userId for privacy
               0,
               preferences?.speechRate || 1.0
             );
@@ -546,7 +545,7 @@ const PremiumReflectionarian = () => {
             await voiceService.speakText(
               data.response,
               preferences?.ttsVoice || "nova",
-              user.id,
+              null, // Remove userId for privacy
               preferences?.speechRate || 1.0
             );
           }

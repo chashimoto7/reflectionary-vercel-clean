@@ -123,7 +123,10 @@ class VoiceService {
    * Preload common phrases for instant playback
    */
   async preloadCommonPhrases(userId = null) {
-    if (!userId) return;
+    if (!userId) {
+      console.log("🎤 Skipping preload - no userId for privacy");
+      return;
+    }
 
     console.log("🎤 Preloading common phrases for instant TTS...");
     let preloadedCount = 0;
@@ -140,7 +143,6 @@ class VoiceService {
           text: phrase,
           voice: preferences.voice,
           model: "tts-1",
-          userId,
           speed: preferences.rate,
         };
         
@@ -171,6 +173,11 @@ class VoiceService {
    * Play a cached phrase if available, otherwise generate
    */
   async playInstantPhrase(phrase, userId) {
+    if (!userId) {
+      // Fallback to regular generation for privacy
+      return this.speakText(phrase, null, null);
+    }
+    
     const cacheKey = `${phrase}_${userId}`;
     
     if (this.audioCache.has(cacheKey)) {
@@ -195,6 +202,11 @@ class VoiceService {
    * Smart caching for frequently used sentences
    */
   async cacheFrequentSentences(sentences, userId) {
+    if (!userId) {
+      console.log("🎤 Skipping cache - no userId for privacy");
+      return;
+    }
+    
     for (const sentence of sentences) {
       const cacheKey = `${sentence}_${userId}`;
       
@@ -205,7 +217,6 @@ class VoiceService {
             text: sentence,
             voice: preferences.voice,
             model: "tts-1",
-            userId,
             speed: preferences.rate,
           };
           
@@ -453,10 +464,17 @@ class VoiceService {
       
       if (!voice || !rate) {
         console.log("🎤 streamTTS Loading preferences because voice or rate is missing");
-        const preferences = await this.loadVoicePreferences(userId);
-        console.log("🎤 streamTTS Loaded preferences:", preferences);
-        finalVoice = voice || preferences.voice;
-        finalRate = rate || preferences.rate;
+        if (userId) {
+          const preferences = await this.loadVoicePreferences(userId);
+          console.log("🎤 streamTTS Loaded preferences:", preferences);
+          finalVoice = voice || preferences.voice;
+          finalRate = rate || preferences.rate;
+        } else {
+          // Use defaults when no userId (for privacy)
+          finalVoice = voice || "nova";
+          finalRate = rate || 1.0;
+          console.log("🎤 streamTTS Using default preferences for privacy");
+        }
       }
       
       console.log("🎤 streamTTS Final voice settings:", { finalVoice, finalRate });
@@ -495,7 +513,6 @@ class VoiceService {
             text: sentence.trim(),
             voice: finalVoice,
             model: "tts-1", // Use faster model for streaming
-            userId,
             speed: finalRate,
           };
           
@@ -512,10 +529,18 @@ class VoiceService {
             }
           );
 
-          if (!response.ok) throw new Error("TTS generation failed");
+          if (!response.ok) {
+            console.error("🚫 Streaming TTS API Error:", response.status, response.statusText);
+            throw new Error(`TTS generation failed: ${response.status}`);
+          }
 
           const audioBlob = await response.blob();
+          console.log("🎧 Streaming audio blob:", {
+            size: audioBlob.size,
+            type: audioBlob.type
+          });
           const audioUrl = URL.createObjectURL(audioBlob);
+          console.log("🎵 Streaming audio URL created:", audioUrl);
 
           const audioData = { 
             index: startFromSentence + index, 
@@ -596,10 +621,17 @@ class VoiceService {
       
       if (!voice || !rate) {
         console.log("🎤 Loading preferences because voice or rate is missing");
-        const preferences = await this.loadVoicePreferences(userId);
-        console.log("🎤 Loaded preferences:", preferences);
-        finalVoice = voice || preferences.voice;
-        finalRate = rate || preferences.rate;
+        if (userId) {
+          const preferences = await this.loadVoicePreferences(userId);
+          console.log("🎤 Loaded preferences:", preferences);
+          finalVoice = voice || preferences.voice;
+          finalRate = rate || preferences.rate;
+        } else {
+          // Use defaults when no userId (for privacy)
+          finalVoice = voice || "nova";
+          finalRate = rate || 1.0;
+          console.log("🎤 Using default preferences for privacy");
+        }
       }
       
       console.log("🎤 Final voice settings:", { finalVoice, finalRate });
@@ -617,7 +649,6 @@ class VoiceService {
         text,
         voice: finalVoice,
         model: "tts-1",
-        userId,
         speed: finalRate, // OpenAI accepts speed parameter
       };
       
@@ -638,29 +669,69 @@ class VoiceService {
       );
       
       console.log("📥 Response status:", response.status, response.statusText);
+      console.log("📥 Response headers:", {
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length')
+      });
 
       if (!response.ok) {
-        const error = await response
-          .json()
-          .catch(() => ({ error: "TTS generation failed" }));
-        throw new Error(error.error || "TTS generation failed");
+        console.error("🚫 API Error - Response not OK:", response.status);
+        try {
+          const errorText = await response.text();
+          console.error("🚫 Error response body:", errorText);
+          const error = JSON.parse(errorText);
+          throw new Error(error.error || "TTS generation failed");
+        } catch (parseError) {
+          console.error("🚫 Failed to parse error response:", parseError);
+          throw new Error(`TTS API error: ${response.status} ${response.statusText}`);
+        }
       }
 
       const audioBlob = await response.blob();
+      console.log("🎧 Audio blob created:", {
+        size: audioBlob.size,
+        type: audioBlob.type
+      });
+      
       const audioUrl = URL.createObjectURL(audioBlob);
+      console.log("🎵 Audio URL created:", audioUrl);
 
       this.currentAudio = new Audio(audioUrl);
       this.currentAudio.volume = 0.8;
+      
+      console.log("🔊 Audio element created, attempting to play...");
 
-      // Clean up blob URL when audio ends
+      // Set up audio event handlers for debugging
       this.currentAudio.onended = () => {
+        console.log("🎧 Audio playback ended");
         URL.revokeObjectURL(audioUrl);
         this.currentAudio = null;
         this.isPaused = false;
       };
+      
+      this.currentAudio.onerror = (error) => {
+        console.error("🚫 Audio playback error:", error);
+        URL.revokeObjectURL(audioUrl);
+        this.currentAudio = null;
+      };
+      
+      this.currentAudio.oncanplay = () => {
+        console.log("🎧 Audio can play - ready for playback");
+      };
+      
+      this.currentAudio.onplay = () => {
+        console.log("🎧 Audio playback started!");
+      };
 
-      await this.currentAudio.play();
-      return this.currentAudio;
+      console.log("🎵 Attempting to play audio...");
+      try {
+        await this.currentAudio.play();
+        console.log("✅ Audio play() completed successfully");
+        return this.currentAudio;
+      } catch (playError) {
+        console.error("🚫 Audio play() failed:", playError);
+        throw playError;
+      }
     } catch (error) {
       console.error("TTS failed:", error);
       // Fallback to browser TTS
@@ -866,16 +937,21 @@ class VoiceService {
       let finalRate = rate;
       
       if (!voice || !rate) {
-        const preferences = await this.loadVoicePreferences(userId);
-        finalVoice = voice || preferences.voice;
-        finalRate = rate || preferences.rate;
+        if (userId) {
+          const preferences = await this.loadVoicePreferences(userId);
+          finalVoice = voice || preferences.voice;
+          finalRate = rate || preferences.rate;
+        } else {
+          // Use defaults when no userId (for privacy)
+          finalVoice = voice || "nova";
+          finalRate = rate || 1.0;
+        }
       }
 
       const requestBody = {
         text: sentence.trim(),
         voice: finalVoice,
         model: "tts-1",
-        userId,
         speed: finalRate,
       };
       
