@@ -159,6 +159,19 @@ class SimpleTTSQueue {
 // Create a single instance to use
 const ttsQueue = new SimpleTTSQueue();
 
+// Helper function to get readable voice name
+const getVoiceName = (voiceId) => {
+  const voiceMap = {
+    pNInz6obpgDQGcFmaJgB: "Adam",
+    "21m00Tcm4TlvDq8ikWAM": "Rachel",
+    AZnzlk1XvdvUeBnXmlld: "Domi",
+    "29vD33N1CtxCmqQRPOHJ": "Antoni",
+    EXAVITQu4vr4xnSDxMaL: "Bella",
+    ErXwobaYiN019PkySvjV: "Elli",
+  };
+  return voiceMap[voiceId] || voiceId;
+};
+
 const PremiumReflectionarian = () => {
   const { user } = useAuth();
   // Access is already verified by ReflectionarianRouter - no need for redundant checks
@@ -1169,7 +1182,9 @@ const PremiumReflectionarian = () => {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-purple-300">Voice:</span>
                     <span className="text-white capitalize">
-                      {preferences?.ttsVoice || "EXAVITQu4vr4xnSDxMaL"}
+                      {getVoiceName(
+                        preferences?.ttsVoice || "EXAVITQu4vr4xnSDxMaL"
+                      )}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm mt-2">
