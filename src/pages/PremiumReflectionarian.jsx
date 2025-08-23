@@ -1169,7 +1169,7 @@ const PremiumReflectionarian = () => {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-purple-300">Voice:</span>
                     <span className="text-white capitalize">
-                      {preferences?.ttsVoice || "Alloy"}
+                      {preferences?.ttsVoice || "EXAVITQu4vr4xnSDxMaL"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm mt-2">
