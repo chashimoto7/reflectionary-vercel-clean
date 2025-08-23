@@ -4,52 +4,13 @@ import { supabase } from "../lib/supabase";
 class ReflectionarianAudioService {
   constructor() {
     // Audio state
-    this.audioCache = new Map();
     this.currentAudio = null;
-    this.audioQueue = [];
     this.isPlaying = false;
 
     // Voice settings
     this.defaultVoice = "nova";
     this.playbackRate = 1.0;
     this.volume = 1.0;
-
-    // Pre-generated responses for instant playback
-    this.transitionalResponses = {
-      understanding: [
-        "I hear you...",
-        "That's really insightful...",
-        "Let me think about that for a moment...",
-        "I'm listening...",
-        "I understand...",
-        "That makes sense...",
-        "I see what you mean...",
-      ],
-      empathy: [
-        "That sounds challenging...",
-        "I can understand why that would be difficult...",
-        "Thank you for sharing that with me...",
-        "That takes courage to express...",
-        "I appreciate you opening up about this...",
-        "That must be hard for you...",
-        "I can hear the emotion in what you're sharing...",
-      ],
-      reflection: [
-        "Hmm, interesting perspective...",
-        "Let me reflect on what you've shared...",
-        "I'm considering what you've said...",
-        "That's a profound observation...",
-        "There's a lot to unpack there...",
-        "What you're describing is significant...",
-      ],
-      encouragement: [
-        "You're doing important work here...",
-        "That's a valuable insight...",
-        "You're making progress...",
-        "That's an important thought to explore...",
-        "You're on the right track...",
-      ],
-    };
 
     // Speech recognition setup (if supported)
     this.recognition = null;
@@ -110,85 +71,6 @@ class ReflectionarianAudioService {
     }
   }
 
-  // =============================================
-  // PRE-GENERATED RESPONSES
-  // =============================================
-
-  /**
-   * Get a random transitional response
-   */
-  getRandomTransitionalResponse(category = null) {
-    let responses;
-
-    if (category && this.transitionalResponses[category]) {
-      responses = this.transitionalResponses[category];
-    } else {
-      // Get from all categories
-      responses = Object.values(this.transitionalResponses).flat();
-    }
-
-    return responses[Math.floor(Math.random() * responses.length)];
-  }
-
-  /**
-   * Pre-load common responses as audio
-   */
-  async preloadCommonResponses(userId = null) {
-    const commonPhrases = [
-      "I hear you...",
-      "Tell me more about that...",
-      "That sounds challenging...",
-      "Thank you for sharing that with me...",
-      "Let me think about that for a moment...",
-    ];
-
-    for (const phrase of commonPhrases) {
-      try {
-        const audioUrl = await this.generateAudioFromText(
-          phrase,
-          this.defaultVoice,
-          userId
-        );
-        if (audioUrl) {
-          this.audioCache.set(phrase, audioUrl);
-        }
-      } catch (error) {
-        console.error("Error preloading phrase:", phrase, error);
-      }
-    }
-
-    console.log("✅ Preloaded", this.audioCache.size, "common responses");
-  }
-
-  /**
-   * Play a transitional response immediately
-   */
-  async playTransitionalResponse(category = null, userId = null) {
-    const response = this.getRandomTransitionalResponse(category);
-
-    // Check if we have it cached
-    if (this.audioCache.has(response)) {
-      await this.playAudio(this.audioCache.get(response));
-      return response;
-    }
-
-    // Otherwise, generate and play
-    try {
-      const audioUrl = await this.generateAudioFromText(
-        response,
-        this.defaultVoice,
-        userId
-      );
-      if (audioUrl) {
-        this.audioCache.set(response, audioUrl);
-        await this.playAudio(audioUrl);
-      }
-      return response;
-    } catch (error) {
-      console.error("Error playing transitional response:", error);
-      return null;
-    }
-  }
 
   // =============================================
   // TEXT-TO-SPEECH
@@ -248,61 +130,6 @@ class ReflectionarianAudioService {
     }
   }
 
-  /**
-   * Stream audio response sentence by sentence
-   */
-  async streamAudioResponse(text, voice = null, userId = null) {
-    this.stopAudio(); // Clear any previous state
-
-    const sentences = this.splitIntoSentences(text);
-    if (sentences.length === 0) return;
-
-    console.log(`📢 TTS Hybrid Streaming: Starting for ${sentences.length} sentences.`);
-
-    try {
-      // Step 1: Generate and play the first sentence immediately for a fast response
-      console.log("📢 TTS Hybrid Streaming: Generating first sentence...");
-      const firstAudioUrl = await this.generateAudioFromText(sentences[0], voice, userId);
-      
-      if (!firstAudioUrl) {
-        console.error("📢 TTS Hybrid Streaming: Failed to generate the first audio URL.");
-        return;
-      }
-      
-      console.log("📢 TTS Hybrid Streaming: Playing first sentence.");
-      // We don't await playAudio, let it run in the background.
-      this.playAudio(firstAudioUrl);
-
-      // Step 2: While the first sentence is playing, generate the rest in parallel
-      if (sentences.length > 1) {
-        console.log(`📢 TTS Hybrid Streaming: Generating remaining ${sentences.length - 1} sentences in the background.`);
-        const remainingSentences = sentences.slice(1);
-        const audioUrlPromises = remainingSentences.map(sentence =>
-          this.generateAudioFromText(sentence, voice, userId)
-        );
-        
-        // Await all background generations
-        const remainingAudioUrls = (await Promise.all(audioUrlPromises)).filter(url => url);
-
-        // Step 3: Add the generated URLs to the queue
-        if (remainingAudioUrls.length > 0) {
-          console.log(`📢 TTS Hybrid Streaming: Queuing ${remainingAudioUrls.length} remaining audio clips.`);
-          this.audioQueue = remainingAudioUrls;
-        }
-      }
-    } catch (error) {
-      console.error("📢 TTS Hybrid Streaming: Error during streaming process:", error);
-    }
-  }
-
-  /**
-   * Split text into sentences for streaming
-   */
-  splitIntoSentences(text) {
-    // Simple sentence splitting - can be improved with better NLP
-    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-    return sentences.map((s) => s.trim());
-  }
 
   // =============================================
   // AUDIO PLAYBACK
@@ -327,13 +154,6 @@ class ReflectionarianAudioService {
         audio.onended = () => {
           this.isPlaying = false;
           this.currentAudio = null;
-
-          // Check if there are queued audio files
-          if (this.audioQueue.length > 0) {
-            const nextAudio = this.audioQueue.shift();
-            this.playAudio(nextAudio);
-          }
-
           resolve();
         };
 
@@ -361,9 +181,6 @@ class ReflectionarianAudioService {
       this.currentAudio = null;
       this.isPlaying = false;
     }
-
-    // Clear audio queue
-    this.audioQueue = [];
   }
 
   /**
@@ -450,27 +267,12 @@ class ReflectionarianAudioService {
   // =============================================
 
   /**
-   * Clear audio cache
-   */
-  clearCache() {
-    // Revoke all cached URLs to free memory
-    this.audioCache.forEach((url) => {
-      URL.revokeObjectURL(url);
-    });
-
-    this.audioCache.clear();
-    this.audioQueue = [];
-  }
-
-  /**
    * Get audio playback status
    */
   getStatus() {
     return {
       isPlaying: this.isPlaying,
       hasAudio: !!this.currentAudio,
-      queueLength: this.audioQueue.length,
-      cacheSize: this.audioCache.size,
       isListening: this.isListening,
     };
   }
