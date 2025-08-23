@@ -258,7 +258,7 @@ class VoiceService {
       const requestBody = {
         text,
         voice: finalVoice,
-        model: "tts-1",
+        model: "eleven_monolingual_v1",
         speed: finalRate,
       };
 

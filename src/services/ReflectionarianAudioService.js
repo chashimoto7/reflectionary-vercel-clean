@@ -113,7 +113,7 @@ class ReflectionarianAudioService {
           body: JSON.stringify({
             text,
             voice: finalVoice,
-            model: "tts-1",
+            model: "eleven_monolingual_v1",
           }),
         }
       );
