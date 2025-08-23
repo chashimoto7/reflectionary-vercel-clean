@@ -409,25 +409,14 @@ const PremiumReflectionarian = () => {
           isLongMessage: messageToUse.length > 200,
         });
 
-        if (messageToUse.length > 200) {
-          console.log("📱 Using streamTTS for long message");
-          setIsStreaming(true);
-          await voiceService.streamTTS(
-            messageToUse,
-            preferences?.ttsVoice || "alloy",
-            null, // Remove userId for privacy
-            0,
-            preferences?.speechRate || 1.0
-          );
-        } else {
-          console.log("🔊 Using speakText for short message");
-          await voiceService.speakText(
-            messageToUse,
-            preferences?.ttsVoice || "alloy",
-            null, // Remove userId for privacy
-            preferences?.speechRate || 1.0
-          );
-        }
+        // Use speakText for all messages (streaming removed)
+        console.log("🔊 Using speakText for message");
+        await voiceService.speakText(
+          messageToUse,
+          preferences?.ttsVoice || "alloy",
+          null, // Remove userId for privacy
+          preferences?.speechRate || 1.0
+        );
         console.log("✅ TTS call completed");
 
         // Set up completion listener
@@ -517,45 +506,13 @@ const PremiumReflectionarian = () => {
           setVoiceError(null);
           setCanInterrupt(false);
 
-          // Use streaming for longer responses
-          if (data.response.length > 200 && data.response.includes(".")) {
-            setIsStreaming(true);
-            setStreamingProgress(0);
-
-            // Start streaming with progress tracking
-            const startTime = Date.now();
-            await voiceService.streamTTS(
-              data.response,
-              preferences?.ttsVoice || "nova",
-              null, // Remove userId for privacy
-              0,
-              preferences?.speechRate || 1.0
-            );
-
-            // Progress simulation (since we can't get real progress from TTS)
-            const progressInterval = setInterval(() => {
-              const elapsed = Date.now() - startTime;
-              const estimatedDuration = data.response.length * 50; // ~50ms per character
-              const progress = Math.min(
-                (elapsed / estimatedDuration) * 100,
-                95
-              );
-              setStreamingProgress(progress);
-
-              if (progress >= 95 || !voiceService.isSpeaking()) {
-                clearInterval(progressInterval);
-                setStreamingProgress(100);
-              }
-            }, 100);
-          } else {
-            // Use regular TTS for short responses
-            await voiceService.speakText(
-              data.response,
-              preferences?.ttsVoice || "nova",
-              null, // Remove userId for privacy
-              preferences?.speechRate || 1.0
-            );
-          }
+          // Use speakText for all responses (streaming removed)
+          await voiceService.speakText(
+            data.response,
+            preferences?.ttsVoice || "nova",
+            null, // Remove userId for privacy
+            preferences?.speechRate || 1.0
+          );
 
           // Set up completion listener with interrupt capability
           setTimeout(() => setCanInterrupt(true), 2000); // Allow interrupt after 2 seconds
