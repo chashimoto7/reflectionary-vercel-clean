@@ -53,6 +53,102 @@ import VoiceSettingsModal from "../components/reflectionarian/VoiceSettingsModal
 import SessionSummariesTab from "../components/reflectionarian/tabs/SessionSummariesTab";
 import ReflectionaryIcon from "../assets/ReflectionaryIcon.svg";
 
+// SimpleTTSQueue class for chunked text-to-speech
+class SimpleTTSQueue {
+  constructor() {
+    this.isPlaying = false;
+    this.queue = [];
+    this.currentAudio = null;
+  }
+
+  // Split text into logical chunks (sentences or smaller)
+  splitTextForTTS(text) {
+    // Split on sentence endings, but keep them reasonable sized
+    let sentences = text.match(/[^.!?]*[.!?]+/g) || [text];
+    
+    // If sentences are too long (>200 chars), split further
+    let chunks = [];
+    sentences.forEach(sentence => {
+      if (sentence.length > 200) {
+        // Split long sentences at commas or natural breaks
+        const parts = sentence.split(/,|;|\n/).filter(p => p.trim());
+        chunks.push(...parts.map(p => p.trim() + (p.includes('.') ? '' : ',')));
+      } else {
+        chunks.push(sentence.trim());
+      }
+    });
+    
+    return chunks.filter(chunk => chunk && chunk.length > 3);
+  }
+
+  // Queue up text chunks and start playing immediately
+  async queueAndPlay(fullText, voiceService, voice, speechRate) {
+    // Clear any existing queue
+    this.queue = [];
+    this.isPlaying = true;
+
+    const chunks = this.splitTextForTTS(fullText);
+    console.log(`📋 Split into ${chunks.length} chunks:`, chunks.map(c => c.substring(0, 50) + '...'));
+
+    // Process chunks one by one
+    for (let i = 0; i < chunks.length; i++) {
+      if (!this.isPlaying) break; // User stopped
+
+      const chunk = chunks[i];
+      console.log(`🔊 Playing chunk ${i + 1}/${chunks.length}: "${chunk.substring(0, 50)}..."`);
+
+      try {
+        // Use your existing voiceService.speakText exactly as before
+        await voiceService.speakText(
+          chunk,
+          voice,
+          null, // userId 
+          speechRate
+        );
+
+        // Wait for this chunk to finish before starting next
+        await this.waitForCompletion(voiceService);
+        
+        // Small pause between chunks (optional)
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (error) {
+        console.error(`Error playing chunk ${i + 1}:`, error);
+        // Continue with next chunk instead of failing completely
+      }
+    }
+
+    this.isPlaying = false;
+    console.log("✅ All chunks completed");
+  }
+
+  // Wait for current audio to finish
+  async waitForCompletion(voiceService) {
+    return new Promise((resolve) => {
+      const checkInterval = setInterval(() => {
+        if (!voiceService.isSpeaking()) {
+          clearInterval(checkInterval);
+          resolve();
+        }
+      }, 100);
+    });
+  }
+
+  // Stop the queue
+  stop() {
+    this.isPlaying = false;
+    this.queue = [];
+  }
+
+  // Check if we're currently playing
+  isCurrentlyPlaying() {
+    return this.isPlaying;
+  }
+}
+
+// Create a single instance to use
+const ttsQueue = new SimpleTTSQueue();
+
 const PremiumReflectionarian = () => {
   const { user } = useAuth();
   // Access is already verified by ReflectionarianRouter - no need for redundant checks
@@ -377,6 +473,59 @@ const PremiumReflectionarian = () => {
     }
   };
 
+  // Handle TTS with queue system
+  const handleTTSWithQueue = async (responseText) => {
+    if (!preferences?.enableTTS) return;
+    
+    const messageToUse = responseText || messages[messages.length - 1]?.content;
+    if (!messageToUse) return;
+
+    try {
+      setIsSpeaking(true);
+      setVoiceError(null);
+
+      // For short messages, use normal TTS
+      if (messageToUse.length < 300) {
+        console.log("🔊 Using regular TTS for short message");
+        await voiceService.speakText(
+          messageToUse,
+          preferences?.ttsVoice || "nova",
+          null,
+          preferences?.speechRate || 1.0
+        );
+      } else {
+        // For long messages, use the queue system
+        console.log("🔊 Using queued TTS for long message");
+        await ttsQueue.queueAndPlay(
+          messageToUse,
+          voiceService,
+          preferences?.ttsVoice || "nova", 
+          preferences?.speechRate || 1.0
+        );
+      }
+
+      // Set up completion listener (same as before)
+      const checkCompletion = setInterval(() => {
+        if (!voiceService.isSpeaking() && !ttsQueue.isCurrentlyPlaying()) {
+          setIsSpeaking(false);
+          setIsPaused(false);
+          setIsStreaming(false);
+          setStreamingProgress(0);
+          setCanInterrupt(false);
+          clearInterval(checkCompletion);
+        } else {
+          setCanInterrupt(true);
+        }
+      }, 100);
+
+    } catch (error) {
+      console.error("TTS error:", error);
+      setVoiceError("Voice playback failed");
+      setIsSpeaking(false);
+      ttsQueue.stop();
+    }
+  };
+
   // Start conversation manually (for both text and voice sessions)
   const startConversation = async () => {
     try {
@@ -396,42 +545,8 @@ const PremiumReflectionarian = () => {
 
       // Only do TTS for voice sessions
       if (sessionType === "voice") {
-        setIsSpeaking(true);
-        setVoiceError(null);
-        console.log("🎭 Manual conversation start - preferences:", preferences);
-        console.log("🎭 preferences?.ttsVoice:", preferences?.ttsVoice);
-
-        // Use streaming for longer messages
-        console.log("🎤 About to call TTS with:", {
-          text: messageToUse,
-          voice: preferences?.ttsVoice || "alloy",
-          rate: preferences?.speechRate || 1.0,
-          isLongMessage: messageToUse.length > 200,
-        });
-
-        // Use speakText for all messages (streaming removed)
-        console.log("🔊 Using speakText for message");
-        await voiceService.speakText(
-          messageToUse,
-          preferences?.ttsVoice || "alloy",
-          null, // Remove userId for privacy
-          preferences?.speechRate || 1.0
-        );
-        console.log("✅ TTS call completed");
-
-        // Set up completion listener
-        const checkCompletion = setInterval(() => {
-          if (!voiceService.isSpeaking()) {
-            setIsSpeaking(false);
-            setIsPaused(false);
-            setIsStreaming(false);
-            setStreamingProgress(0);
-            setCanInterrupt(false);
-            clearInterval(checkCompletion);
-          } else {
-            setCanInterrupt(true);
-          }
-        }, 100);
+        console.log("🎭 Manual conversation start - using queue system");
+        await handleTTSWithQueue(messageToUse);
       }
     } catch (error) {
       console.error("TTS error:", error);
@@ -499,42 +614,9 @@ const PremiumReflectionarian = () => {
         setMessages((prev) => [...prev, assistantMsg]);
       }
 
-      // Auto-speak for voice sessions
+      // Auto-speak for voice sessions using queue system
       if (sessionType === "voice" || preferences?.enableSpeech) {
-        try {
-          setIsSpeaking(true);
-          setVoiceError(null);
-          setCanInterrupt(false);
-
-          // Use speakText for all responses (streaming removed)
-          await voiceService.speakText(
-            data.response,
-            preferences?.ttsVoice || "nova",
-            null, // Remove userId for privacy
-            preferences?.speechRate || 1.0
-          );
-
-          // Set up completion listener with interrupt capability
-          setTimeout(() => setCanInterrupt(true), 2000); // Allow interrupt after 2 seconds
-
-          const checkCompletion = setInterval(() => {
-            if (!voiceService.isSpeaking()) {
-              setIsSpeaking(false);
-              setIsPaused(false);
-              setIsStreaming(false);
-              setStreamingProgress(0);
-              setCanInterrupt(false);
-              clearInterval(checkCompletion);
-            }
-          }, 100);
-        } catch (error) {
-          console.error("TTS error:", error);
-          setVoiceError("Voice playback failed");
-          setIsSpeaking(false);
-          setIsPaused(false);
-          setIsStreaming(false);
-          setStreamingProgress(0);
-        }
+        await handleTTSWithQueue(data.response);
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -680,9 +762,10 @@ const PremiumReflectionarian = () => {
     }
   };
 
+  // Updated stopSpeaking function to handle queue
   const stopSpeaking = (preserveForResume = true) => {
     voiceService.stopSpeaking(preserveForResume);
-    voiceService.stopStreaming(); // Also stop streaming
+    ttsQueue.stop(); // Also stop the queue
     setIsSpeaking(false);
     setIsPaused(false);
     setIsStreaming(false);
