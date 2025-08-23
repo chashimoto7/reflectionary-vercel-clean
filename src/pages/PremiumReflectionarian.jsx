@@ -499,7 +499,7 @@ const PremiumReflectionarian = () => {
         console.log("🔊 Using regular TTS for short message");
         await voiceService.speakText(
           messageToUse,
-          preferences?.ttsVoice || "nova",
+          preferences?.ttsVoice || "EXAVITQu4vr4xnSDxMaL",
           null,
           preferences?.speechRate || 1.0
         );
@@ -509,7 +509,7 @@ const PremiumReflectionarian = () => {
         await ttsQueue.queueAndPlay(
           messageToUse,
           voiceService,
-          preferences?.ttsVoice || "nova",
+          preferences?.ttsVoice || "EXAVITQu4vr4xnSDxMaL",
           preferences?.speechRate || 1.0
         );
       }

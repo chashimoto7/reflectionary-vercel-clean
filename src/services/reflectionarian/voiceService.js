@@ -444,16 +444,16 @@ class VoiceService {
   }
 
   /**
-   * Get available voices
+   * Get available voices (Eleven Labs voices)
    */
   getAvailableVoices() {
     return [
-      { id: "alloy", name: "Alloy", description: "Neutral and balanced" },
-      { id: "echo", name: "Echo", description: "Male, conversational" },
-      { id: "fable", name: "Fable", description: "British, expressive" },
-      { id: "onyx", name: "Onyx", description: "Deep and authoritative" },
-      { id: "nova", name: "Nova", description: "Warm and friendly" },
-      { id: "shimmer", name: "Shimmer", description: "Soft and gentle" },
+      { id: "pNInz6obpgDQGcFmaJgB", name: "Adam", description: "Neutral male voice" },
+      { id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", description: "Calm female voice" },
+      { id: "AZnzlk1XvdvUeBnXmlld", name: "Domi", description: "Strong female voice" },
+      { id: "29vD33N1CtxCmqQRPOHJ", name: "Antoni", description: "Deep male voice" },
+      { id: "EXAVITQu4vr4xnSDxMaL", name: "Bella", description: "Warm female voice" },
+      { id: "ErXwobaYiN019PkySvjV", name: "Elli", description: "Gentle female voice" },
     ];
   }
 
