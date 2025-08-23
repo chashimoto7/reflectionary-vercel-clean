@@ -252,34 +252,47 @@ class ReflectionarianAudioService {
    * Stream audio response sentence by sentence
    */
   async streamAudioResponse(text, voice = null, userId = null) {
-    // Split text into sentences
+    this.stopAudio(); // Clear any previous state
+
     const sentences = this.splitIntoSentences(text);
-    const audioUrls = [];
+    if (sentences.length === 0) return;
 
-    // Generate audio for each sentence
-    for (let i = 0; i < sentences.length; i++) {
-      const sentence = sentences[i].trim();
-      if (!sentence) continue;
+    console.log(`📢 TTS Hybrid Streaming: Starting for ${sentences.length} sentences.`);
 
-      try {
-        const audioUrl = await this.generateAudioFromText(sentence, voice, userId);
-        if (audioUrl) {
-          audioUrls.push(audioUrl);
-
-          // Start playing first sentence immediately
-          if (i === 0) {
-            this.playAudio(audioUrl);
-          } else {
-            // Queue subsequent sentences
-            this.audioQueue.push(audioUrl);
-          }
-        }
-      } catch (error) {
-        console.error("Error generating sentence audio:", error);
+    try {
+      // Step 1: Generate and play the first sentence immediately for a fast response
+      console.log("📢 TTS Hybrid Streaming: Generating first sentence...");
+      const firstAudioUrl = await this.generateAudioFromText(sentences[0], voice, userId);
+      
+      if (!firstAudioUrl) {
+        console.error("📢 TTS Hybrid Streaming: Failed to generate the first audio URL.");
+        return;
       }
-    }
+      
+      console.log("📢 TTS Hybrid Streaming: Playing first sentence.");
+      // We don't await playAudio, let it run in the background.
+      this.playAudio(firstAudioUrl);
 
-    return audioUrls;
+      // Step 2: While the first sentence is playing, generate the rest in parallel
+      if (sentences.length > 1) {
+        console.log(`📢 TTS Hybrid Streaming: Generating remaining ${sentences.length - 1} sentences in the background.`);
+        const remainingSentences = sentences.slice(1);
+        const audioUrlPromises = remainingSentences.map(sentence =>
+          this.generateAudioFromText(sentence, voice, userId)
+        );
+        
+        // Await all background generations
+        const remainingAudioUrls = (await Promise.all(audioUrlPromises)).filter(url => url);
+
+        // Step 3: Add the generated URLs to the queue
+        if (remainingAudioUrls.length > 0) {
+          console.log(`📢 TTS Hybrid Streaming: Queuing ${remainingAudioUrls.length} remaining audio clips.`);
+          this.audioQueue = remainingAudioUrls;
+        }
+      }
+    } catch (error) {
+      console.error("📢 TTS Hybrid Streaming: Error during streaming process:", error);
+    }
   }
 
   /**
