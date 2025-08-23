@@ -31,7 +31,7 @@ class VoiceService {
     this.currentRate = 1.0;
     this.pausedAtSentence = 0;
     this.sentencesForResume = [];
-    
+
     // Add audio caching and preloading
     this.audioCache = new Map();
     this.commonPhrases = [
@@ -44,12 +44,12 @@ class VoiceService {
       "You're making progress.",
       "Let's explore that further.",
       "I hear you.",
-      "That makes sense."
+      "That makes sense.",
     ];
-    
+
     // Preload common phrases
     this.preloadCommonPhrases();
-    
+
     // Handle tab visibility changes
     this.setupVisibilityHandlers();
   }
@@ -81,13 +81,13 @@ class VoiceService {
    * Setup visibility change handlers
    */
   setupVisibilityHandlers() {
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', () => {
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", () => {
         if (!document.hidden && this.currentAudio) {
           console.log("Tab became visible, ensuring audio playback");
           // Reactivate audio context when tab becomes visible
           this.ensureAudioContext();
-          
+
           // Force resume if audio is paused
           if (this.currentAudio.paused && !this.isPaused) {
             this.currentAudio.play().catch(console.error);
@@ -106,12 +106,12 @@ class VoiceService {
       const audio = new Audio();
       audio.volume = 0;
       audio.currentTime = 0;
-      
+
       // Play and immediately pause to activate audio context
       await audio.play();
       audio.pause();
       audio.remove();
-      
+
       console.log("Audio context activated");
     } catch (error) {
       console.log("Audio context activation failed:", error);
@@ -134,7 +134,7 @@ class VoiceService {
     for (const phrase of this.commonPhrases) {
       try {
         const cacheKey = `${phrase}_${userId}`;
-        
+
         // Skip if already cached
         if (this.audioCache.has(cacheKey)) continue;
 
@@ -145,7 +145,7 @@ class VoiceService {
           model: "tts-1",
           speed: preferences.rate,
         };
-        
+
         const authToken = await this.getAuthToken();
         const response = await fetch(`${API_BASE}/tts/generate`, {
           method: "POST",
@@ -177,14 +177,14 @@ class VoiceService {
       // Fallback to regular generation for privacy
       return this.speakText(phrase, null, null);
     }
-    
+
     const cacheKey = `${phrase}_${userId}`;
-    
+
     if (this.audioCache.has(cacheKey)) {
       console.log("🚀 Playing cached phrase instantly");
       const audioBlob = this.audioCache.get(cacheKey);
       const audioUrl = URL.createObjectURL(audioBlob);
-      
+
       try {
         await this.playAudioSegment(audioUrl);
         URL.revokeObjectURL(audioUrl);
@@ -193,7 +193,7 @@ class VoiceService {
         console.error("Error playing cached phrase:", error);
       }
     }
-    
+
     // Fallback to regular generation
     return this.speakText(phrase, null, userId);
   }
@@ -206,10 +206,10 @@ class VoiceService {
       console.log("🎤 Skipping cache - no userId for privacy");
       return;
     }
-    
+
     for (const sentence of sentences) {
       const cacheKey = `${sentence}_${userId}`;
-      
+
       if (!this.audioCache.has(cacheKey)) {
         try {
           const preferences = await this.loadVoicePreferences(userId);
@@ -219,7 +219,7 @@ class VoiceService {
             model: "tts-1",
             speed: preferences.rate,
           };
-          
+
           const authToken = await this.getAuthToken();
           const response = await fetch(`${API_BASE}/tts/generate`, {
             method: "POST",
@@ -378,47 +378,73 @@ class VoiceService {
    */
   async playAudioSegment(audioUrl) {
     return new Promise((resolve, reject) => {
+      console.log("[TTS Debug] 1. playAudioSegment called with URL:", audioUrl);
       const audio = new Audio(audioUrl);
       audio.volume = 0.8;
-      
-      console.log("🎵 Creating audio element for:", audioUrl.substring(0, 50) + "...");
+
+      console.log("[TTS Debug] 2. Audio element created:", audio);
 
       // Set up event handlers first
       audio.onended = () => {
-        console.log("🎵 Audio segment finished playing");
+        console.log(
+          "[TTS Debug] 9. Audio segment finished playing (onended event)."
+        );
         this.currentAudio = null;
         resolve();
       };
 
       audio.onerror = (error) => {
-        console.error("🚫 Audio playback error:", error);
+        console.error(
+          "[TTS Debug] 10. Audio playback error (onerror event):",
+          error
+        );
         this.currentAudio = null;
         resolve(); // Resolve instead of reject to continue with next segment
       };
 
       audio.oncanplaythrough = async () => {
-        console.log("🎵 Audio ready to play, starting playback...");
+        console.log(
+          "[TTS Debug] 5. Audio can play through (oncanplaythrough event). Ready to play."
+        );
         try {
+          console.log("[TTS Debug] 6. Calling audio.play()");
           await audio.play();
-          console.log("✅ Audio playback started successfully");
+          console.log(
+            "[TTS Debug] 7. Audio playback started successfully (play() promise resolved)."
+          );
         } catch (playError) {
-          console.error("🚫 Play error:", playError);
+          console.error("[TTS Debug] 8. audio.play() was rejected:", playError);
           this.currentAudio = null;
           resolve();
         }
       };
 
+      audio.onstalled = () => {
+        console.warn("[TTS Debug] Audio stalled (onstalled event).");
+      };
+
+      audio.onsuspend = () => {
+        console.warn("[TTS Debug] Audio suspended (onsuspend event).");
+      };
+
       // For streaming, ensure we can interrupt
       this.currentAudio = audio;
-      
+
       // Start loading the audio
-      console.log("🎵 Loading audio segment...");
+      console.log("[TTS Debug] 3. Calling audio.load().");
       audio.load();
+      console.log(
+        "[TTS Debug] 4. audio.load() called. Current readyState:",
+        audio.readyState
+      );
 
       // Timeout fallback in case audio doesn't load
       setTimeout(() => {
-        if (audio.readyState < 2) { // HAVE_CURRENT_DATA
-          console.warn("⏰ Audio loading timeout, skipping segment");
+        if (audio.readyState < 2) {
+          // HAVE_CURRENT_DATA
+          console.warn(
+            `[TTS Debug] 11. Audio loading timeout. readyState is ${audio.readyState}. Skipping segment.`
+          );
           this.currentAudio = null;
           resolve();
         }
@@ -426,23 +452,30 @@ class VoiceService {
     });
   }
 
-
   /**
    * Stream TTS by splitting text into sentences
    */
-  async streamTTS(text, voice = null, userId, startFromSentence = 0, rate = null) {
+  async streamTTS(
+    text,
+    voice = null,
+    userId,
+    startFromSentence = 0,
+    rate = null
+  ) {
     try {
       console.log("🎤 streamTTS called with:", { voice, rate, userId });
-      
+
       // Ensure audio context is active before playing
       await this.ensureAudioContext();
-      
+
       // Load user preferences if not provided
       let finalVoice = voice;
       let finalRate = rate;
-      
+
       if (!voice || !rate) {
-        console.log("🎤 streamTTS Loading preferences because voice or rate is missing");
+        console.log(
+          "🎤 streamTTS Loading preferences because voice or rate is missing"
+        );
         if (userId) {
           const preferences = await this.loadVoicePreferences(userId);
           console.log("🎤 streamTTS Loaded preferences:", preferences);
@@ -455,15 +488,18 @@ class VoiceService {
           console.log("🎤 streamTTS Using default preferences for privacy");
         }
       }
-      
-      console.log("🎤 streamTTS Final voice settings:", { finalVoice, finalRate });
+
+      console.log("🎤 streamTTS Final voice settings:", {
+        finalVoice,
+        finalRate,
+      });
 
       // Store for resume capability
       this.currentFullText = text;
       this.currentVoice = finalVoice;
       this.currentUserId = userId;
       this.currentRate = finalRate;
-      
+
       // Stop any current speech but don't reset if resuming
       if (startFromSentence === 0) {
         this.stopSpeaking();
@@ -475,19 +511,25 @@ class VoiceService {
       this.audioQueue = [];
       this.isStreaming = true;
 
-      console.log(`🎤 Streaming ${sentences.length} sentences from sentence ${startFromSentence}...`);
+      console.log(
+        `🎤 Streaming ${sentences.length} sentences from sentence ${startFromSentence}...`
+      );
 
       // Generate and play sentences sequentially for more reliability
       const sentencesToPlay = sentences.slice(startFromSentence);
-      
+
       for (let i = 0; i < sentencesToPlay.length && this.isStreaming; i++) {
         const sentence = sentencesToPlay[i].trim();
         if (!sentence) continue;
 
         try {
           this.pausedAtSentence = startFromSentence + i;
-          
-          console.log(`🎵 Generating sentence ${i + 1}/${sentencesToPlay.length}: "${sentence.substring(0, 50)}..."`);
+
+          console.log(
+            `🎵 Generating sentence ${i + 1}/${
+              sentencesToPlay.length
+            }: "${sentence.substring(0, 50)}..."`
+          );
 
           const requestBody = {
             text: sentence,
@@ -495,7 +537,7 @@ class VoiceService {
             model: "tts-1",
             speed: finalRate,
           };
-          
+
           const authToken = await this.getAuthToken();
           const response = await fetch(`${API_BASE}/tts/generate`, {
             method: "POST",
@@ -507,24 +549,32 @@ class VoiceService {
           });
 
           if (!response.ok) {
-            console.error("🚫 Streaming TTS API Error:", response.status, response.statusText);
+            console.error(
+              "🚫 Streaming TTS API Error:",
+              response.status,
+              response.statusText
+            );
             throw new Error(`TTS generation failed: ${response.status}`);
           }
 
           const audioBlob = await response.blob();
-          console.log("🎧 Audio blob generated:", { size: audioBlob.size, type: audioBlob.type });
-          
+          console.log("🎧 Audio blob generated:", {
+            size: audioBlob.size,
+            type: audioBlob.type,
+          });
+
           const audioUrl = URL.createObjectURL(audioBlob);
-          console.log(`🔊 Playing sentence ${i + 1}: "${sentence.substring(0, 30)}..."`);
+          console.log(
+            `🔊 Playing sentence ${i + 1}: "${sentence.substring(0, 30)}..."`
+          );
 
           // Play this sentence
           if (this.isStreaming) {
             await this.playAudioSegment(audioUrl);
           }
-          
+
           // Clean up URL
           URL.revokeObjectURL(audioUrl);
-          
         } catch (error) {
           console.error(`Failed to generate/play sentence ${i}:`, error);
           // Continue with next sentence instead of failing completely
@@ -552,17 +602,17 @@ class VoiceService {
       const response = await fetch(
         `${VERCEL_API_BASE}/api/reflectionarian/preferences?user_id=${userId}`
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         if (data.preferences) {
           return {
             voice: data.preferences.ttsVoice || "nova",
-            rate: data.preferences.speechRate || 1.0
+            rate: data.preferences.speechRate || 1.0,
           };
         }
       }
-      
+
       // Fallback to defaults
       return { voice: "nova", rate: 1.0 };
     } catch (error) {
@@ -576,16 +626,21 @@ class VoiceService {
    */
   async speakText(text, voice = null, userId, rate = null) {
     try {
-      console.log("🎤 voiceService.speakText called with:", { text, voice, userId, rate });
+      console.log("🎤 voiceService.speakText called with:", {
+        text,
+        voice,
+        userId,
+        rate,
+      });
       console.log("🎤 speakText called with:", { voice, rate, userId });
-      
+
       // Ensure audio context is active before playing
       await this.ensureAudioContext();
-      
+
       // Load user preferences if not provided
       let finalVoice = voice;
       let finalRate = rate;
-      
+
       if (!voice || !rate) {
         console.log("🎤 Loading preferences because voice or rate is missing");
         if (userId) {
@@ -600,7 +655,7 @@ class VoiceService {
           console.log("🎤 Using default preferences for privacy");
         }
       }
-      
+
       console.log("🎤 Final voice settings:", { finalVoice, finalRate });
 
       // Use streaming for longer responses
@@ -610,7 +665,12 @@ class VoiceService {
 
       // Original implementation for short responses
       this.stopSpeaking();
-      console.log("🎤 Using OpenAI TTS system with voice:", finalVoice, "rate:", finalRate);
+      console.log(
+        "🎤 Using OpenAI TTS system with voice:",
+        finalVoice,
+        "rate:",
+        finalRate
+      );
 
       const requestBody = {
         text,
@@ -618,27 +678,24 @@ class VoiceService {
         model: "tts-1",
         speed: finalRate, // OpenAI accepts speed parameter
       };
-      
+
       const authToken = await this.getAuthToken();
       console.log("🌐 Calling TTS API endpoint:", `${API_BASE}/tts/generate`);
       console.log("📤 Request body:", requestBody);
-      
-      const response = await fetch(
-        `${API_BASE}/tts/generate`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${authToken}`,
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
-      
+
+      const response = await fetch(`${API_BASE}/tts/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
       console.log("📥 Response status:", response.status, response.statusText);
       console.log("📥 Response headers:", {
-        contentType: response.headers.get('content-type'),
-        contentLength: response.headers.get('content-length')
+        contentType: response.headers.get("content-type"),
+        contentLength: response.headers.get("content-length"),
       });
 
       if (!response.ok) {
@@ -650,22 +707,24 @@ class VoiceService {
           throw new Error(error.error || "TTS generation failed");
         } catch (parseError) {
           console.error("🚫 Failed to parse error response:", parseError);
-          throw new Error(`TTS API error: ${response.status} ${response.statusText}`);
+          throw new Error(
+            `TTS API error: ${response.status} ${response.statusText}`
+          );
         }
       }
 
       const audioBlob = await response.blob();
       console.log("🎧 Audio blob created:", {
         size: audioBlob.size,
-        type: audioBlob.type
+        type: audioBlob.type,
       });
-      
+
       const audioUrl = URL.createObjectURL(audioBlob);
       console.log("🎵 Audio URL created:", audioUrl);
 
       this.currentAudio = new Audio(audioUrl);
       this.currentAudio.volume = 0.8;
-      
+
       console.log("🔊 Audio element created, attempting to play...");
 
       // Set up audio event handlers for debugging
@@ -675,17 +734,17 @@ class VoiceService {
         this.currentAudio = null;
         this.isPaused = false;
       };
-      
+
       this.currentAudio.onerror = (error) => {
         console.error("🚫 Audio playback error:", error);
         URL.revokeObjectURL(audioUrl);
         this.currentAudio = null;
       };
-      
+
       this.currentAudio.oncanplay = () => {
         console.log("🎧 Audio can play - ready for playback");
       };
-      
+
       this.currentAudio.onplay = () => {
         console.log("🎧 Audio playback started!");
       };
@@ -774,9 +833,9 @@ class VoiceService {
       // Resume from where we stopped
       this.isPaused = false;
       return this.streamTTS(
-        this.currentFullText, 
-        this.currentVoice, 
-        this.currentUserId, 
+        this.currentFullText,
+        this.currentVoice,
+        this.currentUserId,
         this.pausedAtSentence,
         this.currentRate
       );
@@ -784,9 +843,9 @@ class VoiceService {
       // Start from beginning
       this.isPaused = false;
       return this.streamTTS(
-        this.currentFullText, 
-        this.currentVoice, 
-        this.currentUserId, 
+        this.currentFullText,
+        this.currentVoice,
+        this.currentUserId,
         0,
         this.currentRate
       );
@@ -814,7 +873,7 @@ class VoiceService {
     }
 
     this.isPaused = false;
-    
+
     // Clear resume data unless preserving
     if (!preserveForResume) {
       this.currentFullText = "";
@@ -847,13 +906,19 @@ class VoiceService {
 
     // Check for complete sentences
     const sentences = this.extractCompleteSentences(this.streamingBuffer);
-    
+
     for (const sentence of sentences) {
       if (sentence.trim() && !this.streamingSentences.includes(sentence)) {
         this.streamingSentences.push(sentence);
-        
+
         // Start TTS generation for this sentence immediately
-        this.generateAndQueueSentence(sentence, userId, voice, rate, this.streamingIndex++);
+        this.generateAndQueueSentence(
+          sentence,
+          userId,
+          voice,
+          rate,
+          this.streamingIndex++
+        );
       }
     }
 
@@ -871,7 +936,9 @@ class VoiceService {
     let match;
 
     while ((match = sentenceEnders.exec(text)) !== null) {
-      const sentence = text.substring(lastIndex, match.index + match[0].length).trim();
+      const sentence = text
+        .substring(lastIndex, match.index + match[0].length)
+        .trim();
       if (sentence) {
         sentences.push(sentence);
       }
@@ -886,12 +953,14 @@ class VoiceService {
    */
   getIncompleteText(text) {
     const lastSentenceEnd = Math.max(
-      text.lastIndexOf('.'),
-      text.lastIndexOf('!'),
-      text.lastIndexOf('?')
+      text.lastIndexOf("."),
+      text.lastIndexOf("!"),
+      text.lastIndexOf("?")
     );
-    
-    return lastSentenceEnd >= 0 ? text.substring(lastSentenceEnd + 1).trim() : text;
+
+    return lastSentenceEnd >= 0
+      ? text.substring(lastSentenceEnd + 1).trim()
+      : text;
   }
 
   /**
@@ -902,7 +971,7 @@ class VoiceService {
       // Load preferences if not provided
       let finalVoice = voice;
       let finalRate = rate;
-      
+
       if (!voice || !rate) {
         if (userId) {
           const preferences = await this.loadVoicePreferences(userId);
@@ -921,7 +990,7 @@ class VoiceService {
         model: "tts-1",
         speed: finalRate,
       };
-      
+
       const authToken = await this.getAuthToken();
       const response = await fetch(`${API_BASE}/tts/generate`, {
         method: "POST",
@@ -951,7 +1020,6 @@ class VoiceService {
         this.streamingPlaybackStarted = true;
         this.playStreamingQueue();
       }
-
     } catch (error) {
       console.error("Error generating streaming sentence:", error);
     }
@@ -963,14 +1031,15 @@ class VoiceService {
   async playStreamingQueue() {
     if (!this.isStreamingPlayback) return;
 
-    const currentAudio = this.streamingPlaybackQueue[this.streamingCurrentIndex];
-    
+    const currentAudio =
+      this.streamingPlaybackQueue[this.streamingCurrentIndex];
+
     if (currentAudio) {
       try {
         await this.playAudioSegment(currentAudio.audioUrl);
         URL.revokeObjectURL(currentAudio.audioUrl);
         this.streamingCurrentIndex++;
-        
+
         // Continue to next sentence
         if (this.isStreamingPlayback) {
           this.playStreamingQueue();
@@ -999,10 +1068,10 @@ class VoiceService {
     if (this.streamingBuffer && this.streamingBuffer.trim()) {
       // Process any remaining incomplete text
       await this.generateAndQueueSentence(
-        this.streamingBuffer, 
-        userId, 
-        voice, 
-        rate, 
+        this.streamingBuffer,
+        userId,
+        voice,
+        rate,
         this.streamingIndex++
       );
     }
