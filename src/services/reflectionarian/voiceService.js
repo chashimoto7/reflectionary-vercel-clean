@@ -6,7 +6,7 @@ const SUPABASE_URL = "https://nvcdlmfvnybsgzkpmdth.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52Y2RsbWZ2bnlic2d6a3BtZHRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2NzQ4NzgsImV4cCI6MjA2NzI1MDg3OH0.a9TOIgvxjcfXKOOyzW44_Nf286amXXalcpyfZ-Ybh2I";
 
-const API_BASE = "https://nvcdlmfvnybsgzkpmdth.supabase.co/functions/v1";
+const API_BASE = "https://reflectionary-api.vercel.app/api";
 const VERCEL_API_BASE = "https://reflectionary-api.vercel.app";
 
 class VoiceService {
@@ -147,7 +147,7 @@ class VoiceService {
         };
         
         const authToken = await this.getAuthToken();
-        const response = await fetch(`${API_BASE}/generate-audio`, {
+        const response = await fetch(`${API_BASE}/tts/generate`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -221,7 +221,7 @@ class VoiceService {
           };
           
           const authToken = await this.getAuthToken();
-          const response = await fetch(`${API_BASE}/generate-audio`, {
+          const response = await fetch(`${API_BASE}/tts/generate`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -377,76 +377,55 @@ class VoiceService {
    * Play a single audio segment
    */
   async playAudioSegment(audioUrl) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const audio = new Audio(audioUrl);
       audio.volume = 0.8;
       
-      // Ensure audio can autoplay
-      audio.autoplay = true;
-      audio.preload = 'auto';
+      console.log("🎵 Creating audio element for:", audioUrl.substring(0, 50) + "...");
 
+      // Set up event handlers first
       audio.onended = () => {
+        console.log("🎵 Audio segment finished playing");
         this.currentAudio = null;
         resolve();
       };
 
-      audio.onerror = () => {
-        console.error("Audio playback error");
+      audio.onerror = (error) => {
+        console.error("🚫 Audio playback error:", error);
         this.currentAudio = null;
-        resolve();
+        resolve(); // Resolve instead of reject to continue with next segment
       };
 
-      audio.oncanplaythrough = () => {
-        console.log("Audio ready to play");
-        // Force immediate playback
-        audio.play().catch((error) => {
-          console.error("Play error:", error);
+      audio.oncanplaythrough = async () => {
+        console.log("🎵 Audio ready to play, starting playback...");
+        try {
+          await audio.play();
+          console.log("✅ Audio playback started successfully");
+        } catch (playError) {
+          console.error("🚫 Play error:", playError);
           this.currentAudio = null;
           resolve();
-        });
+        }
       };
 
+      // For streaming, ensure we can interrupt
       this.currentAudio = audio;
       
-      // Force load the audio
+      // Start loading the audio
+      console.log("🎵 Loading audio segment...");
       audio.load();
+
+      // Timeout fallback in case audio doesn't load
+      setTimeout(() => {
+        if (audio.readyState < 2) { // HAVE_CURRENT_DATA
+          console.warn("⏰ Audio loading timeout, skipping segment");
+          this.currentAudio = null;
+          resolve();
+        }
+      }, 10000); // 10 second timeout
     });
   }
 
-  /**
-   * Play streaming audio as sentences become ready
-   */
-  async playStreamingAudio(playbackQueue, currentIndex) {
-    if (!this.isStreaming) return;
-
-    // Check if current sentence is ready
-    if (playbackQueue[currentIndex]) {
-      this.pausedAtSentence = playbackQueue[currentIndex].index;
-      
-      try {
-        await this.playAudioSegment(playbackQueue[currentIndex].audioUrl);
-        URL.revokeObjectURL(playbackQueue[currentIndex].audioUrl);
-        
-        // Move to next sentence
-        if (this.isStreaming) {
-          this.playStreamingAudio(playbackQueue, currentIndex + 1);
-        }
-      } catch (error) {
-        console.error("Error playing streaming audio:", error);
-        // Continue to next sentence
-        if (this.isStreaming) {
-          this.playStreamingAudio(playbackQueue, currentIndex + 1);
-        }
-      }
-    } else {
-      // Current sentence not ready yet, wait a bit and try again
-      setTimeout(() => {
-        if (this.isStreaming) {
-          this.playStreamingAudio(playbackQueue, currentIndex);
-        }
-      }, 100);
-    }
-  }
 
   /**
    * Stream TTS by splitting text into sentences
@@ -498,36 +477,34 @@ class VoiceService {
 
       console.log(`🎤 Streaming ${sentences.length} sentences from sentence ${startFromSentence}...`);
 
-      // Process sentences with true streaming - play as soon as ready
+      // Generate and play sentences sequentially for more reliability
       const sentencesToPlay = sentences.slice(startFromSentence);
-      const audioQueue = [];
-      let isFirstSentencePlaying = false;
-      let playbackQueue = [];
-
-      // Start generating all sentences in parallel
-      const generationPromises = sentencesToPlay.map(async (sentence, index) => {
-        if (!sentence.trim()) return null;
+      
+      for (let i = 0; i < sentencesToPlay.length && this.isStreaming; i++) {
+        const sentence = sentencesToPlay[i].trim();
+        if (!sentence) continue;
 
         try {
+          this.pausedAtSentence = startFromSentence + i;
+          
+          console.log(`🎵 Generating sentence ${i + 1}/${sentencesToPlay.length}: "${sentence.substring(0, 50)}..."`);
+
           const requestBody = {
-            text: sentence.trim(),
+            text: sentence,
             voice: finalVoice,
-            model: "tts-1", // Use faster model for streaming
+            model: "tts-1",
             speed: finalRate,
           };
           
           const authToken = await this.getAuthToken();
-          const response = await fetch(
-            `${API_BASE}/generate-audio`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${authToken}`,
-              },
-              body: JSON.stringify(requestBody),
-            }
-          );
+          const response = await fetch(`${API_BASE}/tts/generate`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: JSON.stringify(requestBody),
+          });
 
           if (!response.ok) {
             console.error("🚫 Streaming TTS API Error:", response.status, response.statusText);
@@ -535,37 +512,27 @@ class VoiceService {
           }
 
           const audioBlob = await response.blob();
-          console.log("🎧 Streaming audio blob:", {
-            size: audioBlob.size,
-            type: audioBlob.type
-          });
+          console.log("🎧 Audio blob generated:", { size: audioBlob.size, type: audioBlob.type });
+          
           const audioUrl = URL.createObjectURL(audioBlob);
-          console.log("🎵 Streaming audio URL created:", audioUrl);
+          console.log(`🔊 Playing sentence ${i + 1}: "${sentence.substring(0, 30)}..."`);
 
-          const audioData = { 
-            index: startFromSentence + index, 
-            audioUrl, 
-            sentence 
-          };
-
-          // Add to playback queue in order
-          playbackQueue[index] = audioData;
-
-          // If this is the first sentence or we're ready to play the next one
-          if (index === 0 && !isFirstSentencePlaying) {
-            isFirstSentencePlaying = true;
-            this.playStreamingAudio(playbackQueue, 0);
+          // Play this sentence
+          if (this.isStreaming) {
+            await this.playAudioSegment(audioUrl);
           }
-
-          return audioData;
+          
+          // Clean up URL
+          URL.revokeObjectURL(audioUrl);
+          
         } catch (error) {
-          console.error(`Failed to generate audio for sentence ${index}:`, error);
-          return null;
+          console.error(`Failed to generate/play sentence ${i}:`, error);
+          // Continue with next sentence instead of failing completely
+          continue;
         }
-      });
+      }
 
-      // Wait for all generations to complete (for cleanup)
-      await Promise.all(generationPromises);
+      console.log("✅ Streaming TTS completed");
 
       this.isStreaming = false;
       this.pausedAtSentence = 0; // Reset when complete
@@ -653,11 +620,11 @@ class VoiceService {
       };
       
       const authToken = await this.getAuthToken();
-      console.log("🌐 Calling Supabase edge function:", `${API_BASE}/generate-audio`);
+      console.log("🌐 Calling TTS API endpoint:", `${API_BASE}/tts/generate`);
       console.log("📤 Request body:", requestBody);
       
       const response = await fetch(
-        `${API_BASE}/generate-audio`,
+        `${API_BASE}/tts/generate`,
         {
           method: "POST",
           headers: {
@@ -956,7 +923,7 @@ class VoiceService {
       };
       
       const authToken = await this.getAuthToken();
-      const response = await fetch(`${API_BASE}/generate-audio`, {
+      const response = await fetch(`${API_BASE}/tts/generate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
