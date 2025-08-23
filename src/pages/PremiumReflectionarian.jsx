@@ -311,7 +311,7 @@ const PremiumReflectionarian = () => {
         console.log("❌ No preferences found, using defaults");
         // Set default preferences so button works
         const defaultPrefs = {
-          ttsVoice: "nova",
+          ttsVoice: "EXAVITQu4vr4xnSDxMaL", // Bella (Eleven Labs)
           speechRate: 1.0,
           enableSpeech: true,
         };
@@ -322,7 +322,7 @@ const PremiumReflectionarian = () => {
       console.error("❌ Error loading preferences:", error);
       // Set default preferences so button works even on error
       const defaultPrefs = {
-        ttsVoice: "nova",
+        ttsVoice: "EXAVITQu4vr4xnSDxMaL", // Bella (Eleven Labs)
         speechRate: 1.0,
         enableSpeech: true,
       };
@@ -992,7 +992,7 @@ const PremiumReflectionarian = () => {
       <VoiceSettingsModal
         isOpen={showVoiceSettings}
         onClose={() => setShowVoiceSettings(false)}
-        currentVoice={preferences?.ttsVoice || "nova"}
+        currentVoice={preferences?.ttsVoice || "EXAVITQu4vr4xnSDxMaL"}
         currentRate={preferences?.speechRate || 1.0}
         userId={user.id}
         onVoiceChange={async (voice) => {

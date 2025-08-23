@@ -8,7 +8,7 @@ class ReflectionarianAudioService {
     this.isPlaying = false;
 
     // Voice settings
-    this.defaultVoice = "nova";
+    this.defaultVoice = "EXAVITQu4vr4xnSDxMaL"; // Bella (Eleven Labs)
     this.playbackRate = 1.0;
     this.volume = 1.0;
 
@@ -57,17 +57,17 @@ class ReflectionarianAudioService {
         const data = await response.json();
         if (data.preferences) {
           return {
-            voice: data.preferences.ttsVoice || "nova",
+            voice: data.preferences.ttsVoice || "EXAVITQu4vr4xnSDxMaL", // Bella (Eleven Labs)
             rate: data.preferences.speechRate || 1.0
           };
         }
       }
       
       // Fallback to defaults
-      return { voice: "nova", rate: 1.0 };
+      return { voice: "EXAVITQu4vr4xnSDxMaL", rate: 1.0 }; // Bella (Eleven Labs)
     } catch (error) {
       console.error("Failed to load voice preferences:", error);
-      return { voice: "nova", rate: 1.0 };
+      return { voice: "EXAVITQu4vr4xnSDxMaL", rate: 1.0 }; // Bella (Eleven Labs)
     }
   }
 
