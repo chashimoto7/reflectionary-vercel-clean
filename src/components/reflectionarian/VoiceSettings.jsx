@@ -1,9 +1,9 @@
 // frontend/src/components/reflectionarian/VoiceSettings.jsx
-// Voice settings component for Amazon Polly TTS preferences
+// Voice settings component for Eleven Labs TTS preferences
 
 import React, { useState, useEffect } from "react";
 import { Volume2, VolumeX, Play, Loader2 } from "lucide-react";
-import pollyTTSService from "../../services/pollyTTSService";
+import voiceService from "../../services/reflectionarian/voiceService";
 
 const VoiceSettings = ({ preferences, onPreferencesChange }) => {
   const [voiceOptions, setVoiceOptions] = useState(null);
@@ -16,7 +16,11 @@ const VoiceSettings = ({ preferences, onPreferencesChange }) => {
 
   const loadVoiceOptions = async () => {
     try {
-      const options = await pollyTTSService.getVoiceOptions();
+      const voices = voiceService.getAvailableVoices();
+      const options = {
+        voices: voices,
+        therapyStyles: ["calm", "slow", "empathetic", "encouraging"],
+      };
       setVoiceOptions(options);
     } catch (error) {
       console.error("Error loading voice options:", error);
@@ -25,24 +29,24 @@ const VoiceSettings = ({ preferences, onPreferencesChange }) => {
     }
   };
 
-  const testVoice = async (voiceId, engine) => {
+  const testVoice = async (voiceId) => {
     try {
       setTestingVoice(voiceId);
 
       const testText =
         "Hello, I'm your AI companion. This is how I sound during our therapy sessions.";
 
-      await pollyTTSService.speakTherapy(
+      await voiceService.speakText(
         testText,
-        {
-          voice: voiceId,
-          engine: engine,
-          ssmlStyle: "calm",
-        },
-        () => {
-          setTestingVoice(null);
-        }
+        voiceId,
+        null, // userId
+        1.0 // rate
       );
+
+      // Wait for completion
+      setTimeout(() => {
+        setTestingVoice(null);
+      }, 4000);
     } catch (error) {
       console.error("Error testing voice:", error);
       setTestingVoice(null);
@@ -78,99 +82,46 @@ const VoiceSettings = ({ preferences, onPreferencesChange }) => {
 
   return (
     <div className="space-y-6">
-      {/* Voice Engine Selection */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-3">
-          Voice Quality
-        </label>
-        <div className="grid grid-cols-2 gap-4">
-          <div
-            className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-              preferences.ttsEngine === "standard"
-                ? "border-purple-500 bg-purple-500/10"
-                : "border-gray-600 hover:border-gray-500"
-            }`}
-            onClick={() => updatePreference("ttsEngine", "standard")}
-          >
-            <h4 className="font-medium text-white">Standard</h4>
-            <p className="text-sm text-gray-400">$4 per million characters</p>
-            <p className="text-xs text-gray-500 mt-1">
-              Good quality, cost-effective
-            </p>
-          </div>
-
-          <div
-            className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-              preferences.ttsEngine === "neural"
-                ? "border-purple-500 bg-purple-500/10"
-                : "border-gray-600 hover:border-gray-500"
-            }`}
-            onClick={() => updatePreference("ttsEngine", "neural")}
-          >
-            <h4 className="font-medium text-white">Neural</h4>
-            <p className="text-sm text-gray-400">$16 per million characters</p>
-            <p className="text-xs text-gray-500 mt-1">
-              Premium quality, more natural
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Voice Selection */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-3">
           Voice Selection
         </label>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {voiceOptions.voices.map((voice) => (
+            <div
+              key={voice.id}
+              className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                preferences.ttsVoice === voice.id
+                  ? "border-purple-500 bg-purple-500/10"
+                  : "border-gray-600 hover:border-gray-500"
+              }`}
+              onClick={() => updatePreference("ttsVoice", voice.id)}
+            >
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <h4 className="font-medium text-white">{voice.name}</h4>
+                  <p className="text-sm text-gray-400">{voice.description}</p>
+                </div>
 
-        {["neural", "standard"].map((engine) => (
-          <div
-            key={engine}
-            className={engine === preferences.ttsEngine ? "block" : "hidden"}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {Object.entries(voiceOptions.voices[engine] || {}).map(
-                ([voiceId, voice]) => (
-                  <div
-                    key={voiceId}
-                    className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                      preferences.ttsVoice === voiceId
-                        ? "border-purple-500 bg-purple-500/10"
-                        : "border-gray-600 hover:border-gray-500"
-                    }`}
-                    onClick={() => updatePreference("ttsVoice", voiceId)}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-white">{voice.id}</h4>
-                        <p className="text-sm text-gray-400">
-                          {voice.gender} • {voice.language}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {voice.description}
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          testVoice(voiceId, engine);
-                        }}
-                        disabled={testingVoice === voiceId}
-                        className="ml-2 p-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-lg transition-colors"
-                      >
-                        {testingVoice === voiceId ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Play className="w-4 h-4" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                )
-              )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    testVoice(voice.id);
+                  }}
+                  disabled={testingVoice === voice.id}
+                  className="ml-2 p-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-lg transition-colors"
+                >
+                  {testingVoice === voice.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Play className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       {/* Therapy Style */}
@@ -232,9 +183,9 @@ const VoiceSettings = ({ preferences, onPreferencesChange }) => {
           <h4 className="font-medium text-blue-300">Voice Costs</h4>
         </div>
         <div className="text-sm text-blue-200 space-y-1">
-          <p>• Standard voices: ~$0.008 per therapy response</p>
-          <p>• Neural voices: ~$0.032 per therapy response</p>
-          <p>• Audio is cached to avoid repeat costs</p>
+          <p>• Eleven Labs voices: ~$0.005 per therapy response</p>
+          <p>• High-quality, fast generation</p>
+          <p>• No caching needed due to speed</p>
         </div>
       </div>
     </div>

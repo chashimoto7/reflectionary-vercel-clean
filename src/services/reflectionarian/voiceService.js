@@ -92,7 +92,6 @@ class VoiceService {
     }
   }
 
-
   /**
    * Initialize speech recognition
    */
@@ -192,9 +191,6 @@ class VoiceService {
       this.recognition.stop();
     }
   }
-
-
-
 
   /**
    * Load user voice preferences
@@ -412,7 +408,6 @@ class VoiceService {
     return false;
   }
 
-
   /**
    * Stop all speech
    */
@@ -432,7 +427,6 @@ class VoiceService {
     this.isPaused = false;
   }
 
-
   /**
    * Check if currently speaking
    */
@@ -448,12 +442,36 @@ class VoiceService {
    */
   getAvailableVoices() {
     return [
-      { id: "pNInz6obpgDQGcFmaJgB", name: "Adam", description: "Neutral male voice" },
-      { id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", description: "Calm female voice" },
-      { id: "AZnzlk1XvdvUeBnXmlld", name: "Domi", description: "Strong female voice" },
-      { id: "29vD33N1CtxCmqQRPOHJ", name: "Antoni", description: "Deep male voice" },
-      { id: "EXAVITQu4vr4xnSDxMaL", name: "Bella", description: "Warm female voice" },
-      { id: "ErXwobaYiN019PkySvjV", name: "Elli", description: "Gentle female voice" },
+      {
+        id: "pNInz6obpgDQGcFmaJgB",
+        name: "Adam",
+        description: "Neutral male voice",
+      },
+      {
+        id: "21m00Tcm4TlvDq8ikWAM",
+        name: "Rachel",
+        description: "Calm female voice",
+      },
+      {
+        id: "AZnzlk1XvdvUeBnXmlld",
+        name: "Domi",
+        description: "Strong female voice",
+      },
+      {
+        id: "29vD33N1CtxCmqQRPOHJ",
+        name: "Antoni",
+        description: "Deep male voice",
+      },
+      {
+        id: "EXAVITQu4vr4xnSDxMaL",
+        name: "Bella",
+        description: "Warm female voice",
+      },
+      {
+        id: "ErXwobaYiN019PkySvjV",
+        name: "Elli",
+        description: "Gentle female voice",
+      },
     ];
   }
 

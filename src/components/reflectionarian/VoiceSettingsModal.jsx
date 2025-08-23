@@ -1,6 +1,13 @@
 // src/components/reflectionarian/VoiceSettingsModal.jsx
 import React, { useState } from "react";
-import { Volume2, X, CheckCircle, Play, Loader2, Settings2 } from "lucide-react";
+import {
+  Volume2,
+  X,
+  CheckCircle,
+  Play,
+  Loader2,
+  Settings2,
+} from "lucide-react";
 import voiceService from "../../services/reflectionarian/voiceService";
 
 const VoiceSettingsModal = ({
@@ -13,60 +20,68 @@ const VoiceSettingsModal = ({
   onReloadPreferences,
   userId,
 }) => {
-  const [selectedVoice, setSelectedVoice] = useState(currentVoice || "nova");
+  const [selectedVoice, setSelectedVoice] = useState(
+    currentVoice || "EXAVITQu4vr4xnSDxMaL"
+  );
   const [selectedRate, setSelectedRate] = useState(currentRate);
   const [isPlaying, setIsPlaying] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
   if (!isOpen) return null;
 
-  // OpenAI TTS voices with descriptions
+  // Eleven Labs TTS voices with descriptions
   const availableVoices = [
     {
-      id: "alloy",
-      name: "Alloy",
-      description: "Neutral and balanced",
-      sample: "Hello! I'm Alloy. I have a neutral and balanced voice perfect for general conversations.",
+      id: "pNInz6obpgDQGcFmaJgB",
+      name: "Adam",
+      description: "Neutral male voice",
+      sample:
+        "Hello! I'm Adam. I have a neutral and balanced voice perfect for general conversations.",
     },
     {
-      id: "echo",
-      name: "Echo",
-      description: "Warm and conversational",
-      sample: "Hi there! I'm Echo. My warm voice is great for friendly conversations.",
+      id: "21m00Tcm4TlvDq8ikWAM",
+      name: "Rachel",
+      description: "Calm female voice",
+      sample:
+        "Hi there! I'm Rachel. My calm voice is great for friendly conversations.",
     },
     {
-      id: "fable",
-      name: "Fable",
-      description: "Expressive and dynamic",
-      sample: "Greetings! I'm Fable. I bring an expressive and dynamic quality to our conversations.",
+      id: "AZnzlk1XvdvUeBnXmlld",
+      name: "Domi",
+      description: "Strong female voice",
+      sample:
+        "Greetings! I'm Domi. I bring strength and clarity to our conversations.",
     },
     {
-      id: "onyx",
-      name: "Onyx",
-      description: "Deep and authoritative",
-      sample: "Hello. I'm Onyx. My deep voice provides a sense of authority and confidence.",
+      id: "29vD33N1CtxCmqQRPOHJ",
+      name: "Antoni",
+      description: "Deep male voice",
+      sample:
+        "Hello. I'm Antoni. My deep voice provides a sense of authority and confidence.",
     },
     {
-      id: "nova",
-      name: "Nova",
-      description: "Friendly and engaging",
-      sample: "Hey! I'm Nova. I have a friendly and engaging voice that's perfect for reflective conversations.",
+      id: "EXAVITQu4vr4xnSDxMaL",
+      name: "Bella",
+      description: "Warm female voice",
+      sample:
+        "Hey! I'm Bella. I have a warm and engaging voice that's perfect for reflective conversations.",
     },
     {
-      id: "shimmer",
-      name: "Shimmer",
-      description: "Soft and soothing",
-      sample: "Hello there. I'm Shimmer. My soft, soothing voice is ideal for calm reflection.",
+      id: "ErXwobaYiN019PkySvjV",
+      name: "Elli",
+      description: "Gentle female voice",
+      sample:
+        "Hello there. I'm Elli. My gentle voice is ideal for calm reflection.",
     },
   ];
 
   const playVoiceSample = async (voice) => {
     try {
       setIsPlaying(voice.id);
-      
+
       // Stop any current playback
       voiceService.stopSpeaking();
-      
+
       // Play the sample with the selected rate
       await voiceService.speakText(
         voice.sample,
@@ -74,7 +89,7 @@ const VoiceSettingsModal = ({
         userId,
         selectedRate
       );
-      
+
       // Wait for playback to complete
       setTimeout(() => {
         setIsPlaying(null);
@@ -88,8 +103,11 @@ const VoiceSettingsModal = ({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      console.log("💾 Saving voice preferences:", { selectedVoice, selectedRate });
-      
+      console.log("💾 Saving voice preferences:", {
+        selectedVoice,
+        selectedRate,
+      });
+
       // Save preferences to database
       const response = await fetch(
         "https://reflectionary-api.vercel.app/api/reflectionarian/preferences",
@@ -105,17 +123,17 @@ const VoiceSettingsModal = ({
       );
 
       const result = await response.json();
-      
+
       if (response.ok) {
         console.log("✅ Voice preferences saved successfully:", result);
         onVoiceChange(selectedVoice);
         if (onRateChange) onRateChange(selectedRate);
-        
+
         // Reload preferences to ensure sync
         if (onReloadPreferences) {
           await onReloadPreferences();
         }
-        
+
         onClose();
       } else {
         console.error("❌ Failed to save preferences:", result);
@@ -181,7 +199,7 @@ const VoiceSettingsModal = ({
                       )}
                     </div>
                   </button>
-                  
+
                   {/* Play Sample Button */}
                   <button
                     onClick={() => playVoiceSample(voice)}
@@ -202,9 +220,7 @@ const VoiceSettingsModal = ({
 
           {/* Speech Rate Control */}
           <div className="mb-6">
-            <h4 className="text-lg font-medium text-white mb-4">
-              Speech Rate
-            </h4>
+            <h4 className="text-lg font-medium text-white mb-4">Speech Rate</h4>
             <div className="bg-white/5 rounded-lg p-4">
               <div className="flex items-center space-x-4">
                 <span className="text-white/60 text-sm">Slower</span>
@@ -236,7 +252,9 @@ const VoiceSettingsModal = ({
           <div className="mb-6">
             <button
               onClick={() => {
-                const testVoice = availableVoices.find(v => v.id === selectedVoice);
+                const testVoice = availableVoices.find(
+                  (v) => v.id === selectedVoice
+                );
                 if (testVoice) playVoiceSample(testVoice);
               }}
               disabled={isPlaying !== null}
