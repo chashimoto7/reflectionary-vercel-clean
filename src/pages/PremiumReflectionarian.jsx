@@ -1,4 +1,5 @@
 // src/pages/PremiumReflectionarian.jsx
+// no TTS streaming
 import React, { useState, useEffect, useRef } from "react";
 import {
   MessageCircle,
@@ -65,20 +66,22 @@ class SimpleTTSQueue {
   splitTextForTTS(text) {
     // Split on sentence endings, but keep them reasonable sized
     let sentences = text.match(/[^.!?]*[.!?]+/g) || [text];
-    
+
     // If sentences are too long (>200 chars), split further
     let chunks = [];
-    sentences.forEach(sentence => {
+    sentences.forEach((sentence) => {
       if (sentence.length > 200) {
         // Split long sentences at commas or natural breaks
-        const parts = sentence.split(/,|;|\n/).filter(p => p.trim());
-        chunks.push(...parts.map(p => p.trim() + (p.includes('.') ? '' : ',')));
+        const parts = sentence.split(/,|;|\n/).filter((p) => p.trim());
+        chunks.push(
+          ...parts.map((p) => p.trim() + (p.includes(".") ? "" : ","))
+        );
       } else {
         chunks.push(sentence.trim());
       }
     });
-    
-    return chunks.filter(chunk => chunk && chunk.length > 3);
+
+    return chunks.filter((chunk) => chunk && chunk.length > 3);
   }
 
   // Queue up text chunks and start playing immediately
@@ -88,30 +91,37 @@ class SimpleTTSQueue {
     this.isPlaying = true;
 
     const chunks = this.splitTextForTTS(fullText);
-    console.log(`📋 Split into ${chunks.length} chunks:`, chunks.map(c => c.substring(0, 50) + '...'));
+    console.log(
+      `📋 Split into ${chunks.length} chunks:`,
+      chunks.map((c) => c.substring(0, 50) + "...")
+    );
 
     // Process chunks one by one
     for (let i = 0; i < chunks.length; i++) {
       if (!this.isPlaying) break; // User stopped
 
       const chunk = chunks[i];
-      console.log(`🔊 Playing chunk ${i + 1}/${chunks.length}: "${chunk.substring(0, 50)}..."`);
+      console.log(
+        `🔊 Playing chunk ${i + 1}/${chunks.length}: "${chunk.substring(
+          0,
+          50
+        )}..."`
+      );
 
       try {
         // Use your existing voiceService.speakText exactly as before
         await voiceService.speakText(
           chunk,
           voice,
-          null, // userId 
+          null, // userId
           speechRate
         );
 
         // Wait for this chunk to finish before starting next
         await this.waitForCompletion(voiceService);
-        
+
         // Small pause between chunks (optional)
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
+        await new Promise((resolve) => setTimeout(resolve, 100));
       } catch (error) {
         console.error(`Error playing chunk ${i + 1}:`, error);
         // Continue with next chunk instead of failing completely
@@ -476,7 +486,7 @@ const PremiumReflectionarian = () => {
   // Handle TTS with queue system
   const handleTTSWithQueue = async (responseText) => {
     if (!preferences?.enableTTS) return;
-    
+
     const messageToUse = responseText || messages[messages.length - 1]?.content;
     if (!messageToUse) return;
 
@@ -499,7 +509,7 @@ const PremiumReflectionarian = () => {
         await ttsQueue.queueAndPlay(
           messageToUse,
           voiceService,
-          preferences?.ttsVoice || "nova", 
+          preferences?.ttsVoice || "nova",
           preferences?.speechRate || 1.0
         );
       }
@@ -517,7 +527,6 @@ const PremiumReflectionarian = () => {
           setCanInterrupt(true);
         }
       }, 100);
-
     } catch (error) {
       console.error("TTS error:", error);
       setVoiceError("Voice playback failed");
