@@ -42,13 +42,6 @@ export default function Layout({ children }) {
       requiredTier: "free",
     },
     {
-      to: "/history",
-      icon: Notebook,
-      label: "Journal History",
-      feature: "history",
-      requiredTier: "free",
-    },
-    {
       to: "/analytics",
       icon: BarChart3,
       label: "Analytics",
