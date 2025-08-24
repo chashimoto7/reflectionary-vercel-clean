@@ -4,7 +4,6 @@ import { useMembership } from "../hooks/useMembership";
 
 // Import all the goals components
 import GrowthGoals from "./GrowthGoals";
-import GrowthGoals from "./GrowthGoals";
 import PremiumGoals from "./PremiumGoals";
 
 // Upgrade prompt component for users without access
