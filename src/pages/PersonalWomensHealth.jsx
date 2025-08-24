@@ -418,7 +418,7 @@ const PersonalWomensHealth = () => {
         {/* Info Modal */}
         {showInfoModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="backdrop-blur-xl bg-slate-800 rounded-2xl shadow-2xl p-6 max-w-md w-full border border-white/20"
+            <div className="backdrop-blur-xl bg-slate-800 rounded-2xl shadow-2xl p-6 max-w-md w-full border border-white/20">
               <h3 className="text-xl font-semibold mb-4">
                 About Women's Health Tracking
               </h3>
