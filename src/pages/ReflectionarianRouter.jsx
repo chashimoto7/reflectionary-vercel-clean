@@ -4,7 +4,6 @@ import { useMembership } from "../hooks/useMembership";
 
 // Import all the Reflectionarian components
 // These will be your existing components, renamed
-import GrowthReflectionarian from "./GrowthReflectionarian"; // Current "BasicReflectionarian" renamed
 import GrowthReflectionarian from "./GrowthReflectionarian"; // Current "GrowthReflectionarian"
 import PremiumReflectionarian from "./PremiumReflectionarian"; // Current "ProReflectionarian" renamed
 
@@ -117,9 +116,7 @@ const ReflectionarianRouter = () => {
       return <PremiumReflectionarian />;
 
     case "growth":
-      console.log(
-        "⭐ Routing to Growth Reflectionarian (full journal access)"
-      );
+      console.log("⭐ Routing to Growth Reflectionarian (full journal access)");
       return <GrowthReflectionarian />;
 
     case "personal":
