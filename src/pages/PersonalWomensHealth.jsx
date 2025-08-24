@@ -1,4 +1,4 @@
-// frontend/ src/pages/BasicWomensHealth.jsx
+// frontend/ src/pages/PersonalWomensHealth.jsx
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -14,7 +14,7 @@ import {
   Shield,
 } from "lucide-react";
 
-const BasicWomensHealth = () => {
+const PersonalWomensHealth = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -186,7 +186,7 @@ const BasicWomensHealth = () => {
             </h1>
             <button
               onClick={() => setShowInfoModal(true)}
-              className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition"
+              className="p-2 backdrop-blur-xl bg-white/10 hover:bg-white/20 rounded-lg transition border border-white/20"
             >
               <Info className="h-5 w-5" />
             </button>
@@ -197,7 +197,7 @@ const BasicWomensHealth = () => {
         </div>
 
         {/* Privacy Notice */}
-        <div className="mb-6 p-4 bg-purple-500/10 backdrop-blur-sm rounded-lg border border-purple-500/20 flex items-start gap-3">
+        <div className="mb-6 p-4 backdrop-blur-xl bg-purple-500/10 rounded-xl shadow-xl border border-purple-400/30 flex items-start gap-3">
           <Shield className="h-5 w-5 text-purple-400 flex-shrink-0 mt-0.5" />
           <div className="text-sm">
             <p className="text-purple-200 font-semibold mb-1">
@@ -211,7 +211,7 @@ const BasicWomensHealth = () => {
         </div>
 
         {/* Calendar View */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6 mb-6">
+        <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <button
               onClick={() =>
@@ -299,7 +299,7 @@ const BasicWomensHealth = () => {
 
         {/* Entry Form */}
         {selectedDate && (
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-6 mb-6">
+          <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6 mb-6">
             <h3 className="text-lg font-semibold mb-4">
               {selectedDate.toLocaleDateString("en-US", {
                 weekday: "long",
@@ -320,7 +320,7 @@ const BasicWomensHealth = () => {
                 max="50"
                 value={cycleDay}
                 onChange={(e) => setCycleDay(e.target.value)}
-                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:border-purple-400"
+                className="w-full px-3 py-2 backdrop-blur-xl bg-white/10 border border-white/20 rounded-lg focus:outline-none focus:border-purple-400 shadow-xl"
                 placeholder="Enter day of cycle"
               />
             </div>
@@ -381,13 +381,13 @@ const BasicWomensHealth = () => {
         )}
 
         {/* Upgrade Prompt */}
-        <div className="bg-gradient-to-r from-pink-600/20 to-purple-600/20 backdrop-blur-sm rounded-lg border border-pink-500/30 p-6">
+        <div className="backdrop-blur-xl bg-gradient-to-r from-pink-600/20 to-purple-600/20 rounded-2xl shadow-2xl border border-pink-400/30 p-6">
           <h3 className="text-xl font-semibold mb-2 flex items-center gap-2">
             <Lock className="h-6 w-6" />
             Unlock Advanced Features
           </h3>
-          <p className="text-gray-300 mb-4">
-            Upgrade to Standard or higher for:
+          <p className="text-purple-300 mb-4">
+            Upgrade to Growth or higher for:
           </p>
           <ul className="space-y-2 text-sm text-gray-300 mb-4">
             <li className="flex items-center gap-2">
@@ -418,7 +418,7 @@ const BasicWomensHealth = () => {
         {/* Info Modal */}
         {showInfoModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full">
+            <div className="backdrop-blur-xl bg-slate-800 rounded-2xl shadow-2xl p-6 max-w-md w-full border border-white/20"
               <h3 className="text-xl font-semibold mb-4">
                 About Women's Health Tracking
               </h3>
@@ -458,4 +458,4 @@ const BasicWomensHealth = () => {
   );
 };
 
-export default BasicWomensHealth;
+export default PersonalWomensHealth;

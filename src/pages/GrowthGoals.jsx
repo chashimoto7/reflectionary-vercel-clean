@@ -1,4 +1,4 @@
-// frontend/ src/pages/AdvancedGoals.jsx
+// frontend/ src/pages/GrowthGoals.jsx
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -33,7 +33,7 @@ import {
   Cell,
 } from "recharts";
 
-const AdvancedGoals = () => {
+const GrowthGoals = () => {
   const { user } = useAuth();
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -135,7 +135,7 @@ const AdvancedGoals = () => {
       return { label: "Completed", color: "text-green-600" };
     if (progress > 50) return { label: "On Track", color: "text-blue-600" };
     if (progress > 0) return { label: "Started", color: "text-yellow-600" };
-    return { label: "Not Started", color: "text-gray-600" };
+    return { label: "Not Started", color: "text-purple-400" };
   };
 
   const MetricBox = ({
@@ -147,7 +147,7 @@ const AdvancedGoals = () => {
     onClick,
   }) => (
     <div
-      className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+      className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6 hover:shadow-3xl transition-all cursor-pointer"
       onClick={onClick}
     >
       <div className="flex items-center justify-between mb-2">
@@ -155,7 +155,7 @@ const AdvancedGoals = () => {
         {trend && (
           <span
             className={`text-sm ${
-              trend > 0 ? "text-green-600" : "text-gray-600"
+              trend > 0 ? "text-green-400" : "text-purple-300"
             }`}
           >
             {trend > 0 ? "+" : ""}
@@ -163,8 +163,8 @@ const AdvancedGoals = () => {
           </span>
         )}
       </div>
-      <div className="text-2xl font-bold text-gray-900">{value}</div>
-      <div className="text-sm text-gray-600">{subtitle}</div>
+      <div className="text-2xl font-bold text-white">{value}</div>
+      <div className="text-sm text-purple-300">{subtitle}</div>
       <div className="text-xs text-purple-600 mt-2">Click for details</div>
     </div>
   );
@@ -179,13 +179,13 @@ const AdvancedGoals = () => {
     };
 
     return (
-      <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6 hover:shadow-3xl transition-all">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
               {goal.title}
             </h3>
-            <p className="text-sm text-gray-600 mt-1">{goal.description}</p>
+            <p className="text-sm text-purple-300 mt-1">{goal.description}</p>
             <span
               className={`inline-flex items-center gap-1 mt-2 text-sm ${status.color}`}
             >
@@ -195,17 +195,17 @@ const AdvancedGoals = () => {
           </div>
           <div className="flex gap-2">
             <button className="p-2 hover:bg-gray-100 rounded-lg">
-              <Edit2 className="h-4 w-4 text-gray-600" />
+              <Edit2 className="h-4 w-4 text-purple-300 hover:text-white" />
             </button>
             <button className="p-2 hover:bg-gray-100 rounded-lg">
-              <Trash2 className="h-4 w-4 text-gray-600" />
+              <Trash2 className="h-4 w-4 text-purple-300 hover:text-red-400" />
             </button>
           </div>
         </div>
 
         {/* Progress Bar */}
         <div className="mb-4">
-          <div className="flex justify-between text-sm text-gray-600 mb-1">
+          <div className="flex justify-between text-sm text-purple-300 mb-1">
             <span>Progress</span>
             <span>{progress}%</span>
           </div>
@@ -221,28 +221,28 @@ const AdvancedGoals = () => {
         <div className="bg-gray-50 rounded-lg p-3 mb-4">
           <div className="flex items-center gap-2 mb-2">
             <Hash className="h-4 w-4 text-purple-600" />
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-purple-200">
               Mention Tracking
             </span>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
             <div>
-              <div className="text-lg font-semibold text-gray-900">
+              <div className="text-lg font-semibold text-white">
                 {mentions.week}
               </div>
-              <div className="text-xs text-gray-600">This Week</div>
+              <div className="text-xs text-purple-400">This Week</div>
             </div>
             <div>
-              <div className="text-lg font-semibold text-gray-900">
+              <div className="text-lg font-semibold text-white">
                 {mentions.month}
               </div>
-              <div className="text-xs text-gray-600">This Month</div>
+              <div className="text-xs text-purple-400">This Month</div>
             </div>
             <div>
-              <div className="text-lg font-semibold text-gray-900">
+              <div className="text-lg font-semibold text-white">
                 {mentions.threeMonths}
               </div>
-              <div className="text-xs text-gray-600">3 Months</div>
+              <div className="text-xs text-purple-400">3 Months</div>
             </div>
           </div>
         </div>
@@ -251,10 +251,10 @@ const AdvancedGoals = () => {
         {goal.milestones && goal.milestones.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-purple-200">
                 Milestones
               </span>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-purple-300">
                 {goal.milestones.filter((m) => m.completed).length}/
                 {goal.milestones.length}
               </span>
@@ -264,13 +264,13 @@ const AdvancedGoals = () => {
                 {milestone.completed ? (
                   <CheckCircle className="h-4 w-4 text-green-600" />
                 ) : (
-                  <Circle className="h-4 w-4 text-gray-400" />
+                  <Circle className="h-4 w-4 text-purple-400" />
                 )}
                 <span
                   className={`text-sm ${
                     milestone.completed
-                      ? "text-gray-700 line-through"
-                      : "text-gray-700"
+                      ? "text-purple-300 line-through"
+                      : "text-white"
                   }`}
                 >
                   {milestone.title}
@@ -291,7 +291,7 @@ const AdvancedGoals = () => {
 
         {/* Target Date */}
         {goal.target_date && (
-          <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
+          <div className="mt-4 flex items-center gap-2 text-sm text-purple-300">
             <Calendar className="h-4 w-4" />
             <span>
               Target: {format(new Date(goal.target_date), "MMM d, yyyy")}
@@ -367,7 +367,7 @@ const AdvancedGoals = () => {
             title: "Active Goals",
             content: (
               <div>
-                <p className="text-gray-600 mb-4">
+                <p className="text-purple-300 mb-4">
                   You have{" "}
                   {
                     goals.filter((g) => getGoalStatus(g).label !== "Completed")
@@ -385,7 +385,7 @@ const AdvancedGoals = () => {
                         className="flex justify-between items-center"
                       >
                         <span>{goal.title}</span>
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-purple-300">
                           {calculateProgress(goal)}%
                         </span>
                       </div>
@@ -399,7 +399,7 @@ const AdvancedGoals = () => {
             title: "Goal Mention Frequency",
             content: (
               <div>
-                <p className="text-gray-600 mb-4">
+                <p className="text-purple-300 mb-4">
                   How often you write about your goals in journal entries:
                 </p>
                 <div className="space-y-3">
@@ -412,7 +412,7 @@ const AdvancedGoals = () => {
                     return (
                       <div key={goal.id} className="border-b pb-2">
                         <div className="font-medium">{goal.title}</div>
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-purple-300">
                           Week: {mentions.week} | Month: {mentions.month} | 3
                           Months: {mentions.threeMonths}
                         </div>
@@ -441,7 +441,7 @@ const AdvancedGoals = () => {
         onClick={() => setSelectedMetric(null)}
       >
         <div
-          className="bg-white rounded-lg p-6 max-w-md w-full max-h-[80vh] overflow-y-auto"
+          className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6 max-w-md w-full max-h-[80vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           <h3 className="text-lg font-semibold mb-4">{title}</h3>
@@ -467,11 +467,11 @@ const AdvancedGoals = () => {
         onClick={() => setSelectedGoal(null)}
       >
         <div
-          className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+          className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           <h3 className="text-xl font-semibold mb-4">{selectedGoal.title}</h3>
-          <p className="text-gray-600 mb-6">{selectedGoal.description}</p>
+          <p className="text-purple-300 mb-6">{selectedGoal.description}</p>
 
           {/* All Milestones */}
           <div className="mb-6">
@@ -485,17 +485,17 @@ const AdvancedGoals = () => {
                   {milestone.completed ? (
                     <CheckCircle className="h-5 w-5 text-green-600" />
                   ) : (
-                    <Circle className="h-5 w-5 text-gray-400" />
+                    <Circle className="h-5 w-5 text-purple-400" />
                   )}
                   <span
                     className={
-                      milestone.completed ? "line-through text-gray-500" : ""
+                      milestone.completed ? "line-through text-purple-400" : "text-white"
                     }
                   >
                     {milestone.title}
                   </span>
                   {milestone.completed && milestone.completed_date && (
-                    <span className="text-sm text-gray-500 ml-auto">
+                    <span className="text-sm text-purple-400 ml-auto">
                       {format(new Date(milestone.completed_date), "MMM d")}
                     </span>
                   )}
@@ -508,7 +508,7 @@ const AdvancedGoals = () => {
           <div className="mb-6">
             <h4 className="font-medium mb-3">Mention History</h4>
             <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-purple-300">
                 You've mentioned this goal{" "}
                 {mentionData[selectedGoal.id]?.month || 0} times this month.
               </p>
@@ -549,14 +549,14 @@ const AdvancedGoals = () => {
         onClick={() => setShowAddGoal(false)}
       >
         <div
-          className="bg-white rounded-lg p-6 max-w-md w-full"
+          className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6 max-w-md w-full"
           onClick={(e) => e.stopPropagation()}
         >
           <h3 className="text-xl font-semibold mb-4">Add New Goal</h3>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-purple-200 mb-1">
                   Goal Title
                 </label>
                 <input
@@ -570,7 +570,7 @@ const AdvancedGoals = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-purple-200 mb-1">
                   Description
                 </label>
                 <textarea
@@ -583,7 +583,7 @@ const AdvancedGoals = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-purple-200 mb-1">
                   Target Date
                 </label>
                 <input
@@ -606,7 +606,7 @@ const AdvancedGoals = () => {
               <button
                 type="button"
                 onClick={() => setShowAddGoal(false)}
-                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                className="flex-1 px-4 py-2 bg-white/20 text-purple-300 rounded-lg hover:bg-white/30 border border-white/20"
               >
                 Cancel
               </button>
@@ -619,25 +619,25 @@ const AdvancedGoals = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your goals...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
+          <p className="text-purple-300">Loading your goals...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Advanced Goals
+            <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-2">
+              Growth Goals
             </h1>
-            <p className="text-gray-600">
+            <p className="text-purple-300">
               Track progress and mentions for your personal goals
             </p>
           </div>
@@ -655,12 +655,12 @@ const AdvancedGoals = () => {
 
         {/* Goals Grid */}
         {goals.length === 0 ? (
-          <div className="bg-white rounded-lg p-12 text-center">
-            <Target className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">
+          <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-12 text-center">
+            <Target className="h-16 w-16 text-purple-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-2">
               No Goals Yet
             </h3>
-            <p className="text-gray-600 mb-6">
+            <p className="text-purple-300 mb-6">
               Start by creating your first goal to track your progress
             </p>
             <button
@@ -687,4 +687,4 @@ const AdvancedGoals = () => {
   );
 };
 
-export default AdvancedGoals;
+export default GrowthGoals;

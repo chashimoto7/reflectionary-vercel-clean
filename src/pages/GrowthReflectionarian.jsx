@@ -1,4 +1,4 @@
-//frontend/ src/pages/AdvancedReflectionarian.jsx
+//frontend/ src/pages/GrowthReflectionarian.jsx
 import React, { useState, useEffect, useRef } from "react";
 import {
   MessageCircle,
@@ -21,7 +21,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useMembership } from "../hooks/useMembership";
 import { supabase } from "../lib/supabase";
 
-const AdvancedReflectionarian = () => {
+const GrowthReflectionarian = () => {
   const { user } = useAuth();
   const { membershipData, hasAccess } = useMembership();
 
@@ -31,7 +31,7 @@ const AdvancedReflectionarian = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
 
-  // Advanced Features State
+  // Growth Features State
   const [detectedMood, setDetectedMood] = useState(null);
   const [adaptiveMode, setAdaptiveMode] = useState("balanced"); // gentle, direct, curious, balanced
   const [sessionPrompts, setSessionPrompts] = useState([]);
@@ -195,7 +195,7 @@ const AdvancedReflectionarian = () => {
         name: "Balanced & Adaptive",
         description: "Adjusts naturally to your needs",
         icon: Brain,
-        color: "text-gray-600",
+        color: "text-purple-300",
       },
     };
 
@@ -282,7 +282,7 @@ const AdvancedReflectionarian = () => {
     setIsLoading(true);
 
     try {
-      // Real API call to Advanced Reflectionarian endpoint
+      // Real API call to Growth Reflectionarian endpoint
       const response = await fetch("/api/openai/chat-advanced", {
         method: "POST",
         headers: {
@@ -366,7 +366,7 @@ const AdvancedReflectionarian = () => {
     }
   };
 
-  // Updated functions for AdvancedReflectionarian.jsx
+  // Updated functions for GrowthReflectionarian.jsx
   // Replace the existing placeholder functions with these implementations
 
   // ====================================================================
@@ -388,8 +388,8 @@ const AdvancedReflectionarian = () => {
           adaptive_mode: adaptiveMode,
           detected_mood: detectedMood?.mood || "balanced",
         },
-        suggestion_type: "adaptive", // Advanced tier uses adaptive suggestions
-        confidence_score: 0.75, // Good confidence for Advanced tier prompts
+        suggestion_type: "adaptive", // Growth tier uses adaptive suggestions
+        confidence_score: 0.75, // Good confidence for Growth tier prompts
       };
 
       const response = await fetch(
@@ -412,7 +412,7 @@ const AdvancedReflectionarian = () => {
       console.log("✅ Prompt saved successfully:", result.suggestion_id);
 
       // Show success feedback
-      alert("✨ Prompt saved to your Advanced Journaling recommendations!");
+      alert("✨ Prompt saved to your Growth Journaling recommendations!");
     } catch (error) {
       console.error("❌ Error saving prompt:", error);
       alert("Sorry, there was an issue saving the prompt. Please try again.");
@@ -430,7 +430,7 @@ const AdvancedReflectionarian = () => {
           session_id: sessionId,
           goal_text: goalText,
           rationale:
-            "Generated during Advanced Reflectionarian conversation with adaptive mood detection",
+            "Generated during Growth Reflectionarian conversation with adaptive mood detection",
           context: {
             conversation_type: "advanced",
             generated_at: new Date().toISOString(),
@@ -439,8 +439,8 @@ const AdvancedReflectionarian = () => {
             mood_confidence: detectedMood?.confidence || 0,
           },
           suggestion_type: "adaptive",
-          confidence_score: 0.8, // High confidence for Advanced tier goals
-          priority: "medium", // Advanced tier gets medium priority
+          confidence_score: 0.8, // High confidence for Growth tier goals
+          priority: "medium", // Growth tier gets medium priority
         };
 
         const response = await fetch(
@@ -463,7 +463,7 @@ const AdvancedReflectionarian = () => {
         console.log("✅ Goal saved successfully:", result.suggestion_id);
 
         // Show success feedback
-        alert("🎯 Goal added to your Advanced Goals recommendations!");
+        alert("🎯 Goal added to your Growth Goals recommendations!");
       } else if (action === "dismiss") {
         console.log("👋 Goal suggestion dismissed by user");
         // Could track dismissals for improving future suggestions
@@ -552,13 +552,13 @@ const AdvancedReflectionarian = () => {
   }, [messages]);
 
   useEffect(() => {
-    // Welcome message for Advanced tier
+    // Welcome message for Growth tier
     setMessages([
       {
         id: Date.now(),
         role: "assistant",
         content:
-          "Hi! I'm your Advanced Reflectionarian - I adapt my responses to match your mood and needs, provide personalized growth suggestions, and can help you explore topics more deeply. What's on your mind today?",
+          "Hi! I'm your Growth Reflectionarian - I adapt my responses to match your mood and needs, provide personalized growth suggestions, and can help you explore topics more deeply. What's on your mind today?",
         timestamp: new Date(),
         adaptiveStyle: "balanced",
       },
@@ -569,21 +569,23 @@ const AdvancedReflectionarian = () => {
   // LOADING & ACCESS CONTROL
   // ====================================================================
 
-  if (!membershipData?.hasAdvancedReflectionarian) {
+  if (!membershipData?.hasGrowthReflectionarian) {
     return (
-      <div className="text-center py-12">
-        <Brain className="w-16 h-16 text-gray-400 mx-auto mb-6" />
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">
-          Advanced Reflectionarian
-        </h2>
-        <p className="text-gray-600 mb-8 max-w-md mx-auto">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white flex items-center justify-center">
+        <div className="text-center py-12">
+          <Brain className="w-16 h-16 text-purple-400 mx-auto mb-6" />
+          <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-4">
+            Growth Reflectionarian
+          </h2>
+          <p className="text-purple-300 mb-8 max-w-md mx-auto">
           Unlock intelligent mood detection, adaptive responses, personalized
           growth suggestions, and deep topic-based conversations with your AI
           companion.
-        </p>
-        <button className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition-all">
-          Upgrade to Advanced
-        </button>
+          </p>
+          <button className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-3 rounded-lg font-semibold hover:shadow-lg transition-all">
+            Upgrade to Growth
+          </button>
+        </div>
       </div>
     );
   }
@@ -593,19 +595,19 @@ const AdvancedReflectionarian = () => {
   // ====================================================================
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="backdrop-blur-xl bg-white/10 border-b border-white/20 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
               <Brain className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">
-                Advanced Reflectionarian
+              <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+                Growth Reflectionarian
               </h1>
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <div className="flex items-center space-x-2 text-sm text-purple-300">
                 <span>Adaptive mode: {adaptiveMode}</span>
                 {detectedMood && (
                   <>
@@ -636,7 +638,7 @@ const AdvancedReflectionarian = () => {
               onClick={() => setShowSettings(!showSettings)}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <Settings className="w-5 h-5 text-gray-600" />
+              <Settings className="w-5 h-5 text-purple-300 hover:text-white" />
             </button>
           </div>
         </div>
@@ -661,12 +663,12 @@ const AdvancedReflectionarian = () => {
                       ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white"
                       : message.isError
                       ? "bg-red-50 border border-red-200 text-red-800"
-                      : "bg-white border border-gray-200 text-gray-900"
+                      : "backdrop-blur-xl bg-white/10 border border-white/20 text-white"
                   }`}
                 >
                   {/* Adaptive Style Indicator */}
                   {message.role === "assistant" && message.adaptiveStyle && (
-                    <div className="flex items-center space-x-2 mb-2 text-xs text-gray-500">
+                    <div className="flex items-center space-x-2 mb-2 text-xs text-purple-400">
                       <Zap className="w-3 h-3" />
                       <span>Adaptive mode: {message.adaptiveStyle}</span>
                     </div>
@@ -693,7 +695,7 @@ const AdvancedReflectionarian = () => {
                   {/* Session Prompts */}
                   {message.sessionPrompts?.length > 0 && (
                     <div className="mt-4 pt-4 border-t border-gray-200">
-                      <p className="text-sm font-medium text-gray-700 mb-3">
+                      <p className="text-sm font-medium text-purple-200 mb-3">
                         ✨ Reflection prompts for deeper insight:
                       </p>
                       <div className="space-y-2">
@@ -714,7 +716,7 @@ const AdvancedReflectionarian = () => {
                   {/* Goal Suggestion */}
                   {message.goalSuggestion && (
                     <div className="mt-4 pt-4 border-t border-gray-200">
-                      <p className="text-sm font-medium text-gray-700 mb-2">
+                      <p className="text-sm font-medium text-purple-200 mb-2">
                         🎯 Personalized goal suggestion:
                       </p>
                       <div className="bg-blue-50 p-3 rounded-lg">
@@ -735,7 +737,7 @@ const AdvancedReflectionarian = () => {
                           </button>
                           <button
                             onClick={() => handleGoalSuggestion("dismiss")}
-                            className="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400 transition-colors"
+                            className="px-3 py-1 bg-white/20 text-purple-200 text-xs rounded hover:bg-white/30 transition-colors"
                           >
                             Not now
                           </button>
@@ -760,17 +762,17 @@ const AdvancedReflectionarian = () => {
                   {growthSuggestions.map((suggestion) => (
                     <div
                       key={suggestion.id}
-                      className="bg-white p-4 rounded-lg border border-green-100"
+                      className="backdrop-blur-xl bg-white/10 p-4 rounded-lg border border-green-400/30"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-2">
                             <span className="text-lg">{suggestion.icon}</span>
-                            <h4 className="font-medium text-gray-900">
+                            <h4 className="font-medium text-white">
                               {suggestion.title}
                             </h4>
                           </div>
-                          <p className="text-sm text-gray-600 mb-3">
+                          <p className="text-sm text-purple-300 mb-3">
                             {suggestion.description}
                           </p>
                           <span className="inline-block px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
@@ -790,7 +792,7 @@ const AdvancedReflectionarian = () => {
                             onClick={() =>
                               handleGrowthSuggestion("dismiss", suggestion)
                             }
-                            className="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400 transition-colors"
+                            className="px-3 py-1 bg-white/20 text-purple-200 text-xs rounded hover:bg-white/30 transition-colors"
                           >
                             ✕
                           </button>
@@ -804,10 +806,10 @@ const AdvancedReflectionarian = () => {
 
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-white border border-gray-200 px-6 py-4 rounded-2xl">
+                <div className="backdrop-blur-xl bg-white/10 border border-white/20 px-6 py-4 rounded-2xl">
                   <div className="flex items-center space-x-2">
                     <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
-                    <span className="text-gray-600">
+                    <span className="text-purple-300">
                       Adapting to your needs...
                     </span>
                   </div>
@@ -844,20 +846,20 @@ const AdvancedReflectionarian = () => {
 
         {/* Adaptive Settings Sidebar */}
         {showAdaptiveSettings && (
-          <div className="w-80 bg-white border-l border-gray-200 p-6">
+          <div className="w-80 backdrop-blur-xl bg-white/10 border-l border-white/20 p-6">
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                <h3 className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-4">
                   Adaptive Response Settings
                 </h3>
-                <p className="text-sm text-gray-600 mb-4">
+                <p className="text-sm text-purple-300 mb-4">
                   I automatically detect your mood and adapt my responses. You
                   can also manually set your preferred style.
                 </p>
               </div>
 
               <div>
-                <h4 className="font-medium text-gray-900 mb-3">
+                <h4 className="font-medium text-white mb-3">
                   Response Styles
                 </h4>
                 <div className="space-y-2">
@@ -901,10 +903,10 @@ const AdvancedReflectionarian = () => {
                         <div className="flex items-center space-x-3">
                           <Icon className="w-5 h-5 text-purple-600" />
                           <div>
-                            <div className="font-medium text-gray-900">
+                            <div className="font-medium text-white">
                               {style.name}
                             </div>
-                            <div className="text-xs text-gray-600">
+                            <div className="text-xs text-purple-300">
                               {style.desc}
                             </div>
                           </div>
@@ -917,7 +919,7 @@ const AdvancedReflectionarian = () => {
 
               {detectedMood && (
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">
+                  <h4 className="font-medium text-white mb-2">
                     Current Mood Detection
                   </h4>
                   <div className="flex items-center space-x-2">
@@ -928,7 +930,7 @@ const AdvancedReflectionarian = () => {
                       {detectedMood.mood}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-600 mt-2">
+                  <p className="text-xs text-purple-300 mt-2">
                     Confidence: {Math.round(detectedMood.confidence * 100)}%
                   </p>
                 </div>
@@ -939,13 +941,13 @@ const AdvancedReflectionarian = () => {
 
         {/* Main Settings Sidebar */}
         {showSettings && (
-          <div className="w-80 bg-white border-l border-gray-200 p-6">
+          <div className="w-80 backdrop-blur-xl bg-white/10 border-l border-white/20 p-6">
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Advanced Features
+                <h3 className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-4">
+                  Growth Features
                 </h3>
-                <div className="space-y-2 text-sm text-gray-600">
+                <div className="space-y-2 text-sm text-purple-300">
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-green-500" />
                     <span>Mood detection & adaptive responses</span>
@@ -989,4 +991,4 @@ const AdvancedReflectionarian = () => {
   );
 };
 
-export default AdvancedReflectionarian;
+export default GrowthReflectionarian;

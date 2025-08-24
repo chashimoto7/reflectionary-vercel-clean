@@ -3,8 +3,8 @@ import React from "react";
 import { useMembership } from "../hooks/useMembership";
 
 // Import all the goals components
-import StandardGoals from "./StandardGoals";
-import AdvancedGoals from "./AdvancedGoals";
+import GrowthGoals from "./GrowthGoals";
+import GrowthGoals from "./GrowthGoals";
 import PremiumGoals from "./PremiumGoals";
 
 // Upgrade prompt component for users without access
@@ -28,7 +28,7 @@ const GoalsUpgrade = () => (
           </svg>
         </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-4">
-          Goal Tracking Available with Standard Membership
+          Goal Tracking Available with Growth Membership
         </h1>
         <p className="text-gray-600 mb-8 max-w-2xl mx-auto">
           Transform your journaling into actionable progress with comprehensive
@@ -40,7 +40,7 @@ const GoalsUpgrade = () => (
             onClick={() => (window.location.href = "/pricing")}
             className="bg-orange-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-orange-700 transition-colors"
           >
-            Upgrade to Standard - $20/month
+            Upgrade to Growth - $20/month
           </button>
           <p className="text-sm text-gray-500">
             Or continue with Basic features for analytics and women's health
@@ -51,7 +51,7 @@ const GoalsUpgrade = () => (
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="font-semibold text-gray-900 mb-2">
-              🎯 Standard Goals
+              🎯 Growth Goals
             </h3>
             <p className="text-sm text-gray-600">
               Set and track personal goals with basic progress monitoring
@@ -59,11 +59,11 @@ const GoalsUpgrade = () => (
           </div>
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="font-semibold text-gray-900 mb-2">
-              ⭐ Advanced Goals
+              ⭐ Growth Goals
             </h3>
             <p className="text-sm text-gray-600">
               Smart goal suggestions, milestone tracking, and journal
-              integration (Advanced tier)
+              integration (Growth tier)
             </p>
           </div>
           <div className="bg-gray-50 p-4 rounded-lg">
@@ -112,15 +112,11 @@ const GoalsRouter = () => {
       console.log("🚀 Routing to Premium Goals");
       return <PremiumGoals />;
 
-    case "advanced":
-      console.log("⭐ Routing to Advanced Goals");
-      return <AdvancedGoals />;
+    case "growth":
+      console.log("⭐ Routing to Growth Goals");
+      return <GrowthGoals />;
 
-    case "standard":
-      console.log("🎯 Routing to Standard Goals");
-      return <StandardGoals />;
-
-    case "basic":
+    case "personal":
     case "free":
     default:
       console.log("🚫 Basic/Free tier - showing upgrade prompt for Goals");

@@ -3,10 +3,8 @@ import React from "react";
 import { useMembership } from "../hooks/useMembership";
 
 // Import all the settings components
-import FreeSettings from "./settings/FreeSettings";
 import BasicSettings from "./settings/BasicSettings";
-import StandardSettings from "./settings/StandardSettings";
-import AdvancedSettings from "./settings/AdvancedSettings";
+import GrowthSettings from "./settings/GrowthSettings";
 import PremiumSettings from "./settings/PremiumSettings";
 
 const SettingsRouter = () => {
@@ -32,22 +30,14 @@ const SettingsRouter = () => {
       console.log("🚀 Routing to Premium Settings");
       return <PremiumSettings />;
 
-    case "advanced":
-      console.log("⭐ Routing to Advanced Settings");
-      return <AdvancedSettings />;
+    case "growth":
+      console.log("⭐ Routing to Growth Settings");
+      return <GrowthSettings />;
 
-    case "standard":
-      console.log("📚 Routing to Standard Settings");
-      return <StandardSettings />;
-
-    case "basic":
-      console.log("🌱 Routing to Basic Settings");
-      return <BasicSettings />;
-
-    case "free":
+    case "personal":
     default:
-      console.log("🆓 Routing to Free Settings");
-      return <FreeSettings />;
+      console.log("🌱 Routing to Personal Settings");
+      return <BasicSettings />;
   }
 };
 

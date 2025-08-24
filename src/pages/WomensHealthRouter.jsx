@@ -3,9 +3,8 @@ import React from "react";
 import { useMembership } from "../hooks/useMembership";
 
 // Import all the women's health components
-import BasicWomensHealth from "./BasicWomensHealth";
-import StandardWomensHealth from "./StandardWomensHealth";
-import AdvancedWomensHealth from "./AdvancedWomensHealth";
+import PersonalWomensHealth from "./PersonalWomensHealth";
+import GrowthWomensHealth from "./GrowthWomensHealth";
 import PremiumWomensHealth from "./PremiumWomensHealth";
 
 // Upgrade prompt component for users without access
@@ -77,17 +76,13 @@ const WomensHealthRouter = () => {
       console.log("🚀 Routing to Premium Women's Health");
       return <PremiumWomensHealth />;
 
-    case "advanced":
-      console.log("⭐ Routing to Advanced Women's Health");
-      return <AdvancedWomensHealth />;
+    case "growth":
+      console.log("⭐ Routing to Growth Women's Health");
+      return <GrowthWomensHealth />;
 
-    case "standard":
-      console.log("📚 Routing to Standard Women's Health");
-      return <StandardWomensHealth />;
-
-    case "basic":
-      console.log("🌸 Routing to Basic Women's Health");
-      return <BasicWomensHealth />;
+    case "personal":
+      console.log("🌸 Routing to Personal Women's Health");
+      return <PersonalWomensHealth />;
 
     case "free":
     default:

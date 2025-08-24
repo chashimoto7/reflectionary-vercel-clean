@@ -1,4 +1,4 @@
-//frontend/ src/pages/AdvancedWomensHealth.jsx
+//frontend/ src/pages/GrowthWomensHealth.jsx
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -33,7 +33,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const AdvancedWomensHealth = () => {
+const GrowthWomensHealth = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("cycle");
@@ -414,7 +414,7 @@ const AdvancedWomensHealth = () => {
       )}
 
       {/* Quick Log */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
         <h3 className="text-lg font-semibold mb-4">Quick Log</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <button
@@ -449,7 +449,7 @@ const AdvancedWomensHealth = () => {
       </div>
 
       {/* Symptom Tracking */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
         <h3 className="text-lg font-semibold mb-4">Track Symptoms</h3>
         <div className="flex flex-wrap gap-2">
           {symptomOptions[lifeStage].map((symptom) => (
@@ -465,7 +465,7 @@ const AdvancedWomensHealth = () => {
               className={`px-4 py-2 rounded-full text-sm transition-all ${
                 symptoms.includes(symptom)
                   ? "bg-purple-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  : "bg-white/20 text-purple-300 hover:bg-white/30"
               }`}
             >
               {symptom}
@@ -475,26 +475,26 @@ const AdvancedWomensHealth = () => {
       </div>
 
       {/* Basic Insights */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
         <h3 className="text-lg font-semibold mb-4">Your Patterns</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="text-center p-4 bg-purple-50 rounded-lg">
             <div className="text-3xl font-bold text-purple-600">
               {Object.keys(cycleData.symptoms || {}).length}
             </div>
-            <p className="text-sm text-gray-600 mt-1">Symptoms tracked</p>
+            <p className="text-sm text-purple-300 mt-1">Symptoms tracked</p>
           </div>
           <div className="text-center p-4 bg-pink-50 rounded-lg">
             <div className="text-3xl font-bold text-pink-600">
               {cycleData.trends?.length || 0}
             </div>
-            <p className="text-sm text-gray-600 mt-1">Days logged</p>
+            <p className="text-sm text-purple-300 mt-1">Days logged</p>
           </div>
           <div className="text-center p-4 bg-blue-50 rounded-lg">
             <div className="text-3xl font-bold text-blue-600">
               {Math.round(((cycleData.trends?.length || 0) / 90) * 100)}%
             </div>
-            <p className="text-sm text-gray-600 mt-1">Consistency</p>
+            <p className="text-sm text-purple-300 mt-1">Consistency</p>
           </div>
         </div>
       </div>
@@ -504,7 +504,7 @@ const AdvancedWomensHealth = () => {
   const TrendsTab = () => (
     <div className="space-y-6">
       {/* Mood & Energy Trends */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
         <h3 className="text-lg font-semibold mb-4">Mood & Energy Patterns</h3>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
@@ -533,7 +533,7 @@ const AdvancedWomensHealth = () => {
       </div>
 
       {/* Symptom Frequency */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
         <h3 className="text-lg font-semibold mb-4">Common Symptoms</h3>
         {Object.keys(cycleData.symptoms || {}).length > 0 ? (
           <div className="space-y-3">
@@ -545,7 +545,7 @@ const AdvancedWomensHealth = () => {
                   key={symptom}
                   className="flex items-center justify-between"
                 >
-                  <span className="text-gray-700">{symptom}</span>
+                  <span className="text-white">{symptom}</span>
                   <div className="flex items-center gap-2">
                     <div className="w-32 bg-gray-200 rounded-full h-2">
                       <div
@@ -559,20 +559,20 @@ const AdvancedWomensHealth = () => {
                         }}
                       />
                     </div>
-                    <span className="text-sm text-gray-600 w-8">{count}</span>
+                    <span className="text-sm text-purple-300 w-8">{count}</span>
                   </div>
                 </div>
               ))}
           </div>
         ) : (
-          <p className="text-gray-500 text-center py-8">
+          <p className="text-purple-400 text-center py-8">
             Start tracking symptoms to see patterns
           </p>
         )}
       </div>
 
       {/* Life Stage Insights */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
         <h3 className="text-lg font-semibold mb-4">
           {lifeStages[lifeStage].label} Insights
         </h3>
@@ -627,7 +627,7 @@ const AdvancedWomensHealth = () => {
 
   const EducationTab = () => (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
         <h3 className="text-lg font-semibold mb-4">
           Educational Resources - {lifeStages[lifeStage].label}
         </h3>
@@ -640,14 +640,14 @@ const AdvancedWomensHealth = () => {
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h4 className="font-medium text-gray-900 mb-1">
+                  <h4 className="font-medium text-white mb-1">
                     {topic.title}
                   </h4>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-purple-300">
                     {topic.content.substring(0, 50)}...
                   </p>
                 </div>
-                <ChevronRight className="h-5 w-5 text-gray-400 mt-1" />
+                <ChevronRight className="h-5 w-5 text-purple-400 mt-1" />
               </div>
             </button>
           ))}
@@ -658,20 +658,20 @@ const AdvancedWomensHealth = () => {
       <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6">
         <h3 className="text-lg font-semibold mb-4">Your Life Stage Guide</h3>
         <div className="space-y-3">
-          <p className="text-gray-700">{lifeStages[lifeStage].description}</p>
-          <div className="flex items-center gap-2 text-sm text-gray-600">
+          <p className="text-purple-100">{lifeStages[lifeStage].description}</p>
+          <div className="flex items-center gap-2 text-sm text-purple-300">
             <Clock className="h-4 w-4" />
             <span>{lifeStages[lifeStage].ageRange}</span>
           </div>
           <div className="mt-4">
-            <p className="text-sm font-medium text-gray-700 mb-2">
+            <p className="text-sm font-medium text-purple-200 mb-2">
               Key features for this stage:
             </p>
             <ul className="space-y-1">
               {lifeStages[lifeStage].keyFeatures.map((feature, index) => (
                 <li
                   key={index}
-                  className="flex items-center gap-2 text-sm text-gray-600"
+                  className="flex items-center gap-2 text-sm text-purple-300"
                 >
                   <CheckCircle className="h-4 w-4 text-green-500" />
                   {feature}
@@ -683,7 +683,7 @@ const AdvancedWomensHealth = () => {
       </div>
 
       {/* Additional Resources */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
         <h3 className="text-lg font-semibold mb-4">Learn More</h3>
         <div className="space-y-3">
           <button className="w-full text-left p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors flex items-center justify-between group">
@@ -708,7 +708,7 @@ const AdvancedWomensHealth = () => {
   // Life Stage Modal
   const LifeStageModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-semibold">Choose Your Life Stage</h3>
           <button
@@ -730,9 +730,9 @@ const AdvancedWomensHealth = () => {
                   : "border-gray-200 hover:border-gray-300"
               }`}
             >
-              <h4 className="font-medium text-gray-900 mb-1">{stage.label}</h4>
-              <p className="text-sm text-gray-600 mb-2">{stage.description}</p>
-              <p className="text-xs text-gray-500">{stage.ageRange}</p>
+              <h4 className="font-medium text-white mb-1">{stage.label}</h4>
+              <p className="text-sm text-purple-300 mb-2">{stage.description}</p>
+              <p className="text-xs text-purple-400">{stage.ageRange}</p>
             </button>
           ))}
         </div>
@@ -753,7 +753,7 @@ const AdvancedWomensHealth = () => {
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-semibold">{selectedTopic.title}</h3>
             <button
@@ -765,7 +765,7 @@ const AdvancedWomensHealth = () => {
           </div>
 
           <div className="prose max-w-none">
-            <p className="text-gray-700">{selectedTopic.content}</p>
+            <p className="text-purple-100">{selectedTopic.content}</p>
             {/* This would be expanded with full educational content */}
             <div className="mt-6 p-4 bg-purple-50 rounded-lg">
               <p className="text-sm text-purple-800">
@@ -789,26 +789,26 @@ const AdvancedWomensHealth = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your health data...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
+          <p className="text-purple-300">Loading your health data...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Advanced Women's Health
+              <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-2">
+                Growth Women's Health
               </h1>
-              <p className="text-gray-600">
+              <p className="text-purple-300">
                 Track, understand, and optimize your health
               </p>
             </div>
@@ -823,14 +823,14 @@ const AdvancedWomensHealth = () => {
         </div>
 
         {/* Tabs */}
-        <div className="bg-white rounded-lg shadow-sm p-1 mb-6">
+        <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-1 mb-6">
           <div className="flex gap-1">
             <button
               onClick={() => setActiveTab("cycle")}
               className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${
                 activeTab === "cycle"
                   ? "bg-purple-600 text-white"
-                  : "text-gray-600 hover:bg-gray-50"
+                  : "text-purple-300 hover:bg-white/10"
               }`}
             >
               <Calendar className="h-5 w-5 inline mr-2" />
@@ -841,7 +841,7 @@ const AdvancedWomensHealth = () => {
               className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${
                 activeTab === "trends"
                   ? "bg-purple-600 text-white"
-                  : "text-gray-600 hover:bg-gray-50"
+                  : "text-purple-300 hover:bg-white/10"
               }`}
             >
               <TrendingUp className="h-5 w-5 inline mr-2" />
@@ -852,7 +852,7 @@ const AdvancedWomensHealth = () => {
               className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${
                 activeTab === "education"
                   ? "bg-purple-600 text-white"
-                  : "text-gray-600 hover:bg-gray-50"
+                  : "text-purple-300 hover:bg-white/10"
               }`}
             >
               <BookOpen className="h-5 w-5 inline mr-2" />
@@ -874,4 +874,4 @@ const AdvancedWomensHealth = () => {
   );
 };
 
-export default AdvancedWomensHealth;
+export default GrowthWomensHealth;

@@ -4,8 +4,7 @@ import { useMembership } from "../hooks/useMembership";
 
 // Import all the analytics components
 import BasicAnalytics from "./BasicAnalytics";
-import StandardAnalytics from "./StandardAnalytics";
-import AdvancedAnalytics from "./AdvancedAnalytics";
+import GrowthAnalytics from "./GrowthAnalytics";
 import PremiumAnalytics from "./PremiumAnalytics";
 
 // Upgrade prompt component for users without access
@@ -75,22 +74,14 @@ const AnalyticsRouter = () => {
       console.log("🚀 Routing to Premium Analytics");
       return <PremiumAnalytics />;
 
-    case "advanced":
-      console.log("⭐ Routing to Advanced Analytics");
-      return <AdvancedAnalytics />;
+    case "growth":
+      console.log("⭐ Routing to Growth Analytics");
+      return <GrowthAnalytics />;
 
-    case "standard":
-      console.log("📚 Routing to Standard Analytics");
-      return <StandardAnalytics />;
-
-    case "basic":
-      console.log("📈 Routing to Basic Analytics");
-      return <BasicAnalytics />;
-
-    case "free":
+    case "personal":
     default:
-      console.log("🚫 Free tier - showing upgrade prompt for Analytics");
-      return <AnalyticsUpgrade />;
+      console.log("📈 Routing to Personal Analytics");
+      return <BasicAnalytics />;
   }
 };
 

@@ -3,9 +3,8 @@ import React from "react";
 import { useMembership } from "../hooks/useMembership";
 
 // Import all the journaling components
-import BasicJournaling from "./BasicJournaling";
-import StandardJournaling from "./StandardJournaling";
-import AdvancedJournaling from "./AdvancedJournaling";
+import PersonalJournaling from "./PersonalJournaling";
+import GrowthJournaling from "./GrowthJournaling";
 import PremiumJournaling from "./PremiumJournaling";
 
 const JournalingRouter = () => {
@@ -31,24 +30,16 @@ const JournalingRouter = () => {
       console.log("🚀 Routing to Premium Journaling");
       return <PremiumJournaling />;
 
-    case "advanced":
-      console.log("⭐ Routing to Advanced Journaling");
-      return <AdvancedJournaling />;
+    case "growth":
+      console.log("⭐ Routing to Growth Journaling");
+      return <GrowthJournaling />;
 
-    case "standard":
-      console.log("📚 Routing to Standard Journaling");
-      return <StandardJournaling />;
-
-    case "basic":
-      console.log(
-        "🌱 Routing to Basic Journaling (same as Free for journaling)"
-      );
-      return <BasicJournaling />;
-
-    case "free":
+    case "personal":
     default:
-      console.log("🆓 Routing to Basic Journaling (Free tier)");
-      return <BasicJournaling />;
+      console.log(
+        "🌱 Routing to Personal Journaling"
+      );
+      return <PersonalJournaling />;
   }
 };
 

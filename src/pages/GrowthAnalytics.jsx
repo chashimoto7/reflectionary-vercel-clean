@@ -1,4 +1,4 @@
-// frontend/ src/pages/AdvancedAnalytics.jsx
+// frontend/ src/pages/GrowthAnalytics.jsx
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -38,7 +38,7 @@ import {
   Radar,
 } from "recharts";
 
-const AdvancedAnalytics = () => {
+const GrowthAnalytics = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("mood");
@@ -260,11 +260,11 @@ const AdvancedAnalytics = () => {
     onClick,
   }) => (
     <div
-      className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+      className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6 hover:bg-white/20 transition-all cursor-pointer"
       onClick={onClick}
     >
       <div className="flex items-center justify-between mb-2">
-        <Icon className="h-6 w-6 text-purple-600" />
+        <Icon className="h-6 w-6 text-purple-400" />
         {trend !== undefined && (
           <div
             className={`flex items-center gap-1 text-sm ${
@@ -286,9 +286,9 @@ const AdvancedAnalytics = () => {
           </div>
         )}
       </div>
-      <div className="text-2xl font-bold text-gray-900">{value}</div>
-      <div className="text-sm text-gray-600">{subtitle}</div>
-      <div className="text-xs text-purple-600 mt-2">Click for details</div>
+      <div className="text-2xl font-bold text-white">{value}</div>
+      <div className="text-sm text-purple-300">{subtitle}</div>
+      <div className="text-xs text-purple-400 mt-2">Click for details</div>
     </div>
   );
 
@@ -338,8 +338,8 @@ const AdvancedAnalytics = () => {
       </div>
 
       {/* Mood Trend Chart */}
-      <div className="bg-white rounded-lg p-6 shadow-sm">
-        <h3 className="text-lg font-semibold mb-4">Mood Trend</h3>
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
+        <h3 className="text-lg font-semibold mb-4 text-white">Mood Trend</h3>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data.scores}>
@@ -366,11 +366,13 @@ const AdvancedAnalytics = () => {
           onClick={() => setSelectedMetric(null)}
         >
           <div
-            className="bg-white rounded-lg p-6 max-w-md"
+            className="backdrop-blur-xl bg-slate-800 rounded-2xl shadow-2xl border border-white/20 p-6 max-w-md"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold mb-4">Mood Score Details</h3>
-            <p className="text-gray-600 mb-4">
+            <h3 className="text-lg font-semibold mb-4 text-white">
+              Mood Score Details
+            </h3>
+            <p className="text-purple-300 mb-4">
               Your average mood score of {data.average}/10 is calculated from
               all your journal entries in the selected period.
             </p>
@@ -383,7 +385,7 @@ const AdvancedAnalytics = () => {
               ))}
             </div>
             <button
-              className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
               onClick={() => setSelectedMetric(null)}
             >
               Close
@@ -429,8 +431,10 @@ const AdvancedAnalytics = () => {
       </div>
 
       {/* Words Per Day Chart */}
-      <div className="bg-white rounded-lg p-6 shadow-sm">
-        <h3 className="text-lg font-semibold mb-4">Daily Word Count</h3>
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
+        <h3 className="text-lg font-semibold mb-4 text-white">
+          Daily Word Count
+        </h3>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data.wordsPerDay}>
@@ -475,15 +479,15 @@ const AdvancedAnalytics = () => {
 
       {/* Theme Distribution */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg p-6 shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Top Themes</h3>
+        <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
+          <h3 className="text-lg font-semibold mb-4 text-white">Top Themes</h3>
           <div className="space-y-3">
             {data.topThemes.map((theme, index) => (
               <div
                 key={theme.theme}
                 className="flex items-center justify-between"
               >
-                <span className="text-gray-700">{theme.theme}</span>
+                <span className="text-purple-200">{theme.theme}</span>
                 <div className="flex items-center gap-2">
                   <div className="w-32 bg-gray-200 rounded-full h-2">
                     <div
@@ -495,7 +499,7 @@ const AdvancedAnalytics = () => {
                       }}
                     />
                   </div>
-                  <span className="text-sm text-gray-600 w-8">
+                  <span className="text-sm text-purple-300 w-8">
                     {theme.count}
                   </span>
                 </div>
@@ -504,8 +508,10 @@ const AdvancedAnalytics = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg p-6 shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Emotion Distribution</h3>
+        <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
+          <h3 className="text-lg font-semibold mb-4 text-white">
+            Emotion Distribution
+          </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -569,13 +575,13 @@ const AdvancedAnalytics = () => {
       </div>
 
       {/* Milestones */}
-      <div className="bg-white rounded-lg p-6 shadow-sm">
-        <h3 className="text-lg font-semibold mb-4">Milestones</h3>
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
+        <h3 className="text-lg font-semibold mb-4 text-white">Milestones</h3>
         <div className="space-y-3">
           {data.milestones.map((milestone) => (
             <div
               key={milestone.title}
-              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+              className="flex items-center justify-between p-3 backdrop-blur-xl bg-white/5 rounded-lg border border-white/10"
             >
               <div className="flex items-center gap-3">
                 <div
@@ -589,7 +595,9 @@ const AdvancedAnalytics = () => {
                 </div>
                 <span
                   className={
-                    milestone.achieved ? "font-medium" : "text-gray-600"
+                    milestone.achieved
+                      ? "font-medium text-white"
+                      : "text-purple-300"
                   }
                 >
                   {milestone.title}
@@ -597,7 +605,7 @@ const AdvancedAnalytics = () => {
               </div>
               <span
                 className={`text-sm ${
-                  milestone.achieved ? "text-green-600" : "text-gray-400"
+                  milestone.achieved ? "text-green-400" : "text-purple-400"
                 }`}
               >
                 {milestone.achieved ? "Achieved" : "In Progress"}
@@ -611,24 +619,24 @@ const AdvancedAnalytics = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your analytics...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
+          <p className="text-purple-300">Loading your analytics...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Advanced Analytics
+          <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-2">
+            Growth Analytics
           </h1>
-          <p className="text-gray-600">
+          <p className="text-purple-300">
             Track your journaling patterns and emotional insights
           </p>
         </div>
@@ -643,7 +651,7 @@ const AdvancedAnalytics = () => {
                 className={`px-4 py-2 rounded-lg transition-colors ${
                   dateRange === range
                     ? "bg-purple-600 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
+                    : "backdrop-blur-xl bg-white/10 text-purple-200 hover:bg-white/20 border border-white/20"
                 }`}
               >
                 {range === "1month"
@@ -659,7 +667,7 @@ const AdvancedAnalytics = () => {
         </div>
 
         {/* Tabs */}
-        <div className="bg-gray-50 p-1 rounded-lg mb-6">
+        <div className="backdrop-blur-xl bg-white/10 p-1 rounded-2xl mb-6 border border-white/20">
           <div className="flex gap-1">
             {[
               { id: "mood", label: "Mood", icon: Heart },
@@ -672,8 +680,8 @@ const AdvancedAnalytics = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
                   activeTab === tab.id
-                    ? "bg-white text-purple-600 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
+                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg"
+                    : "text-purple-200 hover:text-white hover:bg-white/10"
                 }`}
               >
                 <tab.icon className="h-5 w-5" />
@@ -690,4 +698,4 @@ const AdvancedAnalytics = () => {
   );
 };
 
-export default AdvancedAnalytics;
+export default GrowthAnalytics;

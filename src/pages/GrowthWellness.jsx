@@ -1,4 +1,4 @@
-//frontend/ src/pages/AdvancedWellness.jsx
+//frontend/ src/pages/GrowthWellness.jsx
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -40,7 +40,7 @@ import {
   Cell,
 } from "recharts";
 
-const AdvancedWellness = () => {
+const GrowthWellness = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
@@ -281,7 +281,7 @@ const AdvancedWellness = () => {
     color = colors.primary,
   }) => (
     <div
-      className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+      className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6 hover:shadow-3xl transition-all cursor-pointer"
       onClick={onClick}
     >
       <div className="flex items-center justify-between mb-2">
@@ -298,7 +298,7 @@ const AdvancedWellness = () => {
                 ? "text-green-600"
                 : trend < 0
                 ? "text-red-600"
-                : "text-gray-600"
+                : "text-purple-300"
             }`}
           >
             {trend > 0 ? (
@@ -312,8 +312,8 @@ const AdvancedWellness = () => {
           </div>
         )}
       </div>
-      <div className="text-2xl font-bold text-gray-900">{value}</div>
-      <div className="text-sm text-gray-600">{subtitle}</div>
+      <div className="text-2xl font-bold text-white">{value}</div>
+      <div className="text-sm text-purple-300">{subtitle}</div>
       <div className="text-xs mt-2" style={{ color }}>
         Click for details
       </div>
@@ -359,7 +359,7 @@ const AdvancedWellness = () => {
       </div>
 
       {/* Wellness Score Radar */}
-      <div className="bg-white rounded-lg p-6 shadow-sm">
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
         <h3 className="text-lg font-semibold mb-4">Wellness Balance</h3>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
@@ -405,7 +405,7 @@ const AdvancedWellness = () => {
       </div>
 
       {/* Tracking Consistency */}
-      <div className="bg-white rounded-lg p-6 shadow-sm">
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Tracking Consistency</h3>
           <span className="text-2xl font-bold text-purple-600">
@@ -418,7 +418,7 @@ const AdvancedWellness = () => {
             style={{ width: `${wellnessData.overview?.consistency || 0}%` }}
           />
         </div>
-        <p className="text-sm text-gray-600 mt-2">
+        <p className="text-sm text-purple-300 mt-2">
           Keep tracking daily to build better wellness insights
         </p>
       </div>
@@ -428,7 +428,7 @@ const AdvancedWellness = () => {
   const TrendsTab = () => (
     <div className="space-y-6">
       {/* Sleep & Energy Trends */}
-      <div className="bg-white rounded-lg p-6 shadow-sm">
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
         <h3 className="text-lg font-semibold mb-4">Sleep & Energy Trends</h3>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
@@ -457,7 +457,7 @@ const AdvancedWellness = () => {
       </div>
 
       {/* Exercise & Mood Trends */}
-      <div className="bg-white rounded-lg p-6 shadow-sm">
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
         <h3 className="text-lg font-semibold mb-4">Exercise & Mood Trends</h3>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
@@ -489,9 +489,9 @@ const AdvancedWellness = () => {
 
   const CorrelationsTab = () => (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg p-6 shadow-sm">
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
         <h3 className="text-lg font-semibold mb-4">Wellness Correlations</h3>
-        <p className="text-gray-600 mb-6">
+        <p className="text-purple-300 mb-6">
           Discover how different aspects of your wellness relate to each other
         </p>
 
@@ -502,7 +502,7 @@ const AdvancedWellness = () => {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{corr.x}</span>
-                    <span className="text-gray-400">↔</span>
+                    <span className="text-purple-400">↔</span>
                     <span className="font-medium">{corr.y}</span>
                   </div>
                   <span
@@ -515,7 +515,7 @@ const AdvancedWellness = () => {
                     {corr.strength}
                   </span>
                 </div>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-purple-300">
                   {corr.strength === "Strong"
                     ? `Higher ${corr.x.toLowerCase()} tends to correlate with higher ${corr.y.toLowerCase()}`
                     : `Some correlation observed between ${corr.x.toLowerCase()} and ${corr.y.toLowerCase()}`}
@@ -524,26 +524,26 @@ const AdvancedWellness = () => {
             ))}
           </div>
         ) : (
-          <p className="text-gray-500 text-center py-8">
+          <p className="text-purple-400 text-center py-8">
             Track more data to see correlations between wellness metrics
           </p>
         )}
       </div>
 
       {/* Pattern Insights */}
-      <div className="bg-white rounded-lg p-6 shadow-sm">
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6">
         <h3 className="text-lg font-semibold mb-4">Basic Patterns</h3>
         <div className="space-y-3">
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-            <span className="text-gray-700">Best tracked metric</span>
+            <span className="text-purple-200">Best tracked metric</span>
             <span className="font-medium">Sleep</span>
           </div>
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-            <span className="text-gray-700">Most variable metric</span>
+            <span className="text-purple-200">Most variable metric</span>
             <span className="font-medium">Energy</span>
           </div>
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-            <span className="text-gray-700">Strongest day pattern</span>
+            <span className="text-purple-200">Strongest day pattern</span>
             <span className="font-medium">Monday</span>
           </div>
         </div>
@@ -556,12 +556,12 @@ const AdvancedWellness = () => {
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-md w-full">
+        <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6 max-w-md w-full">
           <h3 className="text-xl font-semibold mb-4">Track Today's Wellness</h3>
 
           <div className="space-y-4">
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+              <label className="flex items-center gap-2 text-sm font-medium text-purple-200 mb-1">
                 <Moon className="h-4 w-4" />
                 Sleep (hours)
               </label>
@@ -579,7 +579,7 @@ const AdvancedWellness = () => {
             </div>
 
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+              <label className="flex items-center gap-2 text-sm font-medium text-purple-200 mb-1">
                 <Dumbbell className="h-4 w-4" />
                 Exercise (minutes)
               </label>
@@ -596,7 +596,7 @@ const AdvancedWellness = () => {
             </div>
 
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+              <label className="flex items-center gap-2 text-sm font-medium text-purple-200 mb-1">
                 <Droplets className="h-4 w-4" />
                 Water (glasses)
               </label>
@@ -613,7 +613,7 @@ const AdvancedWellness = () => {
             </div>
 
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+              <label className="flex items-center gap-2 text-sm font-medium text-purple-200 mb-1">
                 <Heart className="h-4 w-4" />
                 Mood (1-10)
               </label>
@@ -630,7 +630,7 @@ const AdvancedWellness = () => {
             </div>
 
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+              <label className="flex items-center gap-2 text-sm font-medium text-purple-200 mb-1">
                 <Activity className="h-4 w-4" />
                 Energy (1-10)
               </label>
@@ -647,7 +647,7 @@ const AdvancedWellness = () => {
             </div>
 
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+              <label className="flex items-center gap-2 text-sm font-medium text-purple-200 mb-1">
                 <Brain className="h-4 w-4" />
                 Stress (1-10)
               </label>
@@ -673,7 +673,7 @@ const AdvancedWellness = () => {
             </button>
             <button
               onClick={() => setShowTracking(false)}
-              className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+              className="flex-1 px-4 py-2 bg-white/20 text-purple-300 rounded-lg hover:bg-white/30 border border-white/20"
             >
               Cancel
             </button>
@@ -693,7 +693,7 @@ const AdvancedWellness = () => {
             title: "Sleep Analysis",
             content: (
               <div>
-                <p className="text-gray-600 mb-4">
+                <p className="text-purple-300 mb-4">
                   Your average sleep is {wellnessData.overview?.avgSleep || 0}{" "}
                   hours per night.
                 </p>
@@ -715,7 +715,7 @@ const AdvancedWellness = () => {
             title: "Exercise Tracking",
             content: (
               <div>
-                <p className="text-gray-600 mb-4">
+                <p className="text-purple-300 mb-4">
                   You average {wellnessData.overview?.avgExercise || 0} minutes
                   of exercise daily.
                 </p>
@@ -737,7 +737,7 @@ const AdvancedWellness = () => {
         default:
           return {
             title: "Metric Details",
-            content: <p className="text-gray-600">Details for this metric</p>,
+            content: <p className="text-purple-300">Details for this metric</p>,
           };
       }
     };
@@ -750,7 +750,7 @@ const AdvancedWellness = () => {
         onClick={() => setSelectedMetric(null)}
       >
         <div
-          className="bg-white rounded-lg p-6 max-w-md"
+          className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-6 max-w-md"
           onClick={(e) => e.stopPropagation()}
         >
           <h3 className="text-lg font-semibold mb-4">{title}</h3>
@@ -768,25 +768,25 @@ const AdvancedWellness = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading wellness data...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
+          <p className="text-purple-300">Loading wellness data...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Advanced Wellness
+            <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-2">
+              Growth Wellness
             </h1>
-            <p className="text-gray-600">
+            <p className="text-purple-300">
               Track and understand your wellness patterns
             </p>
           </div>
@@ -808,7 +808,7 @@ const AdvancedWellness = () => {
               className={`px-4 py-2 rounded-lg transition-colors ${
                 dateRange === range
                   ? "bg-purple-600 text-white"
-                  : "bg-white text-gray-700 hover:bg-gray-50"
+                  : "backdrop-blur-xl bg-white/10 text-purple-300 hover:bg-white/20 border border-white/20"
               }`}
             >
               {range === "week"
@@ -833,8 +833,8 @@ const AdvancedWellness = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
                   activeTab === tab.id
-                    ? "bg-white text-purple-600 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
+                    ? "backdrop-blur-xl bg-white/20 text-white shadow-sm border border-white/30"
+                    : "text-purple-300 hover:text-white"
                 }`}
               >
                 <tab.icon className="h-5 w-5" />
@@ -857,4 +857,4 @@ const AdvancedWellness = () => {
   );
 };
 
-export default AdvancedWellness;
+export default GrowthWellness;

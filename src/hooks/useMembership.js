@@ -88,56 +88,51 @@ export function useMembership() {
       case "basic_history":
         return true; // Everyone gets basic history
 
-      // Basic tier features
+      // Personal tier features (formerly Basic)
+      case "personal_analytics":
       case "basic_analytics":
-        return ["basic", "standard", "advanced", "premium"].includes(tier);
+        return ["personal", "growth", "premium"].includes(tier);
 
+      case "personal_womens_health":
       case "basic_womens_health":
-        return ["basic", "standard", "advanced", "premium"].includes(tier);
+        return ["personal", "growth", "premium"].includes(tier);
 
-      // Standard tier features
-      case "standard_journaling":
-        return ["standard", "advanced", "premium"].includes(tier);
+      case "personal_journaling":
+      case "basic_journaling":
+        return ["personal", "growth", "premium"].includes(tier);
 
-      case "standard_history":
-        return ["standard", "advanced", "premium"].includes(tier);
+      case "personal_history":
+      case "basic_history":
+        return ["personal", "growth", "premium"].includes(tier);
 
-      case "standard_analytics":
-        return ["standard", "advanced", "premium"].includes(tier);
-
-      case "standard_goals":
-        return ["standard", "advanced", "premium"].includes(tier);
-
-      case "standard_wellness":
-        return ["standard", "advanced", "premium"].includes(tier);
-
-      case "standard_womens_health":
-        return ["standard", "advanced", "premium"].includes(tier);
-
-      case "standard_reflectionarian":
-        return ["standard", "advanced", "premium"].includes(tier);
-
-      // Advanced tier features
+      // Growth tier features (formerly Advanced)
+      case "growth_journaling":
       case "advanced_journaling":
-        return ["advanced", "premium"].includes(tier);
+        return ["growth", "premium"].includes(tier);
 
+      case "growth_history":
       case "advanced_history":
-        return ["advanced", "premium"].includes(tier);
+        return ["growth", "premium"].includes(tier);
 
+      case "growth_analytics":
       case "advanced_analytics":
-        return ["advanced", "premium"].includes(tier);
+        return ["growth", "premium"].includes(tier);
 
+      case "growth_goals":
       case "advanced_goals":
-        return ["advanced", "premium"].includes(tier);
+        return ["growth", "premium"].includes(tier);
 
+      case "growth_wellness":
       case "advanced_wellness":
-        return ["advanced", "premium"].includes(tier);
+        return ["growth", "premium"].includes(tier);
 
+      case "growth_womens_health":
       case "advanced_womens_health":
-        return ["advanced", "premium"].includes(tier);
+        return ["growth", "premium"].includes(tier);
 
+      case "growth_reflectionarian":
       case "advanced_reflectionarian":
-        return ["advanced", "premium"].includes(tier);
+        return ["growth", "premium"].includes(tier);
 
       // Premium tier features
       case "premium_journaling":
@@ -167,25 +162,25 @@ export function useMembership() {
 
       // Backward compatibility for existing code
       case "journaling":
-        return ["basic", "standard", "advanced", "premium"].includes(tier);
+        return ["personal", "growth", "premium"].includes(tier);
 
       case "history":
-        return ["basic", "standard", "advanced", "premium"].includes(tier);
+        return ["personal", "growth", "premium"].includes(tier);
 
       case "analytics":
-        return ["basic", "standard", "advanced", "premium"].includes(tier);
+        return ["personal", "growth", "premium"].includes(tier);
 
       case "goals":
-        return ["standard", "advanced", "premium"].includes(tier);
+        return ["growth", "premium"].includes(tier);
 
       case "wellness":
-        return ["standard", "advanced", "premium"].includes(tier);
+        return ["growth", "premium"].includes(tier);
 
       case "womens_health":
-        return ["basic", "standard", "advanced", "premium"].includes(tier);
+        return ["personal", "growth", "premium"].includes(tier);
 
       case "reflectionarian":
-        return ["standard", "advanced", "premium"].includes(tier);
+        return ["growth", "premium"].includes(tier);
 
       default:
         console.warn(`🚨 Unknown feature requested: ${feature}`);
@@ -200,15 +195,12 @@ export function useMembership() {
     // Basic upgrade messages based on current tier
     switch (tier) {
       case "free":
-        return "Upgrade to Basic ($8/month) for analytics and women's health tracking, or higher tiers for more features!";
+        return "Upgrade to Personal ($8/month) for analytics and women's health tracking, or higher tiers for more features!";
 
-      case "basic":
-        return "Upgrade to Standard ($18/month) for full journaling features, goals, and AI assistance!";
+      case "personal":
+        return "Upgrade to Growth ($28/month) for full journaling features, goals, and AI assistance!";
 
-      case "standard":
-        return "Upgrade to Advanced ($28/month) for advanced features and enhanced AI capabilities!";
-
-      case "advanced":
+      case "growth":
         return "Upgrade to Premium ($38/month) for the ultimate journaling experience with all premium features!";
 
       default:
@@ -220,10 +212,13 @@ export function useMembership() {
   function getTierDisplayName(tier = membershipData.tier) {
     const displayNames = {
       free: "Free",
-      basic: "Basic",
-      standard: "Standard",
-      advanced: "Advanced",
+      personal: "Personal",
+      growth: "Growth",
       premium: "Premium",
+      // Legacy support
+      basic: "Personal",
+      standard: "Growth",
+      advanced: "Growth",
     };
     return displayNames[tier] || "Unknown";
   }
@@ -231,9 +226,14 @@ export function useMembership() {
   // Helper function to check if user can access a specific tier's features
   function canAccessTier(targetTier) {
     const { tier } = membershipData;
-    const tierOrder = ["free", "basic", "standard", "advanced", "premium"];
-    const userTierIndex = tierOrder.indexOf(tier);
-    const targetTierIndex = tierOrder.indexOf(targetTier);
+    const tierOrder = ["free", "personal", "growth", "premium"];
+    // Legacy mapping
+    const normalizedTier = tier === "basic" ? "personal" : 
+                          (tier === "standard" || tier === "advanced") ? "growth" : tier;
+    const normalizedTargetTier = targetTier === "basic" ? "personal" : 
+                                (targetTier === "standard" || targetTier === "advanced") ? "growth" : targetTier;
+    const userTierIndex = tierOrder.indexOf(normalizedTier);
+    const targetTierIndex = tierOrder.indexOf(normalizedTargetTier);
 
     return userTierIndex >= targetTierIndex;
   }

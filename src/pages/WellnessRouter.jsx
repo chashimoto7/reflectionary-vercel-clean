@@ -3,10 +3,8 @@ import React from "react";
 import { useMembership } from "../hooks/useMembership";
 
 // Import all the wellness components
-// These will be your existing components, renamed
-import StandardWellness from "./StandardWellness"; // Current "BasicWellness" renamed
-import AdvancedWellness from "./AdvancedWellness"; // New component to create
-import PremiumWellness from "./PremiumWellness"; // Current "AdvancedWellness" renamed
+import GrowthWellness from "./GrowthWellness";
+import PremiumWellness from "./PremiumWellness";
 
 // Upgrade prompt component for users without access
 const WellnessUpgrade = () => (
@@ -29,7 +27,7 @@ const WellnessUpgrade = () => (
           </svg>
         </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-4">
-          Wellness Tracking Available with Standard Membership
+          Wellness Tracking Available with Growth Membership
         </h1>
         <p className="text-gray-600 mb-8 max-w-2xl mx-auto">
           Unlock comprehensive wellness tracking including mood monitoring,
@@ -41,7 +39,7 @@ const WellnessUpgrade = () => (
             onClick={() => (window.location.href = "/pricing")}
             className="bg-emerald-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
           >
-            Upgrade to Standard - $20/month
+            Upgrade to Growth - $20/month
           </button>
           <p className="text-sm text-gray-500">
             Or continue with Basic features for analytics and women's health
@@ -111,15 +109,11 @@ const WellnessRouter = () => {
       console.log("🚀 Routing to Premium Wellness");
       return <PremiumWellness />;
 
-    case "advanced":
-      console.log("⭐ Routing to Advanced Wellness");
-      return <AdvancedWellness />;
+    case "growth":
+      console.log("⭐ Routing to Growth Wellness");
+      return <GrowthWellness />;
 
-    case "standard":
-      console.log("📚 Routing to Standard Wellness");
-      return <StandardWellness />;
-
-    case "basic":
+    case "personal":
     case "free":
     default:
       console.log("🚫 Basic/Free tier - showing upgrade prompt for Wellness");

@@ -4,8 +4,8 @@ import { useMembership } from "../hooks/useMembership";
 
 // Import all the Reflectionarian components
 // These will be your existing components, renamed
-import StandardReflectionarian from "./StandardReflectionarian"; // Current "BasicReflectionarian" renamed
-import AdvancedReflectionarian from "./AdvancedReflectionarian"; // Current "AdvancedReflectionarian"
+import GrowthReflectionarian from "./GrowthReflectionarian"; // Current "BasicReflectionarian" renamed
+import GrowthReflectionarian from "./GrowthReflectionarian"; // Current "GrowthReflectionarian"
 import PremiumReflectionarian from "./PremiumReflectionarian"; // Current "ProReflectionarian" renamed
 
 // Upgrade prompt component for users without access
@@ -29,7 +29,7 @@ const ReflectionarianUpgrade = () => (
           </svg>
         </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-4">
-          Meet Your AI Reflectionarian with Standard Membership
+          Meet Your AI Reflectionarian with Growth Membership
         </h1>
         <p className="text-gray-600 mb-8 max-w-2xl mx-auto">
           Unlock your personal AI companion that provides intelligent insights,
@@ -42,7 +42,7 @@ const ReflectionarianUpgrade = () => (
             onClick={() => (window.location.href = "/pricing")}
             className="bg-indigo-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
           >
-            Upgrade to Standard - $20/month
+            Upgrade to Growth - $20/month
           </button>
           <p className="text-sm text-gray-500">
             Or continue with Basic features for analytics and women's health
@@ -53,7 +53,7 @@ const ReflectionarianUpgrade = () => (
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="font-semibold text-gray-900 mb-2">
-              🤖 Standard Reflectionarian
+              🤖 Growth Reflectionarian
             </h3>
             <p className="text-sm text-gray-600">
               AI-powered insights and reflection prompts based on your entries
@@ -61,11 +61,11 @@ const ReflectionarianUpgrade = () => (
           </div>
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="font-semibold text-gray-900 mb-2">
-              ⭐ Advanced Reflectionarian
+              ⭐ Growth Reflectionarian
             </h3>
             <p className="text-sm text-gray-600">
               Deep analysis with full journal access and session summaries
-              (Advanced tier)
+              (Growth tier)
             </p>
           </div>
           <div className="bg-gray-50 p-4 rounded-lg">
@@ -116,17 +116,13 @@ const ReflectionarianRouter = () => {
       );
       return <PremiumReflectionarian />;
 
-    case "advanced":
+    case "growth":
       console.log(
-        "⭐ Routing to Advanced Reflectionarian (full journal access)"
+        "⭐ Routing to Growth Reflectionarian (full journal access)"
       );
-      return <AdvancedReflectionarian />;
+      return <GrowthReflectionarian />;
 
-    case "standard":
-      console.log("🤖 Routing to Standard Reflectionarian (basic AI insights)");
-      return <StandardReflectionarian />;
-
-    case "basic":
+    case "personal":
     case "free":
     default:
       console.log(
