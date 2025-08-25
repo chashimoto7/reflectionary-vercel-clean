@@ -58,6 +58,7 @@ import {
   Feather,
   Activity,
   History,
+  Crown,
 } from "lucide-react";
 
 // Import separate tab components
@@ -1741,27 +1742,42 @@ export default function PremiumJournaling() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
       <div className="max-w-7xl mx-auto p-4">
-        <h1 className="text-3xl font-bold mb-8 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-          Premium Journaling
-        </h1>
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-2 flex items-center gap-3">
+                Journaling
+                <Crown className="h-8 w-8 text-yellow-400" />
+              </h1>
+              <p className="text-purple-300">
+                Advanced AI-powered journaling
+              </p>
+            </div>
+          </div>
+        </div>
 
         {/* Tab Navigation */}
         <div className="mb-6">
-          <div className="flex space-x-1 bg-white/10 rounded-lg p-1">
+          <div className="grid grid-cols-2 gap-4">
             {tabs.map((tab) => {
               const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-all ${
-                    activeTab === tab.id
-                      ? "bg-purple-600 text-white shadow-lg"
-                      : "text-purple-300 hover:text-white hover:bg-white/10"
-                  }`}
+                  className={`
+                    flex items-center justify-center gap-3 px-6 py-3 rounded-lg transition-all
+                    ${
+                      isActive
+                        ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg scale-105"
+                        : "bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white"
+                    }
+                  `}
                 >
-                  <Icon className="h-4 w-4" />
-                  <span className="font-medium">{tab.label}</span>
+                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  <span className="text-sm font-medium">{tab.label}</span>
                 </button>
               );
             })}
