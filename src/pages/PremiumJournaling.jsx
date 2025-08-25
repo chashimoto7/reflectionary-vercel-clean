@@ -208,7 +208,7 @@ export default function PremiumJournaling() {
     ],
   };
 
-  // Updated tabs structure - 11 tabs including data export
+  // Updated tabs structure - 9 tabs (removed Goal Progress Tracking)
   const advancedTabs = [
     {
       id: "overview",
@@ -230,7 +230,7 @@ export default function PremiumJournaling() {
     },
     {
       id: "folders",
-      label: "Folders & Organization",
+      label: "Folders",
       icon: FolderOpen,
       component: FoldersTab,
     },
@@ -253,12 +253,6 @@ export default function PremiumJournaling() {
       component: ContentAnalysisTab,
     },
     {
-      id: "goal-connections",
-      label: "Goal Progress Tracking",
-      icon: Target,
-      component: GoalConnectionsTab,
-    },
-    {
       id: "style-evolution",
       label: "Writing Style Evolution",
       icon: Feather,
@@ -266,7 +260,7 @@ export default function PremiumJournaling() {
     },
     {
       id: "health-metrics",
-      label: "Journal Health Metrics",
+      label: "Journal Health",
       icon: Heart,
       component: JournalHealthMetricsTab,
     },
@@ -2336,46 +2330,8 @@ export default function PremiumJournaling() {
               <EmptyHistoryState />
             ) : (
               <>
-                {/* Header */}
+                {/* Controls */}
                 <div className="mb-8">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h2 className="text-2xl font-bold text-white mb-2">
-                        Premium Journal History
-                      </h2>
-                      <p className="text-gray-400">
-                        Explore patterns, insights, and connections in your journaling
-                        journey
-                        {databaseEnvironment && (
-                          <span className="ml-2 text-xs text-purple-400">
-                            ({databaseEnvironment} data)
-                          </span>
-                        )}
-                      </p>
-                    </div>
-
-                    {/* Privacy Toggle */}
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowPrivacyInfo(!showPrivacyInfo)}
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:text-white transition bg-white/10 rounded-lg"
-                      >
-                        <Shield className="h-4 w-4" />
-                        Privacy Info
-                        <Info className="h-4 w-4" />
-                      </button>
-
-                      {showPrivacyInfo && (
-                        <div className="absolute right-0 top-12 w-80 bg-slate-800 border border-white/20 rounded-lg shadow-lg p-4 z-10">
-                          <p className="text-sm text-gray-300">
-                            All analysis is performed on your encrypted data locally.
-                            Your journal content remains end-to-end encrypted. This data
-                            is visible only to you and never shared.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
 
                   {/* Date Range & Controls */}
                   <div className="flex items-center justify-between">
@@ -2411,32 +2367,58 @@ export default function PremiumJournaling() {
 
                 {/* Premium Tabs Grid */}
                 <div className="mb-8">
-                  {/* Tab Navigation Grid - 5x2 layout */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8">
-                    {advancedTabs.map((tab) => {
-                      const Icon = tab.icon;
-                      const isActive = historyActiveTab === tab.id;
+                  <div className="space-y-4">
+                    {/* Top row - 4 tabs */}
+                    <div className="grid grid-cols-4 gap-4">
+                      {advancedTabs.slice(0, 4).map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = historyActiveTab === tab.id;
 
-                      return (
-                        <button
-                          key={tab.id}
-                          onClick={() => setHistoryActiveTab(tab.id)}
-                          className={`
-                            flex flex-col items-center justify-center p-4 rounded-lg transition-all
-                            ${
-                              isActive
-                                ? "bg-gradient-to-br from-purple-600 to-pink-600 text-white shadow-lg scale-105"
-                                : "bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white"
-                            }
-                          `}
-                        >
-                          <Icon className="h-6 w-6 mb-2" />
-                          <span className="text-xs font-medium text-center">
-                            {tab.label}
-                          </span>
-                        </button>
-                      );
-                    })}
+                        return (
+                          <button
+                            key={tab.id}
+                            onClick={() => setHistoryActiveTab(tab.id)}
+                            className={`
+                              flex items-center justify-center gap-3 px-6 py-3 rounded-lg transition-all
+                              ${
+                                isActive
+                                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg scale-105"
+                                  : "bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white"
+                              }
+                            `}
+                          >
+                            <Icon className="h-5 w-5 flex-shrink-0" />
+                            <span className="text-sm font-medium">{tab.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Bottom row - 5 tabs */}
+                    <div className="grid grid-cols-5 gap-4">
+                      {advancedTabs.slice(4).map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = historyActiveTab === tab.id;
+
+                        return (
+                          <button
+                            key={tab.id}
+                            onClick={() => setHistoryActiveTab(tab.id)}
+                            className={`
+                              flex items-center justify-center gap-3 px-6 py-3 rounded-lg transition-all
+                              ${
+                                isActive
+                                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg scale-105"
+                                  : "bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white"
+                              }
+                            `}
+                          >
+                            <Icon className="h-5 w-5 flex-shrink-0" />
+                            <span className="text-sm font-medium">{tab.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
@@ -2498,13 +2480,6 @@ export default function PremiumJournaling() {
                     <ContentAnalysisTab
                       entries={historyEntries}
                       analytics={analytics}
-                      colors={colors}
-                    />
-                  )}
-                  {historyActiveTab === "goal-connections" && (
-                    <GoalConnectionsTab
-                      entries={historyEntries}
-                      goals={historyGoals}
                       colors={colors}
                     />
                   )}
