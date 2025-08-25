@@ -142,6 +142,10 @@ const PremiumAnalytics = () => {
     },
   ];
 
+  // API Base URL
+  const API_BASE =
+    import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app/";
+
   // Check access control
   useEffect(() => {
     if (!user || membershipLoading) {
@@ -189,41 +193,43 @@ const PremiumAnalytics = () => {
       // Map frontend date range values to API expected values
       const dateRangeMapping = {
         "1week": "7days",
-        "1month": "30days", 
+        "1month": "30days",
         "3months": "90days",
         "6months": "6months",
         "1year": "1year",
-        "all": "all"
+        all: "all",
       };
 
       const apiDateRange = dateRangeMapping[dateRange] || "30days";
 
       // Load comprehensive analytics data from backend API
       const response = await fetch(
-        `/api/analytics?user_id=${user.id}&tier=premium&date_range=${apiDateRange}&include_wellness=true&include_goals=true&include_womens_health=true`
+        `${API_BASE}/api/analytics?user_id=${user.id}&tier=premium&date_range=${apiDateRange}&include_wellness=true&include_goals=true&include_womens_health=true`
       );
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Analytics API error response:", errorText);
-        
+
         // Check if response is HTML (404 page) vs JSON error
-        if (errorText.includes('<!DOCTYPE')) {
-          throw new Error("Analytics API endpoint not found. Please check if the backend is running.");
+        if (errorText.includes("<!DOCTYPE")) {
+          throw new Error(
+            `Analytics API endpoint not found at ${API_BASE}/api/analytics. Please check if the backend is running.`
+          );
         }
-        
+
         throw new Error(`Failed to fetch analytics: ${response.status}`);
       }
 
       const data = await response.json();
-      
+
       // Handle case where analytics is null or undefined
       if (!data.analytics) {
         console.warn("No analytics data returned from API");
         setAnalyticsData(null);
         return;
       }
-      
+
       setAnalyticsData(data.analytics);
 
       // Generate premium insights from the analytics data
@@ -239,7 +245,7 @@ const PremiumAnalytics = () => {
   const generatePremiumInsights = async (analytics) => {
     try {
       // Fetch AI-generated insights from backend
-      const response = await fetch("/api/generate-insights", {
+      const response = await fetch(`${API_BASE}/api/generate-insights`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -309,7 +315,7 @@ const PremiumAnalytics = () => {
   // Export analytics data
   const handleExportAnalytics = async (format = "pdf") => {
     try {
-      const response = await fetch("/api/export-analytics", {
+      const response = await fetch(`${API_BASE}/api/export-analytics`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -445,7 +451,7 @@ const PremiumAnalytics = () => {
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="px-3 py-2 bg-white/10 border border-white/20 rounded-md text-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
                 <option value="1week">Last Week</option>
                 <option value="1month">Last Month</option>
@@ -590,10 +596,16 @@ const PremiumAnalytics = () => {
               />
             )}
             {activeTab === "predictive-analytics" && (
-              <PredictiveAnalyticsTab data={analyticsData || {}} colors={colors} />
+              <PredictiveAnalyticsTab
+                data={analyticsData || {}}
+                colors={colors}
+              />
             )}
             {activeTab === "pattern-recognition" && (
-              <PatternRecognitionTab data={analyticsData || {}} colors={colors} />
+              <PatternRecognitionTab
+                data={analyticsData || {}}
+                colors={colors}
+              />
             )}
             {activeTab === "growth-velocity" && (
               <GrowthVelocityTab data={analyticsData || {}} colors={colors} />
