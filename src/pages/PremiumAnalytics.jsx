@@ -186,23 +186,51 @@ const PremiumAnalytics = () => {
     setError(null);
 
     try {
+      // Map frontend date range values to API expected values
+      const dateRangeMapping = {
+        "1week": "7days",
+        "1month": "30days", 
+        "3months": "90days",
+        "6months": "6months",
+        "1year": "1year",
+        "all": "all"
+      };
+
+      const apiDateRange = dateRangeMapping[dateRange] || "30days";
+
       // Load comprehensive analytics data from backend API
       const response = await fetch(
-        `/api/analytics?user_id=${user.id}&tier=premium&date_range=${dateRange}&include_wellness=true&include_goals=true&include_womens_health=true`
+        `/api/analytics?user_id=${user.id}&tier=premium&date_range=${apiDateRange}&include_wellness=true&include_goals=true&include_womens_health=true`
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch analytics");
+        const errorText = await response.text();
+        console.error("Analytics API error response:", errorText);
+        
+        // Check if response is HTML (404 page) vs JSON error
+        if (errorText.includes('<!DOCTYPE')) {
+          throw new Error("Analytics API endpoint not found. Please check if the backend is running.");
+        }
+        
+        throw new Error(`Failed to fetch analytics: ${response.status}`);
       }
 
       const data = await response.json();
+      
+      // Handle case where analytics is null or undefined
+      if (!data.analytics) {
+        console.warn("No analytics data returned from API");
+        setAnalyticsData(null);
+        return;
+      }
+      
       setAnalyticsData(data.analytics);
 
       // Generate premium insights from the analytics data
       await generatePremiumInsights(data.analytics);
     } catch (error) {
       console.error("Error loading analytics:", error);
-      setError("Failed to load analytics data");
+      setError(error.message || "Failed to load analytics data");
     } finally {
       setLoading(false);
     }
@@ -368,11 +396,12 @@ const PremiumAnalytics = () => {
         <div className="mb-8">
           <div className="flex items-start justify-between mb-6">
             <div>
-              <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-2">
+              <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-2 flex items-center gap-3">
                 Premium Analytics
+                <Crown className="h-8 w-8 text-yellow-400" />
               </h1>
               <p className="text-purple-300">
-                Your complete self-discovery intelligence dashboard
+                Your advance self-discovery intelligence dashboard
               </p>
             </div>
 
@@ -416,7 +445,7 @@ const PremiumAnalytics = () => {
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="px-3 py-2 bg-white/10 border border-white/20 rounded-md text-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
                 <option value="1week">Last Week</option>
                 <option value="1month">Last Month</option>
@@ -427,21 +456,13 @@ const PremiumAnalytics = () => {
               </select>
             </div>
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => handleExportAnalytics("pdf")}
-                className="flex items-center gap-2 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-purple-300 hover:bg-white/20 transition-all"
-              >
-                <Download className="w-4 h-4" />
-                Export PDF
-              </button>
-              <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-full border border-purple-400/30">
-                <Crown className="text-yellow-400" size={16} />
-                <span className="text-purple-300 font-medium text-sm">
-                  Premium
-                </span>
-              </div>
-            </div>
+            <button
+              onClick={() => handleExportAnalytics("pdf")}
+              className="flex items-center gap-2 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-purple-300 hover:bg-white/20 transition-all"
+            >
+              <Download className="w-4 h-4" />
+              Export PDF
+            </button>
           </div>
         </div>
 
@@ -470,66 +491,65 @@ const PremiumAnalytics = () => {
           </div>
         )}
 
-        {/* Scrollable Tabs */}
-        <div className="mb-8 relative">
-          {showLeftArrow && (
-            <button
-              onClick={() => scrollTabs("left")}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-2 bg-slate-800 rounded-full shadow-lg"
-            >
-              <ChevronLeft className="w-4 h-4 text-purple-400" />
-            </button>
-          )}
-          {showRightArrow && (
-            <button
-              onClick={() => scrollTabs("right")}
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-2 bg-slate-800 rounded-full shadow-lg"
-            >
-              <ChevronRight className="w-4 h-4 text-purple-400" />
-            </button>
-          )}
+        {/* Premium Tabs - 2 rows of 5 */}
+        <div className="mb-8">
+          <div className="space-y-4">
+            {/* Top row - 5 tabs */}
+            <div className="grid grid-cols-5 gap-4">
+              {premiumTabs.slice(0, 5).map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
 
-          <div
-            ref={setTabsRef}
-            className="flex gap-3 overflow-x-auto scrollbar-hide pb-2"
-            style={{ scrollBehavior: "smooth" }}
-          >
-            {premiumTabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`
+                      flex items-center justify-center gap-3 px-4 py-3 rounded-lg transition-all
+                      ${
+                        isActive
+                          ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg scale-105"
+                          : "bg-white/10 text-purple-200 hover:bg-white/20 hover:text-white"
+                      }
+                    `}
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="text-sm font-medium">{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`
-                    flex items-center gap-3 px-4 py-3 rounded-lg whitespace-nowrap transition-all
-                    ${
-                      isActive
-                        ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg"
-                        : "bg-white/10 text-purple-200 hover:bg-white/20 hover:text-white"
-                    }
-                  `}
-                >
-                  <Icon className="w-5 h-5" />
-                  <div className="text-left">
-                    <div className="font-medium">{tab.label}</div>
-                    {isActive && (
-                      <div className="text-xs opacity-80">
-                        {tab.description}
-                      </div>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
+            {/* Bottom row - 5 tabs */}
+            <div className="grid grid-cols-5 gap-4">
+              {premiumTabs.slice(5).map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`
+                      flex items-center justify-center gap-3 px-4 py-3 rounded-lg transition-all
+                      ${
+                        isActive
+                          ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg scale-105"
+                          : "bg-white/10 text-purple-200 hover:bg-white/20 hover:text-white"
+                      }
+                    `}
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="text-sm font-medium">{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
         {/* Tab Content */}
-        {!analyticsData && !error ? (
-          <EmptyState />
-        ) : error ? (
+        {error ? (
           <div className="backdrop-blur-xl bg-white/10 rounded-2xl shadow-2xl border border-white/20 p-12 text-center">
             <p className="text-red-400 mb-4">{error}</p>
             <button
@@ -540,56 +560,54 @@ const PremiumAnalytics = () => {
             </button>
           </div>
         ) : (
-          <>
-            <div className="backdrop-blur-xl bg-white/5 rounded-2xl shadow-2xl border border-white/10">
-              {activeTab === "unified-dashboard" && (
-                <UnifiedDashboardTab
-                  data={analyticsData}
-                  colors={colors}
-                  insights={insights}
-                />
-              )}
-              {activeTab === "journey-timeline" && (
-                <JourneyTimelineTab data={analyticsData} colors={colors} />
-              )}
-              {activeTab === "emotional-intelligence" && (
-                <EmotionalIntelligenceTab
-                  data={analyticsData}
-                  colors={colors}
-                />
-              )}
-              {activeTab === "goal-achievement" && (
-                <GoalAchievementTab data={analyticsData} colors={colors} />
-              )}
-              {activeTab === "wellness-holistic" && (
-                <WellnessHolisticTab data={analyticsData} colors={colors} />
-              )}
-              {activeTab === "reflectionarian-insights" && (
-                <ReflectionarianInsightsTab
-                  data={analyticsData}
-                  colors={colors}
-                />
-              )}
-              {activeTab === "predictive-analytics" && (
-                <PredictiveAnalyticsTab data={analyticsData} colors={colors} />
-              )}
-              {activeTab === "pattern-recognition" && (
-                <PatternRecognitionTab data={analyticsData} colors={colors} />
-              )}
-              {activeTab === "growth-velocity" && (
-                <GrowthVelocityTab data={analyticsData} colors={colors} />
-              )}
-              {activeTab === "personalized-recommendations" && (
-                <PersonalizedRecommendationsTab
-                  data={analyticsData}
-                  colors={colors}
-                  insights={insights}
-                  userId={user.id}
-                  onAcknowledgeInsight={handleAcknowledgeInsight}
-                />
-              )}
-            </div>
-          </>
+          <div className="backdrop-blur-xl bg-white/5 rounded-2xl shadow-2xl border border-white/10">
+            {activeTab === "unified-dashboard" && (
+              <UnifiedDashboardTab
+                data={analyticsData || {}}
+                colors={colors}
+                insights={insights}
+              />
+            )}
+            {activeTab === "journey-timeline" && (
+              <JourneyTimelineTab data={analyticsData || {}} colors={colors} />
+            )}
+            {activeTab === "emotional-intelligence" && (
+              <EmotionalIntelligenceTab
+                data={analyticsData || {}}
+                colors={colors}
+              />
+            )}
+            {activeTab === "goal-achievement" && (
+              <GoalAchievementTab data={analyticsData || {}} colors={colors} />
+            )}
+            {activeTab === "wellness-holistic" && (
+              <WellnessHolisticTab data={analyticsData || {}} colors={colors} />
+            )}
+            {activeTab === "reflectionarian-insights" && (
+              <ReflectionarianInsightsTab
+                data={analyticsData || {}}
+                colors={colors}
+              />
+            )}
+            {activeTab === "predictive-analytics" && (
+              <PredictiveAnalyticsTab data={analyticsData || {}} colors={colors} />
+            )}
+            {activeTab === "pattern-recognition" && (
+              <PatternRecognitionTab data={analyticsData || {}} colors={colors} />
+            )}
+            {activeTab === "growth-velocity" && (
+              <GrowthVelocityTab data={analyticsData || {}} colors={colors} />
+            )}
+            {activeTab === "personalized-recommendations" && (
+              <PersonalizedRecommendationsTab
+                data={analyticsData || {}}
+                colors={colors}
+                insights={insights}
+                userId={user.id}
+                onAcknowledgeInsight={handleAcknowledgeInsight}
+              />
+            )}
+          </div>
         )}
       </div>
     </div>
