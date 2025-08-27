@@ -45,6 +45,32 @@ const GoalHealthTab = ({ goals, analytics, colors }) => {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [timeframe, setTimeframe] = useState("current");
 
+  // Early return for empty state
+  if (goals.length === 0) {
+    return (
+      <div className="p-6">
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2 mb-2">
+            <Gauge className="h-5 w-5 text-purple-400" />
+            Goal Health Analysis
+          </h3>
+          <p className="text-sm text-gray-300">
+            Monitor your goal portfolio health and get optimization recommendations
+          </p>
+        </div>
+        <div className="text-center py-16">
+          <Gauge className="h-20 w-20 text-gray-600 mx-auto mb-6" />
+          <h4 className="text-xl font-semibold text-gray-300 mb-3">
+            No Health Data Available
+          </h4>
+          <p className="text-gray-400 mb-6 max-w-md mx-auto">
+            Create and actively work on goals to unlock health analysis, balance insights, and optimization recommendations.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Calculate overall health score
   const overallHealthScore = calculateOverallHealth(goals);
 

@@ -48,6 +48,32 @@ const DependenciesTab = ({ goals, colors, onEditMilestones }) => {
   const [milestoneView, setMilestoneView] = useState("timeline");
   const canvasRef = useRef(null);
 
+  // Early return for empty state
+  if (goals.length === 0) {
+    return (
+      <div className="p-6">
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2 mb-2">
+            <GitBranch className="h-5 w-5 text-purple-400" />
+            Dependencies & Milestones
+          </h3>
+          <p className="text-sm text-gray-300">
+            Visualize goal connections and manage milestone dependencies
+          </p>
+        </div>
+        <div className="text-center py-16">
+          <GitBranch className="h-20 w-20 text-gray-600 mx-auto mb-6" />
+          <h4 className="text-xl font-semibold text-gray-300 mb-3">
+            No Dependencies to Map
+          </h4>
+          <p className="text-gray-400 mb-6 max-w-md mx-auto">
+            Create multiple goals with milestones to visualize their relationships and identify dependency chains.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Calculate milestone statistics
   const milestoneStats = calculateMilestoneStats(goals);
 

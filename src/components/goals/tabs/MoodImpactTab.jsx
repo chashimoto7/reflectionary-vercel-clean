@@ -41,6 +41,32 @@ const MoodImpactTab = ({ goals, correlations, colors }) => {
   const [selectedMoodFilter, setSelectedMoodFilter] = useState("all");
   const [viewMode, setViewMode] = useState("correlations");
 
+  // Early return for empty state
+  if (goals.length === 0) {
+    return (
+      <div className="p-6">
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2 mb-2">
+            <Heart className="h-5 w-5 text-purple-400" />
+            Mood & Goal Impact Analysis
+          </h3>
+          <p className="text-sm text-gray-300">
+            Understand how your emotional state affects goal progress
+          </p>
+        </div>
+        <div className="text-center py-16">
+          <Heart className="h-20 w-20 text-gray-600 mx-auto mb-6" />
+          <h4 className="text-xl font-semibold text-gray-300 mb-3">
+            No Mood Impact Data Available
+          </h4>
+          <p className="text-gray-400 mb-6 max-w-md mx-auto">
+            Start journaling about your goals and track your moods to discover how emotions influence your progress.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Extended mood correlation data
   const extendedMoodData = [
     { mood: "Excited", goalProgress: 92, frequency: 15, avgProductivity: 88 },

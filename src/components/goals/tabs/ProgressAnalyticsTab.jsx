@@ -195,6 +195,19 @@ const ProgressAnalyticsTab = ({ goals, patterns, colors }) => {
         </p>
       </div>
 
+      {goals.length === 0 ? (
+        <div className="text-center py-16">
+          <BarChart3 className="h-20 w-20 text-gray-600 mx-auto mb-6" />
+          <h4 className="text-xl font-semibold text-gray-300 mb-3">
+            No Progress Analytics Available
+          </h4>
+          <p className="text-gray-400 mb-6 max-w-md mx-auto">
+            Start working on your goals to unlock detailed progress analytics, velocity tracking, and pattern recognition.
+          </p>
+        </div>
+      ) : (
+        <>
+
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-4 mb-6">
         <div className="flex items-center gap-2">
@@ -678,6 +691,8 @@ const ProgressAnalyticsTab = ({ goals, patterns, colors }) => {
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };
