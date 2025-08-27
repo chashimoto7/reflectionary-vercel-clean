@@ -967,12 +967,11 @@ const PremiumGoals = () => {
         </div>
 
         {/* Modals */}
-        {showAddModal && (
-          <AddGoalModal
-            onClose={() => setShowAddModal(false)}
-            onAdd={handleAddGoal}
-          />
-        )}
+        <AddGoalModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onAdd={handleAddGoal}
+        />
 
         {showEditModal && selectedGoal && (
           <EditGoalModal
