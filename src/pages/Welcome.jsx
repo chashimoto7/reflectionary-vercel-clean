@@ -1,26 +1,25 @@
-// frontend/ src/pages/Welcome.jsx - logged in members routed here first
+// frontend/src/pages/Welcome.jsx - Updated for new tier structure with daily check-in
 import lightLogo from "../assets/BrightReflectionarySquare.svg";
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useMembership } from "../hooks/useMembership";
 import { supabase } from "../lib/supabase";
 import {
   Sparkles,
   TrendingUp,
   Shield,
   Brain,
-  Heart,
   Clock,
   Quote,
   Bell,
   BarChart3,
-  Target,
-  Lightbulb,
-  Award,
   ArrowRight,
-  Activity,
   MessageCircle,
+  Lock,
+  Crown,
 } from "lucide-react";
+import DailyCheckin from "../components/DailyCheckin";
 
 const QUOTES = [
   {
@@ -39,21 +38,6 @@ const QUOTES = [
     theme: "journaling",
   },
   {
-    text: "Sometimes the most productive thing you can do is relax.",
-    author: "Mark Black",
-    theme: "wellness",
-  },
-  {
-    text: "Feelings are much like waves. We can't stop them from coming but we can choose which ones to surf.",
-    author: "Jonatan Mårtensson",
-    theme: "emotions",
-  },
-  {
-    text: "Your present circumstances don't determine where you can go; they merely determine where you start.",
-    author: "Nido Qubein",
-    theme: "growth",
-  },
-  {
     text: "The act of writing is the act of discovering what you believe.",
     author: "David Hare",
     theme: "discovery",
@@ -62,6 +46,11 @@ const QUOTES = [
     text: "To be yourself in a world that is constantly trying to make you something else is the greatest accomplishment.",
     author: "Ralph Waldo Emerson",
     theme: "authenticity",
+  },
+  {
+    text: "Your present circumstances don't determine where you can go; they merely determine where you start.",
+    author: "Nido Qubein",
+    theme: "growth",
   },
 ];
 
@@ -75,173 +64,97 @@ function getRandomQuote(excludeIndex) {
 
 export default function Welcome() {
   const { user } = useAuth();
+  const { tier, hasAccess, getUpgradeMessage } = useMembership();
   const [quote, setQuote] = useState(() => getRandomQuote(-1));
-  const [userName, setUserName] = useState("Christine");
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [userStats, setUserStats] = useState({
-    currentStreak: 0,
-    totalEntries: 0,
-    insightsGenerated: 0,
-    loading: true,
-  });
+  const [userName, setUserName] = useState("Guest");
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeMessage, setUpgradeMessage] = useState("");
 
-  // Update time every minute
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Auto-rotate quote every 20 seconds
+  // Auto-rotate quote every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       setQuote((q) => getRandomQuote(q.idx));
-    }, 20000);
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch user stats
+  // Fetch user name
   useEffect(() => {
-    const fetchUserStats = async () => {
+    const fetchUserName = async () => {
       if (!user) return;
 
       try {
-        // Get total entries count
-        const { count: entriesCount } = await supabase
-          .from("entries")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id);
-
-        // Get recent entries for streak calculation
-        const { data: recentEntries } = await supabase
-          .from("entries")
-          .select("created_at")
+        const { data } = await supabase
+          .from("user_profiles")
+          .select("username")
           .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(30);
+          .single();
 
-        // Calculate current streak
-        let streak = 0;
-        if (recentEntries && recentEntries.length > 0) {
-          const today = new Date();
-          let currentDate = new Date(today);
-
-          for (let i = 0; i < recentEntries.length; i++) {
-            const entryDate = new Date(recentEntries[i].created_at);
-            const diffTime = Math.abs(currentDate - entryDate);
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-            if (diffDays <= 1) {
-              streak++;
-              currentDate.setDate(currentDate.getDate() - 1);
-            } else {
-              break;
-            }
-          }
+        if (data?.username) {
+          setUserName(data.username);
         }
-
-        // For now, insights generated is a simple calculation
-        // You can replace this with actual insights count when implemented
-        const insightsGenerated = Math.floor((entriesCount || 0) * 0.2);
-
-        setUserStats({
-          currentStreak: streak,
-          totalEntries: entriesCount || 0,
-          insightsGenerated,
-          loading: false,
-        });
       } catch (error) {
-        console.error("Error fetching user stats:", error);
-        setUserStats((prev) => ({ ...prev, loading: false }));
+        console.error("Error fetching username:", error);
       }
     };
-  }, []);
 
-  const getTimeOfDay = () => {
-    const hour = currentTime.getHours();
-    if (hour < 12) return "morning";
-    if (hour < 17) return "afternoon";
-    return "evening";
+    fetchUserName();
+  }, [user]);
+
+  const handleFeatureClick = (feature, href) => {
+    if (!hasAccess(feature)) {
+      const message = getUpgradeMessage(feature);
+      setUpgradeMessage(message);
+      setShowUpgradeModal(true);
+      return false;
+    }
+    return true;
   };
 
-  const getGreeting = () => {
-    const timeOfDay = getTimeOfDay();
-    return `Good ${timeOfDay}, ${userName}`;
-  };
-
-  // Quick Actions - 2x3 horizontal rectangles
+  // Quick Actions - Updated for new tier structure
   const quickActions = [
     {
       icon: Brain,
-      title: "New Entry",
+      title: "New Journal Entry",
       href: "/journaling",
+      feature: "journaling",
       color: "from-purple-500 to-purple-600",
+      requiredTier: "growth",
     },
     {
       icon: BarChart3,
-      title: "Analytics",
-      href: "/analytics",
-      color: "from-cyan-500 to-cyan-600",
-    },
-    {
-      icon: Target,
-      title: "Goals",
-      href: "/goals",
+      title: "Knowledge Garden",
+      href: "/knowledge-garden",
+      feature: "knowledge_garden", 
       color: "from-emerald-500 to-emerald-600",
-    },
-    {
-      icon: Activity,
-      title: "Wellness",
-      href: "/wellness",
-      color: "from-rose-500 to-rose-600",
-    },
-    {
-      icon: Heart,
-      title: "Women's Health",
-      href: "/womens-health",
-      color: "from-pink-500 to-pink-600",
+      requiredTier: "growth",
     },
     {
       icon: MessageCircle,
       title: "Reflectionarian",
       href: "/reflectionarian",
+      feature: "reflectionarian",
       color: "from-indigo-500 to-indigo-600",
-    },
-  ];
-
-  const stats = [
-    {
-      label: "Current Streak",
-      value: userStats.loading ? "..." : `${userStats.currentStreak} days`,
-      icon: Award,
-    },
-    {
-      label: "Total Entries",
-      value: userStats.loading ? "..." : userStats.totalEntries.toString(),
-      icon: Heart,
-    },
-    {
-      label: "Insights Generated",
-      value: userStats.loading ? "..." : userStats.insightsGenerated.toString(),
-      icon: Lightbulb,
+      requiredTier: "premium",
     },
   ];
 
   const announcements = [
     {
       type: "feature",
-      title: "Deep Dives Coming Soon",
+      title: "Knowledge Garden Now Live",
       description:
-        "Explore focused self-discovery modules tailored to your journey",
+        "Your personal knowledge management system connects all your insights",
       icon: Sparkles,
-      date: "Coming Fall 2025",
+      date: "New Feature",
     },
     {
-      type: "update",
-      title: "Enhanced Analytics Now Live",
+      type: "update", 
+      title: "Simplified Membership Tiers",
       description:
-        "Discover new insights with our advanced intelligence dashboard",
+        "We've streamlined to Growth ($15) and Premium ($25) for clearer value",
       icon: TrendingUp,
-      date: "Released this week",
+      date: "Recently Updated",
     },
     {
       type: "tip",
@@ -249,7 +162,7 @@ export default function Welcome() {
       description:
         "Your reflections are end-to-end encrypted and visible only to you",
       icon: Shield,
-      date: "Core promise",
+      date: "Core Promise",
     },
   ];
 
@@ -261,29 +174,23 @@ export default function Welcome() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-purple-600/20 via-transparent to-transparent"></div>
       </div>
 
-      {/* Header Section - Frosted Glass Style */}
+      {/* Header Section - Simplified */}
       <div className="relative z-10 backdrop-blur-xl bg-white/10 border-b border-white/20 shadow-2xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center gap-6">
-            {/* Large Logo - Takes full header height */}
             <div className="flex-shrink-0">
               <img
                 src={lightLogo}
                 alt="Reflectionary Logo"
-                className="h-40 w-40 drop-shadow-2xl hover:scale-105 transition-transform duration-300"
+                className="h-32 w-32 drop-shadow-2xl hover:scale-105 transition-transform duration-300"
               />
             </div>
-
-            {/* Header Text Content */}
             <div className="flex-1">
               <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
                 Reflectionary
               </h1>
-              <h2 className="text-xl md:text-2xl font-medium text-gray-300 mb-1">
-                {getGreeting()}
-              </h2>
-              <p className="text-lg text-gray-400">
-                Your personal space for reflection and growth
+              <p className="text-lg text-purple-200">
+                Your consciousness evolution platform
               </p>
             </div>
           </div>
@@ -293,56 +200,67 @@ export default function Welcome() {
       {/* Main Content */}
       <div className="relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            {stats.map((stat, index) => {
-              const Icon = stat.icon;
-              return (
-                <div
-                  key={index}
-                  className="backdrop-blur-xl bg-white/10 rounded-xl p-6 border border-white/20 shadow-lg hover:bg-white/15 transition-all duration-300"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-300">{stat.label}</p>
-                      <p className="text-2xl font-bold text-white mt-1">
-                        {stat.value}
-                      </p>
-                    </div>
-                    <div className="bg-gradient-to-br from-purple-500/30 to-pink-500/30 p-3 rounded-lg backdrop-blur-sm border border-purple-400/30">
-                      <Icon className="w-6 h-6 text-purple-200" />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          
+          {/* Daily Check-in Section */}
+          <DailyCheckin userName={userName} />
 
-          {/* Quick Actions - 2x3 Grid with Horizontal Layout */}
+          {/* Quick Actions - Simplified */}
           <div className="mb-8">
             <h2 className="text-xl font-semibold text-white mb-4">
               Quick Actions
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {quickActions.map((action, index) => {
                 const Icon = action.icon;
+                const canAccess = hasAccess(action.feature);
+                
                 return (
-                  <Link
-                    key={index}
-                    to={action.href}
-                    className="group backdrop-blur-xl bg-white/10 rounded-xl p-4 border border-white/20 shadow-lg hover:bg-white/15 hover:border-purple-400/50 transition-all duration-300"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className={`bg-gradient-to-br ${action.color} p-3 rounded-lg group-hover:scale-110 transition-transform flex-shrink-0 shadow-lg`}
+                  <div key={index} className="relative">
+                    {canAccess ? (
+                      <Link
+                        to={action.href}
+                        className="group backdrop-blur-xl bg-white/10 rounded-xl p-6 border border-white/20 shadow-lg hover:bg-white/15 hover:border-purple-400/50 transition-all duration-300 block"
                       >
-                        <Icon className="w-5 h-5 text-white" />
-                      </div>
-                      <h3 className="font-semibold text-white group-hover:text-purple-200 transition-colors">
-                        {action.title}
-                      </h3>
-                    </div>
-                  </Link>
+                        <div className="flex flex-col items-center text-center gap-4">
+                          <div
+                            className={`bg-gradient-to-br ${action.color} p-4 rounded-lg group-hover:scale-110 transition-transform shadow-lg`}
+                          >
+                            <Icon className="w-8 h-8 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-white group-hover:text-purple-200 transition-colors text-lg">
+                              {action.title}
+                            </h3>
+                            <p className="text-sm text-gray-300 mt-1">
+                              {action.requiredTier === 'growth' ? 'Growth Feature' : 'Premium Feature'}
+                            </p>
+                          </div>
+                        </div>
+                      </Link>
+                    ) : (
+                      <button
+                        onClick={() => handleFeatureClick(action.feature, action.href)}
+                        className="group backdrop-blur-xl bg-white/5 rounded-xl p-6 border border-white/10 shadow-lg hover:bg-white/10 transition-all duration-300 w-full relative"
+                      >
+                        <div className="flex flex-col items-center text-center gap-4">
+                          <div className="bg-gray-600/30 p-4 rounded-lg shadow-lg relative">
+                            <Icon className="w-8 h-8 text-gray-400" />
+                            <div className="absolute -top-2 -right-2 bg-yellow-500 rounded-full p-1">
+                              <Lock className="w-3 h-3 text-white" />
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-400 text-lg">
+                              {action.title}
+                            </h3>
+                            <p className="text-sm text-gray-500 mt-1">
+                              Requires {action.requiredTier === 'growth' ? 'Growth' : 'Premium'} Plan
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -395,10 +313,10 @@ export default function Welcome() {
 
               <div className="mt-6 pt-6 border-t border-white/20 text-center">
                 <Link
-                  to="/security"
+                  to="/settings"
                   className="text-sm text-purple-300 hover:text-purple-200 font-medium inline-flex items-center gap-2 group"
                 >
-                  View all updates
+                  View settings
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </div>
@@ -435,8 +353,7 @@ export default function Welcome() {
                   Your journal is personal — and we treat it that way. All your
                   reflections are end-to-end encrypted so no one else can read
                   your words. Not our team. Not our servers. Just you.
-                  Reflectionary is your private space to be real, raw, and fully
-                  yourself.
+                  Reflectionary is your private space for consciousness evolution.
                 </p>
               </div>
             </div>
@@ -448,19 +365,49 @@ export default function Welcome() {
               <div className="flex items-center gap-3">
                 <Clock className="w-5 h-5 text-gray-300" />
                 <span className="text-sm text-gray-300">
-                  Last entry: 2 hours ago
+                  Ready to continue your consciousness evolution journey?
                 </span>
               </div>
               <Link
                 to="/journaling"
                 className="text-sm font-medium text-purple-300 hover:text-purple-200 transition-colors"
               >
-                Continue your journey →
+                Start journaling →
               </Link>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 max-w-md mx-4 shadow-2xl">
+            <div className="text-center">
+              <Crown className="h-12 w-12 text-yellow-400 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-white mb-2">
+                Upgrade Required
+              </h3>
+              <p className="text-gray-300 mb-6">{upgradeMessage}</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-500 text-gray-300 rounded-lg hover:bg-white/10 transition-colors"
+                >
+                  Maybe Later
+                </button>
+                <Link
+                  to="/signup"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all text-center"
+                  onClick={() => setShowUpgradeModal(false)}
+                >
+                  Upgrade Now
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
