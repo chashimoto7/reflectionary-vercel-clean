@@ -1,11 +1,9 @@
-// frontend/ src/pages/ReflectionarianRouter.jsx - Routes to correct Reflectionarian tier
+// frontend/ src/pages/ReflectionarianRouter.jsx - Premium-only Reflectionarian access
 import React from "react";
 import { useMembership } from "../hooks/useMembership";
 
-// Import all the Reflectionarian components
-// These will be your existing components, renamed
-import GrowthReflectionarian from "./GrowthReflectionarian"; // Current "GrowthReflectionarian"
-import PremiumReflectionarian from "./PremiumReflectionarian"; // Current "ProReflectionarian" renamed
+// Import Reflectionarian component - Now Premium-only
+import PremiumReflectionarian from "./PremiumReflectionarian";
 
 // Upgrade prompt component for users without access
 const ReflectionarianUpgrade = () => (
@@ -28,23 +26,22 @@ const ReflectionarianUpgrade = () => (
           </svg>
         </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-4">
-          Meet Your AI Reflectionarian with Growth Membership
+          Meet Your AI Reflectionarian with Premium Membership
         </h1>
         <p className="text-gray-600 mb-8 max-w-2xl mx-auto">
-          Unlock your personal AI companion that provides intelligent insights,
-          guided reflection prompts, and meaningful conversations about your
-          journal entries. Transform your journaling into a journey of
-          self-discovery.
+          Unlock your personal AI companion for deep psychological insights,
+          therapy-style conversations, and comprehensive growth analysis.
+          Transform your journaling into profound self-discovery.
         </p>
         <div className="space-y-4">
           <button
             onClick={() => (window.location.href = "/pricing")}
             className="bg-indigo-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
           >
-            Upgrade to Growth - $20/month
+            Upgrade to Premium - $25/month
           </button>
           <p className="text-sm text-gray-500">
-            Or continue with Basic features for analytics and women's health
+            Or continue with Growth features for journaling and Knowledge Garden
           </p>
         </div>
 
@@ -52,36 +49,34 @@ const ReflectionarianUpgrade = () => (
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="font-semibold text-gray-900 mb-2">
-              🤖 Growth Reflectionarian
+              🤖 AI Conversations
             </h3>
             <p className="text-sm text-gray-600">
-              AI-powered insights and reflection prompts based on your entries
+              Deep, therapy-style conversations with advanced psychological understanding
             </p>
           </div>
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="font-semibold text-gray-900 mb-2">
-              ⭐ Growth Reflectionarian
+              🧠 Pattern Recognition
             </h3>
             <p className="text-sm text-gray-600">
-              Deep analysis with full journal access and session summaries
-              (Growth tier)
+              Identify emotional patterns, triggers, and breakthrough moments
             </p>
           </div>
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="font-semibold text-gray-900 mb-2">
-              🎯 Premium Reflectionarian
+              📊 Growth Analysis
             </h3>
             <p className="text-sm text-gray-600">
-              Therapy-style sessions and comprehensive growth timeline reviews
-              (Premium tier)
+              Comprehensive timeline reviews and personal development insights
             </p>
           </div>
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="font-semibold text-gray-900 mb-2">
-              📈 Pattern Recognition
+              🎯 Personalized Coaching
             </h3>
             <p className="text-sm text-gray-600">
-              Identify emotional patterns, triggers, and growth opportunities
+              Tailored reflection prompts and guidance for continuous growth
             </p>
           </div>
         </div>
@@ -107,8 +102,11 @@ const ReflectionarianRouter = () => {
 
   console.log("🤖 ReflectionarianRouter Debug:", { tier });
 
-  // Route to appropriate Reflectionarian experience based on tier
-  switch (tier) {
+  // Reflectionarian is now Premium-only
+  // Personal tier users are auto-upgraded to Growth, so normalize tier
+  const normalizedTier = ["personal", "basic", "standard", "advanced"].includes(tier) ? "growth" : tier;
+  
+  switch (normalizedTier) {
     case "premium":
       console.log(
         "🚀 Routing to Premium Reflectionarian (therapy-style sessions)"
@@ -116,14 +114,10 @@ const ReflectionarianRouter = () => {
       return <PremiumReflectionarian />;
 
     case "growth":
-      console.log("⭐ Routing to Growth Reflectionarian (full journal access)");
-      return <GrowthReflectionarian />;
-
-    case "personal":
     case "free":
     default:
       console.log(
-        "🚫 Basic/Free tier - showing upgrade prompt for Reflectionarian"
+        "🚫 Non-Premium tier - showing upgrade prompt for Reflectionarian"
       );
       return <ReflectionarianUpgrade />;
   }

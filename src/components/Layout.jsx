@@ -32,42 +32,21 @@ export default function Layout({ children }) {
   const isWelcomePage =
     location.pathname === "/welcome" || location.pathname === "/";
 
-  // Navigation items with new tier structure
+  // Navigation items with new tier structure - Growth ($15) and Premium ($25) only
   const navigationItems = [
     {
       to: "/journaling",
       icon: Notebook,
       label: "Journaling",
       feature: "journaling",
-      requiredTier: "free",
+      requiredTier: "growth",
     },
     {
-      to: "/analytics",
+      to: "/knowledge-garden", 
       icon: BarChart3,
-      label: "Analytics",
-      feature: "analytics",
-      requiredTier: "basic",
-    },
-    {
-      to: "/goals",
-      icon: Target,
-      label: "Goals",
-      feature: "goals",
-      requiredTier: "standard",
-    },
-    {
-      to: "/wellness",
-      icon: Heart,
-      label: "Wellness",
-      feature: "wellness",
-      requiredTier: "standard",
-    },
-    {
-      to: "/womens-health",
-      icon: Activity,
-      label: "Women's Health",
-      feature: "womens_health",
-      requiredTier: "premium",
+      label: "Knowledge Garden",
+      feature: "knowledge_garden",
+      requiredTier: "growth",
     },
     {
       to: "/reflectionarian",
@@ -89,8 +68,10 @@ export default function Layout({ children }) {
   };
 
   const canAccessTier = (requiredTier) => {
-    const tierHierarchy = { free: 0, basic: 1, standard: 2, premium: 3 };
-    const userTierLevel = tierHierarchy[tier] || 0;
+    const tierHierarchy = { free: 0, growth: 1, premium: 2 };
+    // Normalize legacy tiers
+    const normalizedUserTier = ["personal", "basic", "standard", "advanced"].includes(tier) ? "growth" : tier;
+    const userTierLevel = tierHierarchy[normalizedUserTier] || 0;
     const requiredTierLevel = tierHierarchy[requiredTier] || 0;
     return userTierLevel >= requiredTierLevel;
   };
@@ -98,23 +79,25 @@ export default function Layout({ children }) {
   const getMembershipDisplayInfo = () => {
     const tierColors = {
       free: "bg-gray-100 text-gray-700 border-gray-300",
-      basic: "bg-blue-100 text-blue-700 border-blue-300",
-      standard: "bg-purple-100 text-purple-700 border-purple-300",
+      growth: "bg-purple-100 text-purple-700 border-purple-300",
       premium:
         "bg-gradient-to-r from-purple-500 to-pink-500 text-white border-transparent",
     };
 
     const tierIcons = {
       free: "🆓",
-      basic: "⭐",
-      standard: "💎",
+      growth: "💎",
       premium: "👑",
     };
 
+    // Normalize legacy tiers for display
+    const normalizedTier = ["personal", "basic", "standard", "advanced"].includes(tier) ? "growth" : tier;
+    const displayTier = normalizedTier || "free";
+
     return {
-      color: tierColors[tier] || tierColors.free,
-      icon: tierIcons[tier] || tierIcons.free,
-      label: tier ? tier.charAt(0).toUpperCase() + tier.slice(1) : "Free",
+      color: tierColors[displayTier] || tierColors.free,
+      icon: tierIcons[displayTier] || tierIcons.free,
+      label: displayTier ? displayTier.charAt(0).toUpperCase() + displayTier.slice(1) : "Free",
     };
   };
 

@@ -14,89 +14,50 @@ import {
 } from "lucide-react";
 import logo from "../assets/BrightReflectionaryHorizontal.svg";
 
-// Define subscription plans
+// Define subscription plans - New simplified structure
 const SUBSCRIPTION_PLANS = {
   free: {
     name: "Free",
     price: 0,
     billing: "forever",
-    features: ["Basic Journaling", "Basic History", "Crisis detection"],
-    description: "Start your journey",
+    features: ["Basic journaling access", "Crisis detection"],
+    description: "Get started for free",
     icon: "✨",
     popular: false,
   },
-  basic: {
-    name: "Basic",
-    price: 8,
+  growth: {
+    name: "Growth",
+    price: 15,
     billing: "month",
     features: [
-      "Basic Journaling",
-      "Basic History",
-      "Basic Analytics",
-      "Basic Women's Health",
+      "Full Journaling Access",
+      "Knowledge Garden",
+      "Content Library",
+      "Personal Insights",
+      "History & Search",
       "Crisis Detection",
     ],
-    description: "Essential features",
-    icon: "📝",
-    popular: false,
-    yearlyPrice: 80, // Pay for 10 months
-  },
-  standard: {
-    name: "Standard",
-    price: 18,
-    billing: "month",
-    features: [
-      "Standard Journaling",
-      "Standard History",
-      "Standard Analytics",
-      "Standard Goals",
-      "Standard Wellness",
-      "Standard Women's Health",
-      "Standard Reflectionarian",
-      "Crisis Detection",
-    ],
-    description: "Most popular choice",
-    icon: "⭐",
+    description: "Personal knowledge evolution",
+    icon: "🌱",
     popular: true,
-    yearlyPrice: 180, // Pay for 10 months
-  },
-  advanced: {
-    name: "Advanced",
-    price: 28,
-    billing: "month",
-    features: [
-      "Advanced Journaling",
-      "Advanced History",
-      "Advanced Analytics",
-      "Advanced Goals",
-      "Advanced Wellness",
-      "Advanced Women's Health",
-      "Advanced Reflectionarian",
-      "Crisis Detection",
-    ],
-    description: "Power user features",
-    icon: "🚀",
-    popular: false,
-    yearlyPrice: 280, // Pay for 10 months
+    yearlyPrice: 150, // Save 2 months
   },
   premium: {
     name: "Premium",
-    price: 38,
+    price: 25,
     billing: "month",
     features: [
-      "Premium Journaling",
-      "Premium History",
-      "Premium Analytics",
-      "Premium Goals",
-      "Premium Wellness",
-      "Premium Women's Health",
-      "Premium Reflectionarian",
-      "Crisis Detection",
+      "Everything in Growth",
+      "Reflectionarian AI Coach",
+      "Advanced Pattern Recognition",
+      "Therapy-style Sessions",
+      "Growth Timeline Analysis",
+      "Priority Support",
     ],
-    description: "Complete wellness suite",
+    description: "Complete consciousness evolution platform",
     icon: "👑",
     popular: false,
-    yearlyPrice: 380, // Pay for 10 months
+    yearlyPrice: 250, // Save 2 months
   },
 };
 

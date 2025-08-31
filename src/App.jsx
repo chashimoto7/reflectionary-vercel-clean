@@ -22,13 +22,10 @@ import SignupCancelled from "./pages/SignupCancelled";
 import Layout from "./components/Layout";
 import Welcome from "./pages/Welcome";
 
-// Routers
-import AnalyticsRouter from "./pages/AnalyticsRouter";
+// Routers - Updated for new tier structure (Growth $15, Premium $25)
+// Removed: Analytics, Goals, Wellness, Women's Health
 import JournalingRouter from "./pages/JournalingRouter";
 import HistoryRouter from "./pages/HistoryRouter";
-import GoalsRouter from "./pages/GoalsRouter";
-import WellnessRouter from "./pages/WellnessRouter";
-import WomensHealthRouter from "./pages/WomensHealthRouter";
 import ReflectionarianRouter from "./pages/ReflectionarianRouter";
 import SettingsRouter from "./pages/SettingsRouter";
 
@@ -83,12 +80,14 @@ function AuthenticatedRoutes() {
         <Route path="/welcome" element={<Welcome />} />
         <Route path="/journaling/*" element={<JournalingRouter />} />
         <Route path="/history/*" element={<HistoryRouter />} />
-        <Route path="/goals/*" element={<GoalsRouter />} />
-        <Route path="/analytics/*" element={<AnalyticsRouter />} />
-        <Route path="/wellness/*" element={<WellnessRouter />} />
-        <Route path="/womens-health/*" element={<WomensHealthRouter />} />
+        <Route path="/knowledge-garden/*" element={<div>Knowledge Garden - Coming Soon</div>} />
         <Route path="/reflectionarian/*" element={<ReflectionarianRouter />} />
         <Route path="/settings/*" element={<SettingsRouter />} />
+        {/* Legacy redirects for removed features */}
+        <Route path="/analytics/*" element={<Navigate to="/welcome" replace />} />
+        <Route path="/goals/*" element={<Navigate to="/welcome" replace />} />
+        <Route path="/wellness/*" element={<Navigate to="/welcome" replace />} />
+        <Route path="/womens-health/*" element={<Navigate to="/welcome" replace />} />
         <Route path="*" element={<Navigate to="/welcome" replace />} />
       </Routes>
     </Layout>

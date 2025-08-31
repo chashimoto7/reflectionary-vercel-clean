@@ -6,12 +6,14 @@ import { Lock } from "lucide-react";
 const UpgradePrompt = ({ feature, onClose, onUpgrade, message }) => {
   const getFeatureName = (feature) => {
     const featureNames = {
-      basic_journaling: "Basic Journaling",
-      follow_up_prompts: "Follow-up Questions",
-      full_history: "Advanced Search",
-      analytics: "Analytics & Insights",
-      goals: "Goal Tracking",
+      journaling: "Journaling",
+      knowledge_garden: "Knowledge Garden",
       reflectionarian: "The Reflectionarian",
+      // Legacy features (removed)
+      analytics: "Analytics (No longer available)",
+      goals: "Goal Tracking (No longer available)",
+      wellness: "Wellness Tracking (No longer available)",
+      womens_health: "Women's Health (No longer available)",
     };
     return featureNames[feature] || feature;
   };
