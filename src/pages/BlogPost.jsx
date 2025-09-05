@@ -13,6 +13,7 @@ import {
   User
 } from 'lucide-react';
 import blogService from '../services/blogService';
+import PublicBlogLayout from '../components/PublicBlogLayout';
 
 export default function BlogPost() {
   const { slug } = useParams();
@@ -138,34 +139,39 @@ export default function BlogPost() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
-          <p className="text-purple-200">Loading article...</p>
+      <PublicBlogLayout>
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
+            <p className="text-purple-200">Loading article...</p>
+          </div>
         </div>
-      </div>
+      </PublicBlogLayout>
     );
   }
 
   if (!post) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-white mb-4">Article Not Found</h1>
-          <p className="text-gray-300 mb-6">The article you're looking for doesn't exist.</p>
-          <Link
-            to="/blog"
-            className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all inline-flex items-center gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Blog
-          </Link>
+      <PublicBlogLayout>
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-white mb-4">Article Not Found</h1>
+            <p className="text-gray-300 mb-6">The article you're looking for doesn't exist.</p>
+            <Link
+              to="/blog"
+              className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all inline-flex items-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Blog
+            </Link>
+          </div>
         </div>
-      </div>
+      </PublicBlogLayout>
     );
   }
 
   return (
+    <PublicBlogLayout>
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       {/* Header */}
       <div className="backdrop-blur-xl bg-white/10 border-b border-white/20 shadow-2xl">
@@ -297,5 +303,6 @@ export default function BlogPost() {
         </div>
       </div>
     </div>
+    </PublicBlogLayout>
   );
 }

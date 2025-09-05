@@ -66,7 +66,7 @@ export default function Layout({ children }) {
   ];
 
   const handleNavClick = (item) => {
-    if (!hasAccess(item.feature)) {
+    if (!hasAccess(item.feature) && item.feature !== 'blog') {
       const message = getUpgradeMessage(item.feature);
       setUpgradeMessage(message);
       setShowUpgradeModal(true);
@@ -147,7 +147,7 @@ export default function Layout({ children }) {
               <nav className="space-y-2 flex-1">
                 {navigationItems.map((item) => {
                   const IconComponent = item.icon;
-                  const userCanAccessFeature = canAccessTier(item.requiredTier);
+                  const userCanAccessFeature = canAccessTier(item.requiredTier) || item.feature === 'blog';
 
                   if (userCanAccessFeature) {
                     return (

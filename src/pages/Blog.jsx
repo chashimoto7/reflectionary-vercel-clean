@@ -12,6 +12,7 @@ import {
   Filter
 } from 'lucide-react';
 import blogService from '../services/blogService';
+import PublicBlogLayout from '../components/PublicBlogLayout';
 
 export default function Blog() {
   const [posts, setPosts] = useState([]);
@@ -89,13 +90,14 @@ export default function Blog() {
   }
 
   return (
+    <PublicBlogLayout>
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       {/* Header Section */}
       <div className="backdrop-blur-xl bg-white/10 border-b border-white/20 shadow-2xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="text-center">
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
-              Consciousness Blog
+              Reflectionary Development Blog
             </h1>
             <p className="text-xl text-purple-200 mb-8 max-w-3xl mx-auto">
               Insights on journaling, consciousness evolution, and personal transformation. 
@@ -358,5 +360,6 @@ export default function Blog() {
         </div>
       </div>
     </div>
+    </PublicBlogLayout>
   );
 }
