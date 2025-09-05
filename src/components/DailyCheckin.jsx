@@ -13,8 +13,6 @@ import {
   Brain,
   Battery,
   Smile,
-  Frown,
-  Meh,
   Save,
   CheckCircle,
 } from 'lucide-react';
@@ -30,7 +28,7 @@ const DailyCheckin = ({ userName }) => {
     mood: 5,
     stress_level: 5,
     energy_level: 5,
-    predominant_emotion: '',
+    emotions: [], // Changed to array for multiple emotions
     notes: '',
   });
   const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
@@ -44,7 +42,7 @@ const DailyCheckin = ({ userName }) => {
     return 'Good evening';
   };
 
-  const emotions = [
+  const availableEmotions = [
     'Happy', 'Excited', 'Calm', 'Peaceful', 'Grateful',
     'Anxious', 'Stressed', 'Sad', 'Frustrated', 'Tired',
     'Motivated', 'Optimistic', 'Content', 'Overwhelmed', 'Focused'
@@ -57,6 +55,7 @@ const DailyCheckin = ({ userName }) => {
 
       try {
         const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+        console.log('🔍 Checking for check-in on date:', today, 'for user:', user.id);
         
         const { data, error } = await supabase
           .from('daily_checkins')
@@ -65,7 +64,10 @@ const DailyCheckin = ({ userName }) => {
           .eq('checkin_date', today)
           .single();
 
+        console.log('📊 Check-in query result:', { data, error });
+
         if (data && !error) {
+          console.log('✅ Found existing check-in, loading data');
           setCheckinData({
             sleep_quality: data.sleep_quality || 5,
             nutrition_quality: data.nutrition_quality || 5,
@@ -75,13 +77,18 @@ const DailyCheckin = ({ userName }) => {
             mood: data.mood || 5,
             stress_level: data.stress_level || 5,
             energy_level: data.energy_level || 5,
-            predominant_emotion: data.predominant_emotion || '',
+            emotions: data.emotions || [], // Handle array of emotions
             notes: data.notes || '',
           });
           setHasCheckedInToday(true);
+        } else if (error && error.code !== 'PGRST116') {
+          console.error('❌ Unexpected error:', error);
+        } else {
+          console.log('📝 No check-in found for today, showing fresh form');
+          setHasCheckedInToday(false);
         }
       } catch (error) {
-        console.error('Error checking today\'s check-in:', error);
+        console.error('❌ Error checking today\'s check-in:', error);
       } finally {
         setLoading(false);
       }
@@ -89,6 +96,11 @@ const DailyCheckin = ({ userName }) => {
 
     checkTodaysCheckin();
   }, [user]);
+
+  // Debug: Track emotions state changes
+  useEffect(() => {
+    console.log('🔄 Emotions state changed:', checkinData.emotions);
+  }, [checkinData.emotions]);
 
   const handleSliderChange = (field, value) => {
     setCheckinData(prev => ({
@@ -98,10 +110,41 @@ const DailyCheckin = ({ userName }) => {
   };
 
   const handleEmotionChange = (emotion) => {
-    setCheckinData(prev => ({
-      ...prev,
-      predominant_emotion: emotion
-    }));
+    console.log('🎭 Emotion clicked:', emotion);
+    console.log('📋 Current emotions before change:', checkinData.emotions);
+    
+    // Use functional update to ensure we get the latest state
+    setCheckinData(prevData => {
+      const currentEmotions = Array.isArray(prevData.emotions) ? [...prevData.emotions] : [];
+      const isSelected = currentEmotions.includes(emotion);
+      
+      console.log('🔍 Is selected:', isSelected, 'Current count:', currentEmotions.length);
+      console.log('🗂️ Current emotions array:', currentEmotions);
+      
+      let newEmotions;
+      
+      if (isSelected) {
+        // Remove emotion if already selected
+        newEmotions = currentEmotions.filter(e => e !== emotion);
+        console.log('➖ Removing emotion, new array:', newEmotions);
+      } else if (currentEmotions.length < 3) {
+        // Add emotion if less than 3 selected
+        newEmotions = [...currentEmotions, emotion];
+        console.log('➕ Adding emotion, new array:', newEmotions);
+      } else {
+        // If 3 emotions already selected, don't add more
+        console.log('🚫 Cannot add more emotions, limit reached');
+        newEmotions = currentEmotions;
+      }
+      
+      const updatedData = {
+        ...prevData,
+        emotions: newEmotions
+      };
+      
+      console.log('💾 Updated checkin data:', updatedData);
+      return updatedData;
+    });
   };
 
   const handleSave = async () => {
@@ -110,6 +153,8 @@ const DailyCheckin = ({ userName }) => {
     setSaving(true);
     try {
       const today = new Date().toISOString().split('T')[0];
+      
+      console.log('💾 Saving check-in data:', checkinData);
       
       const { data, error } = await supabase
         .from('daily_checkins')
@@ -124,9 +169,10 @@ const DailyCheckin = ({ userName }) => {
 
       if (error) throw error;
 
+      console.log('✅ Check-in saved successfully');
       setHasCheckedInToday(true);
     } catch (error) {
-      console.error('Error saving check-in:', error);
+      console.error('❌ Error saving check-in:', error);
       // TODO: Add error toast notification
     } finally {
       setSaving(false);
@@ -249,23 +295,49 @@ const DailyCheckin = ({ userName }) => {
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-3">
           <Smile className="w-5 h-5 text-purple-300" />
-          <span className="text-white font-medium">Predominant Emotion</span>
+          <span className="text-white font-medium">How are you feeling? (Select up to 3)</span>
+          {(Array.isArray(checkinData.emotions) ? checkinData.emotions : []).length > 0 && (
+            <span className="text-sm text-purple-200 bg-purple-600/30 px-2 py-1 rounded">
+              {(Array.isArray(checkinData.emotions) ? checkinData.emotions : []).length}/3 selected
+            </span>
+          )}
         </div>
         <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
-          {emotions.map(emotion => (
-            <button
-              key={emotion}
-              onClick={() => handleEmotionChange(emotion)}
-              className={`px-3 py-2 rounded-lg text-sm transition-all ${
-                checkinData.predominant_emotion === emotion
-                  ? 'bg-purple-600 text-white border-2 border-purple-400'
-                  : 'bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20'
-              }`}
-            >
-              {emotion}
-            </button>
-          ))}
+          {availableEmotions.map(emotion => {
+            const currentEmotions = Array.isArray(checkinData.emotions) ? checkinData.emotions : [];
+            const isSelected = currentEmotions.includes(emotion);
+            const canSelect = currentEmotions.length < 3 || isSelected;
+            
+            console.log(`🎨 Rendering ${emotion}: selected=${isSelected}, canSelect=${canSelect}, emotions=${JSON.stringify(currentEmotions)}`);
+            
+            return (
+              <button
+                key={emotion}
+                onClick={() => handleEmotionChange(emotion)}
+                disabled={!canSelect}
+                className={`px-3 py-2 rounded-lg text-sm transition-all ${
+                  isSelected
+                    ? 'bg-purple-600 text-white border-2 border-purple-400'
+                    : canSelect
+                      ? 'bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20'
+                      : 'bg-gray-600/20 text-gray-500 border border-gray-600/20 cursor-not-allowed'
+                }`}
+              >
+                {emotion}
+              </button>
+            );
+          })}
         </div>
+        {(Array.isArray(checkinData.emotions) ? checkinData.emotions : []).length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <span className="text-sm text-gray-300">Selected:</span>
+            {(Array.isArray(checkinData.emotions) ? checkinData.emotions : []).map(emotion => (
+              <span key={emotion} className="text-sm bg-purple-600/50 text-purple-100 px-2 py-1 rounded">
+                {emotion}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="mb-6">

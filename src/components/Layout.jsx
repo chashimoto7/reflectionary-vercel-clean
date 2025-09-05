@@ -13,6 +13,7 @@ import {
   Settings,
   Activity,
   MessageCircle,
+  BookOpen,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
@@ -34,6 +35,13 @@ export default function Layout({ children }) {
 
   // Navigation items with new tier structure - Growth ($15) and Premium ($25) only
   const navigationItems = [
+    {
+      to: "/blog",
+      icon: BookOpen,
+      label: "Blog",
+      feature: "blog",
+      requiredTier: "free",
+    },
     {
       to: "/journaling",
       icon: Notebook,

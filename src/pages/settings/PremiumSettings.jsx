@@ -20,9 +20,6 @@ import AccountTab from "../../components/settings/premium/AccountTab";
 import SecurityTab from "../../components/settings/premium/SecurityTab";
 import SubscriptionTab from "../../components/settings/premium/SubscriptionTab";
 import JournalExportTab from "../../components/settings/premium/JournalExportTab";
-import AnalyticsExportTab from "../../components/settings/premium/AnalyticsExportTab";
-import GoalsExportTab from "../../components/settings/premium/GoalsExportTab";
-import WellnessExportTab from "../../components/settings/premium/WellnessExportTab";
 import ReflectionarianTab from "../../components/settings/premium/ReflectionarianTab";
 import CompleteExportTab from "../../components/settings/premium/CompleteExportTab";
 
@@ -49,24 +46,6 @@ export default function PremiumSettings() {
       label: "Journal Reports",
       icon: Download,
       component: JournalExportTab,
-    },
-    {
-      id: "analytics-export",
-      label: "Analytics Reports",
-      icon: Download,
-      component: AnalyticsExportTab,
-    },
-    {
-      id: "goals-export",
-      label: "Goals Reports",
-      icon: Download,
-      component: GoalsExportTab,
-    },
-    {
-      id: "wellness-export",
-      label: "Wellness Reports",
-      icon: Download,
-      component: WellnessExportTab,
     },
     {
       id: "reflectionarian",

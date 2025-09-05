@@ -17,9 +17,6 @@ import AccountTab from "../../components/settings/advanced/AccountTab";
 import SecurityTab from "../../components/settings/advanced/SecurityTab";
 import SubscriptionTab from "../../components/settings/advanced/SubscriptionTab";
 import JournalExportTab from "../../components/settings/advanced/JournalExportTab";
-import AnalyticsExportTab from "../../components/settings/advanced/AnalyticsExportTab";
-import GoalsExportTab from "../../components/settings/advanced/GoalsExportTab";
-import WellnessExportTab from "../../components/settings/advanced/WellnessExportTab";
 
 export default function GrowthSettings() {
   const { user } = useAuth();
@@ -42,24 +39,6 @@ export default function GrowthSettings() {
       label: "Journal Export",
       icon: Download,
       component: JournalExportTab,
-    },
-    {
-      id: "analytics-export",
-      label: "Analytics Export",
-      icon: Download,
-      component: AnalyticsExportTab,
-    },
-    {
-      id: "goals-export",
-      label: "Goals Export",
-      icon: Download,
-      component: GoalsExportTab,
-    },
-    {
-      id: "wellness-export",
-      label: "Wellness Export",
-      icon: Download,
-      component: WellnessExportTab,
     },
   ];
 

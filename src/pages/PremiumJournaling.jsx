@@ -69,7 +69,6 @@ import FoldersTab from "../components/history/tabs/FoldersTab";
 import StarredPinnedTab from "../components/history/tabs/StarredPinnedTab";
 import WritingPatternsTab from "../components/history/tabs/WritingPatternsTab";
 import ContentAnalysisTab from "../components/history/tabs/ContentAnalysisTab";
-import GoalConnectionsTab from "../components/history/tabs/GoalConnectionsTab";
 import WritingStyleEvolutionTab from "../components/history/tabs/WritingStyleEvolutionTab";
 import JournalHealthMetricsTab from "../components/history/tabs/JournalHealthMetricsTab";
 

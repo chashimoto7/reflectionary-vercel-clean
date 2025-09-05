@@ -28,6 +28,7 @@ import JournalingRouter from "./pages/JournalingRouter";
 import HistoryRouter from "./pages/HistoryRouter";
 import ReflectionarianRouter from "./pages/ReflectionarianRouter";
 import SettingsRouter from "./pages/SettingsRouter";
+import BlogRouter from "./pages/BlogRouter";
 
 if (typeof window !== "undefined") {
   window.supabase = supabase;
@@ -38,6 +39,7 @@ function PublicRoutes() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/blog/*" element={<BlogRouter />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/signup-success" element={<SignupSuccess />} />
@@ -78,6 +80,7 @@ function AuthenticatedRoutes() {
       <Routes>
         <Route path="/" element={<Navigate to="/welcome" replace />} />
         <Route path="/welcome" element={<Welcome />} />
+        <Route path="/blog/*" element={<BlogRouter />} />
         <Route path="/journaling/*" element={<JournalingRouter />} />
         <Route path="/history/*" element={<HistoryRouter />} />
         <Route path="/knowledge-garden/*" element={<div>Knowledge Garden - Coming Soon</div>} />
@@ -111,7 +114,8 @@ function AppContent() {
       location.pathname !== "/login" &&
       location.pathname !== "/signup" &&
       location.pathname !== "/signup-success" &&
-      location.pathname !== "/signup-cancelled"
+      location.pathname !== "/signup-cancelled" &&
+      !location.pathname.startsWith("/blog")
     ) {
       window.location.href = "/login";
       return;
