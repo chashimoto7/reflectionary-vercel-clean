@@ -300,6 +300,48 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* Waitlist CTA Section - Moved above features */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto text-center">
+            <div className="backdrop-blur-xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-2xl border border-purple-400/30 shadow-lg p-12">
+              <h2 className="text-3xl font-bold mb-4">Join the Early Adopters</h2>
+              <p className="text-xl text-purple-100 mb-4">
+                Get exclusive updates, early access, and founder's pricing when Reflectionary launches
+              </p>
+              <p className="text-lg text-purple-200 mb-8">
+                Space is limited. Secure your spot now!
+              </p>
+              
+              <div className="flex flex-wrap justify-center gap-6 text-purple-200 mb-8">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-5 w-5" />
+                  <span>Early Access</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Star className="h-5 w-5" />
+                  <span>Founder's Pricing</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  <span>Exclusive Updates</span>
+                </div>
+              </div>
+
+              <button
+                onClick={handleWaitlistSignup}
+                className="px-12 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold text-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-purple-500/25 transform hover:-translate-y-0.5 flex items-center justify-center gap-2 mx-auto"
+              >
+                Join the Waitlist Now
+                <ExternalLink className="h-5 w-5" />
+              </button>
+
+              <p className="text-sm text-purple-200 mt-4">
+                Be among the first to experience the future of personal wisdom
+              </p>
+            </div>
+          </div>
+        </section>
+
         {/* Strategic Features Section */}
         <section id="features" className="py-20 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
@@ -407,44 +449,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Waitlist CTA Section */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="backdrop-blur-xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-2xl border border-purple-400/30 shadow-lg p-12">
-              <h2 className="text-3xl font-bold mb-4">Join the Early Adopters</h2>
-              <p className="text-xl text-purple-100 mb-8">
-                Get exclusive updates, early access, and founder's pricing when Reflectionary launches
-              </p>
-              
-              <div className="flex flex-wrap justify-center gap-6 text-purple-200 mb-8">
-                <div className="flex items-center gap-2">
-                  <Zap className="h-5 w-5" />
-                  <span>Early Access</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Star className="h-5 w-5" />
-                  <span>Founder's Pricing</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  <span>Exclusive Updates</span>
-                </div>
-              </div>
-
-              <button
-                onClick={handleWaitlistSignup}
-                className="px-12 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold text-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-purple-500/25 transform hover:-translate-y-0.5 flex items-center justify-center gap-2 mx-auto"
-              >
-                Join the Waitlist Now
-                <ExternalLink className="h-5 w-5" />
-              </button>
-
-              <p className="text-sm text-purple-200 mt-4">
-                Be among the first to experience the future of personal wisdom
-              </p>
-            </div>
-          </div>
-        </section>
 
         {/* Footer */}
         <footer className="py-12 px-4 sm:px-6 lg:px-8 border-t border-white/10">
