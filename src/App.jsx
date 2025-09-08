@@ -26,6 +26,7 @@ import Welcome from "./pages/Welcome";
 // Removed: Analytics, Goals, Wellness, Women's Health
 import JournalingRouter from "./pages/JournalingRouter";
 import HistoryRouter from "./pages/HistoryRouter";
+import KnowledgeGardenRouter from "./pages/KnowledgeGardenRouter";
 import ReflectionarianRouter from "./pages/ReflectionarianRouter";
 import SettingsRouter from "./pages/SettingsRouter";
 import BlogRouter from "./pages/BlogRouter";
@@ -83,7 +84,7 @@ function AuthenticatedRoutes() {
         <Route path="/blog/*" element={<BlogRouter />} />
         <Route path="/journaling/*" element={<JournalingRouter />} />
         <Route path="/history/*" element={<HistoryRouter />} />
-        <Route path="/knowledge-garden/*" element={<div>Knowledge Garden - Coming Soon</div>} />
+        <Route path="/knowledge-garden/*" element={<KnowledgeGardenRouter />} />
         <Route path="/reflectionarian/*" element={<ReflectionarianRouter />} />
         <Route path="/settings/*" element={<SettingsRouter />} />
         {/* Legacy redirects for removed features */}
