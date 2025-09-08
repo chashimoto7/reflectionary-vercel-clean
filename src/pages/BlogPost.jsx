@@ -117,8 +117,9 @@ export default function BlogPost() {
         );
       }
       
-      // Handle bold text
+      // Handle links [text](url)
       let processedParagraph = paragraph
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-purple-300 hover:text-purple-200 underline decoration-purple-300/50 hover:decoration-purple-200 transition-colors">$1</a>')
         .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
         .replace(/\*(.*?)\*/g, '<em class="text-purple-200">$1</em>');
       
