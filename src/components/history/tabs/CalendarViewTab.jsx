@@ -15,9 +15,13 @@ import {
   Edit3,
   Activity,
   TrendingUp,
+  FolderPlus,
+  Check,
 } from "lucide-react";
+import { useAuth } from "../../../contexts/AuthContext";
 
-const CalendarViewTab = ({ entries = [], colors = {}, onEntrySelect }) => {
+const CalendarViewTab = ({ entries = [], colors = {}, onEntrySelect, folders = [], onRefresh }) => {
+  const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [selectedDayEntries, setSelectedDayEntries] = useState([]);
@@ -143,7 +147,50 @@ const CalendarViewTab = ({ entries = [], colors = {}, onEntrySelect }) => {
   }, [calendarData]);
 
   const EntryModal = () => {
+    const [selectedFolderId, setSelectedFolderId] = useState(selectedEntry?.folder_id || "");
+    const [isUpdatingFolder, setIsUpdatingFolder] = useState(false);
+
     if (!selectedEntry) return null;
+
+    const API_BASE = import.meta.env.VITE_API_URL || "https://reflectionary-api.vercel.app";
+
+    // Handle folder update
+    const handleFolderUpdate = async () => {
+      if (!user || selectedFolderId === selectedEntry.folder_id) return;
+
+      setIsUpdatingFolder(true);
+      try {
+        const response = await fetch(`${API_BASE}/api/update-entry-folder`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            entry_id: selectedEntry.id,
+            user_id: user.id,
+            folder_id: selectedFolderId || null,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to update entry folder");
+        }
+
+        // Call the callback to refresh entries
+        if (onRefresh) {
+          onRefresh();
+        }
+
+        // Close modal after successful update
+        setShowEntryModal(false);
+      } catch (error) {
+        console.error("Error updating entry folder:", error);
+        // Reset selection on error
+        setSelectedFolderId(selectedEntry.folder_id || "");
+      } finally {
+        setIsUpdatingFolder(false);
+      }
+    };
 
     const handlePreviousEntry = () => {
       if (currentEntryIndex > 0) {
@@ -310,6 +357,52 @@ const CalendarViewTab = ({ entries = [], colors = {}, onEntrySelect }) => {
                 ))}
               </div>
             )}
+
+            {/* Folder Selection */}
+            <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <FolderPlus className="h-4 w-4 text-purple-400" />
+                  <span className="text-sm font-medium text-white">Add to Folder</span>
+                </div>
+                {selectedFolderId !== selectedEntry.folder_id && (
+                  <button
+                    onClick={handleFolderUpdate}
+                    disabled={isUpdatingFolder}
+                    className="flex items-center gap-1 px-3 py-1 bg-purple-600 text-white text-xs rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isUpdatingFolder ? (
+                      <>
+                        <div className="animate-spin h-3 w-3 border border-white border-t-transparent rounded-full"></div>
+                        Updating...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-3 w-3" />
+                        Update
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+              <select
+                value={selectedFolderId}
+                onChange={(e) => setSelectedFolderId(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              >
+                <option value="">No Folder (Unorganized)</option>
+                {folders.map((folder) => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.name}
+                  </option>
+                ))}
+              </select>
+              {selectedEntry.folder_id && (
+                <p className="text-xs text-gray-400 mt-2">
+                  Currently in: {folders.find(f => f.id === selectedEntry.folder_id)?.name || "Unknown Folder"}
+                </p>
+              )}
+            </div>
 
             {/* Footer */}
             <div className="flex items-center gap-4 text-sm text-gray-400 pt-4 border-t border-white/10">

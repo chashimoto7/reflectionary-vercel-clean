@@ -2456,6 +2456,11 @@ export default function PremiumJournaling() {
                     <CalendarViewTab
                       entries={historyEntries}
                       colors={colors}
+                      folders={historyFolders}
+                      onRefresh={() => {
+                        setHistoryLoading(true);
+                        fetchHistoryData();
+                      }}
                       onEntrySelect={(entry) =>
                         console.log("Selected entry:", entry)
                       }
