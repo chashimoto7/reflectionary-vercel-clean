@@ -59,6 +59,7 @@ import {
   Activity,
   History,
   Crown,
+  FileKey,
 } from "lucide-react";
 
 // Import separate tab components
@@ -106,6 +107,7 @@ export default function PremiumJournaling() {
   const [saveConfirmation, setSaveConfirmation] = useState(false);
   const [entryChain, setEntryChain] = useState([]);
   const [currentThreadId, setCurrentThreadId] = useState(null);
+  const [isPrivate, setIsPrivate] = useState(false);
 
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -1082,6 +1084,7 @@ export default function PremiumJournaling() {
         folder_id: selectedFolder,
         starred: isStarred,
         pinned: isPinned,
+        is_private: isPrivate,
         tags: tags,
         goal_ids: connectedGoals,
         metadata: metadata,
@@ -2249,7 +2252,18 @@ export default function PremiumJournaling() {
             )}
 
             {/* Action Buttons */}
-            <div className="flex gap-4">
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsPrivate(!isPrivate)}
+                className={`px-4 py-3 rounded-lg border-2 transition-colors flex items-center gap-2 ${
+                  isPrivate
+                    ? "bg-amber-600 border-amber-500 text-white"
+                    : "bg-transparent border-gray-600 text-gray-300 hover:border-amber-500"
+                }`}
+              >
+                <FileKey className="h-4 w-4" />
+                {isPrivate ? "Private" : "Mark Private"}
+              </button>
               <button
                 onClick={saveJournalEntry}
                 disabled={saveLabel === "Saving..."}
@@ -2541,6 +2555,7 @@ export default function PremiumJournaling() {
           onClose={closeCrisisModal}
           analysisResult={crisisAnalysisResult}
           showResources={showCrisisResources}
+          isPrivateEntry={isPrivate}
         />
       )}
 

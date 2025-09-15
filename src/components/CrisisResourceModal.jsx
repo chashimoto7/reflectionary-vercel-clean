@@ -26,6 +26,7 @@ const CrisisResourceModal = ({
   onClose,
   analysisResult = null,
   userLocation = null,
+  isPrivateEntry = false,
 }) => {
   const [resources, setResources] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -251,6 +252,16 @@ const CrisisResourceModal = ({
                 <p className="text-gray-800 leading-relaxed">
                   {getModalMessage()}
                 </p>
+                {isPrivateEntry && (
+                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-amber-600" />
+                      <p className="text-amber-800 text-sm">
+                        <strong>Note:</strong> This was detected through basic keyword analysis only, respecting your privacy settings.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 {analysisResult?.level === "immediate" && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <p className="text-red-800 font-medium text-sm">

@@ -424,6 +424,12 @@ const CalendarViewTab = ({ entries = [], colors = {}, onEntrySelect, folders = [
                   Pinned
                 </span>
               )}
+              {selectedEntry.is_private && (
+                <span className="flex items-center gap-1" title="AI crisis detection skipped for privacy protection">
+                  <FileKey className="h-4 w-4 text-amber-400" />
+                  Private (AI crisis detection skipped for privacy protection)
+                </span>
+              )}
               <AudioButton
                 onClick={() => {
                   setAudioEntry(selectedEntry);

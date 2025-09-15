@@ -23,6 +23,7 @@ import {
   ChevronRight,
   FolderPlus,
   Check,
+  FileKey,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 
@@ -795,6 +796,12 @@ const FoldersTab = ({ entries = [], folders = [], colors = {}, onRefresh }) => {
                       )}
                       {entry.pinned && (
                         <Pin className="h-3 w-3 text-blue-400" />
+                      )}
+                      {entry.is_private && (
+                        <span className="flex items-center gap-1 text-amber-400" title="AI crisis detection skipped for privacy protection">
+                          <FileKey className="h-3 w-3" />
+                          <span className="text-xs">Private (AI crisis detection skipped for privacy protection)</span>
+                        </span>
                       )}
                     </div>
                     <p className="text-sm text-gray-400 line-clamp-2">

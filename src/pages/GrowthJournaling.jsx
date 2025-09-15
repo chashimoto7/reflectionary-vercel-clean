@@ -20,6 +20,7 @@ import {
   Search,
   TrendingUp,
   History,
+  FileKey,
 } from "lucide-react";
 import {
   LineChart,
@@ -45,6 +46,7 @@ const GrowthJournaling = () => {
   const [currentPrompt, setCurrentPrompt] = useState(null);
   const [promptType, setPromptType] = useState("random");
   const [selectedSubject, setSelectedSubject] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
   const [followUpPrompt, setFollowUpPrompt] = useState(null);
   const [tags, setTags] = useState([]);
   const [currentTag, setCurrentTag] = useState("");
@@ -387,6 +389,7 @@ const GrowthJournaling = () => {
         prompt_text: currentPrompt,
         subject: selectedSubject || null,
         tags: tags.length > 0 ? tags : null,
+        is_private: isPrivate,
         metadata: {
           word_count: wordCount,
           template_used: selectedTemplate?.id || null,
@@ -836,21 +839,40 @@ const GrowthJournaling = () => {
               </span>
             )}
           </div>
-          <button
-            onClick={handleSave}
-            disabled={saving || !entry.trim()}
-            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            <Save className="h-5 w-5" />
-            {saving ? "Saving..." : "Save Entry"}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsPrivate(!isPrivate)}
+              className={`px-4 py-3 rounded-lg border-2 transition-colors flex items-center gap-2 ${
+                isPrivate
+                  ? "bg-amber-600 border-amber-500 text-white"
+                  : "bg-transparent border-gray-600 text-gray-300 hover:border-amber-500"
+              }`}
+            >
+              <FileKey className="h-4 w-4" />
+              {isPrivate ? "Private" : "Mark Private"}
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving || !entry.trim()}
+              className="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <Save className="h-4 w-4" />
+              {saving ? "Saving..." : "Save Entry"}
+            </button>
+          </div>
         </div>
 
             {/* Crisis Detection */}
             {showCrisisResources && (
-              <CrisisDetection
-                keywords={crisisKeywords}
+              <CrisisResourceModal
+                isOpen={showCrisisResources}
                 onClose={() => setShowCrisisResources(false)}
+                analysisResult={{
+                  level: "concerning",
+                  score: crisisKeywords.length,
+                  keywords: crisisKeywords
+                }}
+                isPrivateEntry={isPrivate}
               />
             )}
           </div>
