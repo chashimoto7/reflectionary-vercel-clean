@@ -24,7 +24,6 @@ import {
   Folder,
   Star,
   Pin,
-  Target,
   MessageCircle,
   ChevronDown,
   X,
@@ -140,19 +139,13 @@ export default function PremiumJournaling() {
   const [currentTag, setCurrentTag] = useState("");
   const [isStarred, setIsStarred] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
-  const [connectedGoals, setConnectedGoals] = useState([]);
-  const [showGoalSelector, setShowGoalSelector] = useState(false);
-  const [userGoals, setUserGoals] = useState([]);
   const [writingMode, setWritingMode] = useState("free");
-  const [guidedQuestions, setGuidedQuestions] = useState([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [followUpLoading, setFollowUpLoading] = useState(false);
 
   // History tab state
   const [historyEntries, setHistoryEntries] = useState([]);
   const [historyFolders, setHistoryFolders] = useState([]);
-  const [historyGoals, setHistoryGoals] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState(null);
   const [historyActiveTab, setHistoryActiveTab] = useState("overview");
@@ -394,7 +387,6 @@ export default function PremiumJournaling() {
       // Load data in background, don't block editor initialization
       setTimeout(() => {
         loadFolders();
-        loadGoals();
         loadReflectionarianPrompts();
         if (activeTab === "history") {
           loadHistoryData();
@@ -774,30 +766,6 @@ export default function PremiumJournaling() {
     }
   };
 
-  const loadGoals = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/goals?user_id=${user.id}`);
-
-      if (!response.ok) {
-        console.error("Failed to load goals:", response.status);
-        return;
-      }
-
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        console.error("Goals API returned non-JSON response");
-        return;
-      }
-
-      const data = await response.json();
-      if (data.goals) {
-        setUserGoals(data.goals.filter((g) => g.status === "active"));
-      }
-    } catch (error) {
-      console.error("Error loading goals:", error);
-      setUserGoals([]);
-    }
-  };
 
   const loadReflectionarianPrompts = async () => {
     try {
@@ -997,34 +965,6 @@ export default function PremiumJournaling() {
     }
   };
 
-  const generateGuidedQuestions = async (topic) => {
-    setLoadingPrompt(true);
-    try {
-      const fallbackQuestions = [
-        "What brought this topic to mind today?",
-        "How does this make you feel emotionally and physically?",
-        "What patterns do you notice in your thoughts about this?",
-        "What would you like to explore or understand better?",
-        "What insights are emerging as you reflect on this?",
-      ];
-
-      setGuidedQuestions(fallbackQuestions);
-      setCurrentQuestionIndex(0);
-      setWritingMode("guided");
-
-      if (quillRef.current) {
-        quillRef.current.root.setAttribute(
-          "data-placeholder",
-          fallbackQuestions[0]
-        );
-        setTimeout(() => quillRef.current.focus(), 100);
-      }
-    } catch (error) {
-      console.error("Error generating guided questions:", error);
-    } finally {
-      setLoadingPrompt(false);
-    }
-  };
 
   const saveJournalEntry = async () => {
     console.log("🔍 DEBUG: Save function called");
@@ -1065,11 +1005,7 @@ export default function PremiumJournaling() {
         tags: tags.length > 0 ? tags : null,
         starred: isStarred,
         pinned: isPinned,
-        connected_goals: connectedGoals.length > 0 ? connectedGoals : null,
         writing_mode: writingMode,
-        guided_questions: writingMode === "guided" ? guidedQuestions : null,
-        current_question_index:
-          writingMode === "guided" ? currentQuestionIndex : null,
       };
 
       const requestBody = {
@@ -1086,7 +1022,6 @@ export default function PremiumJournaling() {
         pinned: isPinned,
         is_private: isPrivate,
         tags: tags,
-        goal_ids: connectedGoals,
         metadata: metadata,
       };
 
@@ -1305,10 +1240,7 @@ export default function PremiumJournaling() {
     setTags([]);
     setIsStarred(false);
     setIsPinned(false);
-    setConnectedGoals([]);
     setWritingMode("free");
-    setGuidedQuestions([]);
-    setCurrentQuestionIndex(0);
 
     // Reset follow-up state
     setLastSavedEntry(null);
@@ -1330,13 +1262,6 @@ export default function PremiumJournaling() {
     setTags(tags.filter((tag) => tag !== tagToRemove));
   };
 
-  const toggleGoal = (goalId) => {
-    if (connectedGoals.includes(goalId)) {
-      setConnectedGoals(connectedGoals.filter((id) => id !== goalId));
-    } else {
-      setConnectedGoals([...connectedGoals, goalId]);
-    }
-  };
 
   // History tab functions
   const loadHistoryData = async () => {
@@ -1411,26 +1336,6 @@ export default function PremiumJournaling() {
         setHistoryFolders([]);
       }
 
-      // Load goals separately
-      try {
-        console.log("🎯 Loading goals...");
-        const goalsResponse = await fetch(
-          `${API_BASE}/api/goals?user_id=${user.id}`
-        );
-
-        if (goalsResponse.ok) {
-          const goalsData = await goalsResponse.json();
-          const processedGoals = processGoals(goalsData.goals || []);
-          setHistoryGoals(processedGoals);
-          console.log("✅ Goals loaded:", processedGoals.length);
-        } else {
-          console.warn("⚠️ Goals API failed:", goalsResponse.status);
-          setHistoryGoals([]);
-        }
-      } catch (goalError) {
-        console.warn("⚠️ Failed to load goals:", goalError.message);
-        setHistoryGoals([]);
-      }
     } catch (error) {
       console.error("❌ Error loading history data:", error);
       setHistoryError(`Failed to load journal history: ${error.message}`);
@@ -1488,14 +1393,6 @@ export default function PremiumJournaling() {
     }));
   };
 
-  // Process goals to ensure they have decrypted titles
-  const processGoals = (rawGoals) => {
-    return rawGoals.map((goal) => ({
-      ...goal,
-      decryptedTitle: goal.title || goal.decryptedTitle || "Untitled Goal",
-      decryptedDescription: goal.description || goal.decryptedDescription || "",
-    }));
-  };
 
   const calculateAnalytics = (entriesData) => {
     try {
@@ -1788,7 +1685,7 @@ export default function PremiumJournaling() {
                 How would you like to start?
               </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {/* Reflectionarian Prompts Dropdown */}
                 <div className="relative">
                   <button
@@ -1873,11 +1770,11 @@ export default function PremiumJournaling() {
                   </span>
                 </button>
 
-                {/* Generate Subject Prompt */}
+                {/* Generate Custom Prompt */}
                 <div className="flex gap-1">
                   <input
                     type="text"
-                    placeholder="Topic..."
+                    placeholder="Enter a topic to generate custom prompt..."
                     value={subjectPrompt}
                     onChange={(e) => setSubjectPrompt(e.target.value)}
                     onKeyPress={(e) => {
@@ -1891,20 +1788,12 @@ export default function PremiumJournaling() {
                     onClick={() => generateSubjectPrompt(subjectPrompt)}
                     disabled={!subjectPrompt.trim() || loadingPrompt}
                     className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition disabled:opacity-50"
-                    title="Generate Subject Prompt"
+                    title="Generate Custom Prompt"
                   >
                     <Lightbulb className="h-4 w-4" />
                   </button>
                 </div>
 
-                {/* Guided Questions */}
-                <button
-                  onClick={() => generateGuidedQuestions("general")}
-                  disabled={loadingPrompt}
-                  className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-lg transition text-sm"
-                >
-                  Guided Questions
-                </button>
               </div>
             </div>
 
@@ -1923,62 +1812,10 @@ export default function PremiumJournaling() {
               </div>
             )}
 
-            {/* Guided Questions Display */}
-            {writingMode === "guided" && guidedQuestions.length > 0 && (
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-400">
-                    Question {currentQuestionIndex + 1} of{" "}
-                    {guidedQuestions.length}
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        if (currentQuestionIndex > 0) {
-                          setCurrentQuestionIndex(currentQuestionIndex - 1);
-                          if (quillRef.current) {
-                            quillRef.current.root.setAttribute(
-                              "data-placeholder",
-                              guidedQuestions[currentQuestionIndex - 1]
-                            );
-                          }
-                        }
-                      }}
-                      disabled={currentQuestionIndex === 0}
-                      className="text-sm text-purple-400 hover:text-purple-300 disabled:opacity-50"
-                    >
-                      ← Previous
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (currentQuestionIndex < guidedQuestions.length - 1) {
-                          setCurrentQuestionIndex(currentQuestionIndex + 1);
-                          if (quillRef.current) {
-                            quillRef.current.root.setAttribute(
-                              "data-placeholder",
-                              guidedQuestions[currentQuestionIndex + 1]
-                            );
-                          }
-                        }
-                      }}
-                      disabled={
-                        currentQuestionIndex >= guidedQuestions.length - 1
-                      }
-                      className="text-sm text-purple-400 hover:text-purple-300 disabled:opacity-50"
-                    >
-                      Next →
-                    </button>
-                  </div>
-                </div>
-                <p className="text-lg">
-                  {guidedQuestions[currentQuestionIndex]}
-                </p>
-              </div>
-            )}
 
             {/* Premium Features Bar */}
             <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 {/* Voice Note */}
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">
@@ -2030,7 +1867,7 @@ export default function PremiumJournaling() {
                         setSelectedFolder(e.target.value || null);
                       }
                     }}
-                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 text-sm appearance-none cursor-pointer"
+                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 text-sm appearance-none cursor-pointer [&>option]:text-gray-800 [&>option]:bg-white"
                   >
                     <option value="">No Folder</option>
                     {folders.map((folder) => (
@@ -2038,10 +1875,7 @@ export default function PremiumJournaling() {
                         {folder.name} ({folder.entry_count || 0})
                       </option>
                     ))}
-                    <option
-                      value="create-new"
-                      className="font-semibold text-purple-300"
-                    >
+                    <option value="create-new" className="font-semibold">
                       + Create New Folder
                     </option>
                   </select>
@@ -2110,58 +1944,6 @@ export default function PremiumJournaling() {
                   </button>
                 </div>
 
-                {/* Connect to Goals */}
-                <div className="relative">
-                  <label className="block text-sm text-gray-400 mb-1">
-                    Connect to Goals
-                  </label>
-                  <button
-                    onClick={() => setShowGoalSelector(!showGoalSelector)}
-                    className="w-full px-2 py-2 bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/20 transition flex items-center justify-center gap-1"
-                  >
-                    <Target className="h-4 w-4" />
-                    <span className="text-xs">
-                      {connectedGoals.length > 0
-                        ? `${connectedGoals.length}`
-                        : userGoals.length > 0
-                        ? "Goals"
-                        : "None"}
-                    </span>
-                  </button>
-
-                  {showGoalSelector && (
-                    <div className="absolute mt-2 w-64 bg-slate-800 border border-white/20 rounded-lg shadow-xl p-3 z-10 right-0">
-                      {userGoals.length > 0 ? (
-                        <div className="space-y-2">
-                          {userGoals.map((goal) => (
-                            <label
-                              key={goal.id}
-                              className="flex items-center gap-2 text-sm cursor-pointer hover:text-purple-300"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={connectedGoals.includes(goal.id)}
-                                onChange={() => toggleGoal(goal.id)}
-                                className="rounded text-purple-600 focus:ring-purple-500"
-                              />
-                              <span>{goal.title}</span>
-                            </label>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-sm text-gray-400">
-                          <p className="mb-2">You haven't set any goals yet.</p>
-                          <button
-                            onClick={() => navigate("/goals")}
-                            className="text-purple-400 hover:text-purple-300"
-                          >
-                            Create your first goal →
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
               </div>
 
               {/* Tags Display */}
@@ -2462,7 +2244,6 @@ export default function PremiumJournaling() {
                       entries={historyEntries}
                       analytics={analytics}
                       folders={historyFolders}
-                      goals={historyGoals}
                       colors={colors}
                     />
                   )}
@@ -2484,7 +2265,6 @@ export default function PremiumJournaling() {
                     <SearchFilterTab
                       entries={historyEntries}
                       folders={historyFolders}
-                      goals={historyGoals}
                       searchQuery={searchQuery}
                       setSearchQuery={setSearchQuery}
                       filters={filters}
