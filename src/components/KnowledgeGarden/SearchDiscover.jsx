@@ -1,8 +1,8 @@
 // src/components/KnowledgeGarden/SearchDiscover.jsx
 import React, { useState, useEffect } from 'react';
-import { 
-  Search, 
-  Filter, 
+import {
+  Search,
+  Filter,
   Network,
   ArrowUpDown,
   BookOpen,
@@ -13,10 +13,15 @@ import {
   Tag,
   Folder
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import KnowledgeGardenService from '../../services/KnowledgeGardenService';
 
 export default function SearchDiscover() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [allItems, setAllItems] = useState([]);
+  const [folders, setFolders] = useState([]);
   const [filters, setFilters] = useState({
     type: 'all',
     dateRange: 'all',
@@ -26,69 +31,164 @@ export default function SearchDiscover() {
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState('relevance');
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'connections'
-
-  // Mock search results
-  const mockResults = [
-    {
-      id: 1,
-      type: 'article',
-      title: 'The Science of Flow State',
-      excerpt: 'Deep dive into the psychological mechanisms behind flow state and how to achieve it consistently...',
-      source: 'Psychology Today',
-      date: '2024-01-15',
-      tags: ['productivity', 'psychology', 'flow'],
-      connections: 3,
-      folder: 'Productivity'
-    },
-    {
-      id: 2,
-      type: 'journal',
-      title: 'Breakthrough with Morning Routine',
-      excerpt: 'Today I finally cracked the code on my morning routine. The key was starting with meditation instead of immediately checking emails...',
-      date: '2024-01-14',
-      tags: ['routine', 'breakthrough', 'meditation'],
-      connections: 5,
-      folder: null
-    },
-    {
-      id: 3,
-      type: 'conversation',
-      title: 'Discussion on Goal Setting',
-      excerpt: 'Reflectionarian session about SMART goals vs. systems-based approaches to personal development...',
-      date: '2024-01-12',
-      tags: ['goals', 'systems', 'development'],
-      connections: 2,
-      folder: 'Personal Development'
-    },
-    {
-      id: 4,
-      type: 'note',
-      title: 'Key Insights from Deep Work',
-      excerpt: 'Notes from Cal Newport\'s Deep Work book: 1) Shallow work is often busywork, 2) Deep work requires deliberate practice...',
-      date: '2024-01-10',
-      tags: ['deep work', 'focus', 'productivity'],
-      connections: 4,
-      folder: 'Productivity'
-    }
-  ];
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Simulate search with mock data
-    const filteredResults = mockResults.filter(item => {
-      const matchesQuery = searchQuery === '' || 
-        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+    if (user) {
+      loadData();
+    }
+  }, [user]);
 
-      const matchesType = filters.type === 'all' || item.type === filters.type;
-      const matchesFolder = filters.folder === 'all' || item.folder === filters.folder;
-      const matchesConnections = !filters.hasConnections || item.connections > 0;
+  useEffect(() => {
+    filterAndSearchResults();
+  }, [searchQuery, filters, allItems, sortBy]);
 
-      return matchesQuery && matchesType && matchesFolder && matchesConnections;
-    });
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      await Promise.all([
+        loadAllItems(),
+        loadFolders()
+      ]);
+
+    } catch (err) {
+      console.error('Error loading search data:', err);
+      setError('Failed to load content. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAllItems = async () => {
+    try {
+      const response = await KnowledgeGardenService.getUserKnowledgeItems(user.id, {
+        limit: 1000
+      });
+
+      if (response.success) {
+        const items = response.data.map(item => ({
+          id: item.id,
+          type: item.item_type || 'note',
+          title: item.title,
+          excerpt: item.content ? item.content.substring(0, 200) + '...' : 'No content preview',
+          source: item.source_author || 'User created',
+          date: item.created_at,
+          tags: item.tags ? item.tags.map(tag => tag.name) : [],
+          connections: item.connection_count || 0,
+          folder: item.folder_name || null,
+          folder_id: item.folder_id
+        }));
+
+        setAllItems(items);
+      }
+    } catch (error) {
+      console.error('Error loading items:', error);
+    }
+  };
+
+  const loadFolders = async () => {
+    try {
+      const response = await KnowledgeGardenService.getUserFolders(user.id);
+
+      if (response.success) {
+        setFolders(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading folders:', error);
+    }
+  };
+
+  const filterAndSearchResults = () => {
+    if (!allItems.length) {
+      setSearchResults([]);
+      return;
+    }
+
+    let filteredResults = [...allItems];
+
+    // Apply search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filteredResults = filteredResults.filter(item =>
+        item.title.toLowerCase().includes(query) ||
+        item.excerpt.toLowerCase().includes(query) ||
+        item.tags.some(tag => tag.toLowerCase().includes(query)) ||
+        (item.source && item.source.toLowerCase().includes(query))
+      );
+    }
+
+    // Apply filters
+    if (filters.type !== 'all') {
+      filteredResults = filteredResults.filter(item => item.type === filters.type);
+    }
+
+    if (filters.folder !== 'all') {
+      filteredResults = filteredResults.filter(item => {
+        if (filters.folder === 'none') {
+          return !item.folder_id;
+        }
+        return item.folder === filters.folder;
+      });
+    }
+
+    if (filters.hasConnections) {
+      filteredResults = filteredResults.filter(item => item.connections > 0);
+    }
+
+    // Apply date range filter
+    if (filters.dateRange !== 'all') {
+      const now = new Date();
+      let cutoffDate;
+
+      switch (filters.dateRange) {
+        case 'week':
+          cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'month':
+          cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case 'quarter':
+          cutoffDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          cutoffDate = new Date(0);
+      }
+
+      filteredResults = filteredResults.filter(item => new Date(item.date) >= cutoffDate);
+    }
+
+    // Apply sorting
+    switch (sortBy) {
+      case 'date':
+        filteredResults.sort((a, b) => new Date(b.date) - new Date(a.date));
+        break;
+      case 'connections':
+        filteredResults.sort((a, b) => b.connections - a.connections);
+        break;
+      case 'title':
+        filteredResults.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+      case 'relevance':
+      default:
+        // For relevance, prioritize exact matches in title, then content
+        if (searchQuery.trim()) {
+          const query = searchQuery.toLowerCase();
+          filteredResults.sort((a, b) => {
+            const aTitle = a.title.toLowerCase().includes(query);
+            const bTitle = b.title.toLowerCase().includes(query);
+            if (aTitle && !bTitle) return -1;
+            if (!aTitle && bTitle) return 1;
+            return 0;
+          });
+        }
+        break;
+    }
 
     setSearchResults(filteredResults);
-  }, [searchQuery, filters]);
+  };
 
   const getTypeIcon = (type) => {
     switch(type) {
@@ -167,6 +267,52 @@ export default function SearchDiscover() {
     );
   };
 
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-2 border-blue-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading your knowledge garden...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-500/10 border border-red-400/20 rounded-xl p-6 text-center">
+          <p className="text-red-300 mb-4">{error}</p>
+          <button
+            onClick={loadData}
+            className="bg-red-500/20 hover:bg-red-500/30 text-red-300 px-4 py-2 rounded-lg transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const isEmpty = allItems.length === 0;
+
+  if (isEmpty) {
+    return (
+      <div className="p-6 text-center py-12">
+        <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 p-8 rounded-2xl backdrop-blur-sm border border-white/10 mb-6 mx-auto max-w-md">
+          <Search className="h-16 w-16 text-blue-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-3">No Content to Search</h2>
+          <p className="text-gray-300 mb-6">
+            Add knowledge items to your garden to start searching and discovering connections.
+          </p>
+          <button className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-6 py-3 rounded-lg transition-colors">
+            Add Your First Item
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Search Header */}
@@ -181,11 +327,11 @@ export default function SearchDiscover() {
             className="w-full pl-12 pr-4 py-3 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-purple-400/50 focus:bg-white/10"
           />
         </div>
-        
+
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-colors ${
-            showFilters 
+            showFilters
               ? 'bg-purple-500/20 border-purple-400/30 text-purple-300'
               : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
           }`}
@@ -193,7 +339,7 @@ export default function SearchDiscover() {
           <Filter className="h-5 w-5" />
           Filters
         </button>
-        
+
         <button
           onClick={() => setViewMode(viewMode === 'list' ? 'connections' : 'list')}
           className="flex items-center gap-2 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-gray-300 hover:bg-white/10 transition-colors"
@@ -244,9 +390,12 @@ export default function SearchDiscover() {
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white"
               >
                 <option value="all">All Folders</option>
-                <option value="Productivity">Productivity</option>
-                <option value="Personal Development">Personal Development</option>
-                <option value="Health">Health</option>
+                <option value="none">No Folder</option>
+                {folders.map((folder) => (
+                  <option key={folder.id} value={folder.name}>
+                    {folder.name}
+                  </option>
+                ))}
               </select>
             </div>
             
