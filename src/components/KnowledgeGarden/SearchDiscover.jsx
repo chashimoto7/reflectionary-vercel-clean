@@ -13,11 +13,13 @@ import {
   Tag,
   Folder
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import KnowledgeGardenService from '../../services/KnowledgeGardenService';
 
 export default function SearchDiscover() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [allItems, setAllItems] = useState([]);
@@ -305,7 +307,10 @@ export default function SearchDiscover() {
           <p className="text-gray-300 mb-6">
             Add knowledge items to your garden to start searching and discovering connections.
           </p>
-          <button className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-6 py-3 rounded-lg transition-colors">
+          <button
+            onClick={() => navigate('/knowledge-garden/library')}
+            className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-6 py-3 rounded-lg transition-colors"
+          >
             Add Your First Item
           </button>
         </div>

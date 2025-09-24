@@ -10,11 +10,13 @@ import {
   Brain,
   Target
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import KnowledgeGardenService from '../../services/KnowledgeGardenService';
 
 export default function PersonalInsights() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [insights, setInsights] = useState({
     journalGardenCorrelations: [],
     growthPatterns: [],
@@ -454,7 +456,10 @@ export default function PersonalInsights() {
             <p className="text-gray-300 mb-6">
               Add knowledge items to your garden to start generating personal insights and correlations.
             </p>
-            <button className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-6 py-3 rounded-lg transition-colors">
+            <button
+              onClick={() => navigate('/knowledge-garden/library')}
+              className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-6 py-3 rounded-lg transition-colors"
+            >
               Add Your First Item
             </button>
           </div>
