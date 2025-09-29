@@ -1,6 +1,6 @@
 // frontend/src/pages/PremiumJournaling.jsx
 import { useEffect, useState, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
 import Quill from "quill";
@@ -45,43 +45,37 @@ import {
   Download,
   Eye,
   Play,
-  BookOpen,
-  BarChart3,
-  Info,
-  Shield,
-  ArrowUp,
-  ArrowDown,
-  Minus,
   Edit3,
-  Hash,
-  Feather,
-  Activity,
   History,
+  ChevronRight,
   Crown,
   FileKey,
 } from "lucide-react";
 
-// Import separate tab components
-import OverviewTab from "../components/history/tabs/OverviewTab";
-import CalendarViewTab from "../components/history/tabs/CalendarViewTab";
-import SearchFilterTab from "../components/history/tabs/SearchFilterTab";
-import FoldersTab from "../components/history/tabs/FoldersTab";
-import StarredPinnedTab from "../components/history/tabs/StarredPinnedTab";
-import WritingPatternsTab from "../components/history/tabs/WritingPatternsTab";
-import ContentAnalysisTab from "../components/history/tabs/ContentAnalysisTab";
-import WritingStyleEvolutionTab from "../components/history/tabs/WritingStyleEvolutionTab";
-import JournalHealthMetricsTab from "../components/history/tabs/JournalHealthMetricsTab";
 
 export default function PremiumJournaling() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isLocked } = useSecurity();
 
-  // Tab state
-  const [searchParams] = useSearchParams();
-  const initialTab =
-    searchParams.get("tab") === "history" ? "history" : "write";
-  const [activeTab, setActiveTab] = useState(initialTab);
+  // Tab state - only write tab has content now
+  const [activeTab, setActiveTab] = useState("write");
+
+  // Main tabs configuration - History tab now navigates to Knowledge Garden
+  const tabs = [
+    {
+      id: "write",
+      label: "Write Entry",
+      icon: Edit3,
+    },
+    {
+      id: "history",
+      label: "History",
+      icon: History,
+      isNavigation: true, // This tab navigates instead of showing content
+    },
+  ];
+
 
   // API Base URL
   const API_BASE =
@@ -143,38 +137,6 @@ export default function PremiumJournaling() {
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [followUpLoading, setFollowUpLoading] = useState(false);
 
-  // History tab state
-  const [historyEntries, setHistoryEntries] = useState([]);
-  const [historyFolders, setHistoryFolders] = useState([]);
-  const [historyLoading, setHistoryLoading] = useState(true);
-  const [historyError, setHistoryError] = useState(null);
-  const [historyActiveTab, setHistoryActiveTab] = useState("overview");
-  const [dateRange, setDateRange] = useState("3months");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filters, setFilters] = useState({
-    mood: "",
-    theme: "",
-    tone: "",
-    folder: "",
-    goal: "",
-    starred: false,
-    pinned: false,
-  });
-  const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
-  const [databaseEnvironment, setDatabaseEnvironment] = useState(null);
-  const [analytics, setAnalytics] = useState({
-    totalEntries: 0,
-    moodDistribution: [],
-    themeFrequency: [],
-    entryTrends: [],
-    averageWordCount: 0,
-    topTopics: [],
-    topEmotions: [],
-    writingPatterns: null,
-    contentAnalysis: null,
-    styleEvolution: null,
-    journalHealth: null,
-  });
 
   // Reflectionarian prompts state
   const [reflectionarianPrompts, setReflectionarianPrompts] = useState([]);
@@ -203,77 +165,7 @@ export default function PremiumJournaling() {
     ],
   };
 
-  // Updated tabs structure - 9 tabs (removed Goal Progress Tracking)
-  const advancedTabs = [
-    {
-      id: "overview",
-      label: "Intelligence Overview",
-      icon: TrendingUp,
-      component: OverviewTab,
-    },
-    {
-      id: "calendar",
-      label: "Calendar View",
-      icon: Calendar,
-      component: CalendarViewTab,
-    },
-    {
-      id: "search-filter",
-      label: "Advanced Search",
-      icon: Search,
-      component: SearchFilterTab,
-    },
-    {
-      id: "folders",
-      label: "Folders",
-      icon: FolderOpen,
-      component: FoldersTab,
-    },
-    {
-      id: "starred-pinned",
-      label: "Starred & Pinned",
-      icon: Star,
-      component: StarredPinnedTab,
-    },
-    {
-      id: "writing-patterns",
-      label: "Writing Patterns",
-      icon: Edit3,
-      component: WritingPatternsTab,
-    },
-    {
-      id: "content-analysis",
-      label: "Content Analysis",
-      icon: Hash,
-      component: ContentAnalysisTab,
-    },
-    {
-      id: "style-evolution",
-      label: "Writing Style Evolution",
-      icon: Feather,
-      component: WritingStyleEvolutionTab,
-    },
-    {
-      id: "health-metrics",
-      label: "Journal Health",
-      icon: Heart,
-      component: JournalHealthMetricsTab,
-    },
-  ];
 
-  // Main tabs configuration
-  const tabs = [
-    {
-      id: "write",
-      label: "Write Entry",
-      icon: Edit3,
-    },
-    {
-      id: "history",
-      label: "History",
-      icon: History,
-    },
-  ];
 
   const quillRef = useRef(null);
   const editorRef = useRef(null);
@@ -388,12 +280,9 @@ export default function PremiumJournaling() {
       setTimeout(() => {
         loadFolders();
         loadReflectionarianPrompts();
-        if (activeTab === "history") {
-          loadHistoryData();
-        }
       }, 100);
     }
-  }, [user, activeTab, dateRange]);
+  }, [user]);
 
   // Initialize Quill editor
   useEffect(() => {
@@ -1263,243 +1152,6 @@ export default function PremiumJournaling() {
   };
 
 
-  // History tab functions
-  const loadHistoryData = async () => {
-    try {
-      setHistoryLoading(true);
-      setHistoryError(null);
-
-      console.log("🔍 Loading history data for user:", user.id);
-
-      // Load entries with the new API
-      const historyResponse = await fetch(
-        `${API_BASE}/api/history?user_id=${user.id}&page=1&limit=100&date_range=${dateRange}&include_analytics=true`
-      );
-
-      console.log("📡 History response status:", historyResponse.status);
-
-      if (!historyResponse.ok) {
-        const errorText = await historyResponse.text();
-        console.error("❌ History API error response:", errorText);
-        throw new Error(
-          `API returned ${historyResponse.status}: ${errorText.substring(
-            0,
-            100
-          )}`
-        );
-      }
-
-      const historyData = await historyResponse.json();
-      console.log("📊 Raw history data received:", historyData);
-
-      // Track which database is being used
-      if (historyData.database) {
-        setDatabaseEnvironment(historyData.database);
-        console.log(`🗄️ Using ${historyData.database} database`);
-      }
-
-      // Process entries to ensure they have the expected structure
-      const processedEntries = processEntries(historyData.entries || []);
-      console.log("✅ Processed entries:", processedEntries.length);
-      setHistoryEntries(processedEntries);
-
-      // Handle analytics
-      if (historyData.analytics && typeof historyData.analytics === "object") {
-        console.log("📈 Analytics data found:", historyData.analytics);
-        setAnalytics((prevAnalytics) => ({
-          ...prevAnalytics,
-          ...historyData.analytics,
-        }));
-      } else {
-        console.log("📈 No analytics from backend, calculating locally...");
-        calculateAnalytics(processedEntries);
-      }
-
-      // Load folders separately
-      try {
-        console.log("📁 Loading folders...");
-        const foldersResponse = await fetch(
-          `${API_BASE}/api/folders?user_id=${user.id}`
-        );
-
-        if (foldersResponse.ok) {
-          const foldersData = await foldersResponse.json();
-          const processedFolders = processFolders(foldersData.folders || []);
-          setHistoryFolders(processedFolders);
-          console.log("✅ Folders loaded:", processedFolders.length);
-        } else {
-          console.warn("⚠️ Folders API failed:", foldersResponse.status);
-          setHistoryFolders([]);
-        }
-      } catch (folderError) {
-        console.warn("⚠️ Failed to load folders:", folderError.message);
-        setHistoryFolders([]);
-      }
-
-    } catch (error) {
-      console.error("❌ Error loading history data:", error);
-      setHistoryError(`Failed to load journal history: ${error.message}`);
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
-
-  // Process entries to ensure they have the expected decrypted fields
-  const processEntries = (rawEntries) => {
-    return rawEntries.map((entry) => {
-      // Ensure the entry has all expected fields for the tab components
-      return {
-        ...entry,
-        // Map decrypted fields from backend response
-        decryptedContent: entry.content || entry.decryptedContent || "",
-        decryptedPrompt: entry.prompt || entry.decryptedPrompt || "",
-        decryptedFollowUps: processFollowUps(
-          entry.followUps || entry.follow_ups || []
-        ),
-        // Ensure other expected fields exist
-        created_at: entry.created_at || entry.createdAt,
-        updated_at: entry.updated_at || entry.updatedAt,
-        starred: entry.starred || false,
-        pinned: entry.pinned || false,
-        folder_id: entry.folder_id || entry.folderId || null,
-        mood: entry.mood || "neutral",
-        theme: entry.theme || "",
-        tone: entry.tone || "",
-        topics: entry.topics || [],
-        emotions: entry.emotions || [],
-      };
-    });
-  };
-
-  // Process follow-ups to ensure they have the expected structure
-  const processFollowUps = (followUps) => {
-    if (!Array.isArray(followUps)) return [];
-
-    return followUps.map((fu) => ({
-      ...fu,
-      decryptedQuestion: fu.question || fu.decryptedQuestion || "",
-      decryptedResponse: fu.response || fu.decryptedResponse || "",
-      created_at: fu.created_at || fu.createdAt,
-    }));
-  };
-
-  // Process folders to ensure they have decrypted names
-  const processFolders = (rawFolders) => {
-    return rawFolders.map((folder) => ({
-      ...folder,
-      decryptedName: folder.name || folder.decryptedName || "Untitled Folder",
-      decryptedDescription:
-        folder.description || folder.decryptedDescription || "",
-    }));
-  };
-
-
-  const calculateAnalytics = (entriesData) => {
-    try {
-      console.log(
-        "📊 Calculating analytics for",
-        entriesData?.length || 0,
-        "entries"
-      );
-
-      if (!Array.isArray(entriesData) || entriesData.length === 0) {
-        console.log("📊 No entries to analyze");
-        return;
-      }
-
-      // Basic analytics calculations with safe property access
-      const totalEntries = entriesData.length;
-
-      // Calculate average word count
-      const totalWords = entriesData.reduce((sum, entry) => {
-        const content = entry.decryptedContent || "";
-        return (
-          sum + content.split(/\s+/).filter((word) => word.length > 0).length
-        );
-      }, 0);
-      const averageWordCount = Math.round(totalWords / totalEntries);
-
-      // Mood distribution with safe access
-      const moodCounts = {};
-      entriesData.forEach((entry) => {
-        const mood = entry.mood || "neutral";
-        moodCounts[mood] = (moodCounts[mood] || 0) + 1;
-      });
-
-      const moodDistribution = Object.entries(moodCounts).map(
-        ([mood, count]) => ({
-          mood,
-          count,
-          percentage: Math.round((count / totalEntries) * 100),
-        })
-      );
-
-      // Theme frequency with safe access
-      const themeCounts = {};
-      entriesData.forEach((entry) => {
-        const theme = entry.theme || "general";
-        themeCounts[theme] = (themeCounts[theme] || 0) + 1;
-      });
-
-      const themeFrequency = Object.entries(themeCounts)
-        .map(([theme, count]) => ({
-          theme,
-          count,
-          percentage: Math.round((count / totalEntries) * 100),
-        }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
-
-      // Top topics
-      const topicCounts = {};
-      entriesData.forEach((entry) => {
-        (entry.topics || []).forEach((topic) => {
-          topicCounts[topic] = (topicCounts[topic] || 0) + 1;
-        });
-      });
-
-      const topTopics = Object.entries(topicCounts)
-        .map(([topic, count]) => ({ topic, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
-
-      // Top emotions
-      const emotionCounts = {};
-      entriesData.forEach((entry) => {
-        (entry.emotions || []).forEach((emotion) => {
-          emotionCounts[emotion] = (emotionCounts[emotion] || 0) + 1;
-        });
-      });
-
-      const topEmotions = Object.entries(emotionCounts)
-        .map(([emotion, count]) => ({ emotion, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
-
-      const calculatedAnalytics = {
-        totalEntries,
-        averageWordCount,
-        moodDistribution,
-        themeFrequency,
-        topTopics,
-        topEmotions,
-      };
-
-      console.log("📈 Analytics calculated:", calculatedAnalytics);
-
-      setAnalytics((prev) => ({
-        ...prev,
-        ...calculatedAnalytics,
-      }));
-    } catch (analyticsError) {
-      console.error("❌ Error calculating analytics:", analyticsError);
-    }
-  };
-
-  // Handler for refreshing data (used by tabs)
-  const handleRefresh = () => {
-    loadHistoryData();
-  };
 
   // Voice Recording Modal
   const VoiceRecordingModal = () => {
@@ -1615,23 +1267,6 @@ export default function PremiumJournaling() {
     );
   };
 
-  const EmptyHistoryState = () => (
-    <div className="text-center py-12 bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
-      <BookOpen className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-      <h3 className="text-xl font-semibold text-white mb-2">
-        No Journal Entries Found
-      </h3>
-      <p className="text-gray-300 mb-6">
-        Start journaling to see your entries, insights, and patterns here.
-      </p>
-      <button
-        onClick={() => setActiveTab("write")}
-        className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-      >
-        Write Your First Entry
-      </button>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
@@ -1649,12 +1284,29 @@ export default function PremiumJournaling() {
           </div>
         </div>
 
+
         {/* Tab Navigation */}
         <div className="mb-6">
           <div className="grid grid-cols-2 gap-4">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
+
+              if (tab.isNavigation) {
+                // History tab - navigate to Knowledge Garden
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => navigate('/knowledge-garden/history')}
+                    className="flex items-center justify-center gap-3 px-6 py-3 rounded-lg transition-all bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white border-2 border-transparent hover:border-green-400/30"
+                  >
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    <span className="text-sm font-medium">{tab.label}</span>
+                    <ChevronRight className="h-4 w-4 opacity-60" />
+                  </button>
+                );
+              }
+
               return (
                 <button
                   key={tab.id}
@@ -1676,9 +1328,8 @@ export default function PremiumJournaling() {
           </div>
         </div>
 
-        {/* Write Tab Content */}
-        {activeTab === "write" && (
-          <div className="space-y-6">
+        {/* Journal Writing Content */}
+        <div className="space-y-6">
             {/* Compact prompt section */}
             <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
               <h3 className="text-lg font-semibold mb-3">
@@ -2109,217 +1760,8 @@ export default function PremiumJournaling() {
                 Entry saved successfully!
               </div>
             )}
-          </div>
-        )}
+        </div>
 
-        {/* History Tab Content */}
-        {activeTab === "history" && (
-          <div className="space-y-6">
-            {historyLoading ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">
-                    Analyzing your journal history...
-                  </p>
-                </div>
-              </div>
-            ) : historyError ? (
-              <div className="max-w-4xl mx-auto p-6">
-                <div className="text-center py-12">
-                  <div className="text-red-500 text-xl mb-4">
-                    {historyError}
-                  </div>
-                  <button
-                    onClick={loadHistoryData}
-                    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-                  >
-                    Try Again
-                  </button>
-                </div>
-              </div>
-            ) : historyEntries.length === 0 ? (
-              <EmptyHistoryState />
-            ) : (
-              <>
-                {/* Controls */}
-                <div className="mb-8">
-                  {/* Date Range & Controls */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <label className="text-sm font-medium text-gray-300">
-                        Analysis Period:
-                      </label>
-                      <select
-                        value={dateRange}
-                        onChange={(e) => setDateRange(e.target.value)}
-                        className="px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      >
-                        <option value="1month">Last Month</option>
-                        <option value="3months">Last 3 Months</option>
-                        <option value="6months">Last 6 Months</option>
-                        <option value="1year">Last Year</option>
-                        <option value="all">All Time</option>
-                      </select>
-                    </div>
-
-                    <div className="flex items-center gap-4 text-sm">
-                      <div className="flex items-center gap-2 text-gray-300">
-                        <BookOpen className="h-4 w-4 text-purple-400" />
-                        <span>{analytics.totalEntries} entries</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-emerald-400">
-                        <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                        AI History Analysis Active
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Premium Tabs Grid */}
-                <div className="mb-8">
-                  <div className="space-y-4">
-                    {/* Top row - 4 tabs */}
-                    <div className="grid grid-cols-4 gap-4">
-                      {advancedTabs.slice(0, 4).map((tab) => {
-                        const Icon = tab.icon;
-                        const isActive = historyActiveTab === tab.id;
-
-                        return (
-                          <button
-                            key={tab.id}
-                            onClick={() => setHistoryActiveTab(tab.id)}
-                            className={`
-                              flex items-center justify-center gap-3 px-6 py-3 rounded-lg transition-all
-                              ${
-                                isActive
-                                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg scale-105"
-                                  : "bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white"
-                              }
-                            `}
-                          >
-                            <Icon className="h-5 w-5 flex-shrink-0" />
-                            <span className="text-sm font-medium">
-                              {tab.label}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Bottom row - 5 tabs */}
-                    <div className="grid grid-cols-5 gap-4">
-                      {advancedTabs.slice(4).map((tab) => {
-                        const Icon = tab.icon;
-                        const isActive = historyActiveTab === tab.id;
-
-                        return (
-                          <button
-                            key={tab.id}
-                            onClick={() => setHistoryActiveTab(tab.id)}
-                            className={`
-                              flex items-center justify-center gap-3 px-6 py-3 rounded-lg transition-all
-                              ${
-                                isActive
-                                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg scale-105"
-                                  : "bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white"
-                              }
-                            `}
-                          >
-                            <Icon className="h-5 w-5 flex-shrink-0" />
-                            <span className="text-sm font-medium">
-                              {tab.label}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Tab Content */}
-                <div className="bg-white/5 backdrop-blur-md rounded-lg border border-white/10 p-6">
-                  {historyActiveTab === "overview" && (
-                    <OverviewTab
-                      entries={historyEntries}
-                      analytics={analytics}
-                      folders={historyFolders}
-                      colors={colors}
-                    />
-                  )}
-                  {historyActiveTab === "calendar" && (
-                    <CalendarViewTab
-                      entries={historyEntries}
-                      colors={colors}
-                      folders={historyFolders}
-                      onRefresh={() => {
-                        setHistoryLoading(true);
-                        fetchHistoryData();
-                      }}
-                      onEntrySelect={(entry) =>
-                        console.log("Selected entry:", entry)
-                      }
-                    />
-                  )}
-                  {historyActiveTab === "search-filter" && (
-                    <SearchFilterTab
-                      entries={historyEntries}
-                      folders={historyFolders}
-                      searchQuery={searchQuery}
-                      setSearchQuery={setSearchQuery}
-                      filters={filters}
-                      setFilters={setFilters}
-                      colors={colors}
-                    />
-                  )}
-                  {historyActiveTab === "folders" && (
-                    <FoldersTab
-                      entries={historyEntries}
-                      folders={historyFolders}
-                      colors={colors}
-                      onRefresh={handleRefresh}
-                    />
-                  )}
-                  {historyActiveTab === "starred-pinned" && (
-                    <StarredPinnedTab
-                      entries={historyEntries}
-                      colors={colors}
-                      onRefresh={handleRefresh}
-                    />
-                  )}
-                  {historyActiveTab === "writing-patterns" && (
-                    <WritingPatternsTab
-                      entries={historyEntries}
-                      analytics={analytics}
-                      colors={colors}
-                    />
-                  )}
-                  {historyActiveTab === "content-analysis" && (
-                    <ContentAnalysisTab
-                      entries={historyEntries}
-                      analytics={analytics}
-                      colors={colors}
-                    />
-                  )}
-                  {historyActiveTab === "style-evolution" && (
-                    <WritingStyleEvolutionTab
-                      entries={historyEntries}
-                      analytics={analytics}
-                      colors={colors}
-                    />
-                  )}
-                  {historyActiveTab === "health-metrics" && (
-                    <JournalHealthMetricsTab
-                      entries={historyEntries}
-                      analytics={analytics}
-                      colors={colors}
-                    />
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Voice Recording Modal */}

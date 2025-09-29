@@ -9,12 +9,11 @@ const HistoryRouter = () => {
 
   useEffect(() => {
     if (!loading && tier) {
-      // Redirect to the appropriate journaling page with history tab active
-      // Since history is now integrated into journaling pages
-      console.log("📖 HistoryRouter: Redirecting to journaling page with history tab");
-      
-      // Add a URL parameter to indicate we want the history tab active
-      navigate(`/journal?tab=history`, { replace: true });
+      // Redirect to the Knowledge Garden history tab
+      // Since history is now moved to Knowledge Garden
+      console.log("📖 HistoryRouter: Redirecting to Knowledge Garden history tab");
+
+      navigate(`/knowledge-garden/history`, { replace: true });
     }
   }, [tier, loading, navigate]);
 
@@ -23,7 +22,7 @@ const HistoryRouter = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
       <div className="text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
-        <p className="text-purple-300">Redirecting to your journal history...</p>
+        <p className="text-purple-300">Redirecting to Knowledge Garden history...</p>
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ import {
   Activity,
   MessageCircle,
   BookOpen,
+  Home,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useSecurity } from "../contexts/SecurityContext";
@@ -36,6 +37,13 @@ export default function Layout({ children }) {
   // Navigation items with new tier structure - Growth ($15) and Premium ($25) only
   const navigationItems = [
     {
+      to: "/welcome",
+      icon: Home,
+      label: "Welcome",
+      feature: "welcome",
+      requiredTier: "free",
+    },
+    {
       to: "/blog",
       icon: BookOpen,
       label: "Blog",
@@ -50,7 +58,7 @@ export default function Layout({ children }) {
       requiredTier: "growth",
     },
     {
-      to: "/knowledge-garden", 
+      to: "/knowledge-garden",
       icon: BarChart3,
       label: "Knowledge Garden",
       feature: "knowledge_garden",
@@ -147,7 +155,7 @@ export default function Layout({ children }) {
               <nav className="space-y-2 flex-1">
                 {navigationItems.map((item) => {
                   const IconComponent = item.icon;
-                  const userCanAccessFeature = canAccessTier(item.requiredTier) || item.feature === 'blog';
+                  const userCanAccessFeature = canAccessTier(item.requiredTier) || item.feature === 'blog' || item.feature === 'welcome';
 
                   if (userCanAccessFeature) {
                     return (

@@ -1,20 +1,22 @@
 // src/pages/KnowledgeGardenRouter.jsx
 import React, { useState } from 'react';
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  BarChart3, 
-  Search, 
+import {
+  Home,
+  BarChart3,
+  Search,
   Library,
   Sparkles,
-  TreePine
+  TreePine,
+  History
 } from 'lucide-react';
 
 // Knowledge Garden Tab Components
 import GardenOverview from '../components/KnowledgeGarden/GardenOverview';
-import PersonalInsights from '../components/KnowledgeGarden/PersonalInsights';  
+import PersonalInsights from '../components/KnowledgeGarden/PersonalInsights';
 import SearchDiscover from '../components/KnowledgeGarden/SearchDiscover';
 import LibraryTab from '../components/KnowledgeGarden/LibraryTab';
+import JournalHistory from '../components/KnowledgeGarden/JournalHistory';
 
 export default function KnowledgeGardenRouter() {
   const location = useLocation();
@@ -31,7 +33,15 @@ export default function KnowledgeGardenRouter() {
       description: 'Garden health, AI insights, and suggested actions'
     },
     {
-      id: 'insights', 
+      id: 'history',
+      label: 'Journal History',
+      icon: History,
+      path: '/knowledge-garden/history',
+      component: JournalHistory,
+      description: 'Browse, search, and analyze your journal entries'
+    },
+    {
+      id: 'insights',
       label: 'Personal Insights',
       icon: Sparkles,
       path: '/knowledge-garden/insights',
@@ -40,7 +50,7 @@ export default function KnowledgeGardenRouter() {
     },
     {
       id: 'search',
-      label: 'Search & Discover', 
+      label: 'Search & Discover',
       icon: Search,
       path: '/knowledge-garden/search',
       component: SearchDiscover,
@@ -49,7 +59,7 @@ export default function KnowledgeGardenRouter() {
     {
       id: 'library',
       label: 'Library',
-      icon: Library, 
+      icon: Library,
       path: '/knowledge-garden/library',
       component: LibraryTab,
       description: 'Curated content discovery and import'
@@ -59,6 +69,7 @@ export default function KnowledgeGardenRouter() {
   // Determine active tab based on current path
   const getActiveTab = () => {
     if (currentPath === '/knowledge-garden') return 'overview';
+    if (currentPath.includes('history')) return 'history';
     if (currentPath.includes('insights')) return 'insights';
     if (currentPath.includes('search')) return 'search';
     if (currentPath.includes('library')) return 'library';
@@ -130,8 +141,9 @@ export default function KnowledgeGardenRouter() {
       <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl min-h-[600px]">
         <Routes>
           <Route path="/" element={<GardenOverview />} />
+          <Route path="/history" element={<JournalHistory />} />
           <Route path="/insights" element={<PersonalInsights />} />
-          <Route path="/search" element={<SearchDiscover />} />  
+          <Route path="/search" element={<SearchDiscover />} />
           <Route path="/library" element={<LibraryTab />} />
         </Routes>
       </div>

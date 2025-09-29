@@ -452,7 +452,7 @@ export default function SearchDiscover() {
           {searchResults.map((result) => (
             <SearchResultCard key={result.id} result={result} />
           ))}
-          
+
           {searchResults.length === 0 && (
             <div className="text-center py-12">
               <Search className="h-12 w-12 text-gray-500 mx-auto mb-4" />
@@ -467,6 +467,142 @@ export default function SearchDiscover() {
             <Network className="h-16 w-16 text-gray-500 mx-auto mb-4" />
             <h3 className="text-white font-medium mb-2">Connection Visualization</h3>
             <p className="text-gray-400">Interactive connection mapping coming soon...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Full Item Modal */}
+      {expandedItem && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-semibold text-white mb-2">
+                    {expandedItem.title}
+                  </h2>
+                  <p className="text-gray-300">
+                    {new Date(expandedItem.date).toLocaleDateString()} • {expandedItem.source}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setExpandedItem(null)}
+                  className="p-2 hover:bg-white/10 rounded-lg text-gray-300 hover:text-white transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              <div className="bg-white/5 border border-white/10 rounded-lg p-6 mb-6">
+                <h3 className="text-lg font-medium text-gray-200 mb-4">Content</h3>
+                <div className="text-gray-100 whitespace-pre-wrap leading-relaxed">
+                  {expandedItem.excerpt}
+                </div>
+              </div>
+
+              {expandedItem.tags && expandedItem.tags.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium text-gray-200 mb-3">Tags</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {expandedItem.tags.map((tag, index) => (
+                      <span
+                        key={index}
+                        className="px-3 py-1 bg-gray-500/20 text-gray-300 text-sm rounded-full border border-gray-400/30"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {expandedItem.folder && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium text-gray-200 mb-3">Folder</h3>
+                  <span className="px-3 py-1 bg-blue-500/20 text-blue-300 text-sm rounded-full border border-blue-400/30">
+                    {expandedItem.folder}
+                  </span>
+                </div>
+              )}
+
+              {/* Delete Button at Bottom */}
+              <div className="border-t border-white/10 pt-6">
+                <div className="flex justify-between items-center">
+                  <div className="text-sm text-gray-400">
+                    Type: {expandedItem.type} • {expandedItem.connections} connections
+                  </div>
+                  <button
+                    onClick={() => {
+                      setExpandedItem(null);
+                      handleDeleteItem(expandedItem.id);
+                    }}
+                    className="px-4 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors flex items-center gap-2 border border-red-400/30"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete Item
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white/10 backdrop-blur-xl border border-red-400/30 rounded-2xl max-w-md w-full shadow-2xl">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-500/20 rounded-lg">
+                  <AlertTriangle className="h-6 w-6 text-red-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-white">
+                  Delete Knowledge Item
+                </h3>
+              </div>
+
+              <div className="text-gray-300 mb-6 space-y-2">
+                <p>
+                  Are you sure you want to delete this knowledge item? This action will:
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-sm">
+                  <li>Permanently delete the item and its content</li>
+                  <li>Remove all connections to this item</li>
+                  <li>Remove it from all analytics and insights</li>
+                </ul>
+                <p className="font-medium text-red-300 mt-3">
+                  ⚠️ This action cannot be undone. The item will be permanently lost.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelDelete}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 border border-gray-500 text-gray-300 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteItem}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4" />
+                      Delete Permanently
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
