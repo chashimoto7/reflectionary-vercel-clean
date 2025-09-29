@@ -581,10 +581,16 @@ export default function GardenOverview() {
       {/* Add Knowledge Item Modal */}
       {showAddItemModal && (
         <Modal onClose={() => setShowAddItemModal(false)}>
-          <AddKnowledgeItemForm
-            onComplete={handleItemCreateComplete}
-            onClose={() => setShowAddItemModal(false)}
-          />
+          <div className="bg-gray-900 border border-white/10 rounded-2xl p-8 max-w-2xl mx-auto relative">
+            <h2 className="text-2xl font-bold text-white mb-4">Add Knowledge Item - Test Modal</h2>
+            <p className="text-gray-300 mb-4">This is a test to see if the modal is working.</p>
+            <button
+              onClick={() => setShowAddItemModal(false)}
+              className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg"
+            >
+              Close
+            </button>
+          </div>
         </Modal>
       )}
 
