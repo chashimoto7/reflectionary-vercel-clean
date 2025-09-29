@@ -240,24 +240,15 @@ export default function GardenOverview() {
 
   // Click handlers for buttons
   const handleAddKnowledgeItem = () => {
-    console.log('🔍 Add Knowledge Item button clicked');
-    console.log('Current showAddItemModal state:', showAddItemModal);
-    alert('Add Knowledge Item button clicked!'); // Simple test
     setShowAddItemModal(true);
-    console.log('Set showAddItemModal to true');
   };
 
   const handleBrowseLibrary = () => {
-    console.log('🔍 Browse Library button clicked');
     navigate('/knowledge-garden/library');
   };
 
   const handleLearnMore = () => {
-    console.log('🔍 Learn More button clicked');
-    console.log('Current showLearnMoreModal state:', showLearnMoreModal);
-    alert('Learn More button clicked!'); // Simple test
     setShowLearnMoreModal(true);
-    console.log('Set showLearnMoreModal to true');
   };
 
   const handleExploreInsights = () => {
@@ -409,15 +400,6 @@ export default function GardenOverview() {
 
   const isEmpty = gardenStats.totalItems === 0;
 
-  console.log('🔍 GardenOverview render state:', {
-    isEmpty,
-    totalItems: gardenStats.totalItems,
-    loading,
-    error,
-    showAddItemModal,
-    showLearnMoreModal
-  });
-
   if (isEmpty) {
     return (
       <div className="p-6 space-y-8">
@@ -463,23 +445,17 @@ export default function GardenOverview() {
         </div>
 
         {/* Add Knowledge Item Modal */}
-        {console.log('🔍 Evaluating Add Modal condition (Empty State):', { showAddItemModal }) || showAddItemModal && (
+        {showAddItemModal && (
           <Modal onClose={() => setShowAddItemModal(false)}>
-            <div className="bg-gray-900 border border-white/10 rounded-2xl p-8 max-w-2xl mx-auto relative">
-              <h2 className="text-2xl font-bold text-white mb-4">Add Knowledge Item - Test Modal</h2>
-              <p className="text-gray-300 mb-4">This is a test to see if the modal is working.</p>
-              <button
-                onClick={() => setShowAddItemModal(false)}
-                className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg"
-              >
-                Close
-              </button>
-            </div>
+            <AddKnowledgeItemForm
+              onComplete={handleItemCreateComplete}
+              onClose={() => setShowAddItemModal(false)}
+            />
           </Modal>
         )}
 
         {/* Learn More Modal */}
-        {console.log('🔍 Evaluating Learn More condition (Empty State):', { showLearnMoreModal }) || showLearnMoreModal && (
+        {showLearnMoreModal && (
           <Modal onClose={() => setShowLearnMoreModal(false)}>
             <div className="bg-gray-900 border border-white/10 rounded-2xl p-8 max-w-2xl mx-auto relative">
               {/* Close button */}
@@ -683,110 +659,7 @@ export default function GardenOverview() {
         </div>
       </section>
 
-      {/* Add Knowledge Item Modal */}
-      {console.log('🔍 Evaluating Add Modal condition:', { showAddItemModal }) || showAddItemModal && (
-        <Modal onClose={() => setShowAddItemModal(false)}>
-          <div className="bg-gray-900 border border-white/10 rounded-2xl p-8 max-w-2xl mx-auto relative">
-            <h2 className="text-2xl font-bold text-white mb-4">Add Knowledge Item - Test Modal</h2>
-            <p className="text-gray-300 mb-4">This is a test to see if the modal is working.</p>
-            <button
-              onClick={() => setShowAddItemModal(false)}
-              className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg"
-            >
-              Close
-            </button>
-          </div>
-        </Modal>
-      )}
-
-      {/* Learn More Modal */}
-      {console.log('🔍 Evaluating Learn More condition:', { showLearnMoreModal }) || showLearnMoreModal && (
-        <Modal onClose={() => setShowLearnMoreModal(false)}>
-          <div className="bg-gray-900 border border-white/10 rounded-2xl p-8 max-w-2xl mx-auto relative">
-            {/* Close button */}
-            <button
-              onClick={() => setShowLearnMoreModal(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white p-2 rounded-lg hover:bg-white/10"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            <div className="flex items-center gap-4 mb-6">
-              <div className="bg-gradient-to-r from-green-500/20 to-purple-500/20 p-3 rounded-xl">
-                <TreePine className="h-8 w-8 text-green-400" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-white">How Knowledge Garden Works</h2>
-                <p className="text-gray-400">Transform information into wisdom</p>
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              <div className="flex items-start gap-4">
-                <div className="bg-blue-500/20 p-2 rounded-lg flex-shrink-0">
-                  <Plus className="h-5 w-5 text-blue-400" />
-                </div>
-                <div>
-                  <h3 className="text-white font-semibold mb-2">1. Collect Knowledge</h3>
-                  <p className="text-gray-300 text-sm">
-                    Import articles, documents, notes, and insights from various sources. Everything is encrypted and organized automatically.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-4">
-                <div className="bg-green-500/20 p-2 rounded-lg flex-shrink-0">
-                  <TrendingUp className="h-5 w-5 text-green-400" />
-                </div>
-                <div>
-                  <h3 className="text-white font-semibold mb-2">2. Discover Connections</h3>
-                  <p className="text-gray-300 text-sm">
-                    AI analyzes patterns between your journal entries and knowledge items, revealing hidden insights and correlations.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-4">
-                <div className="bg-purple-500/20 p-2 rounded-lg flex-shrink-0">
-                  <Sparkles className="h-5 w-5 text-purple-400" />
-                </div>
-                <div>
-                  <h3 className="text-white font-semibold mb-2">3. Generate Insights</h3>
-                  <p className="text-gray-300 text-sm">
-                    Track your growth patterns, breakthrough moments, and receive personalized suggestions for expanding your knowledge.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-4">
-                <div className="bg-yellow-500/20 p-2 rounded-lg flex-shrink-0">
-                  <Target className="h-5 w-5 text-yellow-400" />
-                </div>
-                <div>
-                  <h3 className="text-white font-semibold mb-2">4. Take Action</h3>
-                  <p className="text-gray-300 text-sm">
-                    Get smart recommendations for organizing, connecting, and exploring your knowledge garden to maximize learning.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8 pt-6 border-t border-white/10">
-              <div className="flex items-center justify-between">
-                <p className="text-gray-400 text-sm">
-                  Your knowledge garden grows more powerful with every addition
-                </p>
-                <button
-                  onClick={() => setShowLearnMoreModal(false)}
-                  className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 px-4 py-2 rounded-lg transition-colors"
-                >
-                  Got it
-                </button>
-              </div>
-            </div>
-          </div>
-        </Modal>
-      )}
+      {/* Modals are handled in the empty state section above */}
     </div>
   );
 }
