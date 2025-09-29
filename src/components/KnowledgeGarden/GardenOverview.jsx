@@ -8,12 +8,13 @@ import {
   Activity,
   Plus,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import KnowledgeGardenService from '../../services/KnowledgeGardenService';
-import DocumentUploadInterface from './DocumentUploadInterface';
+import AddKnowledgeItemForm from './AddKnowledgeItemForm';
 import Modal from '../Modal';
 
 export default function GardenOverview() {
@@ -258,14 +259,14 @@ export default function GardenOverview() {
     navigate('/knowledge-garden/search');
   };
 
-  const handleUploadComplete = async (uploadResult) => {
+  const handleItemCreateComplete = async (createdItem) => {
     setShowAddItemModal(false);
 
     // Refresh garden data to show the new item
     await loadGardenData();
 
     // Optional: Show success message or navigate to the new item
-    console.log('Upload completed:', uploadResult);
+    console.log('Knowledge item created:', createdItem);
   };
 
   const StatCard = ({ icon: Icon, title, value, change, changeLabel }) => (
@@ -562,8 +563,8 @@ export default function GardenOverview() {
       {/* Add Knowledge Item Modal */}
       {showAddItemModal && (
         <Modal onClose={() => setShowAddItemModal(false)}>
-          <DocumentUploadInterface
-            onUploadComplete={handleUploadComplete}
+          <AddKnowledgeItemForm
+            onComplete={handleItemCreateComplete}
             onClose={() => setShowAddItemModal(false)}
           />
         </Modal>
@@ -572,7 +573,15 @@ export default function GardenOverview() {
       {/* Learn More Modal */}
       {showLearnMoreModal && (
         <Modal onClose={() => setShowLearnMoreModal(false)}>
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-8 max-w-2xl">
+          <div className="bg-gray-900 border border-white/10 rounded-2xl p-8 max-w-2xl mx-auto relative">
+            {/* Close button */}
+            <button
+              onClick={() => setShowLearnMoreModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white p-2 rounded-lg hover:bg-white/10"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
             <div className="flex items-center gap-4 mb-6">
               <div className="bg-gradient-to-r from-green-500/20 to-purple-500/20 p-3 rounded-xl">
                 <TreePine className="h-8 w-8 text-green-400" />

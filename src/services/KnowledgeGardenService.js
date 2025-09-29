@@ -3,8 +3,8 @@
 
 class KnowledgeGardenService {
   constructor() {
-    // Use the backend API URL from environment or default to localhost
-    this.baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003';
+    // Use the backend API URL from environment or default to the production API
+    this.baseUrl = import.meta.env.VITE_API_URL || 'https://reflectionary-api.vercel.app';
     this.cache = new Map();
     this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
   }

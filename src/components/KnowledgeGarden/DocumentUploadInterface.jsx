@@ -1,5 +1,6 @@
 // src/components/KnowledgeGarden/DocumentUploadInterface.jsx
 import React, { useState, useRef, useCallback } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   Upload,
   File,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 
 export default function DocumentUploadInterface({ onUploadComplete, onClose }) {
+  const { user } = useAuth();
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState({});
@@ -129,7 +131,7 @@ export default function DocumentUploadInterface({ onUploadComplete, onClose }) {
       try {
         const formData = new FormData();
         formData.append('document', fileItem.file);
-        formData.append('user_id', 'current-user-id'); // This would come from auth context
+        formData.append('user_id', user?.id || user?.user_id);
         formData.append('processing_preference', processingType === 'auto' ? 'auto' : processingType);
 
         const response = await fetch('/api/documents/upload', {
@@ -218,8 +220,7 @@ export default function DocumentUploadInterface({ onUploadComplete, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-900 border border-white/10 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+    <div className="bg-gray-900 border border-white/10 rounded-2xl w-full overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/10">
           <div>
@@ -432,6 +433,5 @@ export default function DocumentUploadInterface({ onUploadComplete, onClose }) {
           </button>
         </div>
       </div>
-    </div>
   );
 }
