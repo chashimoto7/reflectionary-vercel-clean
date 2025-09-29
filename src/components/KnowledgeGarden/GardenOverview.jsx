@@ -240,15 +240,24 @@ export default function GardenOverview() {
 
   // Click handlers for buttons
   const handleAddKnowledgeItem = () => {
+    console.log('🔍 Add Knowledge Item button clicked');
+    console.log('Current showAddItemModal state:', showAddItemModal);
+    alert('Add Knowledge Item button clicked!'); // Simple test
     setShowAddItemModal(true);
+    console.log('Set showAddItemModal to true');
   };
 
   const handleBrowseLibrary = () => {
+    console.log('🔍 Browse Library button clicked');
     navigate('/knowledge-garden/library');
   };
 
   const handleLearnMore = () => {
+    console.log('🔍 Learn More button clicked');
+    console.log('Current showLearnMoreModal state:', showLearnMoreModal);
+    alert('Learn More button clicked!'); // Simple test
     setShowLearnMoreModal(true);
+    console.log('Set showLearnMoreModal to true');
   };
 
   const handleExploreInsights = () => {
@@ -399,6 +408,15 @@ export default function GardenOverview() {
   };
 
   const isEmpty = gardenStats.totalItems === 0;
+
+  console.log('🔍 GardenOverview render state:', {
+    isEmpty,
+    totalItems: gardenStats.totalItems,
+    loading,
+    error,
+    showAddItemModal,
+    showLearnMoreModal
+  });
 
   if (isEmpty) {
     return (
@@ -561,18 +579,23 @@ export default function GardenOverview() {
       </section>
 
       {/* Add Knowledge Item Modal */}
-      {showAddItemModal && (
-        <Modal onClose={() => setShowAddItemModal(false)}>
-          <AddKnowledgeItemForm
-            onComplete={handleItemCreateComplete}
-            onClose={() => setShowAddItemModal(false)}
-          />
-        </Modal>
-      )}
+      {(() => {
+        console.log('🔍 Rendering modal section - showAddItemModal:', showAddItemModal);
+        return showAddItemModal && (
+          <Modal onClose={() => setShowAddItemModal(false)}>
+            <AddKnowledgeItemForm
+              onComplete={handleItemCreateComplete}
+              onClose={() => setShowAddItemModal(false)}
+            />
+          </Modal>
+        );
+      })()}
 
       {/* Learn More Modal */}
-      {showLearnMoreModal && (
-        <Modal onClose={() => setShowLearnMoreModal(false)}>
+      {(() => {
+        console.log('🔍 Rendering modal section - showLearnMoreModal:', showLearnMoreModal);
+        return showLearnMoreModal && (
+          <Modal onClose={() => setShowLearnMoreModal(false)}>
           <div className="bg-gray-900 border border-white/10 rounded-2xl p-8 max-w-2xl mx-auto relative">
             {/* Close button */}
             <button
