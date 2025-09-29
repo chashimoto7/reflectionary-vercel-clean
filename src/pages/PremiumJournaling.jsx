@@ -47,11 +47,9 @@ import {
   Play,
   Edit3,
   History,
-  ChevronRight,
   Crown,
   FileKey,
 } from "lucide-react";
-
 
 export default function PremiumJournaling() {
   const navigate = useNavigate();
@@ -75,7 +73,6 @@ export default function PremiumJournaling() {
       isNavigation: true, // This tab navigates instead of showing content
     },
   ];
-
 
   // API Base URL
   const API_BASE =
@@ -137,7 +134,6 @@ export default function PremiumJournaling() {
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [followUpLoading, setFollowUpLoading] = useState(false);
 
-
   // Reflectionarian prompts state
   const [reflectionarianPrompts, setReflectionarianPrompts] = useState([]);
   const [showReflectionarianDropdown, setShowReflectionarianDropdown] =
@@ -164,8 +160,6 @@ export default function PremiumJournaling() {
       "#84CC16",
     ],
   };
-
-
 
   const quillRef = useRef(null);
   const editorRef = useRef(null);
@@ -655,7 +649,6 @@ export default function PremiumJournaling() {
     }
   };
 
-
   const loadReflectionarianPrompts = async () => {
     try {
       const response = await fetch(
@@ -853,7 +846,6 @@ export default function PremiumJournaling() {
       setSubjectPrompt("");
     }
   };
-
 
   const saveJournalEntry = async () => {
     console.log("🔍 DEBUG: Save function called");
@@ -1151,8 +1143,6 @@ export default function PremiumJournaling() {
     setTags(tags.filter((tag) => tag !== tagToRemove));
   };
 
-
-
   // Voice Recording Modal
   const VoiceRecordingModal = () => {
     if (!showVoiceModal) return null;
@@ -1267,7 +1257,6 @@ export default function PremiumJournaling() {
     );
   };
 
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
       <div className="max-w-7xl mx-auto p-4">
@@ -1284,7 +1273,6 @@ export default function PremiumJournaling() {
           </div>
         </div>
 
-
         {/* Tab Navigation */}
         <div className="mb-6">
           <div className="grid grid-cols-2 gap-4">
@@ -1297,7 +1285,7 @@ export default function PremiumJournaling() {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => navigate('/knowledge-garden/history')}
+                    onClick={() => navigate("/knowledge-garden/history")}
                     className="flex items-center justify-center gap-3 px-6 py-3 rounded-lg transition-all bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white border-2 border-transparent hover:border-green-400/30"
                   >
                     <Icon className="h-5 w-5 flex-shrink-0" />
@@ -1330,438 +1318,421 @@ export default function PremiumJournaling() {
 
         {/* Journal Writing Content */}
         <div className="space-y-6">
-            {/* Compact prompt section */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
-              <h3 className="text-lg font-semibold mb-3">
-                How would you like to start?
-              </h3>
+          {/* Compact prompt section */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
+            <h3 className="text-lg font-semibold mb-3">
+              How would you like to start?
+            </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {/* Reflectionarian Prompts Dropdown */}
-                <div className="relative">
-                  <button
-                    onClick={() =>
-                      setShowReflectionarianDropdown(
-                        !showReflectionarianDropdown
-                      )
-                    }
-                    className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-sm rounded-lg border border-purple-400/30 hover:border-purple-400/50 transition"
-                  >
-                    <div className="flex items-center gap-2">
-                      <MessageCircle className="h-4 w-4 text-purple-400" />
-                      <span className="text-sm font-medium">
-                        {reflectionarianPrompts.length > 0
-                          ? `Reflectionarian (${reflectionarianPrompts.length})`
-                          : "Reflectionarian"}
-                      </span>
-                    </div>
-                    <ChevronDown
-                      className={`h-4 w-4 text-purple-400 transform transition-transform ${
-                        showReflectionarianDropdown ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {/* Reflectionarian Prompts Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() =>
+                    setShowReflectionarianDropdown(!showReflectionarianDropdown)
+                  }
+                  className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-sm rounded-lg border border-purple-400/30 hover:border-purple-400/50 transition"
+                >
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-purple-400" />
+                    <span className="text-sm font-medium">
+                      {reflectionarianPrompts.length > 0
+                        ? `Reflectionarian (${reflectionarianPrompts.length})`
+                        : "Reflectionarian"}
+                    </span>
+                  </div>
+                  <ChevronDown
+                    className={`h-4 w-4 text-purple-400 transform transition-transform ${
+                      showReflectionarianDropdown ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
 
-                  {showReflectionarianDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800/95 backdrop-blur-sm border border-purple-400/30 rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto">
-                      {reflectionarianPrompts.length > 0 ? (
-                        reflectionarianPrompts.map((prompt) => (
-                          <div
-                            key={prompt.id}
-                            className="flex items-center justify-between p-3 hover:bg-purple-600/20 border-b border-purple-400/20 last:border-b-0"
+                {showReflectionarianDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800/95 backdrop-blur-sm border border-purple-400/30 rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto">
+                    {reflectionarianPrompts.length > 0 ? (
+                      reflectionarianPrompts.map((prompt) => (
+                        <div
+                          key={prompt.id}
+                          className="flex items-center justify-between p-3 hover:bg-purple-600/20 border-b border-purple-400/20 last:border-b-0"
+                        >
+                          <button
+                            onClick={() =>
+                              useReflectionarianPrompt(prompt.text)
+                            }
+                            className="flex-1 text-left text-sm text-purple-100 hover:text-white"
                           >
+                            {prompt.text}
+                          </button>
+                          <div className="flex gap-1 ml-2">
                             <button
                               onClick={() =>
-                                useReflectionarianPrompt(prompt.text)
+                                markReflectionarianPromptDone(prompt.id)
                               }
-                              className="flex-1 text-left text-sm text-purple-100 hover:text-white"
+                              className="p-1 text-green-400 hover:text-green-300 transition"
+                              title="Mark as done"
                             >
-                              {prompt.text}
+                              <Check className="h-3 w-3" />
                             </button>
-                            <div className="flex gap-1 ml-2">
-                              <button
-                                onClick={() =>
-                                  markReflectionarianPromptDone(prompt.id)
-                                }
-                                className="p-1 text-green-400 hover:text-green-300 transition"
-                                title="Mark as done"
-                              >
-                                <Check className="h-3 w-3" />
-                              </button>
-                              <button
-                                onClick={() =>
-                                  deleteReflectionarianPrompt(prompt.id)
-                                }
-                                className="p-1 text-red-400 hover:text-red-300 transition"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            </div>
+                            <button
+                              onClick={() =>
+                                deleteReflectionarianPrompt(prompt.id)
+                              }
+                              className="p-1 text-red-400 hover:text-red-300 transition"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
                           </div>
-                        ))
-                      ) : (
-                        <div className="p-3 text-sm text-gray-400 text-center">
-                          No prompts available
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                      ))
+                    ) : (
+                      <div className="p-3 text-sm text-gray-400 text-center">
+                        No prompts available
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
-                {/* Generate AI Prompt */}
+              {/* Generate AI Prompt */}
+              <button
+                onClick={generatePrompt}
+                disabled={loadingPrompt}
+                className="w-full py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span className="text-sm">
+                  {loadingPrompt ? "Generating..." : "Generate AI Prompt"}
+                </span>
+              </button>
+
+              {/* Generate Custom Prompt */}
+              <div className="flex gap-1">
+                <input
+                  type="text"
+                  placeholder="Enter a topic to generate custom prompt..."
+                  value={subjectPrompt}
+                  onChange={(e) => setSubjectPrompt(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter" && subjectPrompt.trim()) {
+                      generateSubjectPrompt(subjectPrompt);
+                    }
+                  }}
+                  className="flex-1 px-2 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 text-sm"
+                />
                 <button
-                  onClick={generatePrompt}
-                  disabled={loadingPrompt}
-                  className="w-full py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
+                  onClick={() => generateSubjectPrompt(subjectPrompt)}
+                  disabled={!subjectPrompt.trim() || loadingPrompt}
+                  className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition disabled:opacity-50"
+                  title="Generate Custom Prompt"
                 >
-                  <Sparkles className="h-4 w-4" />
-                  <span className="text-sm">
-                    {loadingPrompt ? "Generating..." : "Generate AI Prompt"}
+                  <Lightbulb className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Current Prompt Display */}
+          {prompt && (
+            <div className="bg-purple-600/20 backdrop-blur-sm rounded-lg border border-purple-400/30 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <p className="text-purple-100 flex-1">{prompt}</p>
+                <button
+                  onClick={() => setPrompt("")}
+                  className="text-sm text-purple-300 hover:text-white whitespace-nowrap"
+                >
+                  Clear prompt
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Premium Features Bar */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {/* Voice Note */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">
+                  Voice Note
+                </label>
+                <button
+                  onClick={isRecording ? stopRecording : startRecording}
+                  disabled={!voiceSupported}
+                  className={`w-full px-2 py-2 rounded-lg transition flex items-center justify-center gap-1 ${
+                    isRecording
+                      ? "bg-red-500 hover:bg-red-600 text-white"
+                      : voiceSupported
+                      ? "bg-white/10 hover:bg-white/20"
+                      : "bg-gray-600 cursor-not-allowed opacity-50"
+                  }`}
+                  title={
+                    voiceSupported
+                      ? isRecording
+                        ? "Stop recording"
+                        : "Start recording"
+                      : "Voice recording not supported"
+                  }
+                >
+                  {isRecording ? (
+                    <>
+                      <MicOff className="h-4 w-4" />
+                      <span className="text-xs">Stop</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="h-4 w-4" />
+                      <span className="text-xs">Record</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Folder Selection */}
+              <div className="relative">
+                <label className="block text-sm text-gray-400 mb-1">
+                  Folder
+                </label>
+                <select
+                  value={selectedFolder || ""}
+                  onChange={(e) => {
+                    if (e.target.value === "create-new") {
+                      setShowCreateFolderModal(true);
+                    } else {
+                      setSelectedFolder(e.target.value || null);
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 text-sm appearance-none cursor-pointer [&>option]:text-gray-800 [&>option]:bg-white"
+                >
+                  <option value="">No Folder</option>
+                  {folders.map((folder) => (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.name} ({folder.entry_count || 0})
+                    </option>
+                  ))}
+                  <option value="create-new" className="font-semibold">
+                    + Create New Folder
+                  </option>
+                </select>
+              </div>
+
+              {/* Tags */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Tags</label>
+                <input
+                  type="text"
+                  placeholder="Add tags..."
+                  value={currentTag}
+                  onChange={(e) => setCurrentTag(e.target.value)}
+                  onKeyPress={addTag}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 text-sm"
+                />
+              </div>
+
+              {/* Star Button */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Star</label>
+                <button
+                  onClick={() => setIsStarred(!isStarred)}
+                  className={`w-full px-2 py-2 rounded-lg transition flex items-center justify-center gap-1 ${
+                    isStarred
+                      ? "bg-yellow-500 text-white"
+                      : "bg-white/10 hover:bg-white/20"
+                  }`}
+                  title={isStarred ? "Unstar" : "Star"}
+                >
+                  <Star
+                    className="h-4 w-4"
+                    fill={isStarred ? "white" : "none"}
+                  />
+                  <span className="text-xs">
+                    {isStarred ? "Starred" : "Star"}
                   </span>
                 </button>
+              </div>
 
-                {/* Generate Custom Prompt */}
-                <div className="flex gap-1">
-                  <input
-                    type="text"
-                    placeholder="Enter a topic to generate custom prompt..."
-                    value={subjectPrompt}
-                    onChange={(e) => setSubjectPrompt(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter" && subjectPrompt.trim()) {
-                        generateSubjectPrompt(subjectPrompt);
-                      }
-                    }}
-                    className="flex-1 px-2 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 text-sm"
-                  />
-                  <button
-                    onClick={() => generateSubjectPrompt(subjectPrompt)}
-                    disabled={!subjectPrompt.trim() || loadingPrompt}
-                    className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition disabled:opacity-50"
-                    title="Generate Custom Prompt"
-                  >
-                    <Lightbulb className="h-4 w-4" />
-                  </button>
-                </div>
-
+              {/* Pin Button */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Pin</label>
+                <button
+                  onClick={() => setIsPinned(!isPinned)}
+                  className={`w-full px-2 py-2 rounded-lg transition flex items-center justify-center gap-1 ${
+                    isPinned
+                      ? "bg-blue-500 text-white"
+                      : "bg-white/10 hover:bg-white/20"
+                  }`}
+                  title={isPinned ? "Unpin" : "Pin"}
+                >
+                  <Pin className="h-4 w-4" fill={isPinned ? "white" : "none"} />
+                  <span className="text-xs">{isPinned ? "Pinned" : "Pin"}</span>
+                </button>
               </div>
             </div>
 
-            {/* Current Prompt Display */}
-            {prompt && (
-              <div className="bg-purple-600/20 backdrop-blur-sm rounded-lg border border-purple-400/30 p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <p className="text-purple-100 flex-1">{prompt}</p>
-                  <button
-                    onClick={() => setPrompt("")}
-                    className="text-sm text-purple-300 hover:text-white whitespace-nowrap"
+            {/* Tags Display */}
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {tags.map((tag, index) => (
+                  <span
+                    key={index}
+                    className="px-3 py-1 bg-purple-600/30 rounded-full text-sm flex items-center gap-1"
                   >
-                    Clear prompt
-                  </button>
-                </div>
+                    <Tag className="h-3 w-3" />
+                    {tag}
+                    <button
+                      onClick={() => removeTag(tag)}
+                      className="ml-1 hover:text-red-400"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
               </div>
             )}
+          </div>
 
+          {/* Fixed Editor Container */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden relative">
+            <div ref={editorRef} style={{ minHeight: "400px" }} />
 
-            {/* Premium Features Bar */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-4">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                {/* Voice Note */}
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">
-                    Voice Note
-                  </label>
-                  <button
-                    onClick={isRecording ? stopRecording : startRecording}
-                    disabled={!voiceSupported}
-                    className={`w-full px-2 py-2 rounded-lg transition flex items-center justify-center gap-1 ${
-                      isRecording
-                        ? "bg-red-500 hover:bg-red-600 text-white"
-                        : voiceSupported
-                        ? "bg-white/10 hover:bg-white/20"
-                        : "bg-gray-600 cursor-not-allowed opacity-50"
-                    }`}
-                    title={
-                      voiceSupported
-                        ? isRecording
-                          ? "Stop recording"
-                          : "Start recording"
-                        : "Voice recording not supported"
-                    }
-                  >
-                    {isRecording ? (
-                      <>
-                        <MicOff className="h-4 w-4" />
-                        <span className="text-xs">Stop</span>
-                      </>
-                    ) : (
-                      <>
-                        <Mic className="h-4 w-4" />
-                        <span className="text-xs">Record</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {/* Folder Selection */}
-                <div className="relative">
-                  <label className="block text-sm text-gray-400 mb-1">
-                    Folder
-                  </label>
-                  <select
-                    value={selectedFolder || ""}
-                    onChange={(e) => {
-                      if (e.target.value === "create-new") {
-                        setShowCreateFolderModal(true);
-                      } else {
-                        setSelectedFolder(e.target.value || null);
-                      }
-                    }}
-                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 text-sm appearance-none cursor-pointer [&>option]:text-gray-800 [&>option]:bg-white"
-                  >
-                    <option value="">No Folder</option>
-                    {folders.map((folder) => (
-                      <option key={folder.id} value={folder.id}>
-                        {folder.name} ({folder.entry_count || 0})
-                      </option>
-                    ))}
-                    <option value="create-new" className="font-semibold">
-                      + Create New Folder
-                    </option>
-                  </select>
-                </div>
-
-                {/* Tags */}
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">
-                    Tags
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Add tags..."
-                    value={currentTag}
-                    onChange={(e) => setCurrentTag(e.target.value)}
-                    onKeyPress={addTag}
-                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-400 text-sm"
-                  />
-                </div>
-
-                {/* Star Button */}
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">
-                    Star
-                  </label>
-                  <button
-                    onClick={() => setIsStarred(!isStarred)}
-                    className={`w-full px-2 py-2 rounded-lg transition flex items-center justify-center gap-1 ${
-                      isStarred
-                        ? "bg-yellow-500 text-white"
-                        : "bg-white/10 hover:bg-white/20"
-                    }`}
-                    title={isStarred ? "Unstar" : "Star"}
-                  >
-                    <Star
-                      className="h-4 w-4"
-                      fill={isStarred ? "white" : "none"}
-                    />
-                    <span className="text-xs">
-                      {isStarred ? "Starred" : "Star"}
-                    </span>
-                  </button>
-                </div>
-
-                {/* Pin Button */}
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">
-                    Pin
-                  </label>
-                  <button
-                    onClick={() => setIsPinned(!isPinned)}
-                    className={`w-full px-2 py-2 rounded-lg transition flex items-center justify-center gap-1 ${
-                      isPinned
-                        ? "bg-blue-500 text-white"
-                        : "bg-white/10 hover:bg-white/20"
-                    }`}
-                    title={isPinned ? "Unpin" : "Pin"}
-                  >
-                    <Pin
-                      className="h-4 w-4"
-                      fill={isPinned ? "white" : "none"}
-                    />
-                    <span className="text-xs">
-                      {isPinned ? "Pinned" : "Pin"}
-                    </span>
-                  </button>
-                </div>
-
-              </div>
-
-              {/* Tags Display */}
-              {tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {tags.map((tag, index) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 bg-purple-600/30 rounded-full text-sm flex items-center gap-1"
-                    >
-                      <Tag className="h-3 w-3" />
-                      {tag}
-                      <button
-                        onClick={() => removeTag(tag)}
-                        className="ml-1 hover:text-red-400"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Fixed Editor Container */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 overflow-hidden relative">
-              <div ref={editorRef} style={{ minHeight: "400px" }} />
-
-              {/* Formatting Overlay */}
-              {isFormatting && (
-                <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 rounded-lg">
-                  <div className="bg-slate-800/95 backdrop-blur-xl rounded-lg p-6 border border-purple-400/30 shadow-xl">
-                    <div className="flex flex-col items-center gap-4">
-                      <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
-                      <div className="text-center">
-                        <p className="text-white font-semibold text-lg">
-                          Formatting with AI
-                        </p>
-                        <p className="text-purple-200 text-sm mt-1">
-                          Adding punctuation and structure...
-                        </p>
-                      </div>
+            {/* Formatting Overlay */}
+            {isFormatting && (
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 rounded-lg">
+                <div className="bg-slate-800/95 backdrop-blur-xl rounded-lg p-6 border border-purple-400/30 shadow-xl">
+                  <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+                    <div className="text-center">
+                      <p className="text-white font-semibold text-lg">
+                        Formatting with AI
+                      </p>
+                      <p className="text-purple-200 text-sm mt-1">
+                        Adding punctuation and structure...
+                      </p>
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
-
-            {/* AI Format Button - shows after voice recording */}
-            {showFormatButton && (
-              <div className="bg-purple-600/20 backdrop-blur-sm rounded-lg border border-purple-400/30 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="text-purple-100 font-medium mb-1">
-                      Voice recording complete!
-                    </p>
-                    <p className="text-sm text-purple-200">
-                      Would you like AI to add punctuation and formatting?
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowFormatButton(false)}
-                      className="px-4 py-2 text-purple-300 hover:text-white transition"
-                    >
-                      Keep as is
-                    </button>
-                    <button
-                      onClick={formatWithAI}
-                      disabled={isFormatting}
-                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition flex items-center gap-2 disabled:opacity-50"
-                    >
-                      {isFormatting ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>Formatting...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-4 w-4" />
-                          <span>Format with AI</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
               </div>
             )}
+          </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => setIsPrivate(!isPrivate)}
-                className={`px-4 py-3 rounded-lg border-2 transition-colors flex items-center gap-2 ${
-                  isPrivate
-                    ? "bg-amber-600 border-amber-500 text-white"
-                    : "bg-transparent border-gray-600 text-gray-300 hover:border-amber-500"
-                }`}
-              >
-                <FileKey className="h-4 w-4" />
-                {isPrivate ? "Private" : "Mark Private"}
-              </button>
-              <button
-                onClick={saveJournalEntry}
-                disabled={saveLabel === "Saving..."}
-                className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                <Save className="h-5 w-5" />
-                {saveLabel}
-              </button>
-
-              {showFollowUpButtons && (
-                <button
-                  onClick={generateFollowUp}
-                  disabled={loadingPrompt}
-                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition flex items-center gap-2"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                  Follow-up
-                </button>
-              )}
-
-              {/* TTS Button - shows when there's content in editor */}
-              {quillRef.current &&
-                quillRef.current.getText().trim().length > 10 && (
+          {/* AI Format Button - shows after voice recording */}
+          {showFormatButton && (
+            <div className="bg-purple-600/20 backdrop-blur-sm rounded-lg border border-purple-400/30 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-purple-100 font-medium mb-1">
+                    Voice recording complete!
+                  </p>
+                  <p className="text-sm text-purple-200">
+                    Would you like AI to add punctuation and formatting?
+                  </p>
+                </div>
+                <div className="flex gap-2">
                   <button
-                    onClick={generateAudio}
-                    disabled={ttsLoading}
-                    className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg transition flex items-center gap-2 disabled:opacity-50"
-                    title="Listen to your entry"
+                    onClick={() => setShowFormatButton(false)}
+                    className="px-4 py-2 text-purple-300 hover:text-white transition"
                   >
-                    {ttsLoading ? (
+                    Keep as is
+                  </button>
+                  <button
+                    onClick={formatWithAI}
+                    disabled={isFormatting}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {isFormatting ? (
                       <>
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        <span>Generating...</span>
-                      </>
-                    ) : isPlaying ? (
-                      <>
-                        <Volume2 className="h-5 w-5" />
-                        <span>Playing</span>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Formatting...</span>
                       </>
                     ) : (
                       <>
-                        <Volume2 className="h-5 w-5" />
-                        <span>Listen</span>
+                        <Sparkles className="h-4 w-4" />
+                        <span>Format with AI</span>
                       </>
                     )}
                   </button>
-                )}
-            </div>
-
-            {/* Audio Player (hidden but functional) */}
-            <audio
-              ref={audioRef}
-              onEnded={() => setIsPlaying(false)}
-              onPause={() => setIsPlaying(false)}
-              onPlay={() => setIsPlaying(true)}
-            />
-
-            {/* Save Confirmation */}
-            {saveConfirmation && (
-              <div className="p-4 bg-green-500/20 border border-green-500/40 rounded-lg text-green-200">
-                Entry saved successfully!
+                </div>
               </div>
-            )}
-        </div>
+            </div>
+          )}
 
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => setIsPrivate(!isPrivate)}
+              className={`px-4 py-3 rounded-lg border-2 transition-colors flex items-center gap-2 ${
+                isPrivate
+                  ? "bg-amber-600 border-amber-500 text-white"
+                  : "bg-transparent border-gray-600 text-gray-300 hover:border-amber-500"
+              }`}
+            >
+              <FileKey className="h-4 w-4" />
+              {isPrivate ? "Private" : "Mark Private"}
+            </button>
+            <button
+              onClick={saveJournalEntry}
+              disabled={saveLabel === "Saving..."}
+              className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <Save className="h-5 w-5" />
+              {saveLabel}
+            </button>
+
+            {showFollowUpButtons && (
+              <button
+                onClick={generateFollowUp}
+                disabled={loadingPrompt}
+                className="px-4 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition flex items-center gap-2"
+              >
+                <ChevronRight className="h-5 w-5" />
+                Follow-up
+              </button>
+            )}
+
+            {/* TTS Button - shows when there's content in editor */}
+            {quillRef.current &&
+              quillRef.current.getText().trim().length > 10 && (
+                <button
+                  onClick={generateAudio}
+                  disabled={ttsLoading}
+                  className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg transition flex items-center gap-2 disabled:opacity-50"
+                  title="Listen to your entry"
+                >
+                  {ttsLoading ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>Generating...</span>
+                    </>
+                  ) : isPlaying ? (
+                    <>
+                      <Volume2 className="h-5 w-5" />
+                      <span>Playing</span>
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="h-5 w-5" />
+                      <span>Listen</span>
+                    </>
+                  )}
+                </button>
+              )}
+          </div>
+
+          {/* Audio Player (hidden but functional) */}
+          <audio
+            ref={audioRef}
+            onEnded={() => setIsPlaying(false)}
+            onPause={() => setIsPlaying(false)}
+            onPlay={() => setIsPlaying(true)}
+          />
+
+          {/* Save Confirmation */}
+          {saveConfirmation && (
+            <div className="p-4 bg-green-500/20 border border-green-500/40 rounded-lg text-green-200">
+              Entry saved successfully!
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Voice Recording Modal */}
