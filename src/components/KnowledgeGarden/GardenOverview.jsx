@@ -579,23 +579,18 @@ export default function GardenOverview() {
       </section>
 
       {/* Add Knowledge Item Modal */}
-      {(() => {
-        console.log('🔍 Rendering modal section - showAddItemModal:', showAddItemModal);
-        return showAddItemModal && (
-          <Modal onClose={() => setShowAddItemModal(false)}>
-            <AddKnowledgeItemForm
-              onComplete={handleItemCreateComplete}
-              onClose={() => setShowAddItemModal(false)}
-            />
-          </Modal>
-        );
-      })()}
+      {showAddItemModal && (
+        <Modal onClose={() => setShowAddItemModal(false)}>
+          <AddKnowledgeItemForm
+            onComplete={handleItemCreateComplete}
+            onClose={() => setShowAddItemModal(false)}
+          />
+        </Modal>
+      )}
 
       {/* Learn More Modal */}
-      {(() => {
-        console.log('🔍 Rendering modal section - showLearnMoreModal:', showLearnMoreModal);
-        return showLearnMoreModal && (
-          <Modal onClose={() => setShowLearnMoreModal(false)}>
+      {showLearnMoreModal && (
+        <Modal onClose={() => setShowLearnMoreModal(false)}>
           <div className="bg-gray-900 border border-white/10 rounded-2xl p-8 max-w-2xl mx-auto relative">
             {/* Close button */}
             <button
