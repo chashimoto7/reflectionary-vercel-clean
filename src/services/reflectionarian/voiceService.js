@@ -246,10 +246,10 @@ class VoiceService {
           finalVoice = voice || preferences.voice;
           finalRate = rate || preferences.rate;
         } else {
-          // Use defaults when no userId (for privacy)
-          finalVoice = voice || "nova";
+          // Use defaults when no userId (for privacy) - use ElevenLabs default
+          finalVoice = voice || "EXAVITQu4vr4xnSDxMaL"; // Bella (ElevenLabs)
           finalRate = rate || 1.0;
-          console.log("🎤 Using default preferences for privacy");
+          console.log("🎤 Using default ElevenLabs preferences for privacy");
         }
       }
 

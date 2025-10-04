@@ -498,7 +498,8 @@ const PremiumReflectionarian = () => {
 
   // Handle TTS with queue system
   const handleTTSWithQueue = async (responseText) => {
-    if (!preferences?.enableTTS) return;
+    // Only skip TTS if it's a text session AND enableSpeech is explicitly false
+    if (sessionType === 'text' && !preferences?.enableSpeech) return;
 
     const messageToUse = responseText || messages[messages.length - 1]?.content;
     if (!messageToUse) return;
