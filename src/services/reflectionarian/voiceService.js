@@ -263,10 +263,11 @@ class VoiceService {
       };
 
       const authToken = await this.getAuthToken();
-      console.log("🌐 Calling TTS API endpoint:", `${API_BASE}/tts/generate`);
+      const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/generate-audio`;
+      console.log("🌐 Calling Supabase edge function:", edgeFunctionUrl);
       console.log("📤 Request body:", requestBody);
 
-      const response = await fetch(`${API_BASE}/tts/generate`, {
+      const response = await fetch(edgeFunctionUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
