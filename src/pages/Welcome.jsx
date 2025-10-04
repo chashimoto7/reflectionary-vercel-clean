@@ -3,21 +3,15 @@ import lightLogo from "../assets/BrightReflectionarySquare.svg";
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { useMembership } from "../hooks/useMembership";
 import { supabase } from "../lib/supabase";
 import {
   Sparkles,
   TrendingUp,
   Shield,
-  Brain,
   Clock,
   Quote,
   Bell,
-  BarChart3,
   ArrowRight,
-  MessageCircle,
-  Lock,
-  Crown,
 } from "lucide-react";
 import DailyCheckin from "../components/DailyCheckin";
 
@@ -64,11 +58,8 @@ function getRandomQuote(excludeIndex) {
 
 export default function Welcome() {
   const { user } = useAuth();
-  const { tier, hasAccess, getUpgradeMessage } = useMembership();
   const [quote, setQuote] = useState(() => getRandomQuote(-1));
   const [userName, setUserName] = useState("Guest");
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [upgradeMessage, setUpgradeMessage] = useState("");
 
   // Auto-rotate quote every 30 seconds
   useEffect(() => {
@@ -100,44 +91,6 @@ export default function Welcome() {
 
     fetchUserName();
   }, [user]);
-
-  const handleFeatureClick = (feature, href) => {
-    if (!hasAccess(feature)) {
-      const message = getUpgradeMessage(feature);
-      setUpgradeMessage(message);
-      setShowUpgradeModal(true);
-      return false;
-    }
-    return true;
-  };
-
-  // Quick Actions - Updated for new tier structure
-  const quickActions = [
-    {
-      icon: Brain,
-      title: "New Journal Entry",
-      href: "/journaling",
-      feature: "journaling",
-      color: "from-purple-500 to-purple-600",
-      requiredTier: "growth",
-    },
-    {
-      icon: BarChart3,
-      title: "Knowledge Garden",
-      href: "/knowledge-garden",
-      feature: "knowledge_garden", 
-      color: "from-emerald-500 to-emerald-600",
-      requiredTier: "growth",
-    },
-    {
-      icon: MessageCircle,
-      title: "Reflectionarian",
-      href: "/reflectionarian",
-      feature: "reflectionarian",
-      color: "from-indigo-500 to-indigo-600",
-      requiredTier: "premium",
-    },
-  ];
 
   const announcements = [
     {
@@ -203,68 +156,6 @@ export default function Welcome() {
           
           {/* Daily Check-in Section */}
           <DailyCheckin userName={userName} />
-
-          {/* Quick Actions - Simplified */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-white mb-4">
-              Quick Actions
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {quickActions.map((action, index) => {
-                const Icon = action.icon;
-                const canAccess = hasAccess(action.feature);
-                
-                return (
-                  <div key={index} className="relative">
-                    {canAccess ? (
-                      <Link
-                        to={action.href}
-                        className="group backdrop-blur-xl bg-white/10 rounded-xl p-6 border border-white/20 shadow-lg hover:bg-white/15 hover:border-purple-400/50 transition-all duration-300 block"
-                      >
-                        <div className="flex flex-col items-center text-center gap-4">
-                          <div
-                            className={`bg-gradient-to-br ${action.color} p-4 rounded-lg group-hover:scale-110 transition-transform shadow-lg`}
-                          >
-                            <Icon className="w-8 h-8 text-white" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-white group-hover:text-purple-200 transition-colors text-lg">
-                              {action.title}
-                            </h3>
-                            <p className="text-sm text-gray-300 mt-1">
-                              {action.requiredTier === 'growth' ? 'Growth Feature' : 'Premium Feature'}
-                            </p>
-                          </div>
-                        </div>
-                      </Link>
-                    ) : (
-                      <button
-                        onClick={() => handleFeatureClick(action.feature, action.href)}
-                        className="group backdrop-blur-xl bg-white/5 rounded-xl p-6 border border-white/10 shadow-lg hover:bg-white/10 transition-all duration-300 w-full relative"
-                      >
-                        <div className="flex flex-col items-center text-center gap-4">
-                          <div className="bg-gray-600/30 p-4 rounded-lg shadow-lg relative">
-                            <Icon className="w-8 h-8 text-gray-400" />
-                            <div className="absolute -top-2 -right-2 bg-yellow-500 rounded-full p-1">
-                              <Lock className="w-3 h-3 text-white" />
-                            </div>
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-gray-400 text-lg">
-                              {action.title}
-                            </h3>
-                            <p className="text-sm text-gray-500 mt-1">
-                              Requires {action.requiredTier === 'growth' ? 'Growth' : 'Premium'} Plan
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
 
           {/* Updates & Announcements */}
           <div className="mb-8">
@@ -378,36 +269,6 @@ export default function Welcome() {
           </div>
         </div>
       </div>
-
-      {/* Upgrade Modal */}
-      {showUpgradeModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 max-w-md mx-4 shadow-2xl">
-            <div className="text-center">
-              <Crown className="h-12 w-12 text-yellow-400 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-white mb-2">
-                Upgrade Required
-              </h3>
-              <p className="text-gray-300 mb-6">{upgradeMessage}</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowUpgradeModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-500 text-gray-300 rounded-lg hover:bg-white/10 transition-colors"
-                >
-                  Maybe Later
-                </button>
-                <Link
-                  to="/signup"
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all text-center"
-                  onClick={() => setShowUpgradeModal(false)}
-                >
-                  Upgrade Now
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

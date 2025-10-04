@@ -1,5 +1,5 @@
 // frontend/ src/components/Layout.jsx - Dark Theme with Frosted Glass UI
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import {
   Plus,
   Notebook,
@@ -28,11 +28,6 @@ export default function Layout({ children }) {
   const { hasAccess, getUpgradeMessage, tier, loading } = useMembership();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeMessage, setUpgradeMessage] = useState("");
-  const location = useLocation();
-
-  // Check if we're on the Welcome page
-  const isWelcomePage =
-    location.pathname === "/welcome" || location.pathname === "/";
 
   // Navigation items with new tier structure - Growth ($15) and Premium ($25) only
   const navigationItems = [
@@ -129,9 +124,8 @@ export default function Layout({ children }) {
 
   return (
     <div className="flex min-h-screen overflow-hidden relative bg-gradient-to-r from-slate-900 via-purple-800 to-fuchsia-900">
-      {/* Sidebar - Hidden on Welcome page */}
-      {!isWelcomePage && (
-        <aside className="relative w-72 z-10">
+      {/* Sidebar */}
+      <aside className="relative w-72 z-10">
           {/* Frosted Glass Container */}
           <div className="fixed left-0 top-0 h-full w-72 backdrop-blur-lg bg-white/10 border-r border-white/20 shadow-2xl">
             <div className="p-2 h-full flex flex-col">
@@ -234,12 +228,9 @@ export default function Layout({ children }) {
             </div>
           </div>
         </aside>
-      )}
 
       {/* Main Content */}
-      <main
-        className={`flex-1 ${isWelcomePage ? "" : "px-7 py-6"} overflow-y-auto`}
-      >
+      <main className="flex-1 px-7 py-6 overflow-y-auto">
         <div className="min-h-screen backdrop-blur-sm bg-black/10">
           {children}
         </div>
