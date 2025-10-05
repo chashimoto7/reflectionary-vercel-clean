@@ -67,7 +67,7 @@ export default function LandingPage() {
     {
       icon: [Shield, Brain],
       title: "Privacy-First Intelligence",
-      description: "End-to-end encryption meets powerful AI analysis. Your most intimate insights, completely secure, intelligently connected.",
+      description: "Your most intimate thoughts and insights, completely private, intelligently connected. Utilizing our four-layer privacy protection system featuring ephemeral mapping, we ensure your thoughts and feelings remain completely private.",
       gradient: "from-purple-500 to-pink-500",
     },
     {
@@ -159,11 +159,7 @@ export default function LandingPage() {
           scrolled ? "backdrop-blur-xl bg-black/20 border-b border-white/10" : ""
         }`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <div className="flex items-center">
-                <ReflectionaryLogo className="h-12 w-auto" variant="horizontal" />
-              </div>
-
+            <div className="flex justify-end items-center h-16">
               {/* Desktop Navigation */}
               <div className="hidden md:flex items-center space-x-8">
                 <a
@@ -241,25 +237,25 @@ export default function LandingPage() {
         )}
 
         {/* Hero Section */}
-        <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+        <section className="relative pt-24 pb-12 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="text-center">
               {/* Main Logo */}
-              <div className="mb-12">
+              <div className="mb-8">
                 <ReflectionaryLogo className="h-32 w-auto mx-auto" variant="horizontal" />
               </div>
 
               {/* Hero Headlines */}
-              <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent">
+              <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent">
                 Where Your Personal Wisdom Lives and Grows
               </h1>
 
-              <p className="text-xl text-gray-200 mb-8 max-w-4xl mx-auto leading-relaxed">
+              <p className="text-xl text-gray-200 mb-6 max-w-4xl mx-auto leading-relaxed">
                 The evolution from basic journaling to self-understanding. Transform scattered insights into living wisdom through intelligent connection and analysis.
               </p>
 
               {/* CTA Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
                 <button
                   onClick={handleWaitlistSignup}
                   className="group px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-semibold hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-purple-500/25 transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
@@ -280,11 +276,11 @@ export default function LandingPage() {
               <div className="flex flex-wrap justify-center gap-8 text-gray-300">
                 <div className="flex items-center gap-2">
                   <Shield className="h-5 w-5 text-purple-300" />
-                  <span>End-to-End Encrypted</span>
+                  <span>Four-Layer Privacy Protection</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Brain className="h-5 w-5 text-purple-300" />
-                  <span>Privacy-First AI</span>
+                  <span>Advanced AI Analytics</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-purple-300" />
@@ -301,7 +297,7 @@ export default function LandingPage() {
         </section>
 
         {/* Waitlist CTA Section - Moved above features */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8">
+        <section className="py-12 px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto text-center">
             <div className="backdrop-blur-xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-2xl border border-purple-400/30 shadow-lg p-12">
               <h2 className="text-3xl font-bold mb-4">Join the Early Adopters</h2>
@@ -343,9 +339,9 @@ export default function LandingPage() {
         </section>
 
         {/* Strategic Features Section */}
-        <section id="features" className="py-20 px-4 sm:px-6 lg:px-8">
+        <section id="features" className="py-12 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
+            <div className="text-center mb-10">
               <h2 className="text-4xl font-bold mb-4">
                 Revolutionary Features That Set Us Apart
               </h2>
@@ -383,9 +379,9 @@ export default function LandingPage() {
         </section>
 
         {/* Social Proof Section */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-transparent via-purple-900/20 to-transparent">
+        <section className="py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-transparent via-purple-900/20 to-transparent">
           <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
+            <div className="text-center mb-10">
               <h2 className="text-4xl font-bold mb-4">Early Beta Feedback</h2>
               <p className="text-xl text-gray-200">
                 What our pioneering users are discovering
@@ -415,7 +411,7 @@ export default function LandingPage() {
         </section>
 
         {/* Blog Integration Section */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8">
+        <section className="py-12 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="backdrop-blur-xl bg-white/5 rounded-2xl border border-white/10 p-12 text-center">
               <div className="mb-8">
