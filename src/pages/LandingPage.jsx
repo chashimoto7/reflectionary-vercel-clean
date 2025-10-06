@@ -494,6 +494,10 @@ export default function LandingPage() {
             </p>
           </div>
         </footer>
+
+        {/* ElevenLabs Conversational AI Agent */}
+        <elevenlabs-convai agent-id="agent_5801k6tmc51re3vsptq6a8jcrjqk"></elevenlabs-convai>
+        <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
       </div>
     </>
   );
