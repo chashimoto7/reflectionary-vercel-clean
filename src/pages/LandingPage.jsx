@@ -36,6 +36,7 @@ const ReflectionaryLogo = ({ className, variant = "horizontal" }) => (
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [selectedFeature, setSelectedFeature] = useState(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -80,38 +81,103 @@ export default function LandingPage() {
     {
       icon: [Shield, Brain],
       title: "Privacy-First Intelligence",
-      description: "Your most intimate thoughts and insights, completely private, intelligently connected. Utilizing our four-layer privacy protection system featuring ephemeral mapping, we ensure your thoughts and feelings remain completely private.",
+      description: "Your most intimate thoughts and insights, completely private, intelligently connected.",
       gradient: "from-purple-500 to-pink-500",
+      details: {
+        headline: "Four-Layer Privacy Protection",
+        features: [
+          "End-to-end encryption - Your entries are encrypted before leaving your device",
+          "Ephemeral mapping - Anonymous AI requests that can't be traced back to you",
+          "Row-level security - Database isolation ensures only you can access your data",
+          "Private mode - Mark any entry as private to exclude from AI analysis entirely"
+        ],
+        description: "We've built the most comprehensive privacy system in the industry. Your journal entries, documents, and personal insights are protected by multiple layers of encryption and security. Even our AI systems can't connect your identity to your data during analysis."
+      }
     },
     {
       icon: [Upload, Clock],
-      title: "Historical Import Advantage",
-      description: "Start with decades of insights, not from scratch. Import years of journals, conversations, and documents to unlock hidden patterns.",
+      title: "Rich Media Library",
+      description: "Import and analyze journals, documents, images, artwork, and more to build your personal knowledge base.",
       gradient: "from-blue-500 to-purple-500",
+      details: {
+        headline: "Comprehensive Document & Image Analysis",
+        features: [
+          "Import decades of journals - Upload old entries dating back 10+ years",
+          "Document analysis - PDFs, Word docs, text files automatically processed",
+          "Visual analysis - Upload artwork, sketches, photos for AI interpretation",
+          "Historical backfill - Newly uploaded old journals automatically integrated into your growth timeline",
+          "Multi-format support - Text, images, documents all work together"
+        ],
+        description: "Start with everything you've already written or created. Our advanced AI analyzes not just text, but visual content too - understanding themes in your artwork, patterns in your sketches, and meanings in your images. Your entire creative and written history becomes part of your journey."
+      }
     },
     {
       icon: [Network],
-      title: "Living Knowledge System",
-      description: "Watch your insights grow and connect over time. Your personal wisdom becomes more valuable with every entry.",
+      title: "Knowledge Garden",
+      description: "A revolutionary system that transforms scattered insights into connected wisdom that grows with you.",
       gradient: "from-green-500 to-blue-500",
+      details: {
+        headline: "Your Personal Wisdom Ecosystem",
+        features: [
+          "Intelligent connections - Automatically links related insights across all your content",
+          "Growing knowledge base - Your wisdom becomes more valuable over time",
+          "Pattern discovery - Uncovers hidden themes and breakthrough moments",
+          "Cross-content analysis - Connects journals, documents, and visual content",
+          "Evolving intelligence - The system learns your unique patterns and growth style"
+        ],
+        description: "More than just storage - it's a living system that helps your insights evolve. Watch as connections emerge between seemingly unrelated entries, themes strengthen over time, and your personal wisdom network grows richer with each contribution."
+      }
     },
     {
       icon: [MessageCircle, Sparkles],
       title: "Conversational AI Companion",
-      description: "An AI that truly understands you. Have meaningful conversations that adapt to your unique journey, challenges and growth patterns.",
+      description: "An AI that truly understands you, adapting to your unique journey, challenges, and growth patterns.",
       gradient: "from-purple-500 to-blue-500",
+      details: {
+        headline: "Your Personal Growth Partner",
+        features: [
+          "Context-aware conversations - Remembers your entire history and patterns",
+          "Adaptive guidance - Responses tailored to your current situation and past experiences",
+          "Follow-up prompts - Intelligent questions that deepen your reflection",
+          "Voice & text support - Choose how you want to interact",
+          "24/7 availability - Your companion is always there when you need it"
+        ],
+        description: "Unlike generic chatbots, this AI knows your story. It understands your patterns, remembers your breakthroughs, and adapts its guidance based on your unique journey. Have deep, meaningful conversations that actually help you grow."
+      }
     },
     {
       icon: [Target, TrendingUp],
-      title: "Pattern Recognition",
-      description: "Connect the dots and discover patterns you never noticed before. Intelligence that evolves with your understanding.",
+      title: "Advanced Pattern Recognition",
+      description: "Discover emotional patterns, behavioral trends, and growth trajectories you never noticed before.",
       gradient: "from-pink-500 to-orange-500",
+      details: {
+        headline: "Deep Insights Into Your Patterns",
+        features: [
+          "Emotional pattern detection - Track mood trends and emotional cycles",
+          "Behavioral analysis - Identify habits and recurring patterns",
+          "Visual theme recognition - Patterns in artwork and creative expression",
+          "Cross-content connections - Links between different types of entries",
+          "Growth trajectory tracking - See how you're evolving over time"
+        ],
+        description: "Our AI analyzes your journals, documents, wellness data, and visual content to reveal patterns you might miss. From emotional cycles to creative themes, from behavioral trends to breakthrough moments - see yourself with new clarity."
+      }
     },
     {
-      icon: [Zap, Eye],
-      title: "Breakthrough Moment Detection",
-      description: "AI identifies significant insights and growth opportunities in real-time, helping you recognize your own breakthroughs.",
+      icon: [Shield, Star],
+      title: "Wellness & Crisis Support",
+      description: "Comprehensive wellness tracking with intelligent crisis detection to keep you supported and safe.",
       gradient: "from-red-500 to-pink-500",
+      details: {
+        headline: "Your Mental Health Safety Net",
+        features: [
+          "Daily wellness check-ins - Track mood, energy, sleep, stress levels",
+          "Real-time crisis detection - Immediate analysis flags concerning patterns",
+          "Deep pattern analysis - Daily batch processing catches subtle warning signs",
+          "Privacy-conscious alerts - Crisis detection respects private entries",
+          "Comprehensive tracking - Monitor nutrition, exercise, and overall wellbeing"
+        ],
+        description: "Advanced AI monitors your entries for signs of emotional distress, using both real-time and deep analysis to ensure nothing slips through. Your wellness data integrates with your journaling to provide holistic insights while keeping you safe."
+      }
     },
   ];
 
@@ -367,12 +433,13 @@ export default function LandingPage() {
               {strategicFeatures.map((feature, index) => {
                 const icons = Array.isArray(feature.icon) ? feature.icon : [feature.icon];
                 return (
-                  <div
+                  <button
                     key={index}
-                    className="group relative backdrop-blur-xl bg-white/5 rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 hover:transform hover:-translate-y-1"
+                    onClick={() => setSelectedFeature(feature)}
+                    className="group relative backdrop-blur-xl bg-white/5 rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300 hover:transform hover:-translate-y-1 text-left w-full cursor-pointer"
                   >
                     <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-pink-600/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="flex items-center gap-3 mb-4">
+                    <div className="flex items-center gap-3 mb-4 relative z-10">
                       <div className={`inline-flex p-3 bg-gradient-to-br ${feature.gradient} rounded-lg text-white relative`}>
                         {icons.map((Icon, iconIndex) => (
                           <Icon
@@ -383,8 +450,12 @@ export default function LandingPage() {
                       </div>
                       <h3 className="text-lg font-semibold">{feature.title}</h3>
                     </div>
-                    <p className="text-gray-200 leading-relaxed">{feature.description}</p>
-                  </div>
+                    <p className="text-gray-200 leading-relaxed relative z-10">{feature.description}</p>
+                    <div className="mt-4 text-purple-300 text-sm flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity relative z-10">
+                      <span>Learn more</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </div>
+                  </button>
                 );
               })}
             </div>
@@ -510,6 +581,75 @@ export default function LandingPage() {
 
         {/* ElevenLabs Conversational AI Agent */}
         <elevenlabs-convai agent-id="agent_5801k6tmc51re3vsptq6a8jcrjqk"></elevenlabs-convai>
+
+        {/* Feature Details Modal */}
+        {selectedFeature && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+              onClick={() => setSelectedFeature(null)}
+            />
+
+            {/* Modal Content */}
+            <div className="relative bg-gradient-to-br from-slate-900 to-purple-900 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-purple-400/30 shadow-2xl">
+              {/* Close Button */}
+              <button
+                onClick={() => setSelectedFeature(null)}
+                className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors z-10"
+              >
+                <X className="h-5 w-5 text-white" />
+              </button>
+
+              {/* Header */}
+              <div className={`bg-gradient-to-br ${selectedFeature.gradient} p-8 rounded-t-2xl`}>
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="p-4 bg-white/20 rounded-xl">
+                    {(() => {
+                      const icons = Array.isArray(selectedFeature.icon) ? selectedFeature.icon : [selectedFeature.icon];
+                      const Icon = icons[0];
+                      return <Icon className="h-8 w-8 text-white" />;
+                    })()}
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-bold text-white">{selectedFeature.title}</h3>
+                    <p className="text-white/90 text-lg mt-1">{selectedFeature.details.headline}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-8">
+                <p className="text-gray-200 text-lg leading-relaxed mb-8">
+                  {selectedFeature.details.description}
+                </p>
+
+                <h4 className="text-xl font-semibold text-white mb-4">Key Features:</h4>
+                <div className="space-y-3">
+                  {selectedFeature.details.features.map((feature, index) => (
+                    <div key={index} className="flex items-start gap-3">
+                      <div className="mt-1">
+                        <Sparkles className="h-5 w-5 text-purple-400" />
+                      </div>
+                      <p className="text-gray-200 leading-relaxed">{feature}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* CTA */}
+                <div className="mt-8 pt-6 border-t border-white/10">
+                  <button
+                    onClick={handleWaitlistSignup}
+                    className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-semibold hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-purple-500/25 flex items-center justify-center gap-2"
+                  >
+                    Join the Waitlist to Get Early Access
+                    <ExternalLink className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
