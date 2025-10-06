@@ -45,6 +45,19 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Load ElevenLabs widget script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
+    script.async = true;
+    script.type = 'text/javascript';
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
   // Handle external Kit signup links
   const handleWaitlistSignup = () => {
     window.open("https://reflectionary.kit.com/signup", "_blank");
@@ -497,7 +510,6 @@ export default function LandingPage() {
 
         {/* ElevenLabs Conversational AI Agent */}
         <elevenlabs-convai agent-id="agent_5801k6tmc51re3vsptq6a8jcrjqk"></elevenlabs-convai>
-        <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
       </div>
     </>
   );
