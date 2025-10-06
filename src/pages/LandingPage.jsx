@@ -86,12 +86,13 @@ export default function LandingPage() {
       details: {
         headline: "Four-Layer Privacy Protection",
         features: [
-          "End-to-end encryption - Your entries are encrypted before leaving your device",
-          "Ephemeral mapping - Anonymous AI requests that can't be traced back to you",
+          "Advanced encryption - Military-grade AES-256 encryption with unique data keys protects all your content",
+          "Ephemeral mapping - Anonymous AI requests that can't be traced back to you or your identity",
+          "Secure server-side processing - Your content is never exposed to browser vulnerabilities or malicious extensions",
           "Row-level security - Database isolation ensures only you can access your data",
           "Private mode - Mark any entry as private to exclude from AI analysis entirely"
         ],
-        description: "We've built the most comprehensive privacy system in the industry. Your journal entries, documents, and personal insights are protected by multiple layers of encryption and security. Even our AI systems can't connect your identity to your data during analysis."
+        description: "We've built the most comprehensive privacy system in the industry. Your journal entries are encrypted in our database using unique keys, processed anonymously through our ephemeral mapping system, and never used for AI training. AI services analyze your content without ever knowing who you are, and all temporary processing data is automatically destroyed within minutes."
       }
     },
     {
