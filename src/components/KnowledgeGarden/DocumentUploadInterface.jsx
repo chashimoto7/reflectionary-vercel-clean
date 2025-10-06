@@ -12,7 +12,9 @@ import {
   CheckCircle,
   Loader,
   X,
-  Info
+  Info,
+  Lock,
+  ShieldOff
 } from 'lucide-react';
 
 export default function DocumentUploadInterface({ onUploadComplete, onClose }) {
@@ -77,7 +79,8 @@ export default function DocumentUploadInterface({ onUploadComplete, onClose }) {
       type: file.type,
       name: file.name,
       status: 'ready',
-      processingType: detectProcessingType(file)
+      processingType: detectProcessingType(file),
+      isPrivate: false
     }))]);
   };
 
@@ -119,6 +122,12 @@ export default function DocumentUploadInterface({ onUploadComplete, onClose }) {
     setSelectedFiles(prev => prev.filter(f => f.id !== fileId));
   };
 
+  const togglePrivacy = (fileId) => {
+    setSelectedFiles(prev => prev.map(f =>
+      f.id === fileId ? { ...f, isPrivate: !f.isPrivate } : f
+    ));
+  };
+
   const startUpload = async () => {
     for (const fileItem of selectedFiles) {
       if (fileItem.status !== 'ready') continue;
@@ -133,6 +142,7 @@ export default function DocumentUploadInterface({ onUploadComplete, onClose }) {
         formData.append('document', fileItem.file);
         formData.append('user_id', user?.id || user?.user_id);
         formData.append('processing_preference', processingType === 'auto' ? 'auto' : processingType);
+        formData.append('is_private', fileItem.isPrivate.toString());
 
         const response = await fetch('/api/documents/upload', {
           method: 'POST',
@@ -337,7 +347,7 @@ export default function DocumentUploadInterface({ onUploadComplete, onClose }) {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between">
-                            <div>
+                            <div className="flex-1">
                               <h4 className="text-white font-medium truncate">{fileItem.name}</h4>
                               <div className="flex items-center gap-4 mt-1">
                                 <span className="text-gray-400 text-sm">
@@ -348,13 +358,37 @@ export default function DocumentUploadInterface({ onUploadComplete, onClose }) {
                                 </span>
                               </div>
                             </div>
-                            <button
-                              onClick={() => removeFile(fileItem.id)}
-                              className="text-gray-400 hover:text-red-400 p-1 rounded"
-                              disabled={progress?.status === 'uploading'}
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => togglePrivacy(fileItem.id)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                  fileItem.isPrivate
+                                    ? 'bg-orange-500/20 text-orange-400 border border-orange-400/30'
+                                    : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
+                                }`}
+                                disabled={progress?.status === 'uploading'}
+                                title={fileItem.isPrivate ? 'Private - No AI processing' : 'Click to make private'}
+                              >
+                                {fileItem.isPrivate ? (
+                                  <>
+                                    <Lock className="h-3 w-3" />
+                                    Private
+                                  </>
+                                ) : (
+                                  <>
+                                    <ShieldOff className="h-3 w-3" />
+                                    Public
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => removeFile(fileItem.id)}
+                                className="text-gray-400 hover:text-red-400 p-1 rounded"
+                                disabled={progress?.status === 'uploading'}
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
                           </div>
 
                           {/* Progress */}
@@ -399,17 +433,33 @@ export default function DocumentUploadInterface({ onUploadComplete, onClose }) {
 
           {/* Processing Info */}
           {selectedFiles.length > 0 && (
-            <div className="bg-blue-500/10 border border-blue-400/30 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <Info className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-blue-300 font-medium mb-1">Processing Information</h4>
-                  <ul className="text-blue-200 text-sm space-y-1">
-                    <li>• Visual analysis and digital imports are free</li>
-                    <li>• OCR processing uses credits (1-2 per page)</li>
-                    <li>• Processing happens in the background</li>
-                    <li>• You'll be notified when complete</li>
-                  </ul>
+            <div className="space-y-3">
+              <div className="bg-blue-500/10 border border-blue-400/30 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Info className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-blue-300 font-medium mb-1">Processing Information</h4>
+                    <ul className="text-blue-200 text-sm space-y-1">
+                      <li>• Visual analysis and digital imports are free</li>
+                      <li>• OCR processing uses credits (1-2 per page)</li>
+                      <li>• Processing happens in the background</li>
+                      <li>• You'll be notified when complete</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-orange-500/10 border border-orange-400/30 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Lock className="h-5 w-5 text-orange-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-orange-300 font-medium mb-1">Privacy Protection</h4>
+                    <p className="text-orange-200 text-sm">
+                      Mark documents as <span className="font-semibold">Private</span> to exclude them from all AI processing,
+                      including visual analysis, content analysis, and batch processors. Private documents are stored securely
+                      but will not contribute to insights or patterns.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
